@@ -75,7 +75,7 @@ function writeAnalysisReport(analysis) {
 
   const row = [
     analysis.report_id,
-    analysis.generated_at,
+    analysis.generated_at,  // Already formatted by nowJapan()
     analysis.video_count,
     JSON.stringify(analysis.analysis)
   ];
@@ -97,10 +97,10 @@ function writeRecommendations(recommendations) {
   // Ensure headers exist
   ensureHeaders(sheet, fields);
 
-  const now = new Date().toISOString();
+  const now = nowJapan();  // Use Japan timezone
   const rows = recommendations.map(r => [
     now,
-    r.priority,
+    String(r.priority),
     r.category,
     r.recommendation,
     r.platform,

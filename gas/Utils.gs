@@ -14,12 +14,28 @@ function safeJsonParse(str, defaultValue = null) {
 }
 
 /**
- * Format date for sheets
+ * Format date for sheets (Japan timezone, readable format)
  */
 function formatDate(date) {
   if (!date) return '';
   const d = new Date(date);
-  return Utilities.formatDate(d, 'GMT', 'yyyy-MM-dd HH:mm:ss');
+  return Utilities.formatDate(d, 'Asia/Tokyo', 'yyyy/MM/dd HH:mm');
+}
+
+/**
+ * Format date for sheets (ISO format for API)
+ */
+function formatDateISO(date) {
+  if (!date) return '';
+  const d = new Date(date);
+  return d.toISOString();
+}
+
+/**
+ * Get current date formatted for Japan timezone
+ */
+function nowJapan() {
+  return Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd HH:mm');
 }
 
 /**

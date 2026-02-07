@@ -1,0 +1,10 @@
+# Ignore test files - they are for Jest, not GAS
+tests/**
+**/*.test.js
+**/*.test.gs
+
+# Node modules
+node_modules/**
+
+# Other
+*.md

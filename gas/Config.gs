@@ -25,7 +25,33 @@ const CONFIG = {
     SCENARIO_CUTS: 'scenario_cuts',
     ANALYSIS_REPORTS: 'analysis_reports',
     RECOMMENDATIONS: 'recommendations',
+    VIDEO_ANALYSIS: 'video_analysis',
     UNLINKED_IMPORTS: 'unlinked_imports'
+  },
+
+  // Dropdown options for data validation
+  DROPDOWN_OPTIONS: {
+    STATUS: ['pending', 'approved', 'rejected', 'in_progress'],
+    CATEGORY: ['hook', 'pacing', 'content', 'format', 'platform', 'thumbnail', 'audio', 'other'],
+    PRIORITY: ['1', '2', '3', '4', '5'],
+    PLATFORM: ['youtube', 'tiktok', 'instagram', 'all']
+  },
+
+  // Colors for conditional formatting
+  COLORS: {
+    STATUS: {
+      'pending': '#FFF3CD',      // Yellow
+      'approved': '#D4EDDA',     // Green
+      'rejected': '#F8D7DA',     // Red
+      'in_progress': '#CCE5FF'   // Blue
+    },
+    PRIORITY: {
+      '1': '#F8D7DA',  // High - Red
+      '2': '#FFE5D0',  // Orange
+      '3': '#FFF3CD',  // Yellow
+      '4': '#D4EDDA',  // Green
+      '5': '#E2E3E5'   // Gray
+    }
   },
 
   // KPI Target Defaults (can be overridden in kpi_targets sheet)
@@ -121,8 +147,16 @@ function initializeConfig() {
 
 /**
  * Get spreadsheet instance
+ * Uses getActiveSpreadsheet() for bound scripts (no extra permissions needed)
  */
 function getSpreadsheet() {
+  // For bound scripts, use getActiveSpreadsheet() - no additional permissions required
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (ss) {
+    return ss;
+  }
+
+  // Fallback for standalone scripts or API calls
   if (!CONFIG.SPREADSHEET_ID) {
     throw new Error('SPREADSHEET_ID not configured');
   }

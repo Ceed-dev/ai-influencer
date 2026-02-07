@@ -10,6 +10,10 @@ node_modules/
 *.secret
 credentials.json
 token.json
+client_secret_*.json
+
+# Google Apps Script (clasp)
+.clasp.json
 
 # OS generated files
 .DS_Store
