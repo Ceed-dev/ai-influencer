@@ -506,10 +506,14 @@ function insertDemoData() {
     return;
   }
 
-  // Check if data already exists
+  // Check if real data already exists (not just checkbox FALSE values)
+  var videoUidCol = 1; // video_uid is first column
   if (masterSheet.getLastRow() > 1) {
-    ui.alert('情報', 'master シートにはすでにデータがあります。', ui.ButtonSet.OK);
-    return;
+    var firstUid = masterSheet.getRange(2, videoUidCol).getValue();
+    if (firstUid !== '' && firstUid !== false) {
+      ui.alert('情報', 'master シートにはすでにデータがあります。', ui.ButtonSet.OK);
+      return;
+    }
   }
 
   var headers = masterSheet.getRange(1, 1, 1, masterSheet.getLastColumn()).getValues()[0];
