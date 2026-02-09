@@ -147,19 +147,21 @@ graph TB
 
 ### fal.ai（メディア生成ハブ）
 
-| サービス | 用途 | コスト/本 |
-|---|---|---|
-| Kling | AI動画生成 | $0.70 |
-| ElevenLabs | テキスト音声合成 (TTS) | $0.04 |
-| Lipsync | リップシンク | $0.83 |
+全メディア生成は fal.ai 経由で呼び出す。各サービスの役割：
 
-### Creatify
+| サービス | 用途 | 何をするか | 単価 | 10秒あたり |
+|---|---|---|---|---|
+| Kling 2.6 | AI動画生成 | キャラクター画像 → 動画を生成 | $0.07/秒 | $0.70 |
+| ElevenLabs v3 | テキスト音声合成 (TTS) | スクリプトテキスト → 音声を生成 | ~$0.05/1K文字 | ~$0.04 |
+| Sync Lipsync v2 | リップシンク | 動画+音声 → 口の動きを同期させた動画を生成 | $3.00/分 | $0.50 |
 
-| 用途 | コスト/本 |
-|---|---|
-| 最終動画合成 | $1.20 |
+### Creatify Aurora
 
-**合計: ~$2.77/本**
+| 用途 | 何をするか | 単価 | 10秒あたり |
+|---|---|---|---|
+| 最終動画合成 | リップシンク済み動画を最終仕上げ・合成 | $0.14/秒 (720p) | $1.40 |
+
+**合計: ~$2.64/本（10秒、720p）**
 
 ### Google APIs
 
@@ -212,15 +214,19 @@ graph TB
 
 | カラム | 型 | 説明 |
 |---|---|---|
-| account_id | String | 一意ID (ACC_0001) |
-| platform | String | youtube / tiktok / instagram / x |
-| account_name | String | アカウント名 |
-| credentials_ref | String | 認証情報への参照 |
-| status | String | active / paused / banned |
-| daily_post_limit | Number | 1日あたりの投稿上限 |
-| posts_today | Number | 本日の投稿数 |
-| last_posted | DateTime | 最終投稿日時 |
-| notes | String | メモ |
+| account_id | String | 一意ID (ACC_XXXX) |
+| persona_name | String | AIキャラクター名 |
+| platform | String | youtube / tiktok / instagram / twitter |
+| account_handle | String | @ユーザー名 |
+| character_id | String | Characters InventoryへのFK |
+| target_region | String | JP / US / SEA |
+| timezone | String | Asia/Tokyo 等 |
+| posting_window | String | 18:00-22:00 等 |
+| content_niche | String | beauty / lifestyle 等 |
+| voice_id | String | TTS音声ID |
+| status | String | setup / active / paused |
+| api_credential_key | String | OAuthトークンのScript Propertiesキー |
+| last_posted_at | DateTime | 最終投稿日時 |
 
 #### content_pipeline
 
@@ -228,21 +234,21 @@ graph TB
 
 | カラム | 型 | 説明 |
 |---|---|---|
-| pipeline_id | String | 一意ID (PIPE_0001) |
-| video_uid | String | masterへのFK |
+| content_id | String | 一意ID (CNT_YYYYMM_XXXX) |
 | account_id | String | 投稿先アカウント |
-| status | String | queued / generating / uploading / posted / failed |
-| scenario_id | String | 使用シナリオ |
-| kling_job_id | String | fal.ai Kling ジョブID |
-| tts_job_id | String | fal.ai TTS ジョブID |
-| lipsync_job_id | String | fal.ai Lipsync ジョブID |
-| creatify_job_id | String | Creatify ジョブID |
-| drive_url | String | Google Drive URL |
+| status | String | queued→generating_video→generating_tts→syncing_lips→compositing→uploading→ready→posting→posted→collected |
+| character_image_url | String | Cloudinary URL |
+| script_text | String | TTSテキスト |
+| kling_video_url | String | 生成された動画URL |
+| tts_audio_url | String | 生成された音声URL |
+| lipsync_video_url | String | リップシンク済み動画URL |
+| final_video_url | String | 最終動画URL |
+| drive_file_id | String | Google Drive ファイルID |
 | platform_post_id | String | プラットフォーム側の投稿ID |
-| cost_usd | Number | 生成コスト (USD) |
+| views_48h | Number | 48時間後の視聴数 |
 | error_message | String | エラーメッセージ |
 | created_at | DateTime | 作成日時 |
-| completed_at | DateTime | 完了日時 |
+| updated_at | DateTime | 更新日時 |
 
 ### インベントリスプレッドシート（4つ、既存）
 
@@ -284,39 +290,40 @@ GAS API エンドポイント詳細は [MANUAL.md](MANUAL.md) を参照。
 
 | n8n ノード | Node.js モジュール | 説明 |
 |---|---|---|
-| Google Sheets Read | pipeline/sheets/reader.js | シナリオ・アカウント情報の読み込み |
-| HTTP Request (fal.ai) | pipeline/media/kling.js | Kling動画生成 |
-| HTTP Request (ElevenLabs) | pipeline/media/tts.js | TTS音声生成 |
-| HTTP Request (Lipsync) | pipeline/media/lipsync.js | リップシンク処理 |
-| HTTP Request (Creatify) | pipeline/media/creatify.js | 最終合成 |
-| Google Drive Upload | pipeline/storage/drive.js | Drive保存 |
-| YouTube Upload | pipeline/posting/youtube.js | YouTube投稿 |
-| Instagram Publish | pipeline/posting/instagram.js | Instagram投稿 |
-| TikTok Publish | pipeline/posting/tiktok.js | TikTok投稿 |
-| X Post | pipeline/posting/x.js | X投稿 |
-| Google Sheets Write | pipeline/sheets/writer.js | 結果のシート書き込み |
+| Google Sheets Read | pipeline/sheets/scenario-reader.js | シナリオ・アカウント情報の読み込み |
+| HTTP Request (fal.ai Kling) | pipeline/media/video-generator.js | キャラクター画像→動画生成 |
+| HTTP Request (ElevenLabs) | pipeline/media/tts-generator.js | テキスト→音声生成 |
+| HTTP Request (Lipsync) | pipeline/media/lipsync.js | 動画+音声→口同期 |
+| HTTP Request (Creatify) | pipeline/media/compositor.js | 最終動画合成 |
+| Cloudinary Upload | pipeline/media/cloudinary.js | 画像アップロード |
+| Google Drive Upload | pipeline/storage/drive-storage.js | 完成動画のDrive保存 |
+| YouTube Upload | pipeline/posting/adapters/youtube.js | YouTube Shorts投稿 |
+| Instagram Publish | pipeline/posting/adapters/instagram.js | Instagram Reels投稿 |
+| TikTok Publish | pipeline/posting/adapters/tiktok.js | TikTok投稿 |
+| X Post | pipeline/posting/adapters/twitter.js | X投稿 |
+| Google Sheets Write | pipeline/sheets/content-manager.js | パイプライン結果のシート書き込み |
 | Schedule Trigger | scripts/run-daily.js | 日次バッチ (cron) |
 
 ---
 
 ## コスト見積もり
 
-### 動画生成コスト（1本あたり）
+### 動画生成コスト（1本あたり、10秒、720p）
 
-| サービス | コスト |
-|---|---|
-| Kling (fal.ai) | $0.70 |
-| TTS (ElevenLabs via fal.ai) | $0.04 |
-| Lipsync (fal.ai) | $0.83 |
-| Creatify | $1.20 |
-| **合計** | **$2.77** |
+| サービス | 役割 | コスト |
+|---|---|---|
+| Kling 2.6 (fal.ai) | キャラクター画像→動画 | $0.70 |
+| ElevenLabs v3 (fal.ai) | テキスト→音声 | ~$0.04 |
+| Sync Lipsync v2 (fal.ai) | 動画+音声→口同期 | $0.50 |
+| Creatify Aurora (720p) | 最終合成 | $1.40 |
+| **合計** | | **$2.64** |
 
 ### 月次コスト見積もり（動画生成のみ）
 
 | 月 | アカウント数 | 推定動画本数/日 | 月間本数 | 月間コスト |
 |---|---|---|---|---|
-| 2月 | 50 | 50 | 1,500 | $4,155 |
-| 3月 | 160 | 160 | 4,800 | $13,296 |
-| 4月 | 340 | 340 | 10,200 | $28,254 |
-| 5月 | 520 | 520 | 15,600 | $43,212 |
-| 6月 | 700 | 700 | 21,000 | $58,170 |
+| 2月 | 50 | 50 | 1,500 | $3,960 |
+| 3月 | 160 | 160 | 4,800 | $12,672 |
+| 4月 | 340 | 340 | 10,200 | $26,928 |
+| 5月 | 520 | 520 | 15,600 | $41,184 |
+| 6月 | 700 | 700 | 21,000 | $55,440 |
