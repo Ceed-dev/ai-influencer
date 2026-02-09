@@ -561,12 +561,17 @@ describe('KPIEngine', () => {
 
       const mockInstagramData = [['video_uid', 'reach_rate']]; // No data rows
 
-      let callCount = 0;
-      mockSheetData.getValues.mockImplementation(() => {
-        callCount++;
-        if (callCount === 1) return mockYouTubeData;
-        if (callCount === 2) return mockTikTokData;
-        return mockInstagramData;
+      const createPlatformSheet = (data) => ({
+        getDataRange: jest.fn(() => ({
+          getValues: jest.fn(() => data),
+        })),
+      });
+
+      global.getSheet.mockImplementation((name) => {
+        if (name === 'metrics_youtube') return createPlatformSheet(mockYouTubeData);
+        if (name === 'metrics_tiktok') return createPlatformSheet(mockTikTokData);
+        if (name === 'metrics_instagram') return createPlatformSheet(mockInstagramData);
+        return mockSheet;
       });
 
       const result = getMetricsBundle(['video_001', 'video_002']);
@@ -579,6 +584,7 @@ describe('KPIEngine', () => {
     });
 
     test('should initialize empty bundle for requested video uids', () => {
+      global.getSheet.mockImplementation(() => mockSheet);
       mockSheetData.getValues.mockReturnValue([['video_uid']]);
 
       const result = getMetricsBundle(['video_001', 'video_002']);

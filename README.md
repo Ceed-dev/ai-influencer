@@ -1,133 +1,159 @@
-# Video Analytics Hub
+# Video Analytics Hub v2.0
 
 AI Influencer Video Performance Analytics System for YouTube Shorts / TikTok / Instagram Reels.
 
 ## Overview
 
-This system analyzes video performance metrics across platforms and generates improvement recommendations for future content creation.
+This system manages the complete video production lifecycle: **Component Management → Video Production → Publishing → Analytics → AI Improvement Loop**. It analyzes video performance metrics across platforms and generates component-specific improvement recommendations for future content creation.
 
 ## Architecture
 
 ```
-[CSV Upload] → [n8n Trigger] → [GAS Web App]
-                                     │
-                 ┌───────────────────┘
-                 ▼
-         [CSV Parser] → [Normalizer] → [video_uid Linker]
-                                            │
-                 ┌──────────────────────────┘
-                 ▼
-         [KPI Comparison] → [OpenAI Analysis] → [Report Sheets]
-                                                      │
-                 ┌────────────────────────────────────┘
-                 ▼
-         [n8n: Feed to Video Creation WF]
+┌─────────────────────────────────────────────────────────────────┐
+│                       Production Loop                            │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  1. PLAN: Select components from inventories → draft             │
+│  2. APPROVE: Human reviews AI recommendations → approved         │
+│  3. CREATE: n8n reads master + inventories → in_production       │
+│  4. PUBLISH: Upload to 3 platforms → published                   │
+│  5. IMPORT: CSV export → Google Drive → GAS auto-process         │
+│  6. ANALYZE: KPI + OpenAI (with component context) → analyzed    │
+│  7. SCORE: Update component performance scores                   │
+│  8. SUGGEST: AI recommends components for next video             │
+│        └──────────► Loop back to Step 1                          │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ## Tech Stack
 
-- **Backend**: Google Apps Script (GAS)
-- **Database**: Google Sheets
+- **Backend**: Google Apps Script (GAS) - Bound to Master Spreadsheet
+- **Database**: Google Sheets (Master) + Separate Inventory Spreadsheets
+- **Storage**: Google Drive (folder structure for components)
 - **Workflow**: n8n
-- **AI Analysis**: OpenAI API
+- **AI Analysis**: OpenAI API (GPT-4o)
 
-## Platform API Limitations
+## Google Drive Structure
 
-### YouTube
-- CSV Export: 500 rows limit, 24-48h delay
-- Analytics API: Retention curve available (elapsedVideoTimeRatio)
-- GAP: "Viewed vs Swiped Away" is UI-only, not available via API
-
-### TikTok
-- CSV Export: All metrics available (watch time, completion rate), 60-day limit
-- Official API: view/like/comment/share ONLY
-- GAP: avg_watch_time, completion_rate require CSV (not API)
-
-### Instagram Reels
-- Graph API: views, reach, avg_watch_time available
-- CSV Export: Available from Professional Dashboard
-- GAP: Follower attribution unavailable, 90-day limit
-
-## Google Sheets Structure
-
-| Sheet Name | Purpose |
-|------------|---------|
-| `videos_master` | Master list of all videos (video_uid, platform IDs) |
-| `metrics_youtube` | YouTube-specific metrics |
-| `metrics_tiktok` | TikTok-specific metrics |
-| `metrics_instagram` | Instagram-specific metrics |
-| `kpi_targets` | KPI target values |
-| `scenario_cuts` | Per-cut scenario information |
-| `analysis_reports` | Analysis results |
-| `recommendations` | Improvement recommendations |
-| `unlinked_imports` | Imports pending video_uid linking |
+```
+AI-Influencer/ (root)
+├── 📊 Master Spreadsheet ← GAS Bound Script
+│     ├── [tab] master              ← 1 row = 1 video production
+│     ├── [tab] metrics_youtube
+│     ├── [tab] metrics_tiktok
+│     ├── [tab] metrics_instagram
+│     ├── [tab] kpi_targets
+│     ├── [tab] analysis_reports
+│     ├── [tab] recommendations
+│     ├── [tab] video_analysis
+│     └── [tab] unlinked_imports
+│
+├── 📁 Scenarios/
+│   ├── 📊 Scenarios Inventory (separate spreadsheet)
+│   ├── 📁 Hooks/
+│   ├── 📁 Bodies/
+│   └── 📁 CTAs/
+│
+├── 📁 Motions/
+│   ├── 📊 Motions Inventory (separate spreadsheet)
+│   ├── 📁 Hooks/ Bodies/ CTAs/
+│
+├── 📁 Characters/
+│   ├── 📊 Characters Inventory (separate spreadsheet)
+│   └── 📁 Images/
+│
+├── 📁 Audio/
+│   ├── 📊 Audio Inventory (separate spreadsheet)
+│   ├── 📁 Voice/
+│   └── 📁 BGM/
+│
+└── 📁 Analytics/
+    └── 📁 CSV_Imports/
+        ├── 📁 YouTube/
+        ├── 📁 TikTok/
+        └── 📁 Instagram/
+```
 
 ## GAS Project Structure
 
 ```
 gas/
-├── Code.gs           # Web App endpoints
-├── Config.gs         # Settings & constants
-├── CSVParser.gs      # Platform-specific parsers
-├── Normalizer.gs     # Unified schema conversion
-├── Linker.gs         # video_uid matching
-├── KPIEngine.gs      # KPI comparison
-├── LLMAnalyzer.gs    # OpenAI integration
-├── SheetWriter.gs    # Sheets write operations
-└── Utils.gs          # Utilities
+├── Code.gs              # Web App endpoints + UI menu
+├── Config.gs            # Settings, schema, constants
+├── Setup.gs             # One-click system setup (Drive + Sheets)
+├── Migration.gs         # v1 → v2 migration
+├── CSVParser.gs         # Platform-specific CSV parsers
+├── Normalizer.gs        # Unified schema conversion
+├── Linker.gs            # video_uid matching
+├── KPIEngine.gs         # KPI comparison
+├── LLMAnalyzer.gs       # OpenAI integration (component-aware)
+├── SheetWriter.gs       # Sheet write operations
+├── ComponentManager.gs  # Component CRUD + context building
+├── MasterManager.gs     # Master sheet + production workflow
+├── ScoreUpdater.gs      # Component performance scoring
+└── Utils.gs             # ID generators, helpers
 ```
 
 ## Setup
 
-### 1. Create Google Sheets
+### 1. One-Click Setup
 1. Create a new Google Sheets document
-2. Create sheets as defined in the structure above
-3. Note the Spreadsheet ID from the URL
+2. Extensions → Apps Script
+3. Copy all `.gs` files from `gas/` directory
+4. Set Script Properties:
+   - `OPENAI_API_KEY`: Your OpenAI API key
+   - `SPREADSHEET_ID`: The spreadsheet ID from the URL
+5. Run `setupCompleteSystem()` from the menu or script editor
+   - Creates all Drive folders
+   - Creates all inventory spreadsheets
+   - Initializes all sheets with headers
+   - Inserts demo data
 
-### 2. Deploy GAS Web App
-1. Create new Apps Script project
-2. Copy all `.gs` files from `gas/` directory
-3. Update `Config.gs` with your Spreadsheet ID and OpenAI API key
-4. Deploy as Web App (Execute as: Me, Access: Anyone with link)
+### 2. Deploy as Web App
+1. Deploy → New deployment → Web App
+2. Execute as: Me
+3. Access: Anyone with link
+4. Note the deployment URL for n8n
 
 ### 3. Configure n8n
-1. Create workflow triggered by Google Drive file upload
-2. Configure webhook to call GAS Web App
-3. Pass CSV content in request body
+See [n8n Integration Guide](docs/n8n-integration.md) for workflow setup.
 
-## Configuration
+## API Endpoints
 
-Edit `gas/Config.gs`:
+### GET (Read-only)
+| Action | Description |
+|--------|-------------|
+| (none) | Health check + endpoint list |
+| `get_status` | System status + record counts |
+| `get_approved` | Approved videos ready for production |
+| `get_production` | Production data for a video |
+| `get_components` | List components by inventory type |
+| `get_score_summary` | Component score summary |
 
-```javascript
-const CONFIG = {
-  SPREADSHEET_ID: 'your-spreadsheet-id',
-  OPENAI_API_KEY: 'your-openai-api-key',
-  KPI_TARGETS: {
-    youtube: { completion_rate: 0.5, ctr: 0.05 },
-    tiktok: { completion_rate: 0.4, engagement_rate: 0.08 },
-    instagram: { reach_rate: 0.3, avg_watch_time: 15 }
-  }
-};
+### POST (Write operations)
+| Action | Description |
+|--------|-------------|
+| `import_csv` | Import analytics CSV |
+| `analyze` | Analyze specific videos |
+| `analyze_single` | Analyze one video |
+| `analyze_all` | Analyze all videos (enhanced) |
+| `link_videos` | Manually link platform IDs |
+| `create_production` | Create new video production |
+| `approve_video` | Approve video for production |
+| `update_status` | Update video status |
+| `add_component` | Add new component to inventory |
+| `update_component` | Update existing component |
+| `update_scores` | Recalculate component scores |
+
+## Testing
+
+```bash
+npm install
+npm test
 ```
 
-## Usage
-
-### Manual CSV Upload
-1. Export CSV from each platform's analytics dashboard
-2. Upload to designated Google Drive folder
-3. n8n workflow processes automatically
-
-### API Call (from n8n)
-```
-POST https://script.google.com/macros/s/{DEPLOYMENT_ID}/exec
-Content-Type: application/json
-
-{
-  "platform": "youtube|tiktok|instagram",
-  "csv_data": "base64-encoded-csv"
-}
-```
+**Test coverage**: 330 tests across 9 test suites covering all modules.
 
 ## Risk Mitigation
 
@@ -136,7 +162,8 @@ Content-Type: application/json
 | CSV format changes | Column name aliases, raw_csv_row preservation |
 | GAS 6-min timeout | State persistence + continuation triggers |
 | OpenAI rate limits | Batch processing + exponential backoff |
-| Platform data limits | Daily snapshot archival |
+| Platform data limits | Daily snapshot archival, metrics history in Sheets |
+| Component data loss | Separate inventory spreadsheets, Drive backup |
 
 ## License
 

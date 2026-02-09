@@ -1,18 +1,66 @@
 /**
- * Video Analytics Hub - Main Entry Points
+ * Video Analytics Hub v2.0 - Main Entry Points
  *
- * Web App endpoints for n8n integration
+ * Web App endpoints for n8n integration + UI menu
  */
 
 /**
- * Handle GET requests (health check)
+ * Handle GET requests (health check + read-only queries)
  */
 function doGet(e) {
-  return ContentService.createTextOutput(JSON.stringify({
-    status: 'ok',
-    version: '1.0.0',
-    timestamp: new Date().toISOString()
-  })).setMimeType(ContentService.MimeType.JSON);
+  var params = e ? e.parameter : {};
+  var action = params.action;
+
+  try {
+    var result;
+
+    switch (action) {
+      case 'get_status':
+        result = handleGetStatus({});
+        break;
+
+      case 'get_approved':
+        result = handleGetApproved();
+        break;
+
+      case 'get_production':
+        result = handleGetProduction(params);
+        break;
+
+      case 'get_components':
+        result = handleGetComponents(params);
+        break;
+
+      case 'get_score_summary':
+        result = getScoreSummary();
+        break;
+
+      default:
+        result = {
+          status: 'ok',
+          version: CONFIG.VERSION,
+          timestamp: new Date().toISOString(),
+          endpoints: [
+            'GET: get_status, get_approved, get_production, get_components, get_score_summary',
+            'POST: import_csv, analyze, analyze_single, analyze_all, link_videos, create_production, approve_video, update_status, add_component, update_scores'
+          ]
+        };
+    }
+
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'success',
+      data: result,
+      timestamp: new Date().toISOString()
+    })).setMimeType(ContentService.MimeType.JSON);
+
+  } catch (error) {
+    Logger.log('Error in doGet: ' + error.message);
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
 }
 
 /**
@@ -20,18 +68,18 @@ function doGet(e) {
  *
  * Expected payload:
  * {
- *   "action": "import_csv" | "analyze" | "link_videos",
- *   "platform": "youtube" | "tiktok" | "instagram",
- *   "csv_data": "base64-encoded-csv" (for import_csv),
- *   "video_uids": ["VID_001", "VID_002"] (for analyze)
+ *   "action": "import_csv" | "analyze" | "analyze_single" | "analyze_all" |
+ *             "link_videos" | "create_production" | "approve_video" |
+ *             "update_status" | "add_component" | "update_scores",
+ *   ...action-specific fields
  * }
  */
 function doPost(e) {
   try {
-    const payload = JSON.parse(e.postData.contents);
-    const action = payload.action;
+    var payload = JSON.parse(e.postData.contents);
+    var action = payload.action;
 
-    let result;
+    var result;
 
     switch (action) {
       case 'import_csv':
@@ -58,8 +106,39 @@ function doPost(e) {
         result = handleAnalyzeAll(payload);
         break;
 
+      // v2.0 Production workflow
+      case 'create_production':
+        result = handleCreateProduction(payload);
+        break;
+
+      case 'approve_video':
+        result = handleApproveVideo(payload);
+        break;
+
+      case 'update_status':
+        result = handleUpdateStatus(payload);
+        break;
+
+      // v2.0 Component management
+      case 'add_component':
+        result = handleAddComponent(payload);
+        break;
+
+      case 'update_component':
+        result = handleUpdateComponent(payload);
+        break;
+
+      case 'get_components':
+        result = handleGetComponents(payload);
+        break;
+
+      // v2.0 Score management
+      case 'update_scores':
+        result = handleUpdateScores(payload);
+        break;
+
       default:
-        throw new Error(`Unknown action: ${action}`);
+        throw new Error('Unknown action: ' + action);
     }
 
     return ContentService.createTextOutput(JSON.stringify({
@@ -69,7 +148,7 @@ function doPost(e) {
     })).setMimeType(ContentService.MimeType.JSON);
 
   } catch (error) {
-    Logger.log(`Error in doPost: ${error.message}`);
+    Logger.log('Error in doPost: ' + error.message);
     return ContentService.createTextOutput(JSON.stringify({
       status: 'error',
       error: error.message,
@@ -78,37 +157,42 @@ function doPost(e) {
   }
 }
 
+// ============================================================
+// Existing Action Handlers (updated for v2.0)
+// ============================================================
+
 /**
  * Handle CSV import action
  */
 function handleImportCSV(payload) {
-  const { platform, csv_data } = payload;
+  var platform = payload.platform;
+  var csv_data = payload.csv_data;
 
   if (!platform || !csv_data) {
     throw new Error('Missing required fields: platform, csv_data');
   }
 
   // Decode base64 CSV
-  const csvContent = Utilities.newBlob(Utilities.base64Decode(csv_data)).getDataAsString('UTF-8');
+  var csvContent = Utilities.newBlob(Utilities.base64Decode(csv_data)).getDataAsString('UTF-8');
 
   // Parse CSV
-  const parsed = parseCSV(csvContent, platform);
+  var parsed = parseCSV(csvContent, platform);
 
   // Normalize to unified schema
-  const normalized = normalizeMetrics(parsed, platform);
+  var normalized = normalizeMetrics(parsed, platform);
 
   // Attempt to link with video_uid
-  const { linked, unlinked } = linkVideos(normalized, platform);
+  var linkResult = linkVideos(normalized, platform);
 
   // Write to sheets
-  writeMetrics(linked, platform);
-  writeUnlinked(unlinked, platform);
+  writeMetrics(linkResult.linked, platform);
+  writeUnlinked(linkResult.unlinked, platform);
 
   return {
     platform: platform,
     total_rows: parsed.length,
-    linked: linked.length,
-    unlinked: unlinked.length
+    linked: linkResult.linked.length,
+    unlinked: linkResult.unlinked.length
   };
 }
 
@@ -116,27 +200,35 @@ function handleImportCSV(payload) {
  * Handle analysis action
  */
 function handleAnalyze(payload) {
-  const { video_uids } = payload;
+  var video_uids = payload.video_uids;
 
   if (!video_uids || !Array.isArray(video_uids)) {
     throw new Error('Missing or invalid video_uids array');
   }
 
-  // Get metrics for specified videos
-  const metricsBundle = getMetricsBundle(video_uids);
+  var metricsBundle = getMetricsBundle(video_uids);
+  var kpiTargets = getKPITargets();
+  var kpiResults = compareKPIs(metricsBundle, kpiTargets);
 
-  // Get KPI targets
-  const kpiTargets = getKPITargets();
+  // Use enhanced analysis with component context
+  var analysis = analyzWithLLMEnhanced(metricsBundle, kpiResults);
 
-  // Run KPI comparison
-  const kpiResults = compareKPIs(metricsBundle, kpiTargets);
-
-  // Generate LLM analysis
-  const analysis = analyzWithLLM(metricsBundle, kpiResults);
-
-  // Write reports
   writeAnalysisReport(analysis);
   writeRecommendations(analysis.recommendations);
+
+  // Update scores for analyzed videos
+  video_uids.forEach(function(uid) {
+    try {
+      var kpiResult = kpiResults.find(function(r) { return r.video_uid === uid; });
+      if (kpiResult) {
+        var score = normalizeOverallScore(kpiResult);
+        updateAnalysisResults(uid, score, analysis.recommendations.slice(0, 3).map(function(r) { return r.recommendation; }).join('; '));
+        updateComponentScoresForVideo(uid, score);
+      }
+    } catch (e) {
+      Logger.log('Error updating scores for ' + uid + ': ' + e.message);
+    }
+  });
 
   return {
     analyzed_count: video_uids.length,
@@ -148,26 +240,25 @@ function handleAnalyze(payload) {
  * Handle manual video linking action
  */
 function handleLinkVideos(payload) {
-  const { links } = payload;
+  var links = payload.links;
 
   if (!links || !Array.isArray(links)) {
     throw new Error('Missing or invalid links array');
   }
 
-  // Each link: { video_uid, platform_id, platform }
-  const results = links.map(link => {
+  var results = links.map(function(link) {
     try {
       createVideoLink(link.video_uid, link.platform_id, link.platform);
-      return { ...link, status: 'success' };
+      return { video_uid: link.video_uid, platform_id: link.platform_id, platform: link.platform, status: 'success' };
     } catch (error) {
-      return { ...link, status: 'error', error: error.message };
+      return { video_uid: link.video_uid, platform_id: link.platform_id, platform: link.platform, status: 'error', error: error.message };
     }
   });
 
   return {
     processed: results.length,
-    successful: results.filter(r => r.status === 'success').length,
-    failed: results.filter(r => r.status === 'error').length,
+    successful: results.filter(function(r) { return r.status === 'success'; }).length,
+    failed: results.filter(function(r) { return r.status === 'error'; }).length,
     details: results
   };
 }
@@ -176,27 +267,34 @@ function handleLinkVideos(payload) {
  * Handle status check action
  */
 function handleGetStatus(payload) {
-  const ss = getSpreadsheet();
+  var ss = getSpreadsheet();
 
-  // Get counts from each sheet
-  const counts = {};
-  Object.entries(CONFIG.SHEETS).forEach(([key, sheetName]) => {
+  var counts = {};
+  Object.keys(CONFIG.SHEETS).forEach(function(key) {
+    var sheetName = CONFIG.SHEETS[key];
     try {
-      const sheet = ss.getSheetByName(sheetName);
+      var sheet = ss.getSheetByName(sheetName);
       counts[key] = sheet ? Math.max(0, sheet.getLastRow() - 1) : 0;
     } catch (e) {
       counts[key] = 0;
     }
   });
 
-  // Get unlinked count
-  const unlinkedSheet = ss.getSheetByName(CONFIG.SHEETS.UNLINKED_IMPORTS);
-  const unlinkedCount = unlinkedSheet ? Math.max(0, unlinkedSheet.getLastRow() - 1) : 0;
+  // Video status breakdown
+  var statusBreakdown = {};
+  try {
+    CONFIG.VIDEO_STATUSES.forEach(function(status) {
+      var videos = getVideosByStatus(status);
+      statusBreakdown[status] = videos.length;
+    });
+  } catch (e) {
+    Logger.log('Error getting status breakdown: ' + e.message);
+  }
 
   return {
-    spreadsheet_id: CONFIG.SPREADSHEET_ID,
+    version: CONFIG.VERSION,
     record_counts: counts,
-    pending_links: unlinkedCount,
+    video_statuses: statusBreakdown,
     last_updated: nowJapan()
   };
 }
@@ -205,17 +303,25 @@ function handleGetStatus(payload) {
  * Handle single video analysis action (API)
  */
 function handleAnalyzeSingle(payload) {
-  const { video_uid } = payload;
+  var video_uid = payload.video_uid;
 
   if (!video_uid) {
     throw new Error('Missing video_uid');
   }
 
-  // Run single video analysis
-  const analysis = analyzeVideoSingle(video_uid);
-
-  // Write to video_analysis sheet
+  var analysis = analyzeVideoSingle(video_uid);
   writeVideoAnalysis(analysis);
+
+  // Update master with score
+  if (analysis.kpi_achievement) {
+    try {
+      var score = parseInt(analysis.kpi_achievement, 10) || 0;
+      updateAnalysisResults(video_uid, score, analysis.recommendations || '');
+      updateComponentScoresForVideo(video_uid, score);
+    } catch (e) {
+      Logger.log('Error updating analysis results: ' + e.message);
+    }
+  }
 
   return {
     video_uid: video_uid,
@@ -231,21 +337,33 @@ function handleAnalyzeSingle(payload) {
  * Handle analyze all videos action (API)
  */
 function handleAnalyzeAll(payload) {
-  const videoUids = getAllVideoUids();
+  var videoUids = getAllVideoUids();
 
   if (videoUids.length === 0) {
-    throw new Error('No videos found in videos_master');
+    throw new Error('No videos found in master sheet');
   }
 
-  const metricsBundle = getMetricsBundle(videoUids);
-  const kpiTargets = getKPITargets();
-  const kpiResults = compareKPIs(metricsBundle, kpiTargets);
+  var metricsBundle = getMetricsBundle(videoUids);
+  var kpiTargets = getKPITargets();
+  var kpiResults = compareKPIs(metricsBundle, kpiTargets);
 
-  // Use enhanced analysis with historical context
-  const analysis = analyzWithLLMEnhanced(metricsBundle, kpiResults);
+  // Use enhanced analysis with component context
+  var analysis = analyzWithLLMEnhanced(metricsBundle, kpiResults);
 
   writeAnalysisReport(analysis);
-  writeRecommendationsEnhanced(analysis.recommendations);
+  writeRecommendations(analysis.recommendations);
+
+  // Update scores for all analyzed videos
+  kpiResults.forEach(function(kpiResult) {
+    try {
+      var score = normalizeOverallScore(kpiResult);
+      var topRecs = analysis.recommendations.slice(0, 3).map(function(r) { return r.recommendation; }).join('; ');
+      updateAnalysisResults(kpiResult.video_uid, score, topRecs);
+      updateComponentScoresForVideo(kpiResult.video_uid, score);
+    } catch (e) {
+      Logger.log('Error updating scores for ' + kpiResult.video_uid + ': ' + e.message);
+    }
+  });
 
   return {
     analyzed_count: videoUids.length,
@@ -254,342 +372,364 @@ function handleAnalyzeAll(payload) {
   };
 }
 
+// ============================================================
+// v2.0 Production Workflow Handlers
+// ============================================================
+
 /**
- * Manual trigger for testing
+ * Handle create production action
+ * Payload: { action: 'create_production', title, hook_scenario_id, hook_motion_id, ... }
  */
-function testImport() {
-  // Sample test - replace with actual test data
-  Logger.log('Test import function called');
-  Logger.log('Configuration check:');
-  Logger.log(`SPREADSHEET_ID set: ${!!CONFIG.SPREADSHEET_ID}`);
-  Logger.log(`OPENAI_API_KEY set: ${!!CONFIG.OPENAI_API_KEY}`);
+function handleCreateProduction(payload) {
+  var data = {};
+  // Copy all fields except 'action'
+  Object.keys(payload).forEach(function(key) {
+    if (key !== 'action') data[key] = payload[key];
+  });
+
+  return createProduction(data);
 }
 
 /**
- * One-time setup function - Run this first!
- * Sets up Script Properties and initializes all sheets
+ * Handle get approved videos
  */
-function setupVideoAnalyticsHub() {
-  const props = PropertiesService.getScriptProperties();
-
-  // Set Spreadsheet ID (bound script gets it automatically)
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const spreadsheetId = ss.getId();
-  props.setProperty('SPREADSHEET_ID', spreadsheetId);
-
-  Logger.log(`Spreadsheet ID set: ${spreadsheetId}`);
-
-  // Initialize all required sheets
-  initializeSheetsForBoundScript(ss);
-
-  Logger.log('Setup complete! Now set your OPENAI_API_KEY in Script Properties.');
-  Logger.log('Go to: Project Settings (gear icon) → Script Properties → Add Property');
-  Logger.log('Key: OPENAI_API_KEY, Value: your-api-key');
-
-  // Show completion message
-  SpreadsheetApp.getUi().alert(
-    'Setup Complete!',
-    'All sheets have been created.\n\n' +
-    'Next step: Set your OpenAI API Key\n' +
-    '1. Click "Project Settings" (gear icon) in Apps Script\n' +
-    '2. Scroll to "Script Properties"\n' +
-    '3. Click "Add Property"\n' +
-    '4. Key: OPENAI_API_KEY\n' +
-    '5. Value: your OpenAI API key',
-    SpreadsheetApp.getUi().ButtonSet.OK
-  );
+function handleGetApproved() {
+  var approved = getApprovedVideos();
+  return {
+    count: approved.length,
+    videos: approved.map(function(v) {
+      return {
+        video_uid: v.video_uid,
+        title: v.title,
+        status: v.status,
+        human_approved: v.human_approved
+      };
+    })
+  };
 }
 
 /**
- * Initialize sheets for bound script (uses active spreadsheet)
+ * Handle get production data
+ * Params/Payload: { video_uid }
  */
-function initializeSheetsForBoundScript(ss) {
-  const sheetConfigs = [
-    {
-      name: 'videos_master',
-      headers: ['video_uid', 'title', 'created_date', 'youtube_id', 'tiktok_id', 'instagram_id', 'scenario_id']
-    },
-    {
-      name: 'metrics_youtube',
-      headers: ['video_uid', 'import_date', 'views', 'likes', 'comments', 'shares', 'engagement_rate', 'watch_time_hours', 'avg_watch_time_sec', 'completion_rate', 'ctr', 'subscribers_gained']
-    },
-    {
-      name: 'metrics_tiktok',
-      headers: ['video_uid', 'import_date', 'views', 'likes', 'comments', 'shares', 'engagement_rate', 'saves', 'avg_watch_time_sec', 'completion_rate']
-    },
-    {
-      name: 'metrics_instagram',
-      headers: ['video_uid', 'import_date', 'views', 'likes', 'comments', 'shares', 'engagement_rate', 'saves', 'avg_watch_time_sec', 'reach']
-    },
-    {
-      name: 'kpi_targets',
-      headers: ['platform', 'metric', 'target_value', 'description']
-    },
-    {
-      name: 'scenario_cuts',
-      headers: ['scenario_id', 'video_uid', 'cut_number', 'start_time', 'end_time', 'description', 'hook_type']
-    },
-    {
-      name: 'analysis_reports',
-      headers: ['report_id', 'generated_at', 'video_count', 'insights_json']
-    },
-    {
-      name: 'recommendations',
-      headers: ['created_at', 'priority', 'category', 'recommendation', 'platform', 'expected_impact', 'status']
-    },
-    {
-      name: 'unlinked_imports',
-      headers: ['platform', 'platform_id', 'title', 'views', 'import_date', 'raw_csv_row']
-    }
-  ];
+function handleGetProduction(params) {
+  var videoUid = params.video_uid;
+  if (!videoUid) throw new Error('Missing video_uid');
 
-  // Delete default Sheet1 if it exists and is empty
-  const sheet1 = ss.getSheetByName('Sheet1');
-  if (sheet1 && sheet1.getLastRow() <= 1) {
-    // Will delete after creating other sheets
-  }
+  var data = getProductionData(videoUid);
+  if (!data) throw new Error('Video not found: ' + videoUid);
 
-  sheetConfigs.forEach(config => {
-    let sheet = ss.getSheetByName(config.name);
+  return data;
+}
 
-    if (!sheet) {
-      sheet = ss.insertSheet(config.name);
-      sheet.getRange(1, 1, 1, config.headers.length).setValues([config.headers]);
-      sheet.setFrozenRows(1);
+/**
+ * Handle approve video action
+ * Payload: { action: 'approve_video', video_uid, notes? }
+ */
+function handleApproveVideo(payload) {
+  var videoUid = payload.video_uid;
+  var notes = payload.notes;
 
-      // Format header row
-      sheet.getRange(1, 1, 1, config.headers.length)
-        .setBackground('#4285f4')
-        .setFontColor('#ffffff')
-        .setFontWeight('bold');
+  if (!videoUid) throw new Error('Missing video_uid');
 
-      Logger.log(`Created sheet: ${config.name}`);
+  approveVideo(videoUid, notes);
+  return { video_uid: videoUid, status: 'approved' };
+}
+
+/**
+ * Handle update status action
+ * Payload: { action: 'update_status', video_uid, status }
+ */
+function handleUpdateStatus(payload) {
+  var videoUid = payload.video_uid;
+  var newStatus = payload.status;
+
+  if (!videoUid) throw new Error('Missing video_uid');
+  if (!newStatus) throw new Error('Missing status');
+
+  updateVideoStatus(videoUid, newStatus);
+  return { video_uid: videoUid, status: newStatus };
+}
+
+// ============================================================
+// v2.0 Component Management Handlers
+// ============================================================
+
+/**
+ * Handle add component action
+ * Payload: { action: 'add_component', inventory_type, type, name, description, ... }
+ */
+function handleAddComponent(payload) {
+  var inventoryType = payload.inventory_type;
+  if (!inventoryType) throw new Error('Missing inventory_type');
+
+  var data = {};
+  Object.keys(payload).forEach(function(key) {
+    if (key !== 'action' && key !== 'inventory_type') {
+      data[key] = payload[key];
     }
   });
 
-  // Now safe to delete Sheet1
-  if (sheet1 && ss.getSheets().length > 1) {
-    try {
-      ss.deleteSheet(sheet1);
-      Logger.log('Deleted default Sheet1');
-    } catch (e) {
-      // Ignore if can't delete
-    }
-  }
-
-  // Add default KPI targets
-  const kpiSheet = ss.getSheetByName('kpi_targets');
-  if (kpiSheet.getLastRow() === 1) {
-    const defaultKPIs = [
-      ['youtube', 'completion_rate', '0.5', '50% of viewers watch to end'],
-      ['youtube', 'ctr', '0.05', '5% click-through rate'],
-      ['youtube', 'engagement_rate', '0.03', '3% engagement'],
-      ['tiktok', 'completion_rate', '0.4', '40% watch to end'],
-      ['tiktok', 'engagement_rate', '0.08', '8% engagement'],
-      ['tiktok', 'avg_watch_time_sec', '10', '10 seconds average'],
-      ['instagram', 'reach_rate', '0.3', '30% of followers reached'],
-      ['instagram', 'avg_watch_time_sec', '15', '15 seconds average'],
-      ['instagram', 'engagement_rate', '0.05', '5% engagement']
-    ];
-    kpiSheet.getRange(2, 1, defaultKPIs.length, 4).setValues(defaultKPIs);
-    Logger.log('Added default KPI targets');
-  }
-
-  Logger.log('Sheet initialization complete');
+  return addComponent(inventoryType, data);
 }
+
+/**
+ * Handle update component action
+ * Payload: { action: 'update_component', component_id, ...updates }
+ */
+function handleUpdateComponent(payload) {
+  var componentId = payload.component_id;
+  if (!componentId) throw new Error('Missing component_id');
+
+  var updates = {};
+  Object.keys(payload).forEach(function(key) {
+    if (key !== 'action' && key !== 'component_id') {
+      updates[key] = payload[key];
+    }
+  });
+
+  updateComponent(componentId, updates);
+  return { component_id: componentId, updated: true };
+}
+
+/**
+ * Handle get components action
+ * Params/Payload: { inventory_type, type?, status? }
+ */
+function handleGetComponents(params) {
+  var inventoryType = params.inventory_type;
+  if (!inventoryType) throw new Error('Missing inventory_type');
+
+  var filters = {};
+  if (params.type) filters.type = params.type;
+  if (params.status) filters.status = params.status;
+  if (params.tags) filters.tags = params.tags;
+
+  var components = listComponents(inventoryType, Object.keys(filters).length > 0 ? filters : null);
+  return {
+    inventory_type: inventoryType,
+    count: components.length,
+    components: components
+  };
+}
+
+// ============================================================
+// v2.0 Score Management Handlers
+// ============================================================
+
+/**
+ * Handle update scores action
+ * Payload: { action: 'update_scores', video_uid? }
+ * If video_uid is provided, update scores for that video only
+ * Otherwise, recalculate all component scores
+ */
+function handleUpdateScores(payload) {
+  if (payload.video_uid) {
+    var masterSheet = getSheet(CONFIG.SHEETS.MASTER);
+    var video = findRowByColumn(masterSheet, 'video_uid', payload.video_uid);
+    if (!video) throw new Error('Video not found: ' + payload.video_uid);
+
+    var score = video.overall_score;
+    if (score) {
+      updateComponentScoresForVideo(payload.video_uid, score);
+    }
+    return { video_uid: payload.video_uid, score: score };
+  }
+
+  var updatedCount = updateAllComponentScores();
+  return { updated_components: updatedCount };
+}
+
+// ============================================================
+// UI Menu
+// ============================================================
 
 /**
  * Add custom menu to Sheets UI
  */
 function onOpen() {
-  const ui = SpreadsheetApp.getUi();
-  ui.createMenu('📊 Video Analytics')
-    .addItem('🚀 Initial Setup', 'setupVideoAnalyticsHub')
-    .addItem('📖 Create README Sheet', 'createReadmeSheet')
-    .addItem('⬆️ Upgrade Sheet Structure', 'upgradeSheetStructure')
+  var ui = SpreadsheetApp.getUi();
+  ui.createMenu('Video Analytics v2')
+    .addItem('Initial Setup (v2.0)', 'setupCompleteSystem')
+    .addItem('Upgrade from v1.0', 'migrateV1toV2')
     .addSeparator()
-    .addItem('📥 Import YouTube CSV', 'importYouTubeCSV')
-    .addItem('📥 Import TikTok CSV', 'importTikTokCSV')
-    .addItem('📥 Import Instagram CSV', 'importInstagramCSV')
+    .addSubMenu(ui.createMenu('Import CSV')
+      .addItem('YouTube CSV', 'importYouTubeCSV')
+      .addItem('TikTok CSV', 'importTikTokCSV')
+      .addItem('Instagram CSV', 'importInstagramCSV'))
     .addSeparator()
-    .addSubMenu(ui.createMenu('🔍 Analyze')
-      .addItem('📊 Analyze Single Video', 'analyzeSingleVideoPrompt')
-      .addItem('📈 Analyze All Videos', 'analyzeAllVideosEnhanced'))
-    .addItem('📋 Check Status', 'showStatus')
+    .addSubMenu(ui.createMenu('Analyze')
+      .addItem('Single Video...', 'analyzeSingleVideoPrompt')
+      .addItem('All Videos (Enhanced)', 'analyzeAllVideosEnhanced'))
+    .addSeparator()
+    .addSubMenu(ui.createMenu('Production')
+      .addItem('Create New Video...', 'createProductionPrompt')
+      .addItem('View Approved Videos', 'showApprovedVideos')
+      .addItem('Approve Video...', 'approveVideoPrompt')
+      .addItem('Update Video Status...', 'updateStatusPrompt'))
+    .addSubMenu(ui.createMenu('Components')
+      .addItem('Add Component...', 'addComponentPrompt')
+      .addItem('Browse Scenarios', 'browseScenarios')
+      .addItem('Browse Motions', 'browseMotions')
+      .addItem('Browse Characters', 'browseCharacters')
+      .addItem('Browse Audio', 'browseAudio')
+      .addItem('Update All Scores', 'updateScoresUI')
+      .addItem('Score Summary', 'showScoreSummary'))
+    .addSeparator()
+    .addItem('Status Dashboard', 'showStatus')
+    .addItem('Insert Demo Data', 'insertDemoData')
+    .addItem('Clear All Data', 'clearAllDemoData')
     .addToUi();
 }
+
+// ============================================================
+// UI Functions - Analysis
+// ============================================================
 
 /**
  * Prompt user to select a video for single analysis
  */
 function analyzeSingleVideoPrompt() {
-  const ui = SpreadsheetApp.getUi();
+  var ui = SpreadsheetApp.getUi();
 
-  // Get list of videos
-  const videoUids = getAllVideoUids();
+  var videoUids = getAllVideoUids();
   if (videoUids.length === 0) {
-    ui.alert('エラー', 'videos_master に動画が登録されていません。', ui.ButtonSet.OK);
+    ui.alert('Error', 'master sheet has no videos registered.', ui.ButtonSet.OK);
     return;
   }
 
-  const result = ui.prompt(
-    '動画を選択',
-    '分析する動画のUIDを入力してください:\n\n' +
-    '登録済み動画:\n' + videoUids.join('\n'),
+  var result = ui.prompt(
+    'Select Video',
+    'Enter video UID to analyze:\n\n' +
+    'Registered videos:\n' + videoUids.join('\n'),
     ui.ButtonSet.OK_CANCEL
   );
 
   if (result.getSelectedButton() !== ui.Button.OK) return;
 
-  const videoUid = result.getResponseText().trim();
-  if (!videoUids.includes(videoUid)) {
-    ui.alert('エラー', `動画が見つかりません: ${videoUid}`, ui.ButtonSet.OK);
+  var videoUid = result.getResponseText().trim();
+  if (videoUids.indexOf(videoUid) === -1) {
+    ui.alert('Error', 'Video not found: ' + videoUid, ui.ButtonSet.OK);
     return;
   }
 
   try {
-    ui.alert('分析中', '分析を開始します。完了までお待ちください...', ui.ButtonSet.OK);
+    ui.alert('Analyzing', 'Starting analysis. Please wait...', ui.ButtonSet.OK);
 
-    const analysis = analyzeVideoSingle(videoUid);
+    var analysis = analyzeVideoSingle(videoUid);
     writeVideoAnalysis(analysis);
 
+    // Update master scores
+    if (analysis.kpi_achievement) {
+      var score = parseInt(analysis.kpi_achievement, 10) || 0;
+      updateAnalysisResults(videoUid, score, analysis.recommendations || '');
+      updateComponentScoresForVideo(videoUid, score);
+    }
+
     ui.alert(
-      '分析完了',
-      `動画: ${videoUid}\n\n` +
-      `KPI達成: ${analysis.kpi_achievement}\n\n` +
-      `YouTube: ${truncate(analysis.youtube_performance, 50)}\n` +
-      `TikTok: ${truncate(analysis.tiktok_performance, 50)}\n` +
-      `Instagram: ${truncate(analysis.instagram_performance, 50)}\n\n` +
-      '詳細は video_analysis シートを確認してください。',
+      'Analysis Complete',
+      'Video: ' + videoUid + '\n\n' +
+      'KPI: ' + analysis.kpi_achievement + '\n\n' +
+      'YouTube: ' + truncate(analysis.youtube_performance, 50) + '\n' +
+      'TikTok: ' + truncate(analysis.tiktok_performance, 50) + '\n' +
+      'Instagram: ' + truncate(analysis.instagram_performance, 50) + '\n\n' +
+      'See video_analysis sheet for details.',
       ui.ButtonSet.OK
     );
   } catch (e) {
-    ui.alert('エラー', e.message, ui.ButtonSet.OK);
+    ui.alert('Error', e.message, ui.ButtonSet.OK);
   }
 }
 
 /**
- * Analyze all videos with enhanced historical context
+ * Analyze all videos with enhanced component context
  */
 function analyzeAllVideosEnhanced() {
-  const ui = SpreadsheetApp.getUi();
+  var ui = SpreadsheetApp.getUi();
 
   try {
-    const videoUids = getAllVideoUids();
+    var videoUids = getAllVideoUids();
 
     if (videoUids.length === 0) {
-      ui.alert('エラー', 'videos_master に動画が登録されていません。', ui.ButtonSet.OK);
+      ui.alert('Error', 'master sheet has no videos registered.', ui.ButtonSet.OK);
       return;
     }
 
-    const metricsBundle = getMetricsBundle(videoUids);
-    const kpiTargets = getKPITargets();
-    const kpiResults = compareKPIs(metricsBundle, kpiTargets);
+    var metricsBundle = getMetricsBundle(videoUids);
+    var kpiTargets = getKPITargets();
+    var kpiResults = compareKPIs(metricsBundle, kpiTargets);
 
-    // Use enhanced analysis with historical context
-    const analysis = analyzWithLLMEnhanced(metricsBundle, kpiResults);
+    var analysis = analyzWithLLMEnhanced(metricsBundle, kpiResults);
 
     writeAnalysisReport(analysis);
-    writeRecommendationsEnhanced(analysis.recommendations);
+    writeRecommendations(analysis.recommendations);
 
-    ui.alert(
-      '分析完了',
-      `分析した動画数: ${videoUids.length}\n` +
-      `レポートID: ${analysis.report_id}\n\n` +
-      '改善提案は recommendations シートを確認してください。\n' +
-      '（過去の分析との比較情報も含まれています）',
-      ui.ButtonSet.OK
-    );
-  } catch (e) {
-    ui.alert('エラー', e.message, ui.ButtonSet.OK);
-  }
-}
-
-/**
- * Write recommendations with enhanced fields
- */
-function writeRecommendationsEnhanced(recommendations) {
-  const ss = getSpreadsheet();
-  const sheet = ss.getSheetByName(CONFIG.SHEETS.RECOMMENDATIONS);
-
-  if (!sheet) {
-    throw new Error('recommendations sheet not found');
-  }
-
-  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-  const now = nowJapan();
-
-  recommendations.forEach(rec => {
-    const row = headers.map(h => {
-      switch(h) {
-        case 'video_uid': return rec.video_uid || 'all';
-        case 'created_at': return now;
-        case 'priority': return String(rec.priority);
-        case 'category': return rec.category;
-        case 'recommendation': return rec.recommendation;
-        case 'platform': return rec.platform;
-        case 'expected_impact': return rec.expected_impact;
-        case 'status': return 'pending';
-        case 'compared_to_previous': return rec.compared_to_previous || 'NEW';
-        default: return '';
+    // Update scores
+    kpiResults.forEach(function(kpiResult) {
+      try {
+        var score = normalizeOverallScore(kpiResult);
+        var topRecs = analysis.recommendations.slice(0, 3).map(function(r) { return r.recommendation; }).join('; ');
+        updateAnalysisResults(kpiResult.video_uid, score, topRecs);
+        updateComponentScoresForVideo(kpiResult.video_uid, score);
+      } catch (e) {
+        Logger.log('Score update error: ' + e.message);
       }
     });
 
-    sheet.appendRow(row);
-  });
-
-  Logger.log(`Written ${recommendations.length} enhanced recommendations`);
+    ui.alert(
+      'Analysis Complete',
+      'Analyzed: ' + videoUids.length + ' videos\n' +
+      'Report: ' + analysis.report_id + '\n\n' +
+      'Check recommendations sheet for improvement suggestions.\n' +
+      'Component scores have been updated.',
+      ui.ButtonSet.OK
+    );
+  } catch (e) {
+    ui.alert('Error', e.message, ui.ButtonSet.OK);
+  }
 }
 
-/**
- * Import CSV from file picker
- */
-function importYouTubeCSV() {
-  importCSVFromPicker('youtube');
-}
+// ============================================================
+// UI Functions - CSV Import
+// ============================================================
 
-function importTikTokCSV() {
-  importCSVFromPicker('tiktok');
-}
-
-function importInstagramCSV() {
-  importCSVFromPicker('instagram');
-}
+function importYouTubeCSV() { importCSVFromPicker('youtube'); }
+function importTikTokCSV() { importCSVFromPicker('tiktok'); }
+function importInstagramCSV() { importCSVFromPicker('instagram'); }
 
 function importCSVFromPicker(platform) {
-  const ui = SpreadsheetApp.getUi();
-  const result = ui.prompt(
-    `Import ${platform.toUpperCase()} CSV`,
+  var ui = SpreadsheetApp.getUi();
+  var result = ui.prompt(
+    'Import ' + platform.toUpperCase() + ' CSV',
     'Paste CSV content here (or paste a Google Drive file URL):',
     ui.ButtonSet.OK_CANCEL
   );
 
   if (result.getSelectedButton() === ui.Button.OK) {
-    const input = result.getResponseText();
+    var input = result.getResponseText();
 
     try {
-      let csvContent = input;
+      var csvContent = input;
 
-      // Check if it's a Drive URL
-      if (input.includes('drive.google.com') || input.includes('docs.google.com')) {
-        const fileId = extractFileId(input);
-        const file = DriveApp.getFileById(fileId);
+      if (input.indexOf('drive.google.com') !== -1 || input.indexOf('docs.google.com') !== -1) {
+        var fileId = extractFileId(input);
+        var file = DriveApp.getFileById(fileId);
         csvContent = file.getBlob().getDataAsString('UTF-8');
       }
 
-      const parsed = parseCSV(csvContent, platform);
-      const normalized = normalizeMetrics(parsed, platform);
-      const { linked, unlinked } = linkVideos(normalized, platform);
+      var parsed = parseCSV(csvContent, platform);
+      var normalized = normalizeMetrics(parsed, platform);
+      var linkResult = linkVideos(normalized, platform);
 
-      writeMetrics(linked, platform);
-      writeUnlinked(unlinked, platform);
+      writeMetrics(linkResult.linked, platform);
+      writeUnlinked(linkResult.unlinked, platform);
 
       ui.alert(
-        'Import Complete!',
-        `Platform: ${platform}\n` +
-        `Total rows: ${parsed.length}\n` +
-        `Linked: ${linked.length}\n` +
-        `Unlinked: ${unlinked.length}`,
+        'Import Complete',
+        'Platform: ' + platform + '\n' +
+        'Total rows: ' + parsed.length + '\n' +
+        'Linked: ' + linkResult.linked.length + '\n' +
+        'Unlinked: ' + linkResult.unlinked.length,
         ui.ButtonSet.OK
       );
     } catch (e) {
@@ -599,165 +739,418 @@ function importCSVFromPicker(platform) {
 }
 
 function extractFileId(url) {
-  const patterns = [
+  var patterns = [
     /\/d\/([a-zA-Z0-9_-]+)/,
     /id=([a-zA-Z0-9_-]+)/,
     /\/folders\/([a-zA-Z0-9_-]+)/
   ];
 
-  for (const pattern of patterns) {
-    const match = url.match(pattern);
+  for (var i = 0; i < patterns.length; i++) {
+    var match = url.match(patterns[i]);
     if (match) return match[1];
   }
 
   throw new Error('Could not extract file ID from URL');
 }
 
+// ============================================================
+// UI Functions - Production Workflow
+// ============================================================
+
 /**
- * Analyze all videos in master sheet
+ * Prompt user to create a new video production
  */
-function analyzeAllVideos() {
-  const ui = SpreadsheetApp.getUi();
+function createProductionPrompt() {
+  var ui = SpreadsheetApp.getUi();
+
+  var result = ui.prompt(
+    'Create New Video',
+    'Enter video title:',
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (result.getSelectedButton() !== ui.Button.OK) return;
+
+  var title = result.getResponseText().trim();
+  if (!title) {
+    ui.alert('Error', 'Title is required.', ui.ButtonSet.OK);
+    return;
+  }
 
   try {
-    const videoUids = getAllVideoUids();
-
-    if (videoUids.length === 0) {
-      ui.alert('No Videos', 'No videos found in videos_master sheet.', ui.ButtonSet.OK);
-      return;
-    }
-
-    const metricsBundle = getMetricsBundle(videoUids);
-    const kpiTargets = getKPITargets();
-    const kpiResults = compareKPIs(metricsBundle, kpiTargets);
-    const analysis = analyzWithLLM(metricsBundle, kpiResults);
-
-    writeAnalysisReport(analysis);
-    writeRecommendations(analysis.recommendations);
-
+    var production = createProduction({ title: title });
     ui.alert(
-      'Analysis Complete!',
-      `Analyzed: ${videoUids.length} videos\n` +
-      `Report ID: ${analysis.report_id}\n\n` +
-      'Check the "recommendations" sheet for improvement suggestions.',
+      'Video Created',
+      'Video UID: ' + production.video_uid + '\n' +
+      'Status: ' + production.status + '\n\n' +
+      'Now assign components in the master sheet,\n' +
+      'then approve when ready for production.',
       ui.ButtonSet.OK
     );
   } catch (e) {
-    ui.alert('Analysis Error', e.message, ui.ButtonSet.OK);
+    ui.alert('Error', e.message, ui.ButtonSet.OK);
   }
 }
 
 /**
- * Show current status
+ * Show approved videos ready for production
+ */
+function showApprovedVideos() {
+  var ui = SpreadsheetApp.getUi();
+
+  try {
+    var approved = getApprovedVideos();
+
+    if (approved.length === 0) {
+      ui.alert('No Approved Videos', 'No videos are approved for production.', ui.ButtonSet.OK);
+      return;
+    }
+
+    var lines = approved.map(function(v) {
+      return v.video_uid + ' - ' + (v.title || 'untitled');
+    });
+
+    ui.alert(
+      'Approved Videos (' + approved.length + ')',
+      lines.join('\n'),
+      ui.ButtonSet.OK
+    );
+  } catch (e) {
+    ui.alert('Error', e.message, ui.ButtonSet.OK);
+  }
+}
+
+/**
+ * Prompt user to approve a video
+ */
+function approveVideoPrompt() {
+  var ui = SpreadsheetApp.getUi();
+
+  try {
+    var drafts = getVideosByStatus('draft');
+    if (drafts.length === 0) {
+      ui.alert('No Draft Videos', 'No draft videos to approve.', ui.ButtonSet.OK);
+      return;
+    }
+
+    var lines = drafts.map(function(v) {
+      return v.video_uid + ' - ' + (v.title || 'untitled');
+    });
+
+    var result = ui.prompt(
+      'Approve Video',
+      'Draft videos:\n' + lines.join('\n') + '\n\nEnter video UID to approve:',
+      ui.ButtonSet.OK_CANCEL
+    );
+
+    if (result.getSelectedButton() !== ui.Button.OK) return;
+
+    var videoUid = result.getResponseText().trim();
+
+    var notesResult = ui.prompt(
+      'Approval Notes',
+      'Optional notes (leave blank to skip):',
+      ui.ButtonSet.OK_CANCEL
+    );
+
+    var notes = '';
+    if (notesResult.getSelectedButton() === ui.Button.OK) {
+      notes = notesResult.getResponseText().trim();
+    }
+
+    approveVideo(videoUid, notes || undefined);
+    ui.alert('Approved', 'Video ' + videoUid + ' has been approved for production.', ui.ButtonSet.OK);
+  } catch (e) {
+    ui.alert('Error', e.message, ui.ButtonSet.OK);
+  }
+}
+
+/**
+ * Prompt user to update a video status
+ */
+function updateStatusPrompt() {
+  var ui = SpreadsheetApp.getUi();
+
+  var uidResult = ui.prompt(
+    'Update Video Status',
+    'Enter video UID:',
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (uidResult.getSelectedButton() !== ui.Button.OK) return;
+
+  var videoUid = uidResult.getResponseText().trim();
+
+  var statusResult = ui.prompt(
+    'New Status',
+    'Available statuses: ' + CONFIG.VIDEO_STATUSES.join(', ') + '\n\nEnter new status:',
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (statusResult.getSelectedButton() !== ui.Button.OK) return;
+
+  var newStatus = statusResult.getResponseText().trim();
+
+  try {
+    updateVideoStatus(videoUid, newStatus);
+    ui.alert('Updated', 'Video ' + videoUid + ' status changed to: ' + newStatus, ui.ButtonSet.OK);
+  } catch (e) {
+    ui.alert('Error', e.message, ui.ButtonSet.OK);
+  }
+}
+
+// ============================================================
+// UI Functions - Component Management
+// ============================================================
+
+/**
+ * Prompt user to add a new component
+ */
+function addComponentPrompt() {
+  var ui = SpreadsheetApp.getUi();
+
+  var typeResult = ui.prompt(
+    'Add Component',
+    'Inventory type (scenarios, motions, characters, audio):',
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (typeResult.getSelectedButton() !== ui.Button.OK) return;
+
+  var inventoryType = typeResult.getResponseText().trim().toLowerCase();
+  var validTypes = ['scenarios', 'motions', 'characters', 'audio'];
+  if (validTypes.indexOf(inventoryType) === -1) {
+    ui.alert('Error', 'Invalid type. Use: ' + validTypes.join(', '), ui.ButtonSet.OK);
+    return;
+  }
+
+  var nameResult = ui.prompt('Component Name', 'Enter name:', ui.ButtonSet.OK_CANCEL);
+  if (nameResult.getSelectedButton() !== ui.Button.OK) return;
+
+  var subTypeResult = ui.prompt(
+    'Component Sub-type',
+    inventoryType === 'audio' ? 'Type (voice, bgm):' :
+    inventoryType === 'characters' ? 'Type (character):' :
+    'Type (hook, body, cta):',
+    ui.ButtonSet.OK_CANCEL
+  );
+  if (subTypeResult.getSelectedButton() !== ui.Button.OK) return;
+
+  try {
+    var result = addComponent(inventoryType, {
+      name: nameResult.getResponseText().trim(),
+      type: subTypeResult.getResponseText().trim().toLowerCase()
+    });
+
+    ui.alert(
+      'Component Added',
+      'ID: ' + result.component_id + '\n' +
+      'Type: ' + result.inventory_type + '\n\n' +
+      'Edit additional fields in the inventory spreadsheet.',
+      ui.ButtonSet.OK
+    );
+  } catch (e) {
+    ui.alert('Error', e.message, ui.ButtonSet.OK);
+  }
+}
+
+/**
+ * Browse components by inventory type
+ */
+function browseScenarios() { browseComponentType('scenarios'); }
+function browseMotions() { browseComponentType('motions'); }
+function browseCharacters() { browseComponentType('characters'); }
+function browseAudio() { browseComponentType('audio'); }
+
+function browseComponentType(inventoryType) {
+  var ui = SpreadsheetApp.getUi();
+
+  try {
+    var components = listComponents(inventoryType, { status: 'active' });
+
+    if (components.length === 0) {
+      ui.alert('No Components', 'No active ' + inventoryType + ' found.', ui.ButtonSet.OK);
+      return;
+    }
+
+    var lines = components.map(function(c) {
+      var score = c.avg_performance_score ? ' (score: ' + c.avg_performance_score + ')' : '';
+      return c.component_id + ' [' + (c.type || '-') + '] ' + (c.name || 'unnamed') + score;
+    });
+
+    // GAS alert has character limits, show first 20
+    var displayLines = lines.slice(0, 20);
+    var suffix = lines.length > 20 ? '\n\n... and ' + (lines.length - 20) + ' more' : '';
+
+    ui.alert(
+      inventoryType.charAt(0).toUpperCase() + inventoryType.slice(1) + ' (' + components.length + ')',
+      displayLines.join('\n') + suffix,
+      ui.ButtonSet.OK
+    );
+  } catch (e) {
+    ui.alert('Error', e.message, ui.ButtonSet.OK);
+  }
+}
+
+/**
+ * Update all component scores from UI
+ */
+function updateScoresUI() {
+  var ui = SpreadsheetApp.getUi();
+
+  try {
+    var count = updateAllComponentScores();
+    ui.alert('Scores Updated', 'Updated scores for ' + count + ' components.', ui.ButtonSet.OK);
+  } catch (e) {
+    ui.alert('Error', e.message, ui.ButtonSet.OK);
+  }
+}
+
+/**
+ * Show component score summary
+ */
+function showScoreSummary() {
+  var ui = SpreadsheetApp.getUi();
+
+  try {
+    var summary = getScoreSummary();
+
+    var lines = [];
+    Object.keys(summary).forEach(function(type) {
+      var s = summary[type];
+      lines.push('[' + type.toUpperCase() + ']');
+      lines.push('  Total: ' + s.total + ', Scored: ' + s.scored + ', Avg: ' + s.avg_score);
+
+      if (s.top && s.top.length > 0) {
+        lines.push('  Top performers:');
+        s.top.forEach(function(t) {
+          lines.push('    ' + t.id + ' ' + t.name + ' (score: ' + t.score + ')');
+        });
+      }
+      lines.push('');
+    });
+
+    ui.alert('Score Summary', lines.join('\n'), ui.ButtonSet.OK);
+  } catch (e) {
+    ui.alert('Error', e.message, ui.ButtonSet.OK);
+  }
+}
+
+// ============================================================
+// UI Functions - Status & Data
+// ============================================================
+
+/**
+ * Show current status dashboard
  */
 function showStatus() {
-  const ui = SpreadsheetApp.getUi();
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-
-  const sheets = ['videos_master', 'metrics_youtube', 'metrics_tiktok', 'metrics_instagram', 'recommendations', 'unlinked_imports'];
-
-  let status = 'Current Status:\n\n';
-
-  sheets.forEach(name => {
-    const sheet = ss.getSheetByName(name);
-    const count = sheet ? Math.max(0, sheet.getLastRow() - 1) : 0;
-    status += `${name}: ${count} records\n`;
-  });
-
-  const props = PropertiesService.getScriptProperties();
-  status += `\nOpenAI API Key: ${props.getProperty('OPENAI_API_KEY') ? '✅ Set' : '❌ Not set'}`;
-
-  ui.alert('Status', status, ui.ButtonSet.OK);
-}
-
-/**
- * Insert demo data for testing - Run this from Apps Script editor
- */
-function insertDemoData() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
   var ui = SpreadsheetApp.getUi();
-
-  // 1. Add demo videos to videos_master
-  var masterSheet = ss.getSheetByName('videos_master');
-  var masterData = [
-    ['VID_001', 'AI Mika Day in Tokyo', '2026-02-01', 'YT_VID001', 'TT_VID001', 'IG_VID001', ''],
-    ['VID_002', 'Cooking with AI Mika', '2026-02-02', 'YT_VID002', 'TT_VID002', 'IG_VID002', ''],
-    ['VID_003', 'AI Mika reacts to viral videos', '2026-02-03', 'YT_VID003', 'TT_VID003', 'IG_VID003', '']
-  ];
-
-  // Check if data already exists
-  var existingData = masterSheet.getDataRange().getValues();
-  if (existingData.length <= 1) {
-    masterSheet.getRange(2, 1, masterData.length, masterData[0].length).setValues(masterData);
-    Logger.log('Added demo videos to videos_master');
-  }
-
-  // 2. Add YouTube metrics
-  var ytSheet = ss.getSheetByName('metrics_youtube');
-  var ytData = [
-    ['VID_001', nowJapan(), 185000, 7200, 520, 280, 4.3, 3200.5, 85, 45, 9.8, 620],
-    ['VID_002', nowJapan(), 142000, 5100, 380, 195, 4.0, 2450.2, 75, 40, 8.1, 410],
-    ['VID_003', nowJapan(), 210000, 8900, 1200, 650, 5.1, 4100.8, 92, 52, 10.5, 880]
-  ];
-  if (ytSheet.getLastRow() <= 1) {
-    ytSheet.getRange(2, 1, ytData.length, ytData[0].length).setValues(ytData);
-    Logger.log('Added YouTube metrics');
-  }
-
-  // 3. Add TikTok metrics
-  var ttSheet = ss.getSheetByName('metrics_tiktok');
-  var ttData = [
-    ['VID_001', nowJapan(), 620000, 45000, 1800, 7200, 10.5, 11000, 14.2, 48],
-    ['VID_002', nowJapan(), 480000, 32000, 1100, 4800, 8.4, 7200, 10.5, 38],
-    ['VID_003', nowJapan(), 780000, 58000, 2500, 12000, 13.2, 18000, 16.5, 55]
-  ];
-  if (ttSheet.getLastRow() <= 1) {
-    ttSheet.getRange(2, 1, ttData.length, ttData[0].length).setValues(ttData);
-    Logger.log('Added TikTok metrics');
-  }
-
-  // 4. Add Instagram metrics
-  var igSheet = ss.getSheetByName('metrics_instagram');
-  var igData = [
-    ['VID_001', nowJapan(), 125000, 8500, 620, 1200, 8.3, 2800, 20.5, 105000],
-    ['VID_002', nowJapan(), 98000, 6200, 480, 850, 7.7, 1950, 16.8, 82000],
-    ['VID_003', nowJapan(), 168000, 12500, 950, 1800, 9.1, 4200, 24.2, 142000]
-  ];
-  if (igSheet.getLastRow() <= 1) {
-    igSheet.getRange(2, 1, igData.length, igData[0].length).setValues(igData);
-    Logger.log('Added Instagram metrics');
-  }
-
-  ui.alert('デモデータ挿入完了',
-    '以下のデータを追加しました:\n\n' +
-    '✅ videos_master: 3動画\n' +
-    '✅ metrics_youtube: 3レコード\n' +
-    '✅ metrics_tiktok: 3レコード\n' +
-    '✅ metrics_instagram: 3レコード\n\n' +
-    '次に「Analyze All Videos」を実行してください。',
-    ui.ButtonSet.OK);
-}
-
-/**
- * Clear all demo data - Run this to reset
- */
-function clearAllDemoData() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var ui = SpreadsheetApp.getUi();
 
-  var result = ui.alert('確認', '全てのデータを削除しますか？\n（ヘッダー行は残ります）', ui.ButtonSet.YES_NO);
+  var sheetNames = Object.keys(CONFIG.SHEETS).map(function(key) { return CONFIG.SHEETS[key]; });
 
-  if (result !== ui.Button.YES) return;
-
-  var sheetNames = ['videos_master', 'metrics_youtube', 'metrics_tiktok', 'metrics_instagram',
-                    'recommendations', 'analysis_reports', 'video_analysis', 'unlinked_imports'];
+  var lines = ['Video Analytics Hub v' + CONFIG.VERSION, '', 'Sheet Records:'];
 
   sheetNames.forEach(function(name) {
     var sheet = ss.getSheetByName(name);
-    if (sheet && sheet.getLastRow() > 1) {
-      sheet.deleteRows(2, sheet.getLastRow() - 1);
-    }
+    var count = sheet ? Math.max(0, sheet.getLastRow() - 1) : 0;
+    lines.push('  ' + name + ': ' + count);
   });
 
-  ui.alert('完了', '全てのデータを削除しました。', ui.ButtonSet.OK);
+  // Video status breakdown
+  lines.push('');
+  lines.push('Video Statuses:');
+  try {
+    CONFIG.VIDEO_STATUSES.forEach(function(status) {
+      var videos = getVideosByStatus(status);
+      lines.push('  ' + status + ': ' + videos.length);
+    });
+  } catch (e) {
+    lines.push('  (unable to load)');
+  }
+
+  var props = PropertiesService.getScriptProperties();
+  lines.push('');
+  lines.push('OpenAI API Key: ' + (props.getProperty('OPENAI_API_KEY') ? 'Set' : 'Not set'));
+
+  // Check inventory connections
+  lines.push('');
+  lines.push('Inventories:');
+  ['scenarios', 'motions', 'characters', 'audio'].forEach(function(type) {
+    var propKey = CONFIG.PROP_KEYS[type.toUpperCase() + '_INVENTORY_ID'];
+    var id = props.getProperty(propKey);
+    lines.push('  ' + type + ': ' + (id ? 'Connected' : 'Not set'));
+  });
+
+  ui.alert('Status Dashboard', lines.join('\n'), ui.ButtonSet.OK);
+}
+
+/**
+ * Clear all demo data
+ */
+function clearAllDemoData() {
+  var ui = SpreadsheetApp.getUi();
+
+  var result = ui.alert('Confirm', 'Delete all data? (headers will be kept)', ui.ButtonSet.YES_NO);
+  if (result !== ui.Button.YES) return;
+
+  clearAllData();
+  ui.alert('Done', 'All data has been cleared.', ui.ButtonSet.OK);
+}
+
+// ============================================================
+// Legacy / Compatibility
+// ============================================================
+
+/**
+ * One-time setup function (v1.0 compatibility, redirects to v2.0)
+ */
+function setupVideoAnalyticsHub() {
+  setupCompleteSystem();
+}
+
+/**
+ * Analyze all videos (v1.0 compatibility)
+ */
+function analyzeAllVideos() {
+  analyzeAllVideosEnhanced();
+}
+
+/**
+ * Manual trigger for testing
+ */
+function testImport() {
+  Logger.log('Test import function called');
+  Logger.log('Configuration check:');
+  Logger.log('Version: ' + CONFIG.VERSION);
+  Logger.log('SPREADSHEET_ID set: ' + !!CONFIG.SPREADSHEET_ID);
+  Logger.log('OPENAI_API_KEY set: ' + !!CONFIG.OPENAI_API_KEY);
+}
+
+/**
+ * Create README sheet (retained from v1.0)
+ */
+function createReadmeSheet() {
+  var ss = getSpreadsheet();
+  var existing = ss.getSheetByName('README');
+
+  if (existing) {
+    SpreadsheetApp.getUi().alert('README sheet already exists.');
+    return;
+  }
+
+  var sheet = ss.insertSheet('README');
+  sheet.getRange('A1').setValue('Video Analytics Hub v' + CONFIG.VERSION);
+  sheet.getRange('A1').setFontSize(16).setFontWeight('bold');
+  sheet.getRange('A3').setValue('This spreadsheet is the master data store for the Video Analytics Hub system.');
+  sheet.getRange('A5').setValue('Sheets:');
+
+  var row = 6;
+  Object.keys(CONFIG.SHEETS).forEach(function(key) {
+    sheet.getRange('A' + row).setValue(CONFIG.SHEETS[key]);
+    row++;
+  });
+
+  sheet.setColumnWidth(1, 400);
+  Logger.log('Created README sheet');
 }

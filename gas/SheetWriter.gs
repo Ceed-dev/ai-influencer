@@ -1,136 +1,187 @@
 /**
- * Sheet Writer - Handle all Google Sheets write operations
+ * Sheet Writer - Handle all Google Sheets write operations (v2.0)
  */
 
 /**
  * Write metrics to platform-specific sheet
- * @param {Array<Object>} metrics - Normalized and linked metrics
- * @param {string} platform - Platform name
+ * Also updates master metrics snapshot
  */
 function writeMetrics(metrics, platform) {
   if (metrics.length === 0) return;
 
-  const sheetName = CONFIG.SHEETS[`METRICS_${platform.toUpperCase()}`];
-  const sheet = getSheet(sheetName);
-  const fields = getPlatformFields(platform);
+  var sheetName = CONFIG.SHEETS['METRICS_' + platform.toUpperCase()];
+  var sheet = getSheet(sheetName);
+  var fields = getPlatformFields(platform);
 
-  // Ensure headers exist
   ensureHeaders(sheet, fields);
 
-  // Convert metrics to rows
-  const rows = metrics.map(m => fields.map(f => m[f] ?? ''));
+  var rows = metrics.map(function(m) {
+    return fields.map(function(f) { return m[f] !== undefined ? m[f] : ''; });
+  });
 
-  // Append rows
   if (rows.length > 0) {
-    const startRow = sheet.getLastRow() + 1;
+    var startRow = sheet.getLastRow() + 1;
     sheet.getRange(startRow, 1, rows.length, fields.length).setValues(rows);
   }
 
-  Logger.log(`Wrote ${rows.length} rows to ${sheetName}`);
+  // v2.0: Update master metrics snapshot for each linked video
+  metrics.forEach(function(m) {
+    if (m.video_uid) {
+      try {
+        updateMasterMetricsSnapshot(m.video_uid, platform, m);
+      } catch (e) {
+        Logger.log('Error updating snapshot for ' + m.video_uid + ': ' + e.message);
+      }
+    }
+  });
+
+  Logger.log('Wrote ' + rows.length + ' rows to ' + sheetName);
 }
 
 /**
  * Write unlinked imports for manual review
- * @param {Array<Object>} unlinked - Unlinked metrics
- * @param {string} platform - Platform name
  */
 function writeUnlinked(unlinked, platform) {
   if (unlinked.length === 0) return;
 
-  const sheet = getSheet(CONFIG.SHEETS.UNLINKED_IMPORTS);
-  const fields = ['platform', 'platform_id', 'title', 'views', 'import_date', 'raw_csv_row'];
+  var sheet = getSheet(CONFIG.SHEETS.UNLINKED_IMPORTS);
+  var fields = ['platform', 'platform_id', 'title', 'views', 'import_date', 'raw_csv_row'];
 
-  // Ensure headers exist
   ensureHeaders(sheet, fields);
 
-  // Convert to rows
-  const rows = unlinked.map(m => [
-    platform,
-    m.platform_id,
-    m.title,
-    m.views,
-    m.import_date,
-    m.raw_csv_row
-  ]);
+  var rows = unlinked.map(function(m) {
+    return [
+      platform,
+      m.platform_id,
+      m.title,
+      m.views,
+      m.import_date,
+      m.raw_csv_row
+    ];
+  });
 
-  // Append rows
   if (rows.length > 0) {
-    const startRow = sheet.getLastRow() + 1;
+    var startRow = sheet.getLastRow() + 1;
     sheet.getRange(startRow, 1, rows.length, fields.length).setValues(rows);
   }
 
-  Logger.log(`Wrote ${rows.length} unlinked rows`);
+  Logger.log('Wrote ' + rows.length + ' unlinked rows');
 }
 
 /**
  * Write analysis report
- * @param {Object} analysis - Analysis results
  */
 function writeAnalysisReport(analysis) {
-  const sheet = getSheet(CONFIG.SHEETS.ANALYSIS_REPORTS);
-  const fields = ['report_id', 'generated_at', 'video_count', 'insights_json'];
+  var sheet = getSheet(CONFIG.SHEETS.ANALYSIS_REPORTS);
+  var fields = ['report_id', 'generated_at', 'video_count', 'insights_json'];
 
-  // Ensure headers exist
   ensureHeaders(sheet, fields);
 
-  const row = [
+  var row = [
     analysis.report_id,
-    analysis.generated_at,  // Already formatted by nowJapan()
+    analysis.generated_at,
     analysis.video_count,
     JSON.stringify(analysis.analysis)
   ];
 
   sheet.appendRow(row);
-  Logger.log(`Wrote analysis report: ${analysis.report_id}`);
+  Logger.log('Wrote analysis report: ' + analysis.report_id);
 }
 
 /**
- * Write recommendations
- * @param {Array<Object>} recommendations - Recommendations list
+ * Write recommendations (basic)
  */
 function writeRecommendations(recommendations) {
   if (recommendations.length === 0) return;
 
-  const sheet = getSheet(CONFIG.SHEETS.RECOMMENDATIONS);
-  const fields = ['created_at', 'priority', 'category', 'recommendation', 'platform', 'expected_impact', 'status'];
+  var sheet = getSheet(CONFIG.SHEETS.RECOMMENDATIONS);
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  var now = nowJapan();
 
-  // Ensure headers exist
-  ensureHeaders(sheet, fields);
-
-  const now = nowJapan();  // Use Japan timezone
-  const rows = recommendations.map(r => [
-    now,
-    String(r.priority),
-    r.category,
-    r.recommendation,
-    r.platform,
-    r.expected_impact,
-    'pending'  // Initial status
-  ]);
+  var rows = recommendations.map(function(r) {
+    return headers.map(function(h) {
+      switch(h) {
+        case 'video_uid': return r.video_uid || 'all';
+        case 'created_at': return now;
+        case 'priority': return String(r.priority);
+        case 'category': return r.category;
+        case 'recommendation': return r.recommendation;
+        case 'platform': return r.platform;
+        case 'expected_impact': return r.expected_impact;
+        case 'status': return 'pending';
+        case 'compared_to_previous': return r.compared_to_previous || 'NEW';
+        default: return '';
+      }
+    });
+  });
 
   if (rows.length > 0) {
-    const startRow = sheet.getLastRow() + 1;
-    sheet.getRange(startRow, 1, rows.length, fields.length).setValues(rows);
+    var startRow = sheet.getLastRow() + 1;
+    sheet.getRange(startRow, 1, rows.length, headers.length).setValues(rows);
   }
 
-  Logger.log(`Wrote ${rows.length} recommendations`);
+  Logger.log('Wrote ' + rows.length + ' recommendations');
+}
+
+/**
+ * Write recommendations with enhanced fields (v2.0)
+ */
+function writeRecommendationsEnhanced(recommendations) {
+  writeRecommendations(recommendations);
+}
+
+/**
+ * Write video analysis to sheet
+ */
+function writeVideoAnalysis(analysis) {
+  var sheet;
+  try {
+    sheet = getSheet(CONFIG.SHEETS.VIDEO_ANALYSIS);
+  } catch (e) {
+    // Create sheet if it doesn't exist
+    var ss = getSpreadsheet();
+    sheet = ss.insertSheet(CONFIG.SHEETS.VIDEO_ANALYSIS);
+    var headers = [
+      'video_uid', 'analyzed_at', 'youtube_performance', 'tiktok_performance',
+      'instagram_performance', 'cross_platform_insights', 'kpi_achievement',
+      'improvements_from_previous', 'prompt_effectiveness', 'recommendations'
+    ];
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    sheet.setFrozenRows(1);
+    sheet.getRange(1, 1, 1, headers.length)
+      .setBackground(CONFIG.COLORS.HEADER)
+      .setFontColor(CONFIG.COLORS.HEADER_FONT)
+      .setFontWeight('bold');
+  }
+
+  var row = [
+    analysis.video_uid,
+    analysis.analyzed_at,
+    analysis.youtube_performance,
+    analysis.tiktok_performance,
+    analysis.instagram_performance,
+    analysis.cross_platform_insights,
+    analysis.kpi_achievement,
+    analysis.improvements_from_previous,
+    analysis.prompt_effectiveness,
+    analysis.recommendations
+  ];
+
+  sheet.appendRow(row);
+  Logger.log('Written video analysis for: ' + analysis.video_uid);
 }
 
 /**
  * Ensure sheet has correct headers
  */
 function ensureHeaders(sheet, fields) {
-  const currentHeaders = sheet.getRange(1, 1, 1, sheet.getMaxColumns()).getValues()[0];
-
-  // Check if headers match
-  const hasHeaders = fields.every((field, i) => currentHeaders[i] === field);
+  var currentHeaders = sheet.getRange(1, 1, 1, sheet.getMaxColumns()).getValues()[0];
+  var hasHeaders = fields.every(function(field, i) { return currentHeaders[i] === field; });
 
   if (!hasHeaders && sheet.getLastRow() === 0) {
-    // Sheet is empty, write headers
     sheet.getRange(1, 1, 1, fields.length).setValues([fields]);
   } else if (!hasHeaders && sheet.getLastRow() > 0) {
-    // Headers mismatch on non-empty sheet - log warning
-    Logger.log(`Warning: Headers mismatch on ${sheet.getName()}`);
+    Logger.log('Warning: Headers mismatch on ' + sheet.getName());
   }
 }
 
@@ -138,12 +189,12 @@ function ensureHeaders(sheet, fields) {
  * Create all required sheets if they don't exist
  */
 function initializeSheets() {
-  const ss = getSpreadsheet();
+  var ss = getSpreadsheet();
 
-  const sheetConfigs = [
+  var sheetConfigs = [
     {
-      name: CONFIG.SHEETS.VIDEOS_MASTER,
-      headers: ['video_uid', 'title', 'created_date', 'youtube_id', 'tiktok_id', 'instagram_id', 'scenario_id']
+      name: CONFIG.SHEETS.MASTER,
+      headers: CONFIG.MASTER_ALL_COLUMNS
     },
     {
       name: CONFIG.SHEETS.METRICS_YOUTUBE,
@@ -162,16 +213,13 @@ function initializeSheets() {
       headers: ['platform', 'metric', 'target_value', 'description']
     },
     {
-      name: CONFIG.SHEETS.SCENARIO_CUTS,
-      headers: ['scenario_id', 'video_uid', 'cut_number', 'start_time', 'end_time', 'description', 'hook_type']
-    },
-    {
       name: CONFIG.SHEETS.ANALYSIS_REPORTS,
       headers: ['report_id', 'generated_at', 'video_count', 'insights_json']
     },
     {
       name: CONFIG.SHEETS.RECOMMENDATIONS,
-      headers: ['created_at', 'priority', 'category', 'recommendation', 'platform', 'expected_impact', 'status']
+      headers: ['video_uid', 'created_at', 'priority', 'category', 'recommendation',
+                'platform', 'expected_impact', 'status', 'compared_to_previous']
     },
     {
       name: CONFIG.SHEETS.UNLINKED_IMPORTS,
@@ -179,14 +227,13 @@ function initializeSheets() {
     }
   ];
 
-  sheetConfigs.forEach(config => {
-    let sheet = ss.getSheetByName(config.name);
-
+  sheetConfigs.forEach(function(config) {
+    var sheet = ss.getSheetByName(config.name);
     if (!sheet) {
       sheet = ss.insertSheet(config.name);
       sheet.getRange(1, 1, 1, config.headers.length).setValues([config.headers]);
       sheet.setFrozenRows(1);
-      Logger.log(`Created sheet: ${config.name}`);
+      Logger.log('Created sheet: ' + config.name);
     }
   });
 
@@ -194,13 +241,13 @@ function initializeSheets() {
 }
 
 /**
- * Clear all data (keep headers) - for testing
+ * Clear all data (keep headers)
  */
 function clearAllData() {
-  const ss = getSpreadsheet();
+  var ss = getSpreadsheet();
 
-  Object.values(CONFIG.SHEETS).forEach(sheetName => {
-    const sheet = ss.getSheetByName(sheetName);
+  Object.values(CONFIG.SHEETS).forEach(function(sheetName) {
+    var sheet = ss.getSheetByName(sheetName);
     if (sheet && sheet.getLastRow() > 1) {
       sheet.deleteRows(2, sheet.getLastRow() - 1);
     }
@@ -210,41 +257,18 @@ function clearAllData() {
 }
 
 /**
- * Update video in master sheet
+ * Write component data to inventory sheet
+ * @param {string} inventoryType - 'scenarios' | 'motions' | 'characters' | 'audio'
+ * @param {Object} data - Component data with headers as keys
  */
-function updateVideoMaster(videoUid, updates) {
-  const sheet = getSheet(CONFIG.SHEETS.VIDEOS_MASTER);
-  const data = sheet.getDataRange().getValues();
-  const headers = data[0];
+function writeToInventory(inventoryType, data) {
+  var sheet = getInventorySheet(inventoryType);
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
 
-  const videoUidCol = headers.indexOf('video_uid');
+  var row = headers.map(function(h) {
+    return data[h] !== undefined ? data[h] : '';
+  });
 
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][videoUidCol] === videoUid) {
-      Object.entries(updates).forEach(([field, value]) => {
-        const col = headers.indexOf(field);
-        if (col !== -1) {
-          sheet.getRange(i + 1, col + 1).setValue(value);
-        }
-      });
-      return true;
-    }
-  }
-
-  return false;
-}
-
-/**
- * Get all video UIDs from master
- */
-function getAllVideoUids() {
-  const sheet = getSheet(CONFIG.SHEETS.VIDEOS_MASTER);
-  const data = sheet.getDataRange().getValues();
-
-  if (data.length < 2) return [];
-
-  const headers = data[0];
-  const videoUidCol = headers.indexOf('video_uid');
-
-  return data.slice(1).map(row => row[videoUidCol]).filter(Boolean);
+  sheet.appendRow(row);
+  Logger.log('Wrote to ' + inventoryType + ' inventory: ' + data.component_id);
 }

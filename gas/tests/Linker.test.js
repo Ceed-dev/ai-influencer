@@ -109,7 +109,7 @@ function linkVideos(normalized, platform) {
 
 function getMasterData() {
   try {
-    const sheet = getSheet(CONFIG.SHEETS.VIDEOS_MASTER);
+    const sheet = getSheet(CONFIG.SHEETS.MASTER);
     const data = sheet.getDataRange().getValues();
 
     if (data.length < 2) {
@@ -138,7 +138,7 @@ function generateVideoUid() {
   const month = String(now.getMonth() + 1).padStart(2, '0');
 
   try {
-    const sheet = getSheet(CONFIG.SHEETS.VIDEOS_MASTER);
+    const sheet = getSheet(CONFIG.SHEETS.MASTER);
     const count = Math.max(1, sheet.getLastRow());
     return `VID_${year}${month}_${String(count).padStart(4, '0')}`;
   } catch (e) {
@@ -319,7 +319,7 @@ describe('Linker', () => {
         ['VID_202601_0001', 'Intro to Programming', 'yt_001', 'tt_001', 'ig_001'],
         ['VID_202601_0002', 'Advanced Tips', 'yt_002', null, null]
       ];
-      global.mockSheets[CONFIG.SHEETS.VIDEOS_MASTER] = createMockSheet(mockData);
+      global.mockSheets[CONFIG.SHEETS.MASTER] = createMockSheet(mockData);
     });
 
     test('links videos with exact platform ID match', () => {
@@ -390,7 +390,7 @@ describe('Linker', () => {
       const mockData = [
         ['video_uid', 'title', 'youtube_id']
       ];
-      global.mockSheets[CONFIG.SHEETS.VIDEOS_MASTER] = createMockSheet(mockData);
+      global.mockSheets[CONFIG.SHEETS.MASTER] = createMockSheet(mockData);
 
       const result = getMasterData();
       expect(result).toEqual([]);
@@ -409,7 +409,7 @@ describe('Linker', () => {
         ['VID_001', 'Video 1', 'yt_001'],
         ['VID_002', 'Video 2', 'yt_002']
       ];
-      global.mockSheets[CONFIG.SHEETS.VIDEOS_MASTER] = createMockSheet(mockData);
+      global.mockSheets[CONFIG.SHEETS.MASTER] = createMockSheet(mockData);
 
       const result = getMasterData();
 
@@ -447,7 +447,7 @@ describe('Linker', () => {
         ['VID_002'],
         ['VID_003']
       ];
-      global.mockSheets[CONFIG.SHEETS.VIDEOS_MASTER] = createMockSheet(mockData);
+      global.mockSheets[CONFIG.SHEETS.MASTER] = createMockSheet(mockData);
 
       const uid = generateVideoUid();
 
@@ -456,7 +456,7 @@ describe('Linker', () => {
 
     test('uses current year and month', () => {
       const mockData = [['video_uid'], ['VID_001']];
-      global.mockSheets[CONFIG.SHEETS.VIDEOS_MASTER] = createMockSheet(mockData);
+      global.mockSheets[CONFIG.SHEETS.MASTER] = createMockSheet(mockData);
 
       const uid = generateVideoUid();
       const now = new Date();
@@ -467,7 +467,7 @@ describe('Linker', () => {
 
     test('pads count with zeros', () => {
       const mockData = [['video_uid'], ['VID_001']];
-      global.mockSheets[CONFIG.SHEETS.VIDEOS_MASTER] = createMockSheet(mockData);
+      global.mockSheets[CONFIG.SHEETS.MASTER] = createMockSheet(mockData);
 
       const uid = generateVideoUid();
 
@@ -491,7 +491,7 @@ describe('Linker', () => {
         ['VID_004'],
         ['VID_005']
       ];
-      global.mockSheets[CONFIG.SHEETS.VIDEOS_MASTER] = createMockSheet(mockData);
+      global.mockSheets[CONFIG.SHEETS.MASTER] = createMockSheet(mockData);
 
       const uid = generateVideoUid();
 
@@ -510,7 +510,7 @@ describe('Linker', () => {
         ['VID_202601_0002', 'Workout Routine for Beginners', null, 'tt_workout', 'ig_workout'],
         ['VID_202601_0003', 'Travel Vlog: Tokyo Day 1', 'yt_tokyo', 'tt_tokyo', null]
       ];
-      global.mockSheets[CONFIG.SHEETS.VIDEOS_MASTER] = createMockSheet(mockMasterData);
+      global.mockSheets[CONFIG.SHEETS.MASTER] = createMockSheet(mockMasterData);
     });
 
     test('links cross-platform videos correctly', () => {

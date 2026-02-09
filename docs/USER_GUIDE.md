@@ -1,29 +1,79 @@
-# Video Analytics Hub - ユーザーガイド
+# Video Analytics Hub v2.0 - ユーザーガイド
 
 ## このシステムは何をするのか
 
-YouTube Shorts / TikTok / Instagram Reels の動画パフォーマンスを分析し、**次の動画をより良くするための改善提案**を自動生成するシステム。
+YouTube Shorts / TikTok / Instagram Reels の動画パフォーマンスを分析し、**コンポーネント単位での改善提案**を自動生成するシステム。動画制作から分析までの完全ループを管理する。
 
 ```
-あなたがやること:
-1. 各プラットフォームからCSVをダウンロード（週1回程度）
-2. CSVをGoogle Driveにアップロード
-3. 分析結果をSheetsで確認
-4. 改善提案を次の動画制作に活かす
+v2.0の制作ループ:
+1. コンポーネントを選んで動画を計画（master シートにドラフト作成）
+2. AIの提案を確認して承認
+3. n8nが承認済み動画のコンポーネントデータを読み取り、動画を生成
+4. 3プラットフォームに投稿
+5. CSVをダウンロードしてGoogle Driveにアップロード
+6. 分析→改善提案→次の動画へ（ループ）
 ```
+
+---
+
+## 初期セットアップ
+
+### Step 1: セットアップ実行（1回のみ）
+
+1. Google Sheets を開く
+2. メニュー「Video Analytics v2」→「Initial Setup (v2.0)」
+3. 自動で以下が作成される:
+   - Google Drive にフォルダ構造（Scenarios, Motions, Characters, Audio, Analytics）
+   - 各コンポーネント用の独立スプレッドシート（インベントリ）
+   - マスタースプレッドシートの全タブ
+   - デモデータ
+
+### Step 2: API キー設定
+
+1. Apps Script エディタを開く
+2. プロジェクトの設定 → スクリプトプロパティ
+3. 以下を設定:
+   - `OPENAI_API_KEY`: OpenAI API キー
+   - `SPREADSHEET_ID`: マスタースプレッドシートのID
 
 ---
 
 ## 日常の使い方フロー
 
-### 📅 週次ルーティン（推奨: 毎週月曜）
+### 📅 動画制作ループ
 
-#### Step 1: CSVをダウンロード（5分）
+#### Step 1: 動画を計画
+
+メニュー「Video Analytics v2」→「Production」→「Create New Video...」
+
+- タイトルを入力すると、video_uid が自動生成される
+- master シートに新しい行が追加される（status = draft）
+- master シートでコンポーネントIDを選択:
+  - フックシナリオ（SCN_H_XXXX）
+  - フックモーション（MOT_XXXX）
+  - ボディシナリオ（SCN_B_XXXX）
+  - キャラクター（CHR_XXXX）
+  - オーディオ（AUD_XXXX）
+  - 等
+
+#### Step 2: AIの提案を確認して承認
+
+- 過去の分析で生成されたAI推奨コンポーネント（ai_next_* 列）を参照
+- メニュー → 「Production」→「Approve Video...」
+- human_approved にチェック → status が approved に変更
+
+#### Step 3: 動画を制作（n8n）
+
+- n8n が approved 動画を取得
+- 各コンポーネントのデータをインベントリから読み取り
+- 動画生成ワークフローを実行
+- status → in_production → published
+
+#### Step 4: CSVをダウンロード＆アップロード（5分）
 
 **YouTube Studio:**
 1. [YouTube Studio](https://studio.youtube.com) → アナリティクス → 詳細モード
-2. 「Shorts」でフィルタ
-3. 右上「エクスポート」→ CSV
+2. 「Shorts」でフィルタ → 右上「エクスポート」→ CSV
 
 **TikTok:**
 1. [TikTok Analytics](https://www.tiktok.com/creator#/analytics) → コンテンツ
@@ -31,152 +81,166 @@ YouTube Shorts / TikTok / Instagram Reels の動画パフォーマンスを分�
 
 **Instagram:**
 1. Instagram アプリ → プロフェッショナルダッシュボード
-2. 「インサイトをエクスポート」（または Meta Business Suite から）
+2. 「インサイトをエクスポート」
 
-#### Step 2: CSVをアップロード（1分）
+Google Drive の `Analytics/CSV_Imports/` 各プラットフォームフォルダにCSVをドロップ。
 
-Google Drive の `AI-Influencer/csv_imports/` フォルダに3つのCSVをドラッグ＆ドロップ。
-
-ファイル名の例:
-- `youtube_2026-02-06.csv`
-- `tiktok_2026-02-06.csv`
-- `instagram_2026-02-06.csv`
-
-#### Step 3: 分析を実行（自動 or 手動）
+#### Step 5: 分析を実行
 
 **自動（n8n連携後）:**
 - アップロードすると自動で分析開始
-- 完了通知が届く
 
 **手動:**
-- Google Sheets を開く
-- メニュー「Video Analytics」→「CSVをインポート」
-- 処理完了まで待つ（1-2分）
+- メニュー「Video Analytics v2」→「Analyze」→「All Videos (Enhanced)」
+- コンポーネント情報を含む高精度分析が実行される
 
-#### Step 4: 結果を確認（5分）
-
-Google Sheets の以下のシートを確認:
+#### Step 6: 結果を確認
 
 | シート名 | 見るべき内容 |
 |---------|-------------|
-| `recommendations` | 🎯 **最重要** - 次の動画への改善提案 |
-| `analysis_reports` | 詳細な分析レポート |
-| `videos_master` | 動画一覧と各プラットフォームの紐付け |
+| `recommendations` | 🎯 改善提案（コンポーネント別） |
+| `video_analysis` | 個別動画の詳細分析 |
+| `analysis_reports` | 全体レポート |
+| `master` | 動画一覧・ステータス・スコア |
+
+---
+
+## コンポーネント管理
+
+### コンポーネントの追加
+
+メニュー → 「Components」→「Add Component...」
+
+1. インベントリタイプを選択（scenarios, motions, characters, audio）
+2. 名前とサブタイプを入力
+3. コンポーネントIDが自動生成される
+4. 詳細はインベントリスプレッドシートで直接編集
+
+### コンポーネントの閲覧
+
+メニュー → 「Components」→「Browse Scenarios/Motions/Characters/Audio」
+
+### スコアの確認
+
+メニュー → 「Components」→「Score Summary」
+- 各インベントリタイプのトップパフォーマーを表示
+
+### スコアの手動更新
+
+メニュー → 「Components」→「Update All Scores」
+- 全コンポーネントの avg_performance_score を再計算
 
 ---
 
 ## 各シートの見方
 
+### 📋 master（マスター）
+
+全動画の一覧。1行 = 1動画制作。
+
+| 列グループ | 説明 |
+|-----------|------|
+| Identity | video_uid, タイトル, ステータス, 作成日 |
+| Hook/Body/CTA | 各セクションのコンポーネントID |
+| Character | キャラクターID |
+| Platforms | YouTube/TikTok/Instagram の動画ID |
+| Metrics | 各プラットフォームの最新メトリクス（スナップショット） |
+| Analysis | overall_score, 分析日, トップ改善提案 |
+| AI Next | AIが推奨する次の動画のコンポーネント |
+| Approval | 人間の承認チェックボックスとメモ |
+
 ### 📋 recommendations（改善提案）
 
 | 列 | 説明 |
 |----|------|
+| video_uid | 対象動画（all = 全体） |
 | priority | 優先度（1が最優先） |
-| category | 種類: hook（冒頭）, pacing（テンポ）, content（内容）, format（形式） |
+| category | 種類: hook, pacing, content, format, thumbnail, audio |
 | recommendation | 具体的な改善提案 |
-| platform | 対象プラットフォーム（all = 全部） |
+| platform | 対象プラットフォーム |
 | expected_impact | 期待される効果 |
 | status | pending → implemented に変えて追跡 |
+| compared_to_previous | 前回との比較（NEW/IMPROVED/UNCHANGED/DECLINED） |
 
-**使い方:**
-1. priority 1-3 の提案を確認
-2. 次の動画で実践
-3. 実践したら status を `implemented` に変更
-4. 翌週、効果を確認
+### 📊 インベントリ（コンポーネント一覧）
 
-### 📊 videos_master（動画マスター）
-
-全動画の一覧。同じ動画の YouTube/TikTok/Instagram を紐付ける。
+各インベントリスプレッドシート（Scenarios, Motions, Characters, Audio）:
 
 | 列 | 説明 |
 |----|------|
-| video_uid | システム内部ID |
-| title | 動画タイトル |
-| youtube_id | YouTube の動画ID |
-| tiktok_id | TikTok の動画ID |
-| instagram_id | Instagram の投稿ID |
-
-**新しい動画を追加する時:**
-1. 各プラットフォームに投稿
-2. CSVインポート時に自動で追加される
-3. タイトルで自動マッチング
-4. マッチしない場合は `unlinked_imports` に入るので手動で紐付け
-
-### 📈 metrics_youtube / tiktok / instagram
-
-各プラットフォームの詳細指標。履歴として蓄積される。
-
-主な指標:
-- views: 再生回数
-- completion_rate: 完走率（最後まで見た割合）
-- engagement_rate: エンゲージメント率
-- avg_watch_time: 平均視聴時間
+| component_id | 固有ID（SCN_H_0001等） |
+| type | hook/body/cta or voice/bgm |
+| name | コンポーネント名 |
+| times_used | 使用回数（自動計算） |
+| avg_performance_score | 平均パフォーマンススコア（自動更新） |
+| status | active / archived |
 
 ---
 
 ## KPI目標の設定
 
-`kpi_targets` シートで目標値を設定できる。
+`kpi_targets` シートで目標値を設定:
 
-例:
 | platform | metric | target_value | description |
 |----------|--------|--------------|-------------|
 | youtube | completion_rate | 0.5 | 50%完走 |
 | tiktok | engagement_rate | 0.08 | 8%エンゲージメント |
 | instagram | avg_watch_time | 15 | 15秒平均視聴 |
 
-目標を超えた動画は「成功」として分析に使われる。
+---
+
+## v1.0からのアップグレード
+
+メニュー → 「Video Analytics v2」→「Upgrade from v1.0」
+
+自動で以下を実行:
+- videos_master → master にリネーム
+- 新しい列を追加（コンポーネントID、AI推奨、承認等）
+- scenario_cuts を削除
+- インベントリスプレッドシートを新規作成
+- Drive フォルダ構造を作成
 
 ---
 
 ## よくある質問
 
 ### Q: CSVはどのくらいの頻度でアップすべき？
+**A: 週1回で十分。** 毎日やっても分析精度は上がらない。
 
-**A: 週1回で十分。** 毎日やっても分析精度は上がらない。週単位でトレンドを見るのがベスト。
+### Q: コンポーネントのスコアはどう計算される？
+**A:** そのコンポーネントを使った全動画の overall_score の平均値。分析実行時に自動更新される。
 
-### Q: 過去のデータはどこまで遡れる？
-
-**A: プラットフォームの制限による。**
-- YouTube: 制限なし（ただしCSVは500行まで）
-- TikTok: 60日
-- Instagram: 90日
-
-このシステムはデータを蓄積するので、一度インポートすれば永久保存。
+### Q: AIの推奨コンポーネントとは？
+**A:** 分析時にAIが過去のパフォーマンスデータを元に、次の動画に最適なコンポーネントを推奨する。master シートの ai_next_* 列に書き込まれる。
 
 ### Q: 動画が自動でマッチしない場合は？
-
-**A: `unlinked_imports` シートを確認。** 手動で video_uid を設定するか、`videos_master` に新しい行を追加。
+**A: `unlinked_imports` シートを確認。** 手動で video_uid を設定するか、master に新しい行を追加。
 
 ### Q: 分析が間違っている気がする
-
-**A: AIの提案は参考程度に。** 最終判断は殿の経験と勘が重要。明らかに的外れな提案は無視してOK。
-
-### Q: 英語と日本語どちらで出力される？
-
-**A: 現在は英語。** 日本語化したい場合は `LLMAnalyzer.gs` のプロンプトを修正可能。
+**A: AIの提案は参考程度に。** 最終判断は経験と勘が重要。明らかに的外れな提案は無視してOK。
 
 ---
 
 ## トラブルシューティング
 
-### CSVがインポートできない
+### セットアップが失敗する
+1. Script Properties に `SPREADSHEET_ID` と `OPENAI_API_KEY` が設定されているか確認
+2. GAS の実行ログを確認（Apps Script → 実行数）
 
+### CSVがインポートできない
 1. ファイル形式が CSV (.csv) か確認
 2. 文字コードが UTF-8 か確認
 3. ヘッダー行があるか確認
 
-### 分析が実行されない
+### コンポーネントが見つからない
+1. インベントリスプレッドシートが作成されているか確認
+2. メニュー → 「Status Dashboard」でインベントリ接続状態を確認
+3. 接続されていない場合、`setupCompleteSystem()` を再実行
 
+### 分析が実行されない
 1. OpenAI API Key が設定されているか確認
 2. API の残高があるか確認
-3. GAS の実行ログを確認（Apps Script → 実行数）
-
-### Sheets が重い
-
-1. 古いデータを別シートにアーカイブ
-2. 条件付き書式を減らす
-3. 不要な列を非表示に
+3. GAS の実行ログを確認
 
 ---
 
@@ -184,11 +248,15 @@ Google Sheets の以下のシートを確認:
 
 | 用語 | 説明 |
 |------|------|
-| video_uid | システム内で動画を識別するユニークID |
+| video_uid | システム内で動画を識別するユニークID (VID_YYYYMM_XXXX) |
+| component_id | コンポーネントの固有ID (SCN_H_XXXX, MOT_XXXX等) |
+| inventory | コンポーネントの一覧スプレッドシート |
 | completion_rate | 動画を最後まで見た視聴者の割合（0-1） |
 | engagement_rate | いいね・コメント・シェアの合計 ÷ 再生回数 |
-| CTR | クリック率（インプレッション → 再生） |
+| overall_score | 全プラットフォーム総合のKPIスコア（0-100） |
 | hook | 動画冒頭の引き（最初の1-3秒） |
+| body | 動画の本編部分 |
+| CTA | Call To Action（最後のアクション促進部分） |
 
 ---
 
@@ -196,5 +264,5 @@ Google Sheets の以下のシートを確認:
 
 問題が発生した場合:
 1. このガイドの「トラブルシューティング」を確認
-2. GitHub Issues で報告: https://github.com/Ceed-dev/video-analytics-hub/issues
-3. CONTEXT.md を更新して次のセッションで解決
+2. メニュー → 「Status Dashboard」で接続状態を確認
+3. GitHub Issues で報告: https://github.com/Ceed-dev/video-analytics-hub/issues

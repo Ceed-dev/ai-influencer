@@ -60,12 +60,11 @@ const CONFIG = {
   OPENAI_API_KEY: 'test-api-key',
   OPENAI_MODEL: 'gpt-4o',
   SHEETS: {
-    VIDEOS_MASTER: 'videos_master',
+    MASTER: 'master',
     METRICS_YOUTUBE: 'metrics_youtube',
     METRICS_TIKTOK: 'metrics_tiktok',
     METRICS_INSTAGRAM: 'metrics_instagram',
     KPI_TARGETS: 'kpi_targets',
-    SCENARIO_CUTS: 'scenario_cuts',
     ANALYSIS_REPORTS: 'analysis_reports',
     RECOMMENDATIONS: 'recommendations',
     UNLINKED_IMPORTS: 'unlinked_imports'
@@ -164,7 +163,7 @@ function createMockSheet(name, initialData = []) {
 
 // Initialize mock spreadsheet with all required sheets
 function initializeMockSpreadsheet() {
-  mockSheets.videos_master = createMockSheet('videos_master', [
+  mockSheets.master = createMockSheet('master', [
     ['video_uid', 'title', 'created_date', 'youtube_id', 'tiktok_id', 'instagram_id', 'scenario_id'],
     ['VID_202602_0001', 'Test Video 1', '2026-02-01', 'yt_abc123', 'tt_001', 'ig_001', 'SC_001'],
     ['VID_202602_0002', 'Test Video 2', '2026-02-02', 'yt_def456', '', '', 'SC_002']
@@ -423,7 +422,7 @@ function fuzzyTitleMatch(title1, title2) {
 
 function getMasterData() {
   try {
-    const sheet = getSheet(CONFIG.SHEETS.VIDEOS_MASTER);
+    const sheet = getSheet(CONFIG.SHEETS.MASTER);
     const data = sheet.getDataRange().getValues();
     if (data.length < 2) return [];
     const headers = data[0];

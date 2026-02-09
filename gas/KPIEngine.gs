@@ -1,5 +1,5 @@
 /**
- * KPI Engine - Compare metrics against targets
+ * KPI Engine - Compare metrics against targets (v2.0)
  */
 
 /**
@@ -7,21 +7,20 @@
  */
 function getKPITargets() {
   try {
-    const sheet = getSheet(CONFIG.SHEETS.KPI_TARGETS);
-    const data = sheet.getDataRange().getValues();
+    var sheet = getSheet(CONFIG.SHEETS.KPI_TARGETS);
+    var data = sheet.getDataRange().getValues();
 
     if (data.length < 2) {
       return CONFIG.KPI_DEFAULTS;
     }
 
-    const headers = data[0];
-    const targets = {};
+    var headers = data[0];
+    var targets = {};
 
-    // Parse sheet data into targets object
-    for (let i = 1; i < data.length; i++) {
-      const platform = data[i][headers.indexOf('platform')];
-      const metric = data[i][headers.indexOf('metric')];
-      const value = data[i][headers.indexOf('target_value')];
+    for (var i = 1; i < data.length; i++) {
+      var platform = data[i][headers.indexOf('platform')];
+      var metric = data[i][headers.indexOf('metric')];
+      var value = data[i][headers.indexOf('target_value')];
 
       if (!targets[platform]) {
         targets[platform] = {};
@@ -30,11 +29,11 @@ function getKPITargets() {
     }
 
     // Merge with defaults for missing values
-    Object.keys(CONFIG.KPI_DEFAULTS).forEach(platform => {
+    Object.keys(CONFIG.KPI_DEFAULTS).forEach(function(platform) {
       if (!targets[platform]) {
         targets[platform] = CONFIG.KPI_DEFAULTS[platform];
       } else {
-        Object.keys(CONFIG.KPI_DEFAULTS[platform]).forEach(metric => {
+        Object.keys(CONFIG.KPI_DEFAULTS[platform]).forEach(function(metric) {
           if (targets[platform][metric] === undefined) {
             targets[platform][metric] = CONFIG.KPI_DEFAULTS[platform][metric];
           }
@@ -44,7 +43,7 @@ function getKPITargets() {
 
     return targets;
   } catch (e) {
-    Logger.log(`Error getting KPI targets: ${e.message}`);
+    Logger.log('Error getting KPI targets: ' + e.message);
     return CONFIG.KPI_DEFAULTS;
   }
 }
@@ -56,31 +55,35 @@ function getKPITargets() {
  * @returns {Array<Object>} Comparison results
  */
 function compareKPIs(metricsBundle, kpiTargets) {
-  const results = [];
+  var results = [];
 
-  Object.entries(metricsBundle).forEach(([videoUid, platforms]) => {
-    const videoResult = {
+  Object.entries(metricsBundle).forEach(function(entry) {
+    var videoUid = entry[0];
+    var platforms = entry[1];
+
+    var videoResult = {
       video_uid: videoUid,
       platforms: {},
       overall_score: 0,
       improvement_areas: []
     };
 
-    let totalScore = 0;
-    let platformCount = 0;
+    var totalScore = 0;
+    var platformCount = 0;
 
-    Object.entries(platforms).forEach(([platform, metrics]) => {
-      const targets = kpiTargets[platform] || {};
-      const comparison = comparePlatformKPIs(metrics, targets);
+    Object.entries(platforms).forEach(function(platformEntry) {
+      var platform = platformEntry[0];
+      var metrics = platformEntry[1];
+      var targets = kpiTargets[platform] || {};
+      var comparison = comparePlatformKPIs(metrics, targets);
 
       videoResult.platforms[platform] = comparison;
       totalScore += comparison.score;
       platformCount++;
 
-      // Collect improvement areas
-      comparison.below_target.forEach(item => {
+      comparison.below_target.forEach(function(item) {
         videoResult.improvement_areas.push({
-          platform,
+          platform: platform,
           metric: item.metric,
           gap: item.gap,
           priority: calculatePriority(item.gap)
@@ -89,16 +92,12 @@ function compareKPIs(metricsBundle, kpiTargets) {
     });
 
     videoResult.overall_score = platformCount > 0 ? totalScore / platformCount : 0;
-
-    // Sort improvement areas by priority
-    videoResult.improvement_areas.sort((a, b) => b.priority - a.priority);
+    videoResult.improvement_areas.sort(function(a, b) { return b.priority - a.priority; });
 
     results.push(videoResult);
   });
 
-  // Sort by overall score (lowest first - needs most improvement)
-  results.sort((a, b) => a.overall_score - b.overall_score);
-
+  results.sort(function(a, b) { return a.overall_score - b.overall_score; });
   return results;
 }
 
@@ -106,7 +105,7 @@ function compareKPIs(metricsBundle, kpiTargets) {
  * Compare single platform metrics against targets
  */
 function comparePlatformKPIs(metrics, targets) {
-  const result = {
+  var result = {
     score: 0,
     above_target: [],
     below_target: [],
@@ -114,48 +113,49 @@ function comparePlatformKPIs(metrics, targets) {
     details: {}
   };
 
-  let metricCount = 0;
-  let achievedCount = 0;
+  var metricCount = 0;
+  var achievedCount = 0;
 
-  Object.entries(targets).forEach(([metric, target]) => {
-    const actual = metrics[metric];
+  Object.entries(targets).forEach(function(entry) {
+    var metric = entry[0];
+    var target = entry[1];
+    var actual = metrics[metric];
 
     if (actual === null || actual === undefined) {
-      result.details[metric] = { status: 'no_data', target };
+      result.details[metric] = { status: 'no_data', target: target };
       return;
     }
 
     metricCount++;
-    const ratio = actual / target;
-    const gap = actual - target;
-    const percentGap = ((actual - target) / target) * 100;
+    var ratio = actual / target;
+    var gap = actual - target;
+    var percentGap = ((actual - target) / target) * 100;
 
-    const detail = {
-      actual,
-      target,
-      ratio,
-      gap,
+    var detail = {
+      actual: actual,
+      target: target,
+      ratio: ratio,
+      gap: gap,
       percent_gap: percentGap
     };
 
     if (ratio >= 1) {
       achievedCount++;
       detail.status = 'above';
-      result.above_target.push({ metric, ...detail });
+      result.above_target.push({ metric: metric, actual: actual, target: target, ratio: ratio, gap: gap, percent_gap: percentGap, status: 'above' });
     } else if (ratio >= 0.95) {
       achievedCount += 0.5;
       detail.status = 'at';
-      result.at_target.push({ metric, ...detail });
+      result.at_target.push({ metric: metric, actual: actual, target: target, ratio: ratio, gap: gap, percent_gap: percentGap, status: 'at' });
     } else {
       detail.status = 'below';
-      result.below_target.push({ metric, ...detail });
+      result.below_target.push({ metric: metric, actual: actual, target: target, ratio: ratio, gap: gap, percent_gap: percentGap, status: 'below' });
     }
 
     result.details[metric] = detail;
   });
 
   result.score = metricCount > 0 ? (achievedCount / metricCount) * 100 : 0;
-
   return result;
 }
 
@@ -163,10 +163,7 @@ function comparePlatformKPIs(metrics, targets) {
  * Calculate priority score for improvement area
  */
 function calculatePriority(gap) {
-  // Larger negative gaps = higher priority
-  const absGap = Math.abs(gap);
-
-  // Normalize to 0-100 scale
+  var absGap = Math.abs(gap);
   return Math.min(100, absGap * 100);
 }
 
@@ -174,31 +171,29 @@ function calculatePriority(gap) {
  * Get metrics bundle for specified videos
  */
 function getMetricsBundle(videoUids) {
-  const bundle = {};
+  var bundle = {};
 
-  videoUids.forEach(uid => {
+  videoUids.forEach(function(uid) {
     bundle[uid] = {};
   });
 
-  // Get from each platform sheet
-  ['youtube', 'tiktok', 'instagram'].forEach(platform => {
+  ['youtube', 'tiktok', 'instagram'].forEach(function(platform) {
     try {
-      const sheetName = CONFIG.SHEETS[`METRICS_${platform.toUpperCase()}`];
-      const sheet = getSheet(sheetName);
-      const data = sheet.getDataRange().getValues();
+      var sheetName = CONFIG.SHEETS['METRICS_' + platform.toUpperCase()];
+      var sheet = getSheet(sheetName);
+      var data = sheet.getDataRange().getValues();
 
       if (data.length < 2) return;
 
-      const headers = data[0];
-      const videoUidCol = headers.indexOf('video_uid');
+      var headers = data[0];
+      var videoUidCol = headers.indexOf('video_uid');
 
-      for (let i = 1; i < data.length; i++) {
-        const uid = data[i][videoUidCol];
-        if (videoUids.includes(uid)) {
+      for (var i = 1; i < data.length; i++) {
+        var uid = data[i][videoUidCol];
+        if (videoUids.indexOf(uid) !== -1) {
           if (!bundle[uid]) bundle[uid] = {};
-
           bundle[uid][platform] = {};
-          headers.forEach((header, j) => {
+          headers.forEach(function(header, j) {
             if (header !== 'video_uid' && header !== 'import_date') {
               bundle[uid][platform][header] = data[i][j];
             }
@@ -206,7 +201,7 @@ function getMetricsBundle(videoUids) {
         }
       }
     } catch (e) {
-      Logger.log(`Error getting ${platform} metrics: ${e.message}`);
+      Logger.log('Error getting ' + platform + ' metrics: ' + e.message);
     }
   });
 
@@ -217,24 +212,26 @@ function getMetricsBundle(videoUids) {
  * Generate KPI summary for a video
  */
 function generateKPISummary(kpiResult) {
-  const lines = [];
+  var lines = [];
 
-  lines.push(`Video: ${kpiResult.video_uid}`);
-  lines.push(`Overall Score: ${kpiResult.overall_score.toFixed(1)}%`);
+  lines.push('Video: ' + kpiResult.video_uid);
+  lines.push('Overall Score: ' + kpiResult.overall_score.toFixed(1) + '%');
   lines.push('');
 
-  Object.entries(kpiResult.platforms).forEach(([platform, comparison]) => {
-    lines.push(`[${platform.toUpperCase()}]`);
-    lines.push(`Score: ${comparison.score.toFixed(1)}%`);
+  Object.entries(kpiResult.platforms).forEach(function(entry) {
+    var platform = entry[0];
+    var comparison = entry[1];
+    lines.push('[' + platform.toUpperCase() + ']');
+    lines.push('Score: ' + comparison.score.toFixed(1) + '%');
 
     if (comparison.above_target.length > 0) {
-      lines.push('✓ Above target: ' + comparison.above_target.map(m => m.metric).join(', '));
+      lines.push('Above target: ' + comparison.above_target.map(function(m) { return m.metric; }).join(', '));
     }
 
     if (comparison.below_target.length > 0) {
-      lines.push('✗ Below target: ' + comparison.below_target.map(m =>
-        `${m.metric} (${m.percent_gap.toFixed(1)}%)`
-      ).join(', '));
+      lines.push('Below target: ' + comparison.below_target.map(function(m) {
+        return m.metric + ' (' + m.percent_gap.toFixed(1) + '%)';
+      }).join(', '));
     }
 
     lines.push('');
@@ -242,8 +239,8 @@ function generateKPISummary(kpiResult) {
 
   if (kpiResult.improvement_areas.length > 0) {
     lines.push('Priority Improvements:');
-    kpiResult.improvement_areas.slice(0, 5).forEach((area, i) => {
-      lines.push(`${i + 1}. [${area.platform}] ${area.metric}`);
+    kpiResult.improvement_areas.slice(0, 5).forEach(function(area, i) {
+      lines.push((i + 1) + '. [' + area.platform + '] ' + area.metric);
     });
   }
 

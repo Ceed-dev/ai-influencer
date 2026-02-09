@@ -44,6 +44,10 @@ const createMockSheet = (name, data = [[]]) => {
       })
     })),
     getLastRow: jest.fn(() => sheetData.filter(row => row.some(cell => cell !== '' && cell !== undefined)).length),
+    getLastColumn: jest.fn(() => {
+      if (sheetData.length === 0 || !sheetData[0]) return 0;
+      return sheetData[0].length;
+    }),
     getMaxColumns: jest.fn(() => Math.max(...sheetData.map(row => row.length), 1)),
     getDataRange: jest.fn(() => ({
       getValues: jest.fn(() => sheetData)
@@ -108,18 +112,68 @@ global.Date.prototype = OriginalDate.prototype;
 // Mock CONFIG
 const CONFIG = {
   SHEETS: {
-    VIDEOS_MASTER: 'videos_master',
+    MASTER: 'master',
     METRICS_YOUTUBE: 'metrics_youtube',
     METRICS_TIKTOK: 'metrics_tiktok',
     METRICS_INSTAGRAM: 'metrics_instagram',
     KPI_TARGETS: 'kpi_targets',
-    SCENARIO_CUTS: 'scenario_cuts',
     ANALYSIS_REPORTS: 'analysis_reports',
     RECOMMENDATIONS: 'recommendations',
+    VIDEO_ANALYSIS: 'video_analysis',
     UNLINKED_IMPORTS: 'unlinked_imports'
+  },
+  MASTER_COLUMNS: {
+    IDENTITY: ['video_uid', 'title', 'status', 'created_date'],
+    HOOK: ['hook_scenario_id', 'hook_motion_id', 'hook_audio_id'],
+    BODY: ['body_scenario_id', 'body_motion_id', 'body_audio_id'],
+    CTA: ['cta_scenario_id', 'cta_motion_id', 'cta_audio_id'],
+    CHARACTER: ['character_id'],
+    OUTPUT: ['completed_video_url'],
+    PLATFORMS: ['youtube_id', 'tiktok_id', 'instagram_id'],
+    YT_METRICS: ['yt_views', 'yt_engagement', 'yt_completion'],
+    TT_METRICS: ['tt_views', 'tt_engagement', 'tt_completion'],
+    IG_METRICS: ['ig_views', 'ig_engagement', 'ig_reach'],
+    ANALYSIS: ['overall_score', 'analysis_date', 'top_recommendations'],
+    AI_NEXT: [
+      'ai_next_hook_scenario', 'ai_next_hook_motion', 'ai_next_hook_audio',
+      'ai_next_body_scenario', 'ai_next_body_motion', 'ai_next_body_audio',
+      'ai_next_cta_scenario', 'ai_next_cta_motion', 'ai_next_cta_audio',
+      'ai_next_character'
+    ],
+    APPROVAL: ['human_approved', 'approval_notes']
+  },
+  get MASTER_ALL_COLUMNS() {
+    return [].concat(
+      this.MASTER_COLUMNS.IDENTITY,
+      this.MASTER_COLUMNS.HOOK,
+      this.MASTER_COLUMNS.BODY,
+      this.MASTER_COLUMNS.CTA,
+      this.MASTER_COLUMNS.CHARACTER,
+      this.MASTER_COLUMNS.OUTPUT,
+      this.MASTER_COLUMNS.PLATFORMS,
+      this.MASTER_COLUMNS.YT_METRICS,
+      this.MASTER_COLUMNS.TT_METRICS,
+      this.MASTER_COLUMNS.IG_METRICS,
+      this.MASTER_COLUMNS.ANALYSIS,
+      this.MASTER_COLUMNS.AI_NEXT,
+      this.MASTER_COLUMNS.APPROVAL
+    );
+  },
+  COLORS: {
+    HEADER: '#1a73e8',
+    HEADER_FONT: '#ffffff'
   }
 };
 global.CONFIG = CONFIG;
+
+// Mock functions used by SheetWriter.gs v2.0
+global.nowJapan = jest.fn(() => '2026-02-06T21:00:00+09:00');
+global.findRowByColumn = jest.fn(() => null);
+global.updateRowByIndex = jest.fn();
+global.updateMasterMetricsSnapshot = jest.fn();
+global.getInventorySheet = jest.fn((type) => {
+  throw new Error('Inventory sheet not found for: ' + type);
+});
 
 // Mock getPlatformFields
 global.getPlatformFields = jest.fn((platform) => {
@@ -295,8 +349,9 @@ describe('SheetWriter', () => {
   });
 
   describe('writeRecommendations', () => {
+    const recHeaders = ['video_uid', 'created_at', 'priority', 'category', 'recommendation', 'platform', 'expected_impact', 'status', 'compared_to_previous'];
     beforeEach(() => {
-      mockSheets[CONFIG.SHEETS.RECOMMENDATIONS] = createMockSheet('recommendations', [[]]);
+      mockSheets[CONFIG.SHEETS.RECOMMENDATIONS] = createMockSheet('recommendations', [recHeaders]);
     });
 
     it('should skip writing when recommendations array is empty', () => {
@@ -324,8 +379,8 @@ describe('SheetWriter', () => {
 
       const sheet = mockSheets[CONFIG.SHEETS.RECOMMENDATIONS];
       const data = sheet._getData();
-      // Row 1 is headers, Row 2 should have a timestamp
-      expect(data[1][0]).toContain('2026-02-06');
+      // Row 1 is headers, Row 2: created_at is at index 1 (video_uid=0, created_at=1)
+      expect(data[1][1]).toContain('2026-02-06');
     });
 
     it('should set initial status to pending', () => {
@@ -337,8 +392,8 @@ describe('SheetWriter', () => {
 
       const sheet = mockSheets[CONFIG.SHEETS.RECOMMENDATIONS];
       const data = sheet._getData();
-      // Status is last column (index 6)
-      expect(data[1][6]).toBe('pending');
+      // Status is at index 7 (video_uid=0, created_at=1, priority=2, category=3, recommendation=4, platform=5, expected_impact=6, status=7)
+      expect(data[1][7]).toBe('pending');
     });
   });
 
@@ -382,12 +437,11 @@ describe('SheetWriter', () => {
     it('should create all required sheets', () => {
       initializeSheets();
 
-      expect(mockSpreadsheet.insertSheet).toHaveBeenCalledWith('videos_master');
+      expect(mockSpreadsheet.insertSheet).toHaveBeenCalledWith('master');
       expect(mockSpreadsheet.insertSheet).toHaveBeenCalledWith('metrics_youtube');
       expect(mockSpreadsheet.insertSheet).toHaveBeenCalledWith('metrics_tiktok');
       expect(mockSpreadsheet.insertSheet).toHaveBeenCalledWith('metrics_instagram');
       expect(mockSpreadsheet.insertSheet).toHaveBeenCalledWith('kpi_targets');
-      expect(mockSpreadsheet.insertSheet).toHaveBeenCalledWith('scenario_cuts');
       expect(mockSpreadsheet.insertSheet).toHaveBeenCalledWith('analysis_reports');
       expect(mockSpreadsheet.insertSheet).toHaveBeenCalledWith('recommendations');
       expect(mockSpreadsheet.insertSheet).toHaveBeenCalledWith('unlinked_imports');
@@ -396,20 +450,20 @@ describe('SheetWriter', () => {
     it('should set headers on newly created sheets', () => {
       initializeSheets();
 
-      const videosMaster = mockSheets['videos_master'];
-      expect(videosMaster).toBeDefined();
-      expect(videosMaster.setFrozenRows).toHaveBeenCalledWith(1);
+      const master = mockSheets['master'];
+      expect(master).toBeDefined();
+      expect(master.setFrozenRows).toHaveBeenCalledWith(1);
     });
 
     it('should skip existing sheets', () => {
-      mockSheets['videos_master'] = createMockSheet('videos_master', [['video_uid', 'title']]);
+      mockSheets['master'] = createMockSheet('master', [['video_uid', 'title']]);
 
       initializeSheets();
 
-      // insertSheet should not be called for videos_master
+      // insertSheet should not be called for master
       const insertCalls = mockSpreadsheet.insertSheet.mock.calls;
-      const videosMasterCalls = insertCalls.filter(call => call[0] === 'videos_master');
-      expect(videosMasterCalls.length).toBe(0);
+      const masterCalls = insertCalls.filter(call => call[0] === 'master');
+      expect(masterCalls.length).toBe(0);
     });
 
     it('should log completion message', () => {
@@ -422,25 +476,25 @@ describe('SheetWriter', () => {
   describe('clearAllData', () => {
     it('should delete all data rows but keep headers', () => {
       const headers = ['col1', 'col2'];
-      mockSheets['videos_master'] = createMockSheet('videos_master', [
+      mockSheets['master'] = createMockSheet('master', [
         headers,
         ['data1', 'data2'],
         ['data3', 'data4']
       ]);
-      mockSheets['videos_master'].getLastRow = jest.fn(() => 3);
+      mockSheets['master'].getLastRow = jest.fn(() => 3);
 
       clearAllData();
 
-      expect(mockSheets['videos_master'].deleteRows).toHaveBeenCalledWith(2, 2);
+      expect(mockSheets['master'].deleteRows).toHaveBeenCalledWith(2, 2);
     });
 
     it('should not delete from empty sheets', () => {
-      mockSheets['videos_master'] = createMockSheet('videos_master', [['header']]);
-      mockSheets['videos_master'].getLastRow = jest.fn(() => 1);
+      mockSheets['master'] = createMockSheet('master', [['header']]);
+      mockSheets['master'].getLastRow = jest.fn(() => 1);
 
       clearAllData();
 
-      expect(mockSheets['videos_master'].deleteRows).not.toHaveBeenCalled();
+      expect(mockSheets['master'].deleteRows).not.toHaveBeenCalled();
     });
 
     it('should log completion message', () => {
@@ -450,94 +504,7 @@ describe('SheetWriter', () => {
     });
   });
 
-  describe('updateVideoMaster', () => {
-    beforeEach(() => {
-      mockSheets[CONFIG.SHEETS.VIDEOS_MASTER] = createMockSheet('videos_master', [
-        ['video_uid', 'title', 'created_date', 'youtube_id', 'tiktok_id', 'instagram_id', 'scenario_id'],
-        ['vid001', 'Original Title', '2026-01-01', 'yt001', '', '', ''],
-        ['vid002', 'Another Video', '2026-01-02', '', 'tt002', '', 'scene001']
-      ]);
-    });
-
-    it('should find video by video_uid and update fields', () => {
-      const result = updateVideoMaster('vid001', { title: 'Updated Title', youtube_id: 'yt_updated' });
-
-      expect(result).toBe(true);
-      expect(mockGetSheet).toHaveBeenCalledWith('videos_master');
-    });
-
-    it('should return false when video_uid not found', () => {
-      const result = updateVideoMaster('nonexistent', { title: 'New Title' });
-
-      expect(result).toBe(false);
-    });
-
-    it('should update only specified fields', () => {
-      const sheet = mockSheets[CONFIG.SHEETS.VIDEOS_MASTER];
-
-      updateVideoMaster('vid002', { tiktok_id: 'tt_updated' });
-
-      // setValue should have been called for the tiktok_id column
-      expect(sheet.getRange).toHaveBeenCalled();
-    });
-
-    it('should ignore updates for non-existent fields', () => {
-      const result = updateVideoMaster('vid001', { nonexistent_field: 'value' });
-
-      // Should still return true if video was found
-      expect(result).toBe(true);
-    });
-  });
-
-  describe('getAllVideoUids', () => {
-    it('should return all video UIDs from master sheet', () => {
-      mockSheets[CONFIG.SHEETS.VIDEOS_MASTER] = createMockSheet('videos_master', [
-        ['video_uid', 'title'],
-        ['vid001', 'Video 1'],
-        ['vid002', 'Video 2'],
-        ['vid003', 'Video 3']
-      ]);
-
-      const result = getAllVideoUids();
-
-      expect(result).toEqual(['vid001', 'vid002', 'vid003']);
-    });
-
-    it('should return empty array when sheet has only headers', () => {
-      mockSheets[CONFIG.SHEETS.VIDEOS_MASTER] = createMockSheet('videos_master', [
-        ['video_uid', 'title']
-      ]);
-
-      const result = getAllVideoUids();
-
-      expect(result).toEqual([]);
-    });
-
-    it('should filter out empty video_uid values', () => {
-      mockSheets[CONFIG.SHEETS.VIDEOS_MASTER] = createMockSheet('videos_master', [
-        ['video_uid', 'title'],
-        ['vid001', 'Video 1'],
-        ['', 'Empty UID'],
-        ['vid003', 'Video 3']
-      ]);
-
-      const result = getAllVideoUids();
-
-      expect(result).toEqual(['vid001', 'vid003']);
-    });
-
-    it('should return empty array when sheet is empty', () => {
-      mockSheets[CONFIG.SHEETS.VIDEOS_MASTER] = createMockSheet('videos_master', [[]]);
-      // Override getDataRange to return minimal data
-      mockSheets[CONFIG.SHEETS.VIDEOS_MASTER].getDataRange = jest.fn(() => ({
-        getValues: jest.fn(() => [[]])
-      }));
-
-      const result = getAllVideoUids();
-
-      expect(result).toEqual([]);
-    });
-  });
+  // NOTE: updateVideoMaster and getAllVideoUids moved to MasterManager.test.js
 
   describe('Field Mapping Validation', () => {
     it('should correctly map YouTube fields in order', () => {

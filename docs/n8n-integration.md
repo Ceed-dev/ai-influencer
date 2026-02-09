@@ -1,6 +1,6 @@
-# n8n Integration Guide
+# n8n Integration Guide (v2.0)
 
-This document describes how to integrate n8n workflows with the Video Analytics Hub GAS Web App.
+This document describes how to integrate n8n workflows with the Video Analytics Hub v2.0 GAS Web App.
 
 ## 1. Overview
 
@@ -17,43 +17,49 @@ This document describes how to integrate n8n workflows with the Video Analytics 
 │  │ Drive Watch) │    │   Base64)    │    │   GAS App)   │  │
 │  └──────────────┘    └──────────────┘    └──────────────┘  │
 │                                                   │          │
-│                                                   ▼          │
-│                                          ┌──────────────┐   │
-│                                          │   Response   │   │
-│                                          │   Handler    │   │
-│                                          └──────────────┘   │
+│  ┌──────────────┐    ┌──────────────┐            │          │
+│  │  Production  │◄───│ GET Approved │◄───────────┘          │
+│  │  Workflow    │    │   Videos     │                        │
+│  └──────────────┘    └──────────────┘                        │
 │                                                              │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                   GAS Web App (Google Apps Script)           │
+│               GAS Web App v2.0 (Google Apps Script)          │
 ├─────────────────────────────────────────────────────────────┤
 │                                                              │
-│   doPost(e) ─► Parse JSON ─► Route by action:               │
+│   doGet(e) ─► Route by action parameter:                     │
+│     • (none)          ─► Health check + endpoint list        │
+│     • get_status      ─► System status + counts              │
+│     • get_approved    ─► Approved videos for production      │
+│     • get_production  ─► Full production data for a video    │
+│     • get_components  ─► List inventory components           │
+│     • get_score_summary ─► Component scores                  │
 │                                                              │
-│     • import_csv  ─► CSVParser ─► Normalizer ─► Sheets      │
-│     • analyze     ─► KPIEngine ─► LLMAnalyzer ─► Reports    │
-│     • link_videos ─► Linker ─► Update Mappings              │
-│     • get_status  ─► Return current stats                   │
+│   doPost(e) ─► Parse JSON ─► Route by action:                │
+│     • import_csv       ─► CSV import pipeline                │
+│     • analyze          ─► KPI + LLM analysis (batch)         │
+│     • analyze_single   ─► Single video analysis              │
+│     • analyze_all      ─► Full analysis (enhanced)           │
+│     • link_videos      ─► Manual video linking               │
+│     • create_production ─► New video production              │
+│     • approve_video    ─► Approve for production             │
+│     • update_status    ─► Update video status                │
+│     • add_component    ─► Add to inventory                   │
+│     • update_component ─► Update inventory item              │
+│     • update_scores    ─► Recalculate component scores       │
 │                                                              │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                      Google Sheets                           │
-│  (videos_master, metrics_youtube, metrics_tiktok, etc.)     │
+│                      Google Sheets + Drive                    │
+│  Master Spreadsheet: master, metrics_*, recommendations...   │
+│  Inventory Spreadsheets: scenarios, motions, characters,     │
+│                          audio (separate files)              │
 └─────────────────────────────────────────────────────────────┘
 ```
-
-### Data Flow
-
-1. **Trigger**: n8n workflow starts (scheduled or Drive file detected)
-2. **CSV Processing**: Read CSV file and encode as Base64
-3. **API Call**: POST to GAS Web App with encoded CSV
-4. **Processing**: GAS parses, normalizes, and links data
-5. **Storage**: Metrics stored in Google Sheets
-6. **Response**: Success/error status returned to n8n
 
 ---
 
@@ -65,43 +71,14 @@ This document describes how to integrate n8n workflows with the Video Analytics 
 https://script.google.com/macros/s/{DEPLOYMENT_ID}/exec
 ```
 
-Replace `{DEPLOYMENT_ID}` with your actual Web App deployment ID.
-
-### doGet(e) - Health Check Endpoint
-
-**Purpose**: Verify the Web App is running and accessible.
-
-**Request**:
-```http
-GET https://script.google.com/macros/s/{DEPLOYMENT_ID}/exec
-```
-
-**Response**:
-```json
-{
-  "status": "ok",
-  "version": "1.0.0",
-  "timestamp": "2026-02-06T11:30:00.000Z"
-}
-```
-
-### doPost(e) - Main Processing Endpoint
-
-**Purpose**: Handle all data operations (CSV import, analysis, linking).
-
-**Request Headers**:
-```http
-Content-Type: application/json
-```
-
-**Common Response Format**:
+### Common Response Format
 
 Success:
 ```json
 {
   "status": "success",
   "data": { ... },
-  "timestamp": "2026-02-06T11:30:00.000Z"
+  "timestamp": "2026-02-09T11:30:00.000Z"
 }
 ```
 
@@ -110,17 +87,105 @@ Error:
 {
   "status": "error",
   "error": "Error message description",
-  "timestamp": "2026-02-06T11:30:00.000Z"
+  "timestamp": "2026-02-09T11:30:00.000Z"
 }
 ```
 
 ---
 
-### Action: `import_csv`
+### GET Actions
 
-Import analytics CSV data from a platform.
+#### Health Check (no action)
 
-**Request Payload**:
+```http
+GET https://script.google.com/macros/s/{DEPLOYMENT_ID}/exec
+```
+
+Response:
+```json
+{
+  "status": "ok",
+  "version": "2.0.0",
+  "endpoints": ["GET: get_status, get_approved, ...", "POST: import_csv, analyze, ..."],
+  "timestamp": "..."
+}
+```
+
+#### get_status
+
+```http
+GET ...?action=get_status
+```
+
+Response:
+```json
+{
+  "version": "2.0.0",
+  "record_counts": {
+    "MASTER": 150,
+    "METRICS_YOUTUBE": 500,
+    "METRICS_TIKTOK": 300,
+    "METRICS_INSTAGRAM": 200,
+    "RECOMMENDATIONS": 45
+  },
+  "video_statuses": {
+    "draft": 3,
+    "approved": 2,
+    "in_production": 1,
+    "published": 12,
+    "analyzed": 8
+  },
+  "last_updated": "2026-02-09T21:00:00+09:00"
+}
+```
+
+#### get_approved
+
+```http
+GET ...?action=get_approved
+```
+
+Response:
+```json
+{
+  "count": 2,
+  "videos": [
+    { "video_uid": "VID_202602_0001", "title": "Morning Routine", "status": "approved", "human_approved": true }
+  ]
+}
+```
+
+#### get_production
+
+```http
+GET ...?action=get_production&video_uid=VID_202602_0001
+```
+
+Returns full production data including all component IDs, platform IDs, and metadata.
+
+#### get_components
+
+```http
+GET ...?action=get_components&inventory_type=scenarios&type=hook&status=active
+```
+
+Response:
+```json
+{
+  "inventory_type": "scenarios",
+  "count": 5,
+  "components": [
+    { "component_id": "SCN_H_0001", "type": "hook", "name": "Shocking question", "avg_performance_score": 85, "status": "active" }
+  ]
+}
+```
+
+---
+
+### POST Actions
+
+#### import_csv
+
 ```json
 {
   "action": "import_csv",
@@ -131,450 +196,292 @@ Import analytics CSV data from a platform.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| action | string | Yes | Must be `"import_csv"` |
-| platform | string | Yes | One of: `"youtube"`, `"tiktok"`, `"instagram"` |
+| action | string | Yes | `"import_csv"` |
+| platform | string | Yes | `"youtube"`, `"tiktok"`, or `"instagram"` |
 | csv_data | string | Yes | Base64-encoded CSV content |
 
-**Response Data**:
+Response:
 ```json
-{
-  "platform": "youtube",
-  "total_rows": 50,
-  "linked": 45,
-  "unlinked": 5
-}
+{ "platform": "youtube", "total_rows": 50, "linked": 45, "unlinked": 5 }
 ```
 
----
+#### analyze
 
-### Action: `analyze`
-
-Run analysis on specified videos.
-
-**Request Payload**:
 ```json
 {
   "action": "analyze",
-  "video_uids": ["VID_2024_001", "VID_2024_002", "VID_2024_003"]
+  "video_uids": ["VID_202602_0001", "VID_202602_0002"]
 }
 ```
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| action | string | Yes | Must be `"analyze"` |
-| video_uids | string[] | Yes | Array of video UIDs to analyze |
+Runs enhanced analysis with component context. Updates scores automatically.
 
-**Response Data**:
+#### analyze_single
+
 ```json
 {
-  "analyzed_count": 3,
-  "report_id": "RPT_20260206_001"
+  "action": "analyze_single",
+  "video_uid": "VID_202602_0001"
 }
 ```
 
----
+#### analyze_all
 
-### Action: `link_videos`
+```json
+{ "action": "analyze_all" }
+```
 
-Manually link platform IDs to video_uid.
+Analyzes all videos with enhanced component-aware prompts. Updates all component scores.
 
-**Request Payload**:
+#### create_production
+
+```json
+{
+  "action": "create_production",
+  "title": "Morning Routine with AI Mika",
+  "hook_scenario_id": "SCN_H_0001",
+  "hook_motion_id": "MOT_0001",
+  "body_scenario_id": "SCN_B_0003",
+  "character_id": "CHR_0001"
+}
+```
+
+Creates a new video production in master sheet with status "draft".
+
+#### approve_video
+
+```json
+{
+  "action": "approve_video",
+  "video_uid": "VID_202602_0001",
+  "notes": "Looks good, proceed with production"
+}
+```
+
+#### update_status
+
+```json
+{
+  "action": "update_status",
+  "video_uid": "VID_202602_0001",
+  "status": "in_production"
+}
+```
+
+Valid statuses: `draft`, `approved`, `in_production`, `published`, `analyzed`
+
+#### add_component
+
+```json
+{
+  "action": "add_component",
+  "inventory_type": "scenarios",
+  "type": "hook",
+  "name": "Shocking Question Opener",
+  "description": "Opens with a provocative question",
+  "script_en": "Why are you still wasting your mornings?",
+  "script_jp": "まだ朝の時間を無駄にしてるの？"
+}
+```
+
+#### update_component
+
+```json
+{
+  "action": "update_component",
+  "component_id": "SCN_H_0001",
+  "description": "Updated description",
+  "tags": "provocative,question,morning"
+}
+```
+
+#### update_scores
+
+```json
+{ "action": "update_scores" }
+```
+
+Or for a specific video:
+```json
+{ "action": "update_scores", "video_uid": "VID_202602_0001" }
+```
+
+#### link_videos
+
 ```json
 {
   "action": "link_videos",
   "links": [
-    {
-      "video_uid": "VID_2024_001",
-      "platform_id": "dQw4w9WgXcQ",
-      "platform": "youtube"
-    },
-    {
-      "video_uid": "VID_2024_002",
-      "platform_id": "7123456789012345678",
-      "platform": "tiktok"
-    }
-  ]
-}
-```
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| action | string | Yes | Must be `"link_videos"` |
-| links | object[] | Yes | Array of link mappings |
-| links[].video_uid | string | Yes | Internal video identifier |
-| links[].platform_id | string | Yes | Platform-specific video ID |
-| links[].platform | string | Yes | Platform name |
-
-**Response Data**:
-```json
-{
-  "processed": 2,
-  "successful": 2,
-  "failed": 0,
-  "details": [
-    { "video_uid": "VID_2024_001", "platform_id": "dQw4w9WgXcQ", "platform": "youtube", "status": "success" },
-    { "video_uid": "VID_2024_002", "platform_id": "7123456789012345678", "platform": "tiktok", "status": "success" }
+    { "video_uid": "VID_202602_0001", "platform_id": "dQw4w9WgXcQ", "platform": "youtube" }
   ]
 }
 ```
 
 ---
 
-### Action: `get_status`
+## 3. n8n Workflow Examples
 
-Get current system status and record counts.
+### 3.1 CSV Auto-Import Workflow
 
-**Request Payload**:
-```json
-{
-  "action": "get_status"
-}
+```
+[Google Drive Trigger] ──► [Read File] ──► [Code: Base64] ──► [POST: import_csv]
+     (CSV_Imports/)                                                    │
+                                                                       ▼
+                                                               [POST: analyze_all]
+                                                                       │
+                                                                       ▼
+                                                               [POST: update_scores]
 ```
 
-**Response Data**:
-```json
-{
-  "spreadsheet_id": "1abc...",
-  "record_counts": {
-    "VIDEOS_MASTER": 150,
-    "METRICS_YOUTUBE": 500,
-    "METRICS_TIKTOK": 300,
-    "METRICS_INSTAGRAM": 200
-  },
-  "pending_links": 12,
-  "last_updated": "2026-02-06T11:30:00.000Z"
-}
+**Platform Detection Logic**:
+```javascript
+const filename = $json.name.toLowerCase();
+if (filename.includes('youtube') || filename.includes('yt_')) return 'youtube';
+if (filename.includes('tiktok') || filename.includes('tt_')) return 'tiktok';
+if (filename.includes('instagram') || filename.includes('ig_')) return 'instagram';
+```
+
+### 3.2 Production Workflow (v2.0)
+
+```
+[Schedule: Daily] ──► [GET: get_approved] ──► [For Each Video]
+                                                      │
+                                                      ▼
+                                              [GET: get_production]
+                                                      │
+                                                      ▼
+                                              [GET: get_components]
+                                                      │
+                                                      ▼
+                                              [Video Creation API]
+                                                      │
+                                                      ▼
+                                              [POST: update_status]
+                                              (status: in_production)
+                                                      │
+                                                      ▼
+                                              [Upload to Platforms]
+                                                      │
+                                                      ▼
+                                              [POST: update_status]
+                                              (status: published)
+```
+
+This is the key v2.0 workflow. n8n:
+1. Gets approved videos from master sheet
+2. For each video, fetches full production data (component IDs)
+3. Fetches component details from inventories (scripts, motions, characters)
+4. Calls video creation API with component data
+5. Updates video status through the lifecycle
+
+### 3.3 Weekly Analysis + Score Update Workflow
+
+```
+[Schedule: Monday 9AM] ──► [POST: analyze_all] ──► [POST: update_scores]
+                                                          │
+                                                          ▼
+                                                  [GET: get_score_summary]
+                                                          │
+                                                          ▼
+                                                  [Format Report Email]
+                                                          │
+                                                          ▼
+                                                  [Send Email]
 ```
 
 ---
 
-## 3. n8n Workflow Configuration
+## 4. Error Handling
 
 ### HTTP Request Node Settings
 
-**Basic Configuration**:
 ```yaml
-Method: POST
+Method: POST (or GET)
 URL: https://script.google.com/macros/s/{DEPLOYMENT_ID}/exec
-Authentication: None  # Web App handles its own auth
-```
-
-**Headers**:
-```yaml
-Content-Type: application/json
-```
-
-**Body (JSON)**:
-```json
-{
-  "action": "import_csv",
-  "platform": "{{ $json.platform }}",
-  "csv_data": "{{ $json.csv_base64 }}"
-}
-```
-
-### CSV File Processing
-
-Before sending CSV to GAS, convert file to Base64:
-
-**Using Code Node**:
-```javascript
-// Read CSV file and encode to Base64
-const csvContent = $input.first().binary.data;
-const base64Data = csvContent.toString('base64');
-
-return {
-  json: {
-    csv_base64: base64Data,
-    platform: 'youtube'  // or detect from filename
-  }
-};
-```
-
-**Using Read Binary File + Move Binary Data**:
-1. **Read Binary File**: Read CSV from path
-2. **Move Binary Data**: Convert binary to Base64 string
-
-### Error Handling Configuration
-
-**Recommended Settings**:
-```yaml
+Authentication: None
 Continue On Fail: true
 Retry On Fail: true
 Max Tries: 3
 Wait Between Tries: 5000  # 5 seconds
 ```
 
-**Error Branch Logic**:
-```javascript
-// Check response status
-if ($json.status === 'error') {
-  // Log error and potentially notify
-  console.log('GAS Error:', $json.error);
+### Error Branch Logic
 
-  // Optionally send to error notification workflow
+```javascript
+if ($json.status === 'error') {
+  console.log('GAS Error:', $json.error);
   return { json: { error: $json.error, timestamp: new Date() } };
 }
-```
-
-### Schedule Trigger Configuration
-
-**Daily Import Example**:
-```yaml
-Trigger: Schedule
-Mode: Every Day
-Hour: 6
-Minute: 0
-Timezone: Asia/Tokyo
-```
-
-**Weekly Batch Analysis**:
-```yaml
-Trigger: Schedule
-Mode: Every Week
-Weekday: Monday
-Hour: 9
-Minute: 0
-```
-
----
-
-## 4. Sample Workflows
-
-### 4.1 YouTube CSV Auto-Import Workflow
-
-**Description**: Automatically import YouTube analytics CSV when uploaded to Google Drive.
-
-```
-[Google Drive Trigger] ──► [Read File] ──► [Code: Base64 Encode] ──► [HTTP Request: import_csv]
-        │                                                                      │
-        │                                                                      ▼
-        │                                                              [IF: Success?]
-        │                                                              /           \
-        │                                                           Yes            No
-        │                                                            │              │
-        └────────────────────────────────────────────────────────────▼              ▼
-                                                              [Move File to   [Send Error
-                                                               Processed]      Notification]
-```
-
-**Node Details**:
-
-1. **Google Drive Trigger**
-   - Watch Folder: `/Analytics/YouTube/Inbox`
-   - Event: File Created
-
-2. **Read File**
-   - File ID: `{{ $json.id }}`
-   - Binary Property: `data`
-
-3. **Code: Base64 Encode**
-   ```javascript
-   const binary = $input.first().binary.data;
-   return {
-     json: {
-       csv_base64: binary.toString('base64'),
-       platform: 'youtube',
-       filename: $input.first().json.name
-     }
-   };
-   ```
-
-4. **HTTP Request: import_csv**
-   - Method: POST
-   - URL: `{GAS_WEB_APP_URL}`
-   - Body:
-     ```json
-     {
-       "action": "import_csv",
-       "platform": "{{ $json.platform }}",
-       "csv_data": "{{ $json.csv_base64 }}"
-     }
-     ```
-
----
-
-### 4.2 All-Platform Batch Processing Workflow
-
-**Description**: Process CSVs from all platforms in a single workflow.
-
-```
-[Schedule Trigger] ──► [Google Drive: List Files] ──► [Split In Batches]
-                                                             │
-                              ┌───────────────────────────────┤
-                              │                               │
-                              ▼                               ▼
-                     [IF: YouTube?]                   [IF: TikTok?]
-                              │                               │
-                              ▼                               ▼
-                     [Process YouTube]               [Process TikTok]
-                              │                               │
-                              └───────────┬───────────────────┘
-                                          ▼
-                                  [Aggregate Results]
-                                          │
-                                          ▼
-                                  [HTTP Request: get_status]
-                                          │
-                                          ▼
-                                  [Send Summary Report]
-```
-
-**Platform Detection Logic**:
-```javascript
-const filename = $json.name.toLowerCase();
-
-if (filename.includes('youtube') || filename.includes('yt_')) {
-  return { json: { platform: 'youtube', ...inputData } };
-} else if (filename.includes('tiktok') || filename.includes('tt_')) {
-  return { json: { platform: 'tiktok', ...inputData } };
-} else if (filename.includes('instagram') || filename.includes('ig_')) {
-  return { json: { platform: 'instagram', ...inputData } };
-}
-```
-
----
-
-### 4.3 Weekly Report Generation Workflow
-
-**Description**: Generate weekly analysis report for top-performing videos.
-
-```
-[Schedule: Monday 9AM] ──► [HTTP Request: get_status] ──► [Code: Get Top Videos]
-                                                                    │
-                                                                    ▼
-                                                          [HTTP Request: analyze]
-                                                                    │
-                                                                    ▼
-                                                          [Wait: 30 seconds]
-                                                                    │
-                                                                    ▼
-                                                          [Google Sheets: Read Report]
-                                                                    │
-                                                                    ▼
-                                                          [Format Report Email]
-                                                                    │
-                                                                    ▼
-                                                          [Send Email]
-```
-
-**Get Top Videos Code**:
-```javascript
-// Get video UIDs from the past week's imports
-// This example assumes you have a way to retrieve recent video_uids
-const recentVideoUids = [
-  'VID_2024_001',
-  'VID_2024_002',
-  'VID_2024_003'
-];
-
-return {
-  json: {
-    action: 'analyze',
-    video_uids: recentVideoUids.slice(0, 10)  // Limit to 10 videos
-  }
-};
 ```
 
 ---
 
 ## 5. Troubleshooting
 
-### Common Errors and Solutions
+### Common Errors
 
 | Error | Cause | Solution |
 |-------|-------|----------|
-| `Missing required fields: platform, csv_data` | Incomplete request payload | Verify both `platform` and `csv_data` are included |
-| `Unknown action: xxx` | Invalid action name | Use one of: `import_csv`, `analyze`, `link_videos`, `get_status` |
-| `Missing or invalid video_uids array` | video_uids not an array | Ensure `video_uids` is a valid JSON array |
-| `Script function not found: doPost` | Deployment issue | Redeploy Web App with latest code |
-| `Authorization required` | Web App permissions | Set Web App to "Anyone" or configure OAuth |
-| `Timeout (exceeded 6 minutes)` | Large CSV or many videos | Split into smaller batches |
+| `Missing required fields: platform, csv_data` | Incomplete payload | Include both fields |
+| `Unknown action: xxx` | Invalid action | Check endpoint list above |
+| `Missing video_uid` | video_uid not provided | Include video_uid in payload |
+| `Missing inventory_type` | Inventory type not specified | Use: scenarios, motions, characters, audio |
+| `Video not found: VID_...` | Invalid video_uid | Check master sheet |
+| `Inventory sheet not found` | Setup not run | Run setupCompleteSystem() |
+| `Timeout (exceeded 6 minutes)` | Too much data | Split into smaller batches |
 
-### GAS Execution Logs
-
-**How to Check Logs**:
-
-1. Open Google Apps Script project
-2. Click **Executions** in left sidebar
-3. View recent executions and their logs
-4. Click on specific execution for detailed logs
-
-**Programmatic Log Access**:
-```javascript
-// In GAS code, logs are written via Logger.log()
-Logger.log('Processing started for platform: ' + platform);
-
-// View in Executions panel or use console.log for Cloud Logging
-console.log('Detailed debug info:', JSON.stringify(data));
-```
-
-### n8n Debug Tips
-
-1. **Enable Debug Mode**: Add `{{ JSON.stringify($json) }}` to see full data
-2. **Check Response**: Use "Set" node to capture and inspect responses
-3. **Test Endpoint**: Use Postman/curl to test GAS endpoint directly:
+### Testing Endpoints
 
 ```bash
+# Health check
+curl 'https://script.google.com/macros/s/{DEPLOYMENT_ID}/exec'
+
+# Get status
+curl 'https://script.google.com/macros/s/{DEPLOYMENT_ID}/exec?action=get_status'
+
+# Get approved videos
+curl 'https://script.google.com/macros/s/{DEPLOYMENT_ID}/exec?action=get_approved'
+
+# Import CSV
 curl -X POST \
   'https://script.google.com/macros/s/{DEPLOYMENT_ID}/exec' \
   -H 'Content-Type: application/json' \
-  -d '{
-    "action": "get_status"
-  }'
+  -d '{"action": "import_csv", "platform": "youtube", "csv_data": "..."}'
 ```
 
-### Base64 Encoding Issues
+### Rate Limits
 
-**Problem**: CSV content not properly encoded
-
-**Solution**: Ensure UTF-8 encoding before Base64:
-```javascript
-// n8n Code Node
-const csvString = $input.first().json.csvContent;
-const buffer = Buffer.from(csvString, 'utf-8');
-const base64 = buffer.toString('base64');
-```
-
-**Verify Decoding in GAS**:
-```javascript
-// GAS side
-const decoded = Utilities.newBlob(
-  Utilities.base64Decode(csv_data)
-).getDataAsString('UTF-8');
-Logger.log('Decoded CSV preview:', decoded.substring(0, 200));
-```
-
-### Rate Limiting
-
-**GAS Quotas**:
-- Web App: 20,000 requests/day
+- GAS Web App: 20,000 requests/day
 - Execution time: 6 minutes max per execution
 - URL Fetch: 20,000 calls/day
-
-**Mitigation**:
-- Batch multiple CSVs in single request when possible
-- Implement chunking for large datasets
-- Add delays between sequential requests in n8n
 
 ---
 
 ## Appendix: Quick Reference
 
-### Endpoints Summary
+### GET Endpoints
 
-| Action | Method | Required Fields |
-|--------|--------|-----------------|
-| Health Check | GET | (none) |
-| import_csv | POST | `action`, `platform`, `csv_data` |
-| analyze | POST | `action`, `video_uids` |
-| link_videos | POST | `action`, `links` |
-| get_status | POST | `action` |
+| Action | Parameters | Description |
+|--------|-----------|-------------|
+| (none) | - | Health check |
+| get_status | - | System status |
+| get_approved | - | Approved videos |
+| get_production | video_uid | Production data |
+| get_components | inventory_type, type?, status? | Component list |
+| get_score_summary | - | Score summary |
 
-### Platform Values
+### POST Endpoints
 
-| Platform | Value | Typical Filename Pattern |
-|----------|-------|--------------------------|
-| YouTube | `youtube` | `youtube_analytics_*.csv`, `yt_*.csv` |
-| TikTok | `tiktok` | `tiktok_*.csv`, `tt_*.csv` |
-| Instagram | `instagram` | `instagram_*.csv`, `ig_*.csv` |
+| Action | Key Fields | Description |
+|--------|-----------|-------------|
+| import_csv | platform, csv_data | Import CSV |
+| analyze | video_uids[] | Analyze videos |
+| analyze_single | video_uid | Analyze one video |
+| analyze_all | - | Analyze all videos |
+| link_videos | links[] | Link platform IDs |
+| create_production | title, component IDs | Create production |
+| approve_video | video_uid, notes? | Approve video |
+| update_status | video_uid, status | Update status |
+| add_component | inventory_type, type, name | Add component |
+| update_component | component_id, ...updates | Update component |
+| update_scores | video_uid? | Update scores |
