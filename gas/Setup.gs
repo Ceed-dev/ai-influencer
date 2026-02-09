@@ -243,13 +243,18 @@ function applyMasterSheetFormatting_(ss) {
     applyVideoStatusFormatting_(sheet, statusCol, lastRow);
   }
 
-  // human_approved checkbox
+  // human_approved checkbox - only set validation, not values
+  // Note: requireCheckbox() auto-fills FALSE which bloats getLastRow().
+  // We set validation only on rows that have actual data.
   var approvedCol = headers.indexOf('human_approved') + 1;
   if (approvedCol > 0) {
     var checkboxRule = SpreadsheetApp.newDataValidation()
       .requireCheckbox()
       .build();
-    sheet.getRange(2, approvedCol, lastRow - 1, 1).setDataValidation(checkboxRule);
+    var dataLastRow = sheet.getLastRow();
+    if (dataLastRow > 1) {
+      sheet.getRange(2, approvedCol, dataLastRow - 1, 1).setDataValidation(checkboxRule);
+    }
   }
 
   // Set column widths for key columns
@@ -553,12 +558,26 @@ function insertDemoData() {
     }
   ];
 
-  demoVideos.forEach(function(video) {
-    var row = headers.map(function(h) {
+  // Clear any checkbox FALSE values before writing
+  if (masterSheet.getLastRow() > 1) {
+    masterSheet.deleteRows(2, masterSheet.getLastRow() - 1);
+  }
+
+  var rows = demoVideos.map(function(video) {
+    return headers.map(function(h) {
       return video[h] !== undefined ? video[h] : '';
     });
-    masterSheet.appendRow(row);
   });
+  masterSheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
+
+  // Now apply checkbox validation to the data rows
+  var approvedCol = headers.indexOf('human_approved') + 1;
+  if (approvedCol > 0) {
+    var checkboxRule = SpreadsheetApp.newDataValidation()
+      .requireCheckbox()
+      .build();
+    masterSheet.getRange(2, approvedCol, rows.length, 1).setDataValidation(checkboxRule);
+  }
 
   // Also add metrics for analyzed videos
   var ytSheet = ss.getSheetByName(CONFIG.SHEETS.METRICS_YOUTUBE);
