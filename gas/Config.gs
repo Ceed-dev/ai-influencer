@@ -12,8 +12,8 @@ const CONFIG = {
   // Spreadsheet ID - Set this after creating the Google Sheets
   SPREADSHEET_ID: PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID') || '',
 
-  // OpenAI API Key - Store in Script Properties for security
-  OPENAI_API_KEY: PropertiesService.getScriptProperties().getProperty('OPENAI_API_KEY') || '',
+  // OpenAI API Key - Read from Script Properties, fallback to _config sheet
+  OPENAI_API_KEY: PropertiesService.getScriptProperties().getProperty('OPENAI_API_KEY') || getConfigFromSheet_('OPENAI_API_KEY') || '',
 
   // OpenAI Model
   OPENAI_MODEL: 'gpt-4o',
@@ -255,6 +255,63 @@ const CONFIG = {
   // GAS execution timeout handling
   EXECUTION_TIME_LIMIT_MS: 330000
 };
+
+/**
+ * Read a config value from the _config sheet (fallback for Script Properties)
+ * The _config sheet has columns: key, value, description
+ * @param {string} key - The config key to look up
+ * @returns {string|null} The value or null if not found
+ * @private
+ */
+function getConfigFromSheet_(key) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    if (!ss) return null;
+    var configSheet = ss.getSheetByName('_config');
+    if (!configSheet || configSheet.getLastRow() < 2) return null;
+    var data = configSheet.getRange(2, 1, configSheet.getLastRow() - 1, 2).getValues();
+    for (var i = 0; i < data.length; i++) {
+      if (data[i][0] === key) {
+        // Also migrate to Script Properties for future use
+        try {
+          PropertiesService.getScriptProperties().setProperty(key, data[i][1]);
+          Logger.log('Migrated ' + key + ' from _config sheet to Script Properties');
+        } catch (e) {
+          // Ignore migration errors
+        }
+        return data[i][1];
+      }
+    }
+  } catch (e) {
+    // Silently fail - this is a fallback mechanism
+  }
+  return null;
+}
+
+/**
+ * Migrate all config values from _config sheet to Script Properties
+ * Run this once after setting up config values via the Sheets API
+ */
+function migrateConfigToProperties() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var configSheet = ss.getSheetByName('_config');
+  if (!configSheet || configSheet.getLastRow() < 2) {
+    Logger.log('No _config sheet or no data');
+    return;
+  }
+  var data = configSheet.getRange(2, 1, configSheet.getLastRow() - 1, 2).getValues();
+  var props = PropertiesService.getScriptProperties();
+  var migrated = 0;
+  for (var i = 0; i < data.length; i++) {
+    if (data[i][0] && data[i][1]) {
+      props.setProperty(data[i][0], data[i][1]);
+      migrated++;
+      Logger.log('Set Script Property: ' + data[i][0]);
+    }
+  }
+  Logger.log('Migrated ' + migrated + ' config values');
+  return migrated;
+}
 
 /**
  * Initialize configuration from Script Properties

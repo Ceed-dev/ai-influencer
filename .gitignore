@@ -11,9 +11,14 @@ node_modules/
 credentials.json
 token.json
 client_secret_*.json
+video_analytics_hub_*oauth*.json
+.gsheets_token.json
 
 # Google Apps Script (clasp)
 .clasp.json
+
+# MCP configuration (contains OAuth client secrets)
+.mcp.json
 
 # OS generated files
 .DS_Store
@@ -38,6 +43,9 @@ logs/
 # Test files
 *.test.csv
 test-data/
+
+# Temp files
+tmp/
 
 # Build outputs
 dist/

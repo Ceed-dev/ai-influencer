@@ -1,7 +1,7 @@
 {
   "name": "video-analytics-hub",
-  "version": "1.0.0",
-  "description": "Video Analytics Hub - Cross-platform video performance analytics",
+  "version": "2.0.0",
+  "description": "Video Analytics Hub v2.0 - Cross-platform video performance analytics with component management and AI analysis",
   "scripts": {
     "test": "jest",
     "test:watch": "jest --watch",
