@@ -1,280 +1,322 @@
-# Video Analytics Hub v2.0 - Architecture
+# AI-Influencer 技術アーキテクチャ
 
-## System Overview
+> **バージョン**: 3.0
+> **最終更新**: 2026-02-09
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         Human Workflow                               │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                      │
-│   [YouTube Studio]  [TikTok Analytics]  [IG Professional Dashboard] │
-│         │                  │                      │                  │
-│         ▼                  ▼                      ▼                  │
-│   [Export CSV]       [Export CSV]          [Export CSV]             │
-│         │                  │                      │                  │
-│         └──────────────────┼──────────────────────┘                  │
-│                            ▼                                         │
-│             [Upload to Google Drive CSV_Imports/]                    │
-│                                                                      │
-│   [Review AI Recommendations] ──► [Approve/Reject] ──► [n8n]       │
-│                                                                      │
-└─────────────────────────────────────────────────────────────────────┘
-                                   │
-                                   ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                         n8n Workflow                                 │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                      │
-│   [Drive Trigger] ──► [Read CSV] ──► [POST: import_csv]            │
-│                                                                      │
-│   [Schedule] ──► [GET: get_approved] ──► [GET: get_production]     │
-│       │               │                        │                     │
-│       │               ▼                        ▼                     │
-│       │        [Read Component Data]    [Video Creation WF]         │
-│       │                                        │                     │
-│       └──► [POST: analyze_all] ──► [POST: update_scores]           │
-│                                                                      │
-└─────────────────────────────────────────────────────────────────────┘
-                                   │
-                                   ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                    Google Apps Script (GAS) v2.0                     │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                      │
-│   ┌─────────────┐    ┌─────────────┐    ┌─────────────┐            │
-│   │  Code.gs    │    │ CSVParser.gs│    │ Normalizer  │            │
-│   │ (Endpoints) │───►│ (Parse CSV) │───►│ (Unify)     │            │
-│   └─────────────┘    └─────────────┘    └─────────────┘            │
-│         │                                      │                     │
-│         │  ┌───────────────────────────────────┘                     │
-│         │  ▼                                                         │
-│   ┌─────────────┐    ┌─────────────┐    ┌─────────────┐            │
-│   │ SheetWriter │◄───│ LLMAnalyzer │◄───│  Linker.gs  │            │
-│   │ (Output)    │    │ (OpenAI)    │    │ (video_uid) │            │
-│   └─────────────┘    └─────────────┘    └─────────────┘            │
-│         │                  │                    │                     │
-│         │            ┌─────┘                    │                     │
-│         ▼            ▼                          ▼                    │
-│   ┌──────────┐  ┌──────────┐  ┌───────────────────────┐            │
-│   │Component │  │  Score   │  │   MasterManager.gs    │            │
-│   │Manager.gs│  │Updater.gs│  │ (Production Workflow) │            │
-│   └──────────┘  └──────────┘  └───────────────────────┘            │
-│         │            │                    │                          │
-│         ▼            ▼                    ▼                          │
-│   [Inventory    [Master     [Google Sheets]   [OpenAI API]          │
-│    Spreadsheets] Spreadsheet]                                       │
-│                                                                      │
-└─────────────────────────────────────────────────────────────────────┘
+---
+
+## システム全体図
+
+```mermaid
+graph TB
+    subgraph Pipeline["Pipeline (Node.js)"]
+        ORC[orchestrator.js]
+        MEDIA[media/]
+        STORE[storage/]
+        POST[posting/]
+    end
+
+    subgraph External["外部API"]
+        FAL[fal.ai<br/>Kling / ElevenLabs / Lipsync]
+        CREATIFY[Creatify<br/>動画合成]
+        YT_API[YouTube Data API]
+        IG_API[Instagram Graph API]
+        TT_API[TikTok Content API]
+        X_API[X/Twitter v2 API]
+    end
+
+    subgraph Analytics["Analytics (GAS)"]
+        CODE[Code.gs<br/>Web App]
+        CSV[CSVParser.gs]
+        NORM[Normalizer.gs]
+        LINK[Linker.gs]
+        KPI[KPIEngine.gs]
+        LLM[LLMAnalyzer.gs]
+        SW[SheetWriter.gs]
+        CM[ComponentManager.gs]
+        MM[MasterManager.gs]
+        SU[ScoreUpdater.gs]
+    end
+
+    subgraph Data["データ層 (Google)"]
+        SHEETS[(Google Sheets<br/>Master + Inventories)]
+        DRIVE[(Google Drive<br/>動画 / アセット)]
+        OPENAI[OpenAI GPT-4o]
+    end
+
+    ORC --> MEDIA
+    ORC --> STORE
+    ORC --> POST
+    MEDIA --> FAL
+    MEDIA --> CREATIFY
+    STORE --> DRIVE
+    POST --> YT_API
+    POST --> IG_API
+    POST --> TT_API
+    POST --> X_API
+    ORC --> SHEETS
+
+    CODE --> CSV --> NORM --> LINK
+    LINK --> KPI --> LLM --> SW
+    LLM --> OPENAI
+    CM --> SHEETS
+    MM --> SHEETS
+    SU --> SHEETS
+    SW --> SHEETS
 ```
 
-## Data Model
-
-### video_uid Concept
-
-Each video production has a unique identifier (`video_uid`) that links across platforms and connects to all components:
+### テキスト版
 
 ```
-video_uid: "VID_202602_0001"
-├── youtube_id: "dQw4w9WgXcQ"
-├── tiktok_id: "7123456789012345678"
-├── instagram_id: "Cxyz123ABC"
-├── hook_scenario_id: "SCN_H_0001" ──► Scenarios Inventory
-├── hook_motion_id: "MOT_0001"    ──► Motions Inventory
-├── hook_audio_id: "AUD_0001"     ──► Audio Inventory
-├── body_scenario_id: "SCN_B_0001"
-├── body_motion_id: "MOT_0002"
-├── character_id: "CHR_0001"      ──► Characters Inventory
-└── status: "draft" → "approved" → "in_production" → "published" → "analyzed"
+┌──────────────────────────────────────────────────────────────────┐
+│                    Pipeline (Node.js)                             │
+│                                                                  │
+│  orchestrator.js ──► media/ ──► fal.ai (Kling/ElevenLabs/Sync)  │
+│       │              │                                           │
+│       │              └──► Creatify (合成)                        │
+│       │                                                          │
+│       ├──► storage/ ──► Google Drive                             │
+│       │                                                          │
+│       └──► posting/ ──► YouTube / Instagram / TikTok / X        │
+│                                                                  │
+│  sheets/ ◄──► Google Sheets (accounts, content_pipeline)         │
+└──────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌──────────────────────────────────────────────────────────────────┐
+│                  Analytics (GAS v2.0) ※変更なし                  │
+│                                                                  │
+│  Code.gs ──► CSVParser ──► Normalizer ──► Linker                │
+│                                              │                   │
+│                                              ▼                   │
+│  SheetWriter ◄── LLMAnalyzer ◄── KPIEngine                      │
+│       │              │                                           │
+│       ▼              ▼                                           │
+│  ComponentManager  ScoreUpdater  MasterManager                   │
+│       │              │              │                             │
+│       ▼              ▼              ▼                             │
+│              Google Sheets (Master + Inventories)                 │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
-### Component ID Prefixes
+---
 
-| Prefix | Type |
-|--------|------|
-| `SCN_H_` | Scenario - Hook |
-| `SCN_B_` | Scenario - Body |
-| `SCN_C_` | Scenario - CTA |
-| `MOT_` | Motion |
-| `CHR_` | Character |
-| `AUD_` | Audio |
-| `VID_` | Video UID |
+## データフロー
 
-### Metrics Flow
+### 動画制作フロー（Pipeline）
 
 ```
-[Platform CSV] ─► [Raw Import] ─► [Normalized Metrics] ─► [Linked Metrics]
-                       │                  │                     │
-                       ▼                  ▼                     ▼
-               raw_csv_row         unified schema        video_uid joined
-                                                               │
-                                                               ▼
-                                                    [Master Snapshot Update]
-                                                               │
-                                                               ▼
-                                                    [Component Score Update]
+1. シナリオ選択
+   Google Sheets (scenarios) → orchestrator.js
+
+2. メディア生成
+   画像アップロード → fal.ai Kling (動画生成)
+   → fal.ai ElevenLabs (TTS) → fal.ai Lipsync
+   → Creatify (最終合成)
+
+3. 保存
+   完成動画 → Google Drive (アカウント別フォルダ)
+
+4. 投稿
+   Google Drive → YouTube / Instagram / TikTok / X
+   プラットフォームID → Google Sheets (master) に記録
 ```
 
-## Component Details
+### 分析フロー（GAS）※既存
 
-### Code.gs
-- Web App endpoints (doGet/doPost)
-- Routes 13 actions: import_csv, analyze, analyze_single, analyze_all, link_videos, create_production, approve_video, update_status, add_component, update_component, get_components, update_scores, get_status
-- UI menu with submenus for Import, Analyze, Production, Components
-
-### CSVParser.gs
-- Auto-detects platform from CSV headers
-- Handles column name variations (aliases) in EN/JP
-- Preserves raw CSV row for debugging
-
-### Normalizer.gs
-- Converts platform-specific metrics to unified schema
-- Handles missing fields gracefully
-- Applies data type conversions
-
-### Linker.gs
-- Matches videos by title/timestamp/platform ID
-- Handles fuzzy matching for title variations
-- Routes unmatched imports to unlinked_imports sheet
-
-### KPIEngine.gs
-- Compares metrics against configurable targets
-- Calculates performance deltas and scores
-- Ranks videos by improvement potential
-- Normalizes overall scores across platforms
-
-### LLMAnalyzer.gs (v2.0 Enhanced)
-- Constructs analysis prompts with **component context**
-- Includes component performance history in prompts
-- Generates component-specific recommendations
-- Recommends specific components for next video
-- Handles rate limiting and retries
-
-### ComponentManager.gs (New in v2.0)
-- CRUD operations on inventory spreadsheets
-- Builds video component context for AI analysis
-- Tracks component usage count
-- Retrieves component performance history
-- Builds recommendation pools from top-performing components
-
-### MasterManager.gs (New in v2.0)
-- Master sheet CRUD operations
-- Production workflow: create → approve → update status
-- Metrics snapshot updates
-- AI recommendation writing
-
-### ScoreUpdater.gs (New in v2.0)
-- Calculates average performance score per component
-- Normalizes overall scores across platforms
-- Updates inventory spreadsheets with new scores
-- Generates score summaries
-
-### SheetWriter.gs
-- Writes metrics to platform-specific sheets
-- Writes analysis reports and recommendations
-- Initializes all sheets with headers
-- Writes to inventory spreadsheets
-
-## Google Sheets Schema
-
-### master (1 row = 1 video production)
-
-| Group | Columns | Description |
-|-------|---------|-------------|
-| Identity | video_uid, title, status, created_date | Core identification |
-| Hook | hook_scenario_id, hook_motion_id, hook_audio_id | Hook components |
-| Body | body_scenario_id, body_motion_id, body_audio_id | Body components |
-| CTA | cta_scenario_id, cta_motion_id, cta_audio_id | CTA components |
-| Character | character_id | Character reference |
-| Output | completed_video_url | Final video URL |
-| Platforms | youtube_id, tiktok_id, instagram_id | Platform video IDs |
-| YT Metrics | yt_views, yt_engagement, yt_completion | YouTube snapshot |
-| TT Metrics | tt_views, tt_engagement, tt_completion | TikTok snapshot |
-| IG Metrics | ig_views, ig_engagement, ig_reach | Instagram snapshot |
-| Analysis | overall_score, analysis_date, top_recommendations | Analysis results |
-| AI Next | ai_next_hook_scenario, ai_next_hook_motion, ... | AI-recommended components |
-| Approval | human_approved, approval_notes | Human approval gate |
-
-### Component Inventory (shared schema)
-
-| Column | Description |
-|--------|-------------|
-| component_id | Unique ID (SCN_H_0001, MOT_0001, etc.) |
-| type | hook/body/cta or voice/bgm |
-| name | Component name |
-| description | Description |
-| file_link | Drive/Cloudinary URL |
-| tags | Comma-separated tags |
-| times_used | Auto-calculated usage count |
-| avg_performance_score | Auto-calculated average score |
-| created_date | Creation date |
-| status | active/archived |
-
-Scenarios Inventory has additional columns: `script_en`, `script_jp`
-
-### metrics_youtube
-| Column | Type | Description |
-|--------|------|-------------|
-| video_uid | String | Foreign key to master |
-| import_date | Date | Data import timestamp |
-| views | Number | Total views |
-| likes | Number | Like count |
-| comments | Number | Comment count |
-| shares | Number | Share count |
-| engagement_rate | Number | Engagement rate |
-| watch_time_hours | Number | Total watch time |
-| avg_watch_time_sec | Number | Average watch time (seconds) |
-| completion_rate | Number | Completion rate (0-1) |
-| ctr | Number | Click-through rate |
-| subscribers_gained | Number | New subscribers |
-
-### metrics_tiktok
-| Column | Type | Description |
-|--------|------|-------------|
-| video_uid | String | Foreign key to master |
-| import_date | Date | Data import timestamp |
-| views | Number | Total views |
-| likes | Number | Like count |
-| comments | Number | Comment count |
-| shares | Number | Share count |
-| engagement_rate | Number | Engagement rate |
-| saves | Number | Save count |
-| avg_watch_time_sec | Number | Average watch time (seconds) |
-| completion_rate | Number | Completion rate (0-1) |
-
-### metrics_instagram
-| Column | Type | Description |
-|--------|------|-------------|
-| video_uid | String | Foreign key to master |
-| import_date | Date | Data import timestamp |
-| views | Number | Total views (plays) |
-| likes | Number | Like count |
-| comments | Number | Comment count |
-| shares | Number | Share count |
-| engagement_rate | Number | Engagement rate |
-| saves | Number | Save count |
-| avg_watch_time_sec | Number | Average watch time (seconds) |
-| reach | Number | Unique accounts reached |
-
-## Error Handling
-
-### Retry Strategy
 ```
-Attempt 1: Immediate
-Attempt 2: 1 second delay
-Attempt 3: 2 seconds delay
-Attempt 4: 4 seconds delay
-Attempt 5: 8 seconds delay (max)
+1. CSV取込
+   プラットフォームCSV → CSVParser → Normalizer → 統一スキーマ
+
+2. リンク
+   Linker: プラットフォームID ↔ video_uid マッチング
+
+3. 分析
+   KPIEngine: 目標値との比較・スコア算出
+   LLMAnalyzer: OpenAI GPT-4o でコンポーネント別分析
+
+4. 更新
+   ScoreUpdater: コンポーネントスコア更新
+   MasterManager: マスターシートの分析結果更新
+   SheetWriter: 分析レポート・推奨事項を書き込み
 ```
 
-### GAS 6-Minute Timeout Handling
-1. Save processing state to Properties Service
-2. Create time-based trigger for continuation
-3. Resume from saved state
+---
 
-## Security Considerations
+## API統合
 
-- OpenAI API key stored in Script Properties (not in code)
-- Inventory spreadsheet IDs stored in Script Properties
-- Web App requires authentication
-- No PII stored in analytics data
-- GAS bound script has native Sheets access (no service account needed)
+### fal.ai（メディア生成ハブ）
+
+| サービス | 用途 | コスト/本 |
+|---|---|---|
+| Kling | AI動画生成 | $0.70 |
+| ElevenLabs | テキスト音声合成 (TTS) | $0.04 |
+| Lipsync | リップシンク | $0.83 |
+
+### Creatify
+
+| 用途 | コスト/本 |
+|---|---|
+| 最終動画合成 | $1.20 |
+
+**合計: ~$2.77/本**
+
+### Google APIs
+
+| API | 用途 |
+|---|---|
+| Google Sheets API v4 | データ読み書き（パイプライン側） |
+| Google Drive API v3 | 動画・アセット保存 |
+| YouTube Data API v3 | 動画アップロード |
+
+### プラットフォーム投稿API
+
+| プラットフォーム | API | 制限 |
+|---|---|---|
+| YouTube | Data API v3 | 最も安定 |
+| Instagram | Graph API (Business) | URL-basedのみ |
+| TikTok | Content Posting API | 15投稿/日、審査必要 |
+| X/Twitter | v2 API | レート制限厳しい |
+
+### OpenAI（分析）
+
+| 用途 | モデル |
+|---|---|
+| コンポーネント別パフォーマンス分析 | GPT-4o |
+| 改善提案・次回コンポーネント推奨 | GPT-4o |
+
+---
+
+## Google Sheetsスキーマ
+
+### 既存タブ（GAS管理、変更なし）
+
+| タブ名 | 用途 | 管理 |
+|---|---|---|
+| master | 動画制作マスター (1行=1動画) | GAS |
+| metrics_youtube | YouTube メトリクス | GAS |
+| metrics_tiktok | TikTok メトリクス | GAS |
+| metrics_instagram | Instagram メトリクス | GAS |
+| kpi_targets | KPI目標値 | GAS |
+| analysis_reports | 分析レポート | GAS |
+| recommendations | AI推奨事項 | GAS |
+| video_analysis | 動画分析結果 | GAS |
+| unlinked_imports | 未リンクインポート | GAS |
+| _config | 設定値 (APIキー等) | GAS |
+
+### 新規タブ（Pipeline管理）
+
+#### accounts
+
+アカウント管理。1行=1プラットフォームアカウント。
+
+| カラム | 型 | 説明 |
+|---|---|---|
+| account_id | String | 一意ID (ACC_0001) |
+| platform | String | youtube / tiktok / instagram / x |
+| account_name | String | アカウント名 |
+| credentials_ref | String | 認証情報への参照 |
+| status | String | active / paused / banned |
+| daily_post_limit | Number | 1日あたりの投稿上限 |
+| posts_today | Number | 本日の投稿数 |
+| last_posted | DateTime | 最終投稿日時 |
+| notes | String | メモ |
+
+#### content_pipeline
+
+パイプライン実行ログ。1行=1動画生成タスク。
+
+| カラム | 型 | 説明 |
+|---|---|---|
+| pipeline_id | String | 一意ID (PIPE_0001) |
+| video_uid | String | masterへのFK |
+| account_id | String | 投稿先アカウント |
+| status | String | queued / generating / uploading / posted / failed |
+| scenario_id | String | 使用シナリオ |
+| kling_job_id | String | fal.ai Kling ジョブID |
+| tts_job_id | String | fal.ai TTS ジョブID |
+| lipsync_job_id | String | fal.ai Lipsync ジョブID |
+| creatify_job_id | String | Creatify ジョブID |
+| drive_url | String | Google Drive URL |
+| platform_post_id | String | プラットフォーム側の投稿ID |
+| cost_usd | Number | 生成コスト (USD) |
+| error_message | String | エラーメッセージ |
+| created_at | DateTime | 作成日時 |
+| completed_at | DateTime | 完了日時 |
+
+### インベントリスプレッドシート（4つ、既存）
+
+各コンポーネントタイプに1つずつ独立したスプレッドシート:
+
+- **Scenarios Inventory** (`13Meu7cniKUr1JiEyKla0qhfiV9Az1IFuzIedzDxjpiY`)
+- **Motions Inventory** (`1ycnmfpL8OgAI7WvlPTr3Z9p1H8UTmCNMV7ahunMlsEw`)
+- **Characters Inventory** (`1-m4f5LgNmArtpECZqqxFL-6P4eabBmPkOYX2VkFHCHA`)
+- **Audio Inventory** (`1Dw_atybwdGpi1Q0jh6CsuUSwzqVw1ZXB6jQT_-VDVak`)
+
+共通カラム: component_id, type, name, description, file_link, tags, times_used, avg_performance_score, created_date, status
+
+---
+
+## GASモジュール一覧（変更なし）
+
+| モジュール | 行数 | 役割 |
+|---|---|---|
+| Code.gs | 1157 | Web App エンドポイント + UIメニュー |
+| Config.gs | 389 | 設定値、スキーマ、定数 |
+| Setup.gs | 762 | ワンクリックセットアップ |
+| Migration.gs | 224 | v1→v2 マイグレーション |
+| CSVParser.gs | 190 | プラットフォーム別CSVパーサー |
+| Normalizer.gs | 208 | 統一スキーマ変換 |
+| Linker.gs | 238 | video_uid マッチング |
+| KPIEngine.gs | 249 | KPI比較・スコア算出 |
+| LLMAnalyzer.gs | 665 | OpenAI連携分析 |
+| SheetWriter.gs | 275 | シート書き込み |
+| ComponentManager.gs | 283 | コンポーネントCRUD |
+| MasterManager.gs | 255 | マスターシート操作 |
+| ScoreUpdater.gs | 212 | コンポーネントスコア |
+| Utils.gs | 544 | ユーティリティ・ID生成 |
+
+GAS API エンドポイント詳細は [MANUAL.md](MANUAL.md) を参照。
+
+---
+
+## n8n → Node.js コードマッピング
+
+| n8n ノード | Node.js モジュール | 説明 |
+|---|---|---|
+| Google Sheets Read | pipeline/sheets/reader.js | シナリオ・アカウント情報の読み込み |
+| HTTP Request (fal.ai) | pipeline/media/kling.js | Kling動画生成 |
+| HTTP Request (ElevenLabs) | pipeline/media/tts.js | TTS音声生成 |
+| HTTP Request (Lipsync) | pipeline/media/lipsync.js | リップシンク処理 |
+| HTTP Request (Creatify) | pipeline/media/creatify.js | 最終合成 |
+| Google Drive Upload | pipeline/storage/drive.js | Drive保存 |
+| YouTube Upload | pipeline/posting/youtube.js | YouTube投稿 |
+| Instagram Publish | pipeline/posting/instagram.js | Instagram投稿 |
+| TikTok Publish | pipeline/posting/tiktok.js | TikTok投稿 |
+| X Post | pipeline/posting/x.js | X投稿 |
+| Google Sheets Write | pipeline/sheets/writer.js | 結果のシート書き込み |
+| Schedule Trigger | scripts/run-daily.js | 日次バッチ (cron) |
+
+---
+
+## コスト見積もり
+
+### 動画生成コスト（1本あたり）
+
+| サービス | コスト |
+|---|---|
+| Kling (fal.ai) | $0.70 |
+| TTS (ElevenLabs via fal.ai) | $0.04 |
+| Lipsync (fal.ai) | $0.83 |
+| Creatify | $1.20 |
+| **合計** | **$2.77** |
+
+### 月次コスト見積もり（動画生成のみ）
+
+| 月 | アカウント数 | 推定動画本数/日 | 月間本数 | 月間コスト |
+|---|---|---|---|---|
+| 2月 | 50 | 50 | 1,500 | $4,155 |
+| 3月 | 160 | 160 | 4,800 | $13,296 |
+| 4月 | 340 | 340 | 10,200 | $28,254 |
+| 5月 | 520 | 520 | 15,600 | $43,212 |
+| 6月 | 700 | 700 | 21,000 | $58,170 |

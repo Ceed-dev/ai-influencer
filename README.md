@@ -1,170 +1,116 @@
-# Video Analytics Hub v2.0
+# AI-Influencer
 
-AI Influencer Video Performance Analytics System for YouTube Shorts / TikTok / Instagram Reels.
+AIインフルエンサーによるショート動画の自動制作・投稿・分析パイプライン。
 
-## Overview
+YouTube Shorts / TikTok / Instagram Reels / X に対応。Node.js パイプラインで動画生成から投稿まで自動化し、GAS アナリティクスでパフォーマンス分析・改善提案を行う。
 
-This system manages the complete video production lifecycle: **Component Management → Video Production → Publishing → Analytics → AI Improvement Loop**. It analyzes video performance metrics across platforms and generates component-specific improvement recommendations for future content creation.
-
-## Architecture
+## システム概要
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                       Production Loop                            │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  1. PLAN: Select components from inventories → draft             │
-│  2. APPROVE: Human reviews AI recommendations → approved         │
-│  3. CREATE: n8n reads master + inventories → in_production       │
-│  4. PUBLISH: Upload to 3 platforms → published                   │
-│  5. IMPORT: CSV export → Google Drive → GAS auto-process         │
-│  6. ANALYZE: KPI + OpenAI (with component context) → analyzed    │
-│  7. SCORE: Update component performance scores                   │
-│  8. SUGGEST: AI recommends components for next video             │
-│        └──────────► Loop back to Step 1                          │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
+シナリオ選択 → 動画生成(fal.ai) → プラットフォーム投稿 → メトリクス収集 → GAS分析 → 改善提案 → ループ
 ```
 
-## Tech Stack
+- **Pipeline (Node.js)**: シナリオ読み込み → 画像/動画生成 → TTS → リップシンク → 合成 → Drive保存 → 投稿
+- **Analytics (GAS)**: CSV取込 → KPI比較 → OpenAI分析 → コンポーネントスコア更新 → 次回動画推奨
 
-- **Backend**: Google Apps Script (GAS) - Bound to Master Spreadsheet
-- **Database**: Google Sheets (Master) + Separate Inventory Spreadsheets
-- **Storage**: Google Drive (folder structure for components)
-- **Workflow**: n8n
-- **AI Analysis**: OpenAI API (GPT-4o)
-
-## Google Drive Structure
+## ディレクトリ構造
 
 ```
-AI-Influencer/ (root)
-├── 📊 Master Spreadsheet ← GAS Bound Script
-│     ├── [tab] master              ← 1 row = 1 video production
-│     ├── [tab] metrics_youtube
-│     ├── [tab] metrics_tiktok
-│     ├── [tab] metrics_instagram
-│     ├── [tab] kpi_targets
-│     ├── [tab] analysis_reports
-│     ├── [tab] recommendations
-│     ├── [tab] video_analysis
-│     └── [tab] unlinked_imports
-│
-├── 📁 Scenarios/
-│   ├── 📊 Scenarios Inventory (separate spreadsheet)
-│   ├── 📁 Hooks/
-│   ├── 📁 Bodies/
-│   └── 📁 CTAs/
-│
-├── 📁 Motions/
-│   ├── 📊 Motions Inventory (separate spreadsheet)
-│   ├── 📁 Hooks/ Bodies/ CTAs/
-│
-├── 📁 Characters/
-│   ├── 📊 Characters Inventory (separate spreadsheet)
-│   └── 📁 Images/
-│
-├── 📁 Audio/
-│   ├── 📊 Audio Inventory (separate spreadsheet)
-│   ├── 📁 Voice/
-│   └── 📁 BGM/
-│
-└── 📁 Analytics/
-    └── 📁 CSV_Imports/
-        ├── 📁 YouTube/
-        ├── 📁 TikTok/
-        └── 📁 Instagram/
+├── gas/                    # GAS アナリティクス（既存、変更なし）
+│   ├── *.gs               # 14 GAS files
+│   └── tests/             # 330 tests, 9 suites
+├── pipeline/              # Node.js コンテンツパイプライン（新規）
+│   ├── config.js          # 環境設定・API キー管理
+│   ├── orchestrator.js    # パイプライン全体制御
+│   ├── sheets/            # Google Sheets API 連携
+│   ├── media/             # fal.ai メディア生成
+│   ├── storage/           # Google Drive ストレージ
+│   └── posting/           # プラットフォーム投稿アダプター
+├── scripts/               # CLI エントリポイント
+│   ├── run-pipeline.js    # 単一動画パイプライン実行
+│   ├── run-daily.js       # 日次バッチ実行
+│   ├── collect-metrics.js # メトリクス収集
+│   └── gsheet.py          # Sheets CLI ユーティリティ（既存）
+├── docs/                  # 追加ドキュメント
+├── STRATEGY.md            # 戦略・KPI・会議メモ
+├── ARCHITECTURE.md        # 技術アーキテクチャ
+├── CONTEXT.md             # プロジェクト履歴（英語）
+└── MANUAL.md              # GAS操作マニュアル
 ```
 
-## GAS Project Structure
+## クイックスタート
 
-```
-gas/
-├── Code.gs              # Web App endpoints + UI menu
-├── Config.gs            # Settings, schema, constants
-├── Setup.gs             # One-click system setup (Drive + Sheets)
-├── Migration.gs         # v1 → v2 migration
-├── CSVParser.gs         # Platform-specific CSV parsers
-├── Normalizer.gs        # Unified schema conversion
-├── Linker.gs            # video_uid matching
-├── KPIEngine.gs         # KPI comparison
-├── LLMAnalyzer.gs       # OpenAI integration (component-aware)
-├── SheetWriter.gs       # Sheet write operations
-├── ComponentManager.gs  # Component CRUD + context building
-├── MasterManager.gs     # Master sheet + production workflow
-├── ScoreUpdater.gs      # Component performance scoring
-└── Utils.gs             # ID generators, helpers
-```
+### 前提条件
 
-## Setup
+- Node.js 18+
+- Google Cloud プロジェクト（video-analytics-hub）
+- fal.ai アカウント
 
-### 1. One-Click Setup
-1. Create a new Google Sheets document
-2. Extensions → Apps Script
-3. Copy all `.gs` files from `gas/` directory
-4. Set Script Properties:
-   - `OPENAI_API_KEY`: Your OpenAI API key
-   - `SPREADSHEET_ID`: The spreadsheet ID from the URL
-5. Run `setupCompleteSystem()` from the menu or script editor
-   - Creates all Drive folders
-   - Creates all inventory spreadsheets
-   - Initializes all sheets with headers
-   - Inserts demo data
-
-### 2. Deploy as Web App
-1. Deploy → New deployment → Web App
-2. Execute as: Me
-3. Access: Anyone with link
-4. Note the deployment URL for n8n
-
-### 3. Configure n8n
-See [n8n Integration Guide](docs/n8n-integration.md) for workflow setup.
-
-## API Endpoints
-
-### GET (Read-only)
-| Action | Description |
-|--------|-------------|
-| (none) | Health check + endpoint list |
-| `get_status` | System status + record counts |
-| `get_approved` | Approved videos ready for production |
-| `get_production` | Production data for a video |
-| `get_components` | List components by inventory type |
-| `get_score_summary` | Component score summary |
-
-### POST (Write operations)
-| Action | Description |
-|--------|-------------|
-| `import_csv` | Import analytics CSV |
-| `analyze` | Analyze specific videos |
-| `analyze_single` | Analyze one video |
-| `analyze_all` | Analyze all videos (enhanced) |
-| `link_videos` | Manually link platform IDs |
-| `create_production` | Create new video production |
-| `approve_video` | Approve video for production |
-| `update_status` | Update video status |
-| `add_component` | Add new component to inventory |
-| `update_component` | Update existing component |
-| `update_scores` | Recalculate component scores |
-
-## Testing
+### セットアップ
 
 ```bash
+# 依存関係インストール
 npm install
-npm test
+
+# 環境変数設定
+cp .env.example .env
+# .env に以下を設定:
+#   FAL_KEY=your-fal-api-key
+#   GOOGLE_SHEETS_ID=1fI1s_KLcegpiACJYpmpNe9tnQmnZo2o8eHIXNV5SpPg
+#   GOOGLE_CREDENTIALS_PATH=./credentials.json
+#   OPENAI_API_KEY=your-openai-api-key
 ```
 
-**Test coverage**: 330 tests across 9 test suites covering all modules.
+### 主要コマンド
 
-## Risk Mitigation
+```bash
+# 単一動画のパイプライン実行
+node scripts/run-pipeline.js --scenario SCN_H_0001
 
-| Risk | Mitigation |
-|------|------------|
-| CSV format changes | Column name aliases, raw_csv_row preservation |
-| GAS 6-min timeout | State persistence + continuation triggers |
-| OpenAI rate limits | Batch processing + exponential backoff |
-| Platform data limits | Daily snapshot archival, metrics history in Sheets |
-| Component data loss | Separate inventory spreadsheets, Drive backup |
+# 日次バッチ（全アカウント）
+node scripts/run-daily.js
 
-## License
+# メトリクス収集
+node scripts/collect-metrics.js
+
+# GAS テスト実行
+npm test
+
+# Sheets CLI（直接操作）
+/tmp/google-auth-venv/bin/python3 scripts/gsheet.py read master
+```
+
+## 技術スタック
+
+| レイヤー | 技術 | 用途 |
+|---|---|---|
+| パイプライン | Node.js | 動画生成・投稿の自動化 |
+| メディア生成 | fal.ai (Kling, ElevenLabs, Lipsync) | AI動画・音声生成 |
+| 動画合成 | Creatify | 最終動画合成 |
+| アナリティクス | Google Apps Script | KPI分析・AI改善提案 |
+| AI分析 | OpenAI GPT-4o | コンポーネント別パフォーマンス分析 |
+| データベース | Google Sheets | マスター + 4インベントリ |
+| ストレージ | Google Drive | 動画・アセット保存 |
+| 投稿先 | YouTube / TikTok / Instagram / X | 4プラットフォーム |
+
+## GAS アナリティクス
+
+既存の GAS アナリティクスシステム（v2.0）は変更なしで動作。詳細は [MANUAL.md](MANUAL.md) を参照。
+
+- **14 GAS ファイル**: Code, Config, Setup, Migration, CSVParser, Normalizer, Linker, KPIEngine, LLMAnalyzer, SheetWriter, ComponentManager, MasterManager, ScoreUpdater, Utils
+- **330 テスト / 9 スイート**: 全テストパス
+- **Web App**: [デプロイ URL](https://script.google.com/macros/s/AKfycbzBcjrOBC1lIEJZFMl4D6Dz1TJQCjq8h5JaaapQ_qA4ZJIYs83iGNDN2oPj4OAR5GaK/exec)
+- **API エンドポイント**: GET 5種 + POST 12種（詳細は [ARCHITECTURE.md](ARCHITECTURE.md)）
+
+## 関連ドキュメント
+
+| ドキュメント | 内容 |
+|---|---|
+| [STRATEGY.md](STRATEGY.md) | 戦略・KPI・収益モデル・会議メモ |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | 技術アーキテクチャ・データフロー |
+| [MANUAL.md](MANUAL.md) | GAS操作マニュアル（日本語） |
+| [CONTEXT.md](CONTEXT.md) | プロジェクト履歴（英語） |
+
+## ライセンス
 
 Private - Internal Use Only

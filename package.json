@@ -1,11 +1,21 @@
 {
-  "name": "video-analytics-hub",
-  "version": "2.0.0",
-  "description": "Video Analytics Hub v2.0 - Cross-platform video performance analytics with component management and AI analysis",
+  "name": "ai-influencer",
+  "version": "3.0.0",
+  "description": "AI Influencer - automated content pipeline for YouTube Shorts, TikTok, and Instagram Reels",
   "scripts": {
+    "pipeline": "node scripts/run-pipeline.js",
+    "daily": "node scripts/run-daily.js",
+    "metrics": "node scripts/collect-metrics.js",
     "test": "jest",
+    "test:gas": "jest --testPathPattern=gas/tests",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage"
+  },
+  "dependencies": {
+    "@fal-ai/client": "^1.2.0",
+    "cloudinary": "^2.5.0",
+    "dotenv": "^16.4.0",
+    "googleapis": "^144.0.0"
   },
   "devDependencies": {
     "jest": "^29.7.0"

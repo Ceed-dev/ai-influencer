@@ -46,6 +46,7 @@ test-data/
 
 # Temp files
 tmp/
+pipeline/temp/
 
 # Build outputs
 dist/
