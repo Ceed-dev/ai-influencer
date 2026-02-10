@@ -43,7 +43,7 @@ YouTube Shorts / TikTok / Instagram Reels / X に対応。Node.js パイプラ�
 ### 前提条件
 
 - Node.js 18+
-- Google Cloud プロジェクト（video-analytics-hub）
+- Google Cloud プロジェクト（video-analytics-hub）※GCP側の名前は変更不要
 - fal.ai アカウント
 
 ### セットアップ
@@ -104,6 +104,19 @@ npm test
 | ストレージ | Google Drive | 動画・アセット保存 |
 | 画像ホスティング | Cloudinary | キャラクター画像のアップロード |
 | 投稿先 | YouTube / TikTok / Instagram / X | 4プラットフォーム |
+
+## データ管理
+
+**Google Drive（ファイル実体）+ Google Sheets（メタデータ管理）** の二層構造で全データを管理する。
+
+- **Drive**: 動画、画像、音声などのファイル実体を保存
+- **Sheets**: ID、プロパティ、ファイルリンクなどのメタデータを管理
+
+この構造により、APIやAIからの一括アクセス、非エンジニアによるブラウザ操作、外部DB不要のシンプルな運用を実現する。
+
+**起点フォルダ**: Shared Drives > Product > AI-Influencer
+
+詳細は [ARCHITECTURE.md](ARCHITECTURE.md) の「データ管理方針」セクションを参照。
 
 ## GAS アナリティクス
 

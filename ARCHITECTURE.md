@@ -189,6 +189,53 @@ graph TB
 
 ---
 
+## データ管理方針
+
+### 設計原則
+
+**Google Drive（ファイル実体）+ Google Sheets（メタデータ・ID管理）** の二層構造で全データを管理する。
+
+| レイヤー | 役割 | 具体例 |
+|---|---|---|
+| Drive | ファイル実体の保存 | 動画、画像、音声、プロンプト |
+| Sheets | メタデータ・ID・プロパティの紐付け管理 | インベントリ、content_pipeline、accounts |
+
+### なぜこの構造か
+
+1. **構造化データ**: Sheets上でID/プロパティ/ファイルリンクが紐付いているため、APIで一括読み取り可能
+2. **AI連携**: パイプラインやLLMに読み込ませる際、シートからメタデータを取得→Drive URLでファイルアクセスという一貫したパターンで処理できる
+3. **非エンジニアも操作可能**: Sheets/Driveはブラウザで誰でも確認・編集できる
+4. **スケーラビリティ**: アカウント・コンテンツが増えてもシートの行追加とDriveフォルダで対応可能
+5. **外部DB不要**: Google Workspace内で完結し、追加インフラ不要
+
+### Drive フォルダ構造
+
+起点: **Shared Drives > Product > AI-Influencer** (`1KRQuZ4W7u5CXRamjvN4xmavfu-7TPb0X`)
+
+```
+AI-Influencer/
+├── Scenarios/          # シナリオ関連アセット
+├── Motions/            # モーション関連アセット
+├── Characters/         # キャラクター画像等
+├── Audio/              # 音声ファイル
+├── 動画/               # 生成された完成動画
+├── Analytics/          # 分析関連
+├── prompts/            # プロンプトテンプレート
+├── runs/               # パイプライン実行ログ
+├── Video_Analytics_Hub # マスタースプレッドシート
+└── (その他)            # アカウント情報、設定等
+```
+
+> **NOTE**: フォルダ内の詳細構造は今後整理予定。アカウント別サブフォルダ等の設計は Phase 1（量産体制）で決定する。
+
+### Sheets ↔ Drive の紐付け
+
+- インベントリシートの `file_link` カラム → Drive内ファイルへのリンク
+- content_pipeline シートの `drive_file_id` カラム → 完成動画のDriveファイルID
+- 全てのアセットはDriveに実体を保存し、Sheetsでメタデータを管理する（Sheets内にファイル実体を置かない）
+
+---
+
 ## Google Sheetsスキーマ
 
 ### 既存タブ（GAS管理、変更なし）

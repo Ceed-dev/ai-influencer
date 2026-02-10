@@ -265,4 +265,4 @@ Google Drive の `Analytics/CSV_Imports/` 各プラットフォームフォル�
 問題が発生した場合:
 1. このガイドの「トラブルシューティング」を確認
 2. メニュー → 「Status Dashboard」で接続状態を確認
-3. GitHub Issues で報告: https://github.com/Ceed-dev/video-analytics-hub/issues
+3. GitHub Issues で報告: https://github.com/Ceed-dev/ai-influencer/issues

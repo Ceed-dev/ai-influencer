@@ -14,7 +14,7 @@ Manage the complete AI influencer video production lifecycle: component manageme
 | Apps Script Project | `1nbGkujRb6PwtkVuxBh1Vb9NKIUFi_uBa8NbdPSEx_PoxREmyMUKivA0S` |
 | Root Drive Folder (AI-Influencer) | `1KRQuZ4W7u5CXRamjvN4xmavfu-7TPb0X` |
 | Web App Deployment URL | `https://script.google.com/macros/s/{DEPLOYMENT_ID}/exec` (created via `clasp deploy`) |
-| GitHub Repository | `Ceed-dev/video-analytics-hub` |
+| GitHub Repository | `Ceed-dev/ai-influencer` (旧: `video-analytics-hub`) |
 
 ### Inventory Spreadsheet IDs (stored in Script Properties)
 
