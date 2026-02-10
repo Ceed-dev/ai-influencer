@@ -13,7 +13,7 @@ const ROOT_DIR = path.resolve(__dirname, '..');
 
 const config = {
   fal: {
-    apiKey: process.env.FAL_KEY || '',
+    apiKey: process.env.FAL_KEY || process.env.FAL_AI_KEY || '',
     defaultTimeout: parseInt(process.env.FAL_TIMEOUT_MS, 10) || 600000, // 10 min
   },
 

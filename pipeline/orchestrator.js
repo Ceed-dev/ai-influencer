@@ -132,24 +132,31 @@ async function runPipeline({ characterFolderId, dryRun = false }) {
       log(section.name, `--- Processing section ${section.index}: ${section.name} ---`);
       const sectionResult = {};
 
-      // 2a: Kling motion-control
+      // 2a: Upload motion reference video to fal.storage
+      log(section.name, 'Downloading motion video from Drive...');
+      const { buffer: motionBuffer, mimeType: motionMime } = await downloadFromDrive(section.motionVideoDriveId);
+      log(section.name, `Motion video: ${motionBuffer.length} bytes, uploading to fal.storage...`);
+      const falMotionUrl = await uploadToFalStorage(motionBuffer, motionMime);
+      log(section.name, `Motion fal.storage URL: ${falMotionUrl}`);
+
+      // 2b: Kling motion-control
       log(section.name, 'Generating video with Kling motion-control...');
       await updateContentStatus(contentId, `generating_video_${section.name}`);
       const rawVideoUrl = await generateVideo({
         imageUrl: falImageUrl,
-        motionVideoUrl: section.motionVideoUrl,
+        motionVideoUrl: falMotionUrl,
       });
       sectionResult.rawVideoUrl = rawVideoUrl;
       log(section.name, `Kling done: ${rawVideoUrl}`);
 
-      // 2b: ElevenLabs TTS
+      // 2c: ElevenLabs TTS
       log(section.name, 'Generating speech with ElevenLabs...');
       await updateContentStatus(contentId, `generating_audio_${section.name}`);
       const audioUrl = await generateSpeech({ text: section.script });
       sectionResult.audioUrl = audioUrl;
       log(section.name, `TTS done: ${audioUrl}`);
 
-      // 2c: Sync Lipsync
+      // 2d: Sync Lipsync
       log(section.name, 'Syncing lips...');
       await updateContentStatus(contentId, `lip_syncing_${section.name}`);
       const lipsyncVideoUrl = await syncLips({

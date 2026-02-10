@@ -54,10 +54,11 @@ test('scenario.json has correct structure', () => {
     expect(section).toHaveProperty('index');
     expect(section).toHaveProperty('filenamePrefix');
     expect(section).toHaveProperty('script');
-    expect(section).toHaveProperty('motionVideoUrl');
+    expect(section).toHaveProperty('motionVideoDriveId');
     expect(typeof section.script).toBe('string');
     expect(section.script.length).toBeGreaterThan(10);
-    expect(section.motionVideoUrl).toMatch(/^https:\/\//);
+    expect(typeof section.motionVideoDriveId).toBe('string');
+    expect(section.motionVideoDriveId.length).toBeGreaterThan(5);
   }
 
   // Filename prefixes are ordered
@@ -77,9 +78,8 @@ test('video-generator uses motion-control endpoint', () => {
   expect(src).toContain('fal-ai/kling-video/v2.6/standard/motion-control');
   expect(src).not.toContain('image-to-video');
   expect(src).toContain('video_url: motionVideoUrl');
-  expect(src).toContain("prompt: ''");
-  expect(src).toContain('keep_original_sound: true');
   expect(src).toContain("character_orientation: 'video'");
+  expect(src).not.toContain('keep_original_sound');
 });
 
 // ─── Test 6: TTS generator uses correct endpoint ───

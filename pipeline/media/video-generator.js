@@ -17,10 +17,8 @@ async function generateVideo({ imageUrl, motionVideoUrl, duration = 5, aspectRat
   const result = await submitAndWait(ENDPOINT, {
     image_url: imageUrl,
     video_url: motionVideoUrl,
-    prompt: '',
     duration,
     aspect_ratio: aspectRatio,
-    keep_original_sound: true,
     character_orientation: 'video',
   });
   return result.video.url;
