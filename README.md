@@ -10,7 +10,7 @@ YouTube Shorts / TikTok / Instagram Reels / X に対応。Node.js パイプラ�
 シナリオ選択 → 動画生成(fal.ai) → プラットフォーム投稿 → メトリクス収集 → GAS分析 → 改善提案 → ループ
 ```
 
-- **Pipeline (Node.js)**: シナリオ読み込み → 画像/動画生成 → TTS → リップシンク → 合成 → Drive保存 → 投稿
+- **Pipeline (Node.js)**: シナリオ読み込み → 画像/動画生成(Kling) → TTS(ElevenLabs) → リップシンク(Lipsync) → 3セクション結合(ffmpeg) → Drive保存 → 投稿
 - **Analytics (GAS)**: CSV取込 → KPI比較 → OpenAI分析 → コンポーネントスコア更新 → 次回動画推奨
 
 ## ディレクトリ構造
@@ -19,18 +19,26 @@ YouTube Shorts / TikTok / Instagram Reels / X に対応。Node.js パイプラ�
 ├── gas/                    # GAS アナリティクス（既存、変更なし）
 │   ├── *.gs               # 14 GAS files
 │   └── tests/             # 330 tests, 9 suites
-├── pipeline/              # Node.js コンテンツパイプライン（新規）
+├── pipeline/              # Node.js コンテンツパイプライン
 │   ├── config.js          # 環境設定・API キー管理
-│   ├── orchestrator.js    # パイプライン全体制御
-│   ├── sheets/            # Google Sheets API 連携
-│   ├── media/             # fal.ai メディア生成
+│   ├── orchestrator.js    # 3セクション(hook/body/cta)パイプライン制御
+│   ├── data/              # 静的データ
+│   │   └── scenario.json  # シナリオテンプレート(3セクション)
+│   ├── sheets/            # Google Sheets/Drive API 連携
+│   ├── media/             # fal.ai メディア生成 + ffmpeg結合
+│   │   ├── fal-client.js  # fal.ai SDK + fal.storage アップロード
+│   │   ├── video-generator.js  # Kling v2.6 motion-control
+│   │   ├── tts-generator.js    # ElevenLabs eleven-v3
+│   │   ├── lipsync.js     # Sync Lipsync v2/pro
+│   │   └── concat.js      # ffmpeg concat demuxer
 │   ├── storage/           # Google Drive ストレージ
-│   └── posting/           # プラットフォーム投稿アダプター
+│   └── posting/           # プラットフォーム投稿アダプター（後続フェーズ）
 ├── scripts/               # CLI エントリポイント
-│   ├── run-pipeline.js    # 単一動画パイプライン実行
-│   ├── run-daily.js       # 日次バッチ実行
-│   ├── collect-metrics.js # メトリクス収集
-│   └── gsheet.py          # Sheets CLI ユーティリティ（既存）
+│   ├── run-pipeline.js    # パイプライン実行 (--character-folder)
+│   ├── run-daily.js       # 日次バッチ実行（後続フェーズ）
+│   └── collect-metrics.js # メトリクス収集（後続フェーズ）
+├── tests/                 # パイプラインテスト
+│   └── pipeline.test.js   # 21 tests
 ├── docs/                  # 追加ドキュメント
 ├── STRATEGY.md            # 戦略・KPI・会議メモ
 ├── ARCHITECTURE.md        # 技術アーキテクチャ
@@ -65,7 +73,7 @@ cp .env.example .env
 
 ```bash
 # 単一動画のパイプライン実行
-node scripts/run-pipeline.js --scenario SCN_H_0001
+node scripts/run-pipeline.js --character-folder <DRIVE_FOLDER_ID> [--dry-run]
 
 # 日次バッチ（全アカウント）
 node scripts/run-daily.js
@@ -75,24 +83,21 @@ node scripts/collect-metrics.js
 
 # GAS テスト実行
 npm test
-
-# Sheets CLI（直接操作）
-/tmp/google-auth-venv/bin/python3 scripts/gsheet.py read master
 ```
 
 ## 技術スタック
 
 ### 動画制作パイプライン（Node.js）
 
-1本の動画は以下の4ステップで自動生成される（全て [fal.ai](https://fal.ai) 経由）:
+1本の動画は以下の3ステップ × 3セクション(hook/body/cta)で自動生成される:
 
 | ステップ | サービス | 何をするか | コスト(10秒) |
 |---|---|---|---|
-| 1. 動画生成 | Kling 2.6 | キャラクター画像から動画を生成 | $0.70 |
-| 2. 音声生成 | ElevenLabs v3 | スクリプトテキストから音声を生成 | ~$0.04 |
-| 3. リップシンク | Sync Lipsync v2 | 動画と音声の口の動きを同期 | $0.50 |
-| 4. 最終合成 | Creatify Aurora | 最終的な動画の仕上げ・合成 | $1.40 |
-| | | **合計** | **$2.64** |
+| 1. 動画生成 | Kling 2.6 (motion-control) | キャラクター画像 + モーション参照動画 → 動画を生成 | $0.70 |
+| 2. 音声生成 | ElevenLabs eleven-v3 | スクリプトテキスト → 音声を生成 (voice: Aria) | ~$0.04 |
+| 3. リップシンク | Sync Lipsync v2/pro | 動画 + 音声 → 口同期動画 (sync_mode: bounce) | $0.50 |
+| | | **セクション単価** | **$1.24** |
+| | | **合計 (3セクション + ffmpeg結合)** | **~$3.72** |
 
 ### その他の技術
 
@@ -102,7 +107,6 @@ npm test
 | AI分析 | OpenAI GPT-4o | コンポーネント別パフォーマンス分析 |
 | データベース | Google Sheets | マスター + 4インベントリ |
 | ストレージ | Google Drive | 動画・アセット保存 |
-| 画像ホスティング | Cloudinary | キャラクター画像のアップロード |
 | 投稿先 | YouTube / TikTok / Instagram / X | 4プラットフォーム |
 
 ## データ管理
@@ -123,7 +127,7 @@ npm test
 既存の GAS アナリティクスシステム（v2.0）は変更なしで動作。詳細は [MANUAL.md](MANUAL.md) を参照。
 
 - **14 GAS ファイル**: Code, Config, Setup, Migration, CSVParser, Normalizer, Linker, KPIEngine, LLMAnalyzer, SheetWriter, ComponentManager, MasterManager, ScoreUpdater, Utils
-- **330 テスト / 9 スイート**: 全テストパス
+- **330 テスト / 9 スイート**: 全テストパス（+ パイプライン 21 テスト、計 351 tests across 10 suites）
 - **Web App**: [デプロイ URL](https://script.google.com/macros/s/AKfycbzBcjrOBC1lIEJZFMl4D6Dz1TJQCjq8h5JaaapQ_qA4ZJIYs83iGNDN2oPj4OAR5GaK/exec)
 - **API エンドポイント**: GET 5種 + POST 12種（詳細は [ARCHITECTURE.md](ARCHITECTURE.md)）
 

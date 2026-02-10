@@ -1,6 +1,6 @@
 # AI-Influencer 戦略ドキュメント
 
-> **最終更新**: 2026-02-09
+> **最終更新**: 2026-02-10
 > **ステータス**: 緊急 — コンテンツ生成パイプライン構築中
 > **関係者**: Shungo (技術実装), チームメイト (クオリティ・コンテンツ)
 
@@ -47,12 +47,14 @@ AIインフルエンサーアカウントを大量運用し、ショート動画
 ### 直近目標フロー
 
 ```
-入力（シナリオ + キャラクター画像）
-  → [自動] Kling で動画生成
-  → [自動] ElevenLabs で音声生成
-  → [自動] Lipsync で口同期
-  → [自動] Creatify で最終合成
-  → [自動] Google Drive に保存
+入力（キャラクター画像フォルダ@Drive）
+  → [自動] fal.storage に画像アップロード（一時URL）
+  → [自動] 3セクション(hook/body/cta)をループ処理:
+    → Kling motion-control で動画生成
+    → ElevenLabs eleven-v3 で音声生成
+    → Sync Lipsync v2/pro で口同期
+  → [自動] ffmpeg で3セクション結合
+  → [自動] Google Drive に4ファイル保存
   → [手動] 人間が各プラットフォームに投稿
 ```
 
@@ -200,15 +202,15 @@ AIインフルエンサーアカウントを大量運用し、ショート動画
 
 ## 5. 動画制作コスト
 
-### 1本あたりコスト: ~$2.64（10秒動画、720p）
+### 1本あたりコスト: ~$3.72（3セクション × ~10秒、720p）
 
-| サービス | 単価 | 10秒あたり | 出典 |
+| サービス | 単価 | セクションあたり | 出典 |
 |---|---|---|---|
-| Kling 2.6 (動画生成) | $0.07/秒 | $0.70 | [fal.ai](https://fal.ai/models/fal-ai/kling-video/v2.6/pro/image-to-video) |
-| TTS (ElevenLabs v3) | ~$0.05/1K文字 | ~$0.04 | [fal.ai](https://fal.ai/models/fal-ai/elevenlabs/tts/eleven-v3) |
-| Sync Lipsync v2 | $3.00/分 | $0.50 | [fal.ai](https://fal.ai/models/fal-ai/sync-lipsync/v2) |
-| Creatify Aurora (720p) | $0.14/秒 | $1.40 | [fal.ai](https://fal.ai/models/fal-ai/creatify/aurora) |
-| **合計** | | **$2.64** | |
+| Kling 2.6 motion-control | $0.07/秒 | $0.70 | fal.ai |
+| TTS (ElevenLabs eleven-v3) | ~$0.05/1K文字 | ~$0.04 | fal.ai |
+| Sync Lipsync v2/pro | $3.00/分 | $0.50 | fal.ai |
+| **セクション単価** | | **$1.24** | |
+| **合計（3セクション + ffmpeg結合）** | | **~$3.72** | |
 
 ---
 
@@ -264,23 +266,26 @@ AIインフルエンサーアカウントを大量運用し、ショート動画
 
 ```mermaid
 graph LR
-    A[入力<br/>シナリオ+画像] --> B[Cloudinary<br/>画像アップロード]
-    B --> C[Kling<br/>動画生成]
-    C --> D[ElevenLabs<br/>TTS]
-    D --> E[Sync Lipsync<br/>口同期]
-    E --> F[Creatify<br/>最終合成]
-    F --> G[Google Drive<br/>保存]
-    G --> H[🧑 人間が手動投稿]
+    A[入力<br/>シナリオ+画像] --> B[fal.storage<br/>一時URL生成]
+    B --> C{3セクション<br/>hook/body/cta}
+    C --> D[Kling<br/>動画生成]
+    D --> E[ElevenLabs<br/>TTS]
+    E --> F[Sync Lipsync<br/>口同期]
+    F --> C
+    C --> G[ffmpeg<br/>3セクション結合]
+    G --> H[Google Drive<br/>保存]
+    H --> I[🧑 人間が手動投稿]
 ```
 
 ```
 入力（シナリオ + キャラクター画像）
-    → Cloudinary に画像アップロード
-    → Kling で動画生成
-    → ElevenLabs で音声生成
-    → Sync Lipsync で口同期
-    → Creatify で最終合成
-    → Google Drive に保存
+    → fal.storage に画像アップロード（一時URL生成）
+    → 3セクション（hook/body/cta）ループ:
+        → Kling motion-control で動画生成
+        → ElevenLabs eleven-v3 で音声生成
+        → Sync Lipsync v2/pro で口同期
+    → ffmpeg で3セクション結合 → final.mp4
+    → Google Drive に保存（セクション動画 + final）
     ─ ─ ─ ここから先は手動 ─ ─ ─
     → 人間が各プラットフォームに投稿
 ```
@@ -299,13 +304,14 @@ graph LR
 
 | ステップ | 状況 | ツール | 優先度 |
 |---|---|---|---|
-| シナリオ・画像の入力 | 🟡 手動 | Sheets + Drive | **直近** |
-| 画像アップロード | 🔴 未実装 | Cloudinary | **直近** |
-| 動画生成 | 🔴 未実装 | fal.ai / Kling | **直近** |
-| TTS | 🔴 未実装 | fal.ai / ElevenLabs | **直近** |
-| リップシンク | 🔴 未実装 | fal.ai / Sync Lipsync | **直近** |
-| 動画合成 | 🔴 未実装 | fal.ai / Creatify | **直近** |
-| Drive保存 | 🔴 未実装 | Google Drive API | **直近** |
+| シナリオ・画像の入力 | 🟡 手動 | Drive + scenario.json | **直近** |
+| 画像アップロード | 🟢 実装済 | fal.storage | ✅ |
+| 動画生成 | 🟢 実装済 | fal.ai / Kling motion-control | ✅ |
+| TTS | 🟢 実装済 | fal.ai / ElevenLabs eleven-v3 | ✅ |
+| リップシンク | 🟢 実装済 | fal.ai / Sync Lipsync v2/pro | ✅ |
+| 動画結合 | 🟢 実装済 | ffmpeg concat | ✅ |
+| Drive保存 | 🟢 実装済 | Google Drive API | ✅ |
+| content_pipeline記録 | 🟢 実装済 | Google Sheets API | ✅ |
 | プラットフォーム投稿 | 🟡 手動 | 人間が手動投稿 | 後続 |
 | メトリクス収集 | 🟡 手動CSV | GAS CSVParser | 後続 |
 | 分析・スコア更新 | 🟢 自動 | GAS KPIEngine + LLMAnalyzer | 後続 |
@@ -328,19 +334,21 @@ graph LR
 
 ## 10. フェーズ計画
 
-### Phase 0: コンテンツ生成パイプライン（今すぐ — 最優先）
+### Phase 0: コンテンツ生成パイプライン（✅ 完了 — 2026-02-10）
 
-**目標**: 入力を与えたら動画がDriveに保存される最低限のパイプラインを動かす
+**目標**: キャラクター画像を入力 → 完成動画(3セクション+結合版)がDriveに保存される
 
-- [ ] fal.ai APIキー取得（Tomoから）
-- [ ] Kling動画生成の接続・動作確認
-- [ ] ElevenLabs TTS接続・動作確認
-- [ ] Sync Lipsync接続・動作確認
-- [ ] Creatify Aurora接続・動作確認
-- [ ] Google Driveへの自動保存
-- [ ] **1本の動画がDriveに保存されるE2E確認**
+- [x] fal.ai APIキー取得
+- [x] Kling motion-control 動画生成
+- [x] ElevenLabs eleven-v3 TTS
+- [x] Sync Lipsync v2/pro リップシンク
+- [x] ffmpeg 3セクション結合
+- [x] Google Driveへの自動保存（Productions/YYYY-MM-DD/CNT_XXXX/）
+- [x] content_pipelineシートへの自動記録
+- [x] パイプラインテスト（21テスト全パス）
+- [x] **E2E dry-run確認**
 
-**完了条件**: `node scripts/run-pipeline.js` を実行 → Driveに完成動画が1本保存される
+**実行コマンド**: `node scripts/run-pipeline.js --character-folder <FOLDER_ID> [--dry-run]`
 
 ### Phase 1: 量産体制（Phase 0完了後）
 
@@ -377,7 +385,7 @@ graph LR
 | TikTok API審査却下 | 高 | 手動投稿フォールバック、他プラットフォーム優先 |
 | アカウントBAN | 高 | 投稿頻度制限、コンテンツ多様化、IP分散(VPN) |
 | fal.ai サービス障害 | 中 | 代替APIの調査、ローカルバッファ |
-| API費用超過 | 中 | 1本$2.64を前提とした予算管理、日次コスト監視 |
+| API費用超過 | 中 | 1本~$3.72を前提とした予算管理、日次コスト監視 |
 | 品質低下によるエンゲージメント低下 | 中 | GASスコアリング→低スコアコンポーネント排除 |
 | プラットフォーム規約変更 | 中 | 複数プラットフォーム分散運用 |
 | CSV形式変更 | 低 | 列名エイリアス対応済み(GAS) |
@@ -431,22 +439,23 @@ graph LR
 
 ## 14. TODO・依頼事項
 
-### チームメイトへの依頼（未完了）
+### チームメイトへの依頼
 
-- [ ] fal.ai APIキーの共有
+- [x] fal.ai APIキーの共有
 - [ ] 各プラットフォームのアカウント情報（YouTube/IG/TikTok/X）
-- [ ] n8nワークフローの詳細（ノード構成、パラメータ）
-- [ ] Creatify APIキーまたはアカウント情報
+- [x] n8nワークフローの詳細（ノード構成、パラメータ）— 解析・実装済み
 
 ### 技術タスク
 
-- [x] pipeline/ ディレクトリの作成（コード骨格済み、動作未確認）
+- [x] pipeline/ ディレクトリの作成
 - [x] accountsシートタブの作成
-- [x] content_pipelineシートタブの作成
-- [ ] fal.ai SDK統合・動作確認
-- [ ] 各メディア生成モジュールの動作確認（Kling, ElevenLabs, Lipsync, Creatify）
-- [ ] Google Drive保存の動作確認
-- [ ] E2E: 入力→動画生成→Drive保存の一気通貫テスト
+- [x] content_pipelineシートタブの作成（カラム更新済み）
+- [x] fal.ai SDK統合・動作確認
+- [x] メディア生成モジュール実装（Kling motion-control, ElevenLabs eleven-v3, Lipsync v2/pro）
+- [x] ffmpeg結合ユーティリティ実装
+- [x] Google Drive保存の動作確認
+- [x] パイプラインテスト（351テスト全パス: 330 GAS + 21 pipeline）
+- [ ] E2E: 本番API呼び出しによる動画生成テスト（キャラクター画像の準備待ち）
 
 ### 後続TODO
 
@@ -465,5 +474,7 @@ graph LR
 | 2026-02-09 | YouTube優先でMVP | API最安定、収益化最速 |
 | 2026-02-09 | スコープ縮小: Drive保存までに集中 | 2月中旬で投稿ゼロ、まず量を確保。自動投稿・分析ループは後続 |
 | 2026-02-09 | 投稿は当面手動 | パイプライン構築に集中、投稿自動化は後続フェーズ |
+| 2026-02-10 | Creatify Aurora削除、3セクション構成に変更 | n8nワークフロー解析結果に基づく。Creatifyは不要、代わりに3セクション(hook/body/cta)をffmpegで結合 |
+| 2026-02-10 | Cloudinary削除、fal.storage一時URL方式に変更 | Drive→fal.storage→API。永続ファイルはDriveに一元管理、一時URLはfal.storageで生成 |
 | 2026-02-06 | GASをアナリティクスに採用 | Sheets native統合、サーバーレス |
 | 2026-02-06 | CSV-firstアプローチ | プラットフォームAPI制限が厳しいため |

@@ -48,4 +48,45 @@ async function checkStatus(endpoint, requestId) {
   return status;
 }
 
-module.exports = { submitAndWait, checkStatus };
+/**
+ * Upload a buffer to fal.storage and return a temporary public URL.
+ * @param {Buffer} buffer - File data
+ * @param {string} contentType - MIME type (e.g. 'image/png', 'video/mp4')
+ * @returns {Promise<string>} Temporary fal.media URL
+ */
+async function uploadToFalStorage(buffer, contentType) {
+  const blob = new Blob([buffer], { type: contentType });
+  const url = await fal.storage.upload(blob);
+  return url;
+}
+
+/**
+ * Download a file from Google Drive by file ID.
+ * @param {string} fileId - Drive file ID
+ * @returns {Promise<{buffer: Buffer, mimeType: string, name: string}>}
+ */
+async function downloadFromDrive(fileId) {
+  const { getDrive } = require('../sheets/client');
+  const drive = getDrive();
+
+  // Get file metadata
+  const meta = await drive.files.get({
+    fileId,
+    fields: 'name, mimeType',
+    supportsAllDrives: true,
+  });
+
+  // Download content
+  const res = await drive.files.get(
+    { fileId, alt: 'media', supportsAllDrives: true },
+    { responseType: 'arraybuffer' }
+  );
+
+  return {
+    buffer: Buffer.from(res.data),
+    mimeType: meta.data.mimeType,
+    name: meta.data.name,
+  };
+}
+
+module.exports = { submitAndWait, checkStatus, uploadToFalStorage, downloadFromDrive };

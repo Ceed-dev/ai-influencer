@@ -1,7 +1,7 @@
 # AI-Influencer 技術アーキテクチャ
 
-> **バージョン**: 3.0
-> **最終更新**: 2026-02-09
+> **バージョン**: 3.1
+> **最終更新**: 2026-02-10
 
 ---
 
@@ -18,7 +18,6 @@ graph TB
 
     subgraph External["外部API"]
         FAL[fal.ai<br/>Kling / ElevenLabs / Lipsync]
-        CREATIFY[Creatify<br/>動画合成]
         YT_API[YouTube Data API]
         IG_API[Instagram Graph API]
         TT_API[TikTok Content API]
@@ -48,7 +47,6 @@ graph TB
     ORC --> STORE
     ORC --> POST
     MEDIA --> FAL
-    MEDIA --> CREATIFY
     STORE --> DRIVE
     POST --> YT_API
     POST --> IG_API
@@ -73,7 +71,7 @@ graph TB
 │                                                                  │
 │  orchestrator.js ──► media/ ──► fal.ai (Kling/ElevenLabs/Sync)  │
 │       │              │                                           │
-│       │              └──► Creatify (合成)                        │
+│       │              └──► ffmpeg (3セクション結合)                │
 │       │                                                          │
 │       ├──► storage/ ──► Google Drive                             │
 │       │                                                          │
@@ -106,20 +104,24 @@ graph TB
 ### 動画制作フロー（Pipeline）
 
 ```
-1. シナリオ選択
-   Google Sheets (scenarios) → orchestrator.js
+1. キャラクター画像取得
+   Google Drive (Characters/) → fal.storage アップロード → 一時公開URL
 
-2. メディア生成
-   画像アップロード → fal.ai Kling (動画生成)
-   → fal.ai ElevenLabs (TTS) → fal.ai Lipsync
-   → Creatify (最終合成)
+2. 3セクション(hook/body/cta)ループ処理
+   各セクションで:
+   fal.ai Kling motion-control (画像 + モーション参照動画 → 動画)
+   → fal.ai ElevenLabs eleven-v3 (スクリプト → 音声)
+   → fal.ai Sync Lipsync v2/pro (動画 + 音声 → 口同期動画)
 
-3. 保存
-   完成動画 → Google Drive (アカウント別フォルダ)
+3. 結合
+   ffmpeg concat demuxer (3本のセクション動画 → final.mp4)
 
-4. 投稿
-   Google Drive → YouTube / Instagram / TikTok / X
-   プラットフォームID → Google Sheets (master) に記録
+4. 保存
+   4ファイル(01_hook.mp4, 02_body.mp4, 03_cta.mp4, final.mp4)
+   → Google Drive (Productions/YYYY-MM-DD/CNT_XXXX/)
+
+5. 記録
+   content_pipeline シートにURL・ステータスを自動記録
 ```
 
 ### 分析フロー（GAS）※既存
@@ -151,17 +153,11 @@ graph TB
 
 | サービス | 用途 | 何をするか | 単価 | 10秒あたり |
 |---|---|---|---|---|
-| Kling 2.6 | AI動画生成 | キャラクター画像 → 動画を生成 | $0.07/秒 | $0.70 |
-| ElevenLabs v3 | テキスト音声合成 (TTS) | スクリプトテキスト → 音声を生成 | ~$0.05/1K文字 | ~$0.04 |
-| Sync Lipsync v2 | リップシンク | 動画+音声 → 口の動きを同期させた動画を生成 | $3.00/分 | $0.50 |
+| Kling 2.6 motion-control | AI動画生成 | image_url + video_url → 動画を生成 | $0.07/秒 | $0.70 |
+| ElevenLabs eleven-v3 | テキスト音声合成 (TTS) | スクリプトテキスト → 音声を生成 (voice: "Aria") | ~$0.05/1K文字 | ~$0.04 |
+| Sync Lipsync v2/pro | リップシンク | 動画+音声 → 口の動きを同期させた動画を生成 (sync_mode: "bounce") | $3.00/分 | $0.50 |
 
-### Creatify Aurora
-
-| 用途 | 何をするか | 単価 | 10秒あたり |
-|---|---|---|---|
-| 最終動画合成 | リップシンク済み動画を最終仕上げ・合成 | $0.14/秒 (720p) | $1.40 |
-
-**合計: ~$2.64/本（10秒、720p）**
+**セクション単価: ~$1.24（10秒）/ 1本あたり(3セクション): ~$3.72**
 
 ### Google APIs
 
@@ -214,24 +210,28 @@ graph TB
 
 ```
 AI-Influencer/
+├── Characters/         # 入力: キャラクター画像
+│   └── Images/         # 画像ファイル
+├── Productions/        # 出力: 生成動画
+│   └── YYYY-MM-DD/     # 日付別
+│       └── CNT_XXXX/   # コンテンツID別
+│           ├── 01_hook.mp4
+│           ├── 02_body.mp4
+│           ├── 03_cta.mp4
+│           └── final.mp4
 ├── Scenarios/          # シナリオ関連アセット
 ├── Motions/            # モーション関連アセット
-├── Characters/         # キャラクター画像等
 ├── Audio/              # 音声ファイル
-├── 動画/               # 生成された完成動画
 ├── Analytics/          # 分析関連
-├── prompts/            # プロンプトテンプレート
-├── runs/               # パイプライン実行ログ
-├── Video_Analytics_Hub # マスタースプレッドシート
-└── (その他)            # アカウント情報、設定等
+└── (その他)
 ```
 
-> **NOTE**: フォルダ内の詳細構造は今後整理予定。アカウント別サブフォルダ等の設計は Phase 1（量産体制）で決定する。
+> **NOTE**: Productions/ フォルダは日付→コンテンツID の2階層。アカウント別サブフォルダ等の設計は Phase 1（量産体制）で決定する。
 
 ### Sheets ↔ Drive の紐付け
 
 - インベントリシートの `file_link` カラム → Drive内ファイルへのリンク
-- content_pipeline シートの `drive_file_id` カラム → 完成動画のDriveファイルID
+- content_pipeline シートの `drive_folder_id` カラム → 出力フォルダのDrive ID
 - 全てのアセットはDriveに実体を保存し、Sheetsでメタデータを管理する（Sheets内にファイル実体を置かない）
 
 ---
@@ -283,14 +283,14 @@ AI-Influencer/
 |---|---|---|
 | content_id | String | 一意ID (CNT_YYYYMM_XXXX) |
 | account_id | String | 投稿先アカウント |
-| status | String | queued→generating_video→generating_tts→syncing_lips→compositing→uploading→ready→posting→posted→collected |
-| character_image_url | String | Cloudinary URL |
-| script_text | String | TTSテキスト |
-| kling_video_url | String | 生成された動画URL |
-| tts_audio_url | String | 生成された音声URL |
-| lipsync_video_url | String | リップシンク済み動画URL |
-| final_video_url | String | 最終動画URL |
-| drive_file_id | String | Google Drive ファイルID |
+| status | String | queued→processing→generating_video_hook→...→concatenating→uploading_to_drive→completed |
+| character_folder_id | String | Google Drive キャラクターフォルダID |
+| section_count | Number | セクション数(通常3) |
+| hook_video_url | String | hook動画のDrive URL |
+| body_video_url | String | body動画のDrive URL |
+| cta_video_url | String | cta動画のDrive URL |
+| final_video_url | String | 結合版動画のDrive URL |
+| drive_folder_id | String | 出力フォルダのDrive ID |
 | platform_post_id | String | プラットフォーム側の投稿ID |
 | views_48h | Number | 48時間後の視聴数 |
 | error_message | String | エラーメッセージ |
@@ -338,11 +338,11 @@ GAS API エンドポイント詳細は [MANUAL.md](MANUAL.md) を参照。
 | n8n ノード | Node.js モジュール | 説明 |
 |---|---|---|
 | Google Sheets Read | pipeline/sheets/scenario-reader.js | シナリオ・アカウント情報の読み込み |
-| HTTP Request (fal.ai Kling) | pipeline/media/video-generator.js | キャラクター画像→動画生成 |
-| HTTP Request (ElevenLabs) | pipeline/media/tts-generator.js | テキスト→音声生成 |
-| HTTP Request (Lipsync) | pipeline/media/lipsync.js | 動画+音声→口同期 |
-| HTTP Request (Creatify) | pipeline/media/compositor.js | 最終動画合成 |
-| Cloudinary Upload | pipeline/media/cloudinary.js | 画像アップロード |
+| fal.storage upload | pipeline/media/fal-client.js | キャラクター画像の一時URL生成 |
+| fal-ai/kling-video motion-control | pipeline/media/video-generator.js | 画像+モーション参照動画→動画生成 |
+| fal-ai/elevenlabs eleven-v3 | pipeline/media/tts-generator.js | テキスト→音声生成 |
+| fal-ai/sync-lipsync v2/pro | pipeline/media/lipsync.js | 動画+音声→口同期 |
+| ffmpeg concat | pipeline/media/concat.js | 3セクション動画の結合 |
 | Google Drive Upload | pipeline/storage/drive-storage.js | 完成動画のDrive保存 |
 | YouTube Upload | pipeline/posting/adapters/youtube.js | YouTube Shorts投稿 |
 | Instagram Publish | pipeline/posting/adapters/instagram.js | Instagram Reels投稿 |
@@ -355,22 +355,21 @@ GAS API エンドポイント詳細は [MANUAL.md](MANUAL.md) を参照。
 
 ## コスト見積もり
 
-### 動画生成コスト（1本あたり、10秒、720p）
+### 動画生成コスト（1セクションあたり、~5-10秒）
 
-| サービス | 役割 | コスト |
+| サービス | 役割 | コスト(10秒) |
 |---|---|---|
-| Kling 2.6 (fal.ai) | キャラクター画像→動画 | $0.70 |
-| ElevenLabs v3 (fal.ai) | テキスト→音声 | ~$0.04 |
-| Sync Lipsync v2 (fal.ai) | 動画+音声→口同期 | $0.50 |
-| Creatify Aurora (720p) | 最終合成 | $1.40 |
-| **合計** | | **$2.64** |
+| Kling 2.6 motion-control (fal.ai) | 画像+モーション→動画 | $0.70 |
+| ElevenLabs eleven-v3 (fal.ai) | テキスト→音声 | ~$0.04 |
+| Sync Lipsync v2/pro (fal.ai) | 動画+音声→口同期 | $0.50 |
+| **セクション単価** | | **$1.24** |
 
-### 月次コスト見積もり（動画生成のみ）
+### 1本あたりコスト（3セクション）: ~$3.72
 
-| 月 | アカウント数 | 推定動画本数/日 | 月間本数 | 月間コスト |
-|---|---|---|---|---|
-| 2月 | 50 | 50 | 1,500 | $3,960 |
-| 3月 | 160 | 160 | 4,800 | $12,672 |
-| 4月 | 340 | 340 | 10,200 | $26,928 |
-| 5月 | 520 | 520 | 15,600 | $41,184 |
-| 6月 | 700 | 700 | 21,000 | $55,440 |
+### 月次コスト見積もり
+
+| 月 | アカウント数 | 月間本数 | 月間コスト |
+|---|---|---|---|
+| 2月 | 50 | 1,500 | $5,580 |
+| 3月 | 160 | 4,800 | $17,856 |
+| 6月 | 700 | 21,000 | $78,120 |

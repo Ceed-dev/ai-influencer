@@ -1,0 +1,25 @@
+{
+  "sections": [
+    {
+      "name": "hook",
+      "index": 1,
+      "filenamePrefix": "01_hook",
+      "script": "I don't know who needs to hear this, but if you're a founder still doing everything yourself, this one's for you.",
+      "motionVideoUrl": "https://res.cloudinary.com/drzxtaupi/video/upload/v1738932756/%E3%83%95%E3%83%83%E3%82%AF_qbpetp.mp4"
+    },
+    {
+      "name": "body",
+      "index": 2,
+      "filenamePrefix": "02_body",
+      "script": "I was talking to a mentor recently and he said something that completely changed how I think about hiring. He said, you don't hire to grow. You hire because you've already grown past what you can handle. Most founders wait too long. They're buried in tasks that someone else could do better and faster. The first hire isn't a luxury. It's a turning point.",
+      "motionVideoUrl": "https://res.cloudinary.com/drzxtaupi/video/upload/v1738932756/%E3%83%9C%E3%83%87%E3%82%A3_gkmyjq.mp4"
+    },
+    {
+      "name": "cta",
+      "index": 3,
+      "filenamePrefix": "03_cta",
+      "script": "So the next time you're staring at a blank slide deck or buried in invoices, ask yourself, is this really the best use of my time? Drop a comment if this hit home. And follow for more real talk on building and scaling.",
+      "motionVideoUrl": "https://res.cloudinary.com/drzxtaupi/video/upload/v1738932752/CTA_bvz8ff.mp4"
+    }
+  ]
+}

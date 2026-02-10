@@ -1,21 +1,20 @@
 'use strict';
 
 const { submitAndWait } = require('./fal-client');
-const config = require('../config');
 
-const ENDPOINT = 'fal-ai/elevenlabs/tts/v3';
+const ENDPOINT = 'fal-ai/elevenlabs/tts/eleven-v3';
 
 /**
- * Generate speech audio from text using ElevenLabs v3 via fal.ai.
+ * Generate speech audio from text using ElevenLabs eleven-v3 via fal.ai.
  * @param {object} params
  * @param {string} params.text - Text to speak
- * @param {string} [params.voiceId] - ElevenLabs voice ID
+ * @param {string} [params.voice='Aria'] - Voice name
  * @returns {Promise<string>} Audio URL
  */
-async function generateSpeech({ text, voiceId }) {
+async function generateSpeech({ text, voice = 'Aria' }) {
   const result = await submitAndWait(ENDPOINT, {
     text,
-    voice_id: voiceId || config.elevenlabs.defaultVoiceId,
+    voice,
   });
   return result.audio.url;
 }

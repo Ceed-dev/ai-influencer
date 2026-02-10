@@ -17,12 +17,6 @@ const config = {
     defaultTimeout: parseInt(process.env.FAL_TIMEOUT_MS, 10) || 600000, // 10 min
   },
 
-  cloudinary: {
-    cloudName: process.env.CLOUDINARY_CLOUD_NAME || '',
-    apiKey: process.env.CLOUDINARY_API_KEY || '',
-    apiSecret: process.env.CLOUDINARY_API_SECRET || '',
-  },
-
   google: {
     tokenPath: process.env.GOOGLE_TOKEN_PATH || path.join(ROOT_DIR, '.gsheets_token.json'),
     credentialsPath: process.env.GOOGLE_CREDENTIALS_PATH || path.join(ROOT_DIR, 'video_analytics_hub_claude_code_oauth.json'),
@@ -47,9 +41,6 @@ const config = {
     model: process.env.OPENAI_MODEL || 'gpt-4o',
   },
 
-  elevenlabs: {
-    defaultVoiceId: process.env.ELEVENLABS_VOICE_ID || 'JBFqnCBsd6RMkjVDRZzb', // George
-  },
 };
 
 module.exports = config;

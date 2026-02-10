@@ -1,56 +1,61 @@
 #!/usr/bin/env node
 'use strict';
 
-const { getAccount } = require('../pipeline/sheets/account-manager');
-const { createContent, updateContentStatus } = require('../pipeline/sheets/content-manager');
-const { post } = require('../pipeline/posting/poster');
+const { runPipeline } = require('../pipeline/orchestrator');
+const { listDriveFiles } = require('../pipeline/sheets/client');
 
 function parseArgs() {
   const args = process.argv.slice(2);
-  const opts = { account: null, dryRun: false, skipPost: false };
+  const opts = { characterFolder: null, dryRun: false };
   for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--account' && args[i + 1]) opts.account = args[++i];
+    if (args[i] === '--character-folder' && args[i + 1]) opts.characterFolder = args[++i];
     if (args[i] === '--dry-run') opts.dryRun = true;
-    if (args[i] === '--skip-post') opts.skipPost = true;
   }
   return opts;
 }
 
 async function main() {
   const opts = parseArgs();
-  if (!opts.account) {
-    console.error('Usage: node scripts/run-pipeline.js --account ACC_0001 [--dry-run] [--skip-post]');
+  if (!opts.characterFolder) {
+    console.error('Usage: node scripts/run-pipeline.js --character-folder <DRIVE_FOLDER_ID> [--dry-run]');
+    console.error('');
+    console.error('Options:');
+    console.error('  --character-folder  Drive folder ID containing character image(s)');
+    console.error('  --dry-run           Log pipeline steps without calling APIs');
     process.exit(1);
   }
 
-  console.log(`[pipeline] Starting for account: ${opts.account}`);
+  console.log(`[pipeline] Character folder: ${opts.characterFolder}`);
+  console.log(`[pipeline] Dry run: ${opts.dryRun}`);
 
-  const account = await getAccount(opts.account);
-  if (!account) {
-    console.error(`Account ${opts.account} not found`);
+  // Validate character folder exists and has images
+  const files = await listDriveFiles(opts.characterFolder);
+  const images = files.filter((f) => f.mimeType && f.mimeType.startsWith('image/'));
+  if (images.length === 0) {
+    console.error(`[pipeline] No image files found in Drive folder ${opts.characterFolder}`);
+    console.error(`[pipeline] Found ${files.length} files: ${files.map((f) => f.name).join(', ') || '(empty)'}`);
     process.exit(1);
   }
-  console.log(`[pipeline] Account: ${account.persona_name} (${account.platform})`);
+  console.log(`[pipeline] Found ${images.length} character image(s): ${images.map((f) => f.name).join(', ')}`);
 
-  const contentId = await createContent({ account_id: opts.account });
-  console.log(`[pipeline] Created content entry: ${contentId}`);
+  const result = await runPipeline({
+    characterFolderId: opts.characterFolder,
+    dryRun: opts.dryRun,
+  });
 
-  if (opts.dryRun) {
-    console.log('[pipeline] Dry run — skipping video generation and posting');
-    return;
+  console.log('\n=== Pipeline Result ===');
+  console.log(`Content ID: ${result.contentId}`);
+  if (result.dryRun) {
+    console.log('(dry run — no files generated)');
+  } else {
+    console.log(`Drive folder: ${result.driveFolderId}`);
+    if (result.driveUrls) {
+      console.log('Files:');
+      for (const [name, url] of Object.entries(result.driveUrls)) {
+        console.log(`  ${name}: ${url}`);
+      }
+    }
   }
-
-  // TODO: call orchestrator to generate video
-  // const result = await orchestrate(account, contentId);
-  console.log('[pipeline] Video generation not yet wired — skipping');
-
-  if (!opts.skipPost) {
-    // TODO: post once video generation is complete
-    // const postResult = await post({ platform: account.platform, videoPath: result.videoPath, metadata: { ... } });
-    console.log('[pipeline] Posting not yet wired — skipping');
-  }
-
-  console.log(`[pipeline] Done. Content ID: ${contentId}`);
 }
 
 main().catch((err) => {

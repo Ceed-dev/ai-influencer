@@ -1,169 +1,226 @@
 'use strict';
 
 const config = require('./config');
-const { readSheet, writeSheet } = require('./sheets/client');
-const { uploadImage } = require('./media/cloudinary');
+const scenario = require('./data/scenario.json');
+const { uploadToFalStorage, downloadFromDrive } = require('./media/fal-client');
 const { generateVideo } = require('./media/video-generator');
 const { generateSpeech } = require('./media/tts-generator');
 const { syncLips } = require('./media/lipsync');
-const { composite } = require('./media/compositor');
-const { storeVideo } = require('./storage/drive-storage');
+const { concatVideos } = require('./media/concat');
+const { listDriveFiles, getDrive, uploadToDrive } = require('./sheets/client');
+const { createContent, updateContentStatus } = require('./sheets/content-manager');
 
-const SPREADSHEET_ID = config.google.masterSpreadsheetId;
-const PIPELINE_TAB = 'content_pipeline';
+const ROOT_FOLDER_ID = config.google.rootDriveFolderId;
 
 /**
- * Read a content row from the content_pipeline sheet by content ID.
- * Returns { row, rowIndex, headers }.
+ * Create a subfolder in Google Drive. Returns existing folder if name matches.
  */
-async function readContentRow(contentId) {
-  const data = await readSheet(SPREADSHEET_ID, PIPELINE_TAB);
-  if (!data.length) throw new Error('content_pipeline sheet is empty');
-  const headers = data[0];
-  const idCol = headers.indexOf('content_id');
-  if (idCol === -1) throw new Error('content_id column not found in content_pipeline');
-
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][idCol] === contentId) {
-      return { row: data[i], rowIndex: i + 1, headers }; // rowIndex is 1-based for Sheets
-    }
+async function getOrCreateFolder(parentId, folderName) {
+  const drive = getDrive();
+  // Check if folder already exists
+  const existing = await drive.files.list({
+    q: `'${parentId}' in parents and name = '${folderName}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
+    fields: 'files(id, name)',
+    supportsAllDrives: true,
+    includeItemsFromAllDrives: true,
+  });
+  if (existing.data.files && existing.data.files.length > 0) {
+    return existing.data.files[0].id;
   }
-  throw new Error(`Content ID "${contentId}" not found in content_pipeline`);
+  // Create new folder
+  const res = await drive.files.create({
+    requestBody: {
+      name: folderName,
+      mimeType: 'application/vnd.google-apps.folder',
+      parents: [parentId],
+    },
+    fields: 'id',
+    supportsAllDrives: true,
+  });
+  return res.data.id;
 }
 
 /**
- * Update the status cell for a content row.
+ * Download a video URL to a Buffer (used for fal.ai output URLs).
  */
-async function updateStatus(rowIndex, headers, status) {
-  const statusCol = headers.indexOf('status');
-  if (statusCol === -1) return;
-  const colLetter = String.fromCharCode(65 + statusCol);
-  await writeSheet(SPREADSHEET_ID, `${PIPELINE_TAB}!${colLetter}${rowIndex}`, [[status]]);
-}
-
-/**
- * Update a specific column value for a content row.
- */
-async function updateCell(rowIndex, headers, columnName, value) {
-  const col = headers.indexOf(columnName);
-  if (col === -1) return;
-  const colLetter = String.fromCharCode(65 + col);
-  await writeSheet(SPREADSHEET_ID, `${PIPELINE_TAB}!${colLetter}${rowIndex}`, [[value]]);
-}
-
-/**
- * Get a column value from a row by header name.
- */
-function getField(row, headers, name) {
-  const idx = headers.indexOf(name);
-  return idx >= 0 ? row[idx] || '' : '';
+function downloadToBuffer(url) {
+  const https = require('https');
+  const http = require('http');
+  return new Promise((resolve, reject) => {
+    const client = url.startsWith('https') ? https : http;
+    client.get(url, (res) => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        return downloadToBuffer(res.headers.location).then(resolve, reject);
+      }
+      if (res.statusCode !== 200) {
+        return reject(new Error(`Download failed: HTTP ${res.statusCode}`));
+      }
+      const chunks = [];
+      res.on('data', (chunk) => chunks.push(chunk));
+      res.on('end', () => resolve(Buffer.concat(chunks)));
+      res.on('error', reject);
+    }).on('error', reject);
+  });
 }
 
 /**
  * Run the full video production pipeline.
  *
- * Steps:
- *   1. Read scenario from content_pipeline sheet
- *   2. Upload character image to Cloudinary
- *   3. Generate video with Kling (image-to-video)
- *   4. Generate speech audio with ElevenLabs
- *   5. Lip-sync video to audio
- *   6. Composite final video with Creatify Aurora
- *   7. Upload final video to Google Drive
+ * Flow:
+ *   1. Get character image from Drive folder → upload to fal.storage
+ *   2. For each scenario section (hook, body, cta):
+ *      a. Kling motion-control (image + motion ref → video)
+ *      b. ElevenLabs TTS (script → audio)
+ *      c. Sync Lipsync (video + audio → lip-synced video)
+ *   3. ffmpeg concat: 3 section videos → final.mp4
+ *   4. Upload all 4 files to Drive Productions/YYYY-MM-DD/CNT_XXXX/
+ *   5. Record URLs and status in content_pipeline sheet
  *
  * @param {object} params
- * @param {string} params.contentId - Content ID from content_pipeline sheet
- * @param {string} [params.folderId] - Drive folder for output (defaults to config root folder)
+ * @param {string} params.characterFolderId - Drive folder ID containing character image(s)
  * @param {boolean} [params.dryRun=false] - Log steps without calling APIs
- * @returns {Promise<object>} Pipeline result with URLs at each step
+ * @returns {Promise<object>} Pipeline result with all URLs
  */
-async function runPipeline({ contentId, folderId, dryRun = false }) {
+async function runPipeline({ characterFolderId, dryRun = false }) {
   const log = (step, msg) => console.log(`[pipeline:${step}] ${msg}`);
-  const result = {};
+  const sections = scenario.sections;
+  const result = { sections: {}, dryRun };
 
-  // Step 1: Read scenario
-  log('read', `Loading content ${contentId}...`);
-  const { row, rowIndex, headers } = await readContentRow(contentId);
-  const characterImageUrl = getField(row, headers, 'character_image_url');
-  const motionPrompt = getField(row, headers, 'motion_prompt');
-  const scriptText = getField(row, headers, 'script_text');
-  const voiceId = getField(row, headers, 'voice_id') || config.elevenlabs.defaultVoiceId;
-  const targetFolder = folderId || getField(row, headers, 'drive_folder_id') || config.google.rootDriveFolderId;
-
-  log('read', `Character: ${characterImageUrl}`);
-  log('read', `Prompt: ${motionPrompt}`);
-  log('read', `Script: ${scriptText.substring(0, 60)}...`);
+  // Create content entry in sheet
+  const contentId = await createContent({
+    character_folder_id: characterFolderId,
+    section_count: String(sections.length),
+    status: 'processing',
+  });
+  result.contentId = contentId;
+  log('init', `Content ID: ${contentId}, sections: ${sections.length}`);
 
   if (dryRun) {
-    log('dry-run', 'Step 2: uploadImage(characterImageUrl) → cloudinaryUrl');
-    log('dry-run', 'Step 3: generateVideo({ imageUrl, prompt }) → rawVideoUrl');
-    log('dry-run', 'Step 4: generateSpeech({ text, voiceId }) → audioUrl');
-    log('dry-run', 'Step 5: syncLips({ videoUrl, audioUrl }) → lipsyncVideoUrl');
-    log('dry-run', 'Step 6: composite({ videoUrl, audioUrl }) → finalVideoUrl');
-    log('dry-run', 'Step 7: storeVideo({ videoUrl, fileName, folderId }) → driveLink');
-    return { dryRun: true, contentId, steps: ['read', 'cloudinary', 'kling', 'tts', 'lipsync', 'composite', 'drive'] };
+    log('dry-run', 'Step 1: Download character image from Drive → fal.storage upload');
+    for (const section of sections) {
+      log('dry-run', `Step 2.${section.index}: [${section.name}] Kling motion-control → TTS → Lipsync`);
+    }
+    log('dry-run', 'Step 3: ffmpeg concat 3 sections → final.mp4');
+    log('dry-run', 'Step 4: Upload 4 files to Drive Productions/');
+    log('dry-run', 'Step 5: Update content_pipeline sheet');
+    await updateContentStatus(contentId, 'dry_run_complete');
+    return result;
   }
 
-  // Step 2: Upload character image to Cloudinary
-  log('cloudinary', 'Uploading character image...');
-  await updateStatus(rowIndex, headers, 'uploading_image');
-  const { url: cloudinaryUrl } = await uploadImage(characterImageUrl, {
-    folder: 'ai-influencer/characters',
-  });
-  result.cloudinaryUrl = cloudinaryUrl;
-  log('cloudinary', `Done: ${cloudinaryUrl}`);
+  try {
+    // Step 1: Get character image from Drive folder
+    log('image', `Listing files in character folder ${characterFolderId}...`);
+    const files = await listDriveFiles(characterFolderId);
+    const imageFile = files.find((f) => f.mimeType && f.mimeType.startsWith('image/'));
+    if (!imageFile) {
+      throw new Error(`No image file found in character folder ${characterFolderId}`);
+    }
+    log('image', `Found character image: ${imageFile.name} (${imageFile.id})`);
 
-  // Step 3: Generate video with Kling
-  log('kling', 'Generating video...');
-  await updateStatus(rowIndex, headers, 'generating_video');
-  const rawVideoUrl = await generateVideo({
-    imageUrl: cloudinaryUrl,
-    prompt: motionPrompt,
-  });
-  result.rawVideoUrl = rawVideoUrl;
-  await updateCell(rowIndex, headers, 'raw_video_url', rawVideoUrl);
-  log('kling', `Done: ${rawVideoUrl}`);
+    // Download from Drive and upload to fal.storage for a temp public URL
+    log('image', 'Downloading from Drive...');
+    const { buffer: imageBuffer, mimeType: imageMimeType } = await downloadFromDrive(imageFile.id);
+    log('image', `Downloaded ${imageBuffer.length} bytes, uploading to fal.storage...`);
+    await updateContentStatus(contentId, 'uploading_image');
+    const falImageUrl = await uploadToFalStorage(imageBuffer, imageMimeType);
+    log('image', `fal.storage URL: ${falImageUrl}`);
+    result.falImageUrl = falImageUrl;
 
-  // Step 4: Generate speech
-  log('tts', 'Generating speech...');
-  await updateStatus(rowIndex, headers, 'generating_audio');
-  const audioUrl = await generateSpeech({ text: scriptText, voiceId });
-  result.audioUrl = audioUrl;
-  await updateCell(rowIndex, headers, 'audio_url', audioUrl);
-  log('tts', `Done: ${audioUrl}`);
+    // Step 2: Process each section
+    const sectionClips = [];
+    for (const section of sections) {
+      log(section.name, `--- Processing section ${section.index}: ${section.name} ---`);
+      const sectionResult = {};
 
-  // Step 5: Lip-sync
-  log('lipsync', 'Syncing lips...');
-  await updateStatus(rowIndex, headers, 'lip_syncing');
-  const lipsyncVideoUrl = await syncLips({ videoUrl: rawVideoUrl, audioUrl });
-  result.lipsyncVideoUrl = lipsyncVideoUrl;
-  await updateCell(rowIndex, headers, 'lipsync_video_url', lipsyncVideoUrl);
-  log('lipsync', `Done: ${lipsyncVideoUrl}`);
+      // 2a: Kling motion-control
+      log(section.name, 'Generating video with Kling motion-control...');
+      await updateContentStatus(contentId, `generating_video_${section.name}`);
+      const rawVideoUrl = await generateVideo({
+        imageUrl: falImageUrl,
+        motionVideoUrl: section.motionVideoUrl,
+      });
+      sectionResult.rawVideoUrl = rawVideoUrl;
+      log(section.name, `Kling done: ${rawVideoUrl}`);
 
-  // Step 6: Composite final
-  log('composite', 'Compositing final video...');
-  await updateStatus(rowIndex, headers, 'compositing');
-  const finalVideoUrl = await composite({ videoUrl: lipsyncVideoUrl, audioUrl });
-  result.finalVideoUrl = finalVideoUrl;
-  await updateCell(rowIndex, headers, 'final_video_url', finalVideoUrl);
-  log('composite', `Done: ${finalVideoUrl}`);
+      // 2b: ElevenLabs TTS
+      log(section.name, 'Generating speech with ElevenLabs...');
+      await updateContentStatus(contentId, `generating_audio_${section.name}`);
+      const audioUrl = await generateSpeech({ text: section.script });
+      sectionResult.audioUrl = audioUrl;
+      log(section.name, `TTS done: ${audioUrl}`);
 
-  // Step 7: Upload to Drive
-  log('drive', 'Uploading to Drive...');
-  await updateStatus(rowIndex, headers, 'uploading_to_drive');
-  const fileName = `${contentId}_final.mp4`;
-  const driveResult = await storeVideo({ videoUrl: finalVideoUrl, fileName, folderId: targetFolder });
-  result.driveFileId = driveResult.fileId;
-  result.driveLink = driveResult.webViewLink;
-  await updateCell(rowIndex, headers, 'drive_file_id', driveResult.fileId);
-  await updateCell(rowIndex, headers, 'drive_link', driveResult.webViewLink);
-  log('drive', `Done: ${driveResult.webViewLink}`);
+      // 2c: Sync Lipsync
+      log(section.name, 'Syncing lips...');
+      await updateContentStatus(contentId, `lip_syncing_${section.name}`);
+      const lipsyncVideoUrl = await syncLips({
+        videoUrl: rawVideoUrl,
+        audioUrl,
+      });
+      sectionResult.lipsyncVideoUrl = lipsyncVideoUrl;
+      log(section.name, `Lipsync done: ${lipsyncVideoUrl}`);
 
-  // Final status
-  await updateStatus(rowIndex, headers, 'completed');
-  log('done', `Pipeline complete for ${contentId}`);
+      // Download lipsync result to buffer for concat
+      log(section.name, 'Downloading lip-synced video...');
+      const videoBuffer = await downloadToBuffer(lipsyncVideoUrl);
+      sectionClips.push({
+        buffer: videoBuffer,
+        filename: `${section.filenamePrefix}.mp4`,
+      });
+      sectionResult.buffer = videoBuffer;
+      result.sections[section.name] = sectionResult;
+      log(section.name, `Section ${section.name} complete (${videoBuffer.length} bytes)`);
+    }
 
-  return result;
+    // Step 3: Concat all sections
+    log('concat', 'Concatenating 3 sections with ffmpeg...');
+    await updateContentStatus(contentId, 'concatenating');
+    const finalBuffer = await concatVideos(sectionClips);
+    result.finalBufferSize = finalBuffer.length;
+    log('concat', `Final video: ${finalBuffer.length} bytes`);
+
+    // Step 4: Upload to Drive
+    log('drive', 'Creating output folder structure...');
+    await updateContentStatus(contentId, 'uploading_to_drive');
+    const productionsFolderId = await getOrCreateFolder(ROOT_FOLDER_ID, 'Productions');
+    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const dateFolderId = await getOrCreateFolder(productionsFolderId, today);
+    const contentFolderId = await getOrCreateFolder(dateFolderId, contentId);
+
+    // Upload individual section videos + final
+    const driveUrls = {};
+    for (const clip of sectionClips) {
+      log('drive', `Uploading ${clip.filename}...`);
+      const uploaded = await uploadToDrive(contentFolderId, clip.filename, 'video/mp4', clip.buffer);
+      driveUrls[clip.filename] = uploaded.webViewLink;
+    }
+    log('drive', 'Uploading final.mp4...');
+    const finalUploaded = await uploadToDrive(contentFolderId, 'final.mp4', 'video/mp4', finalBuffer);
+    driveUrls['final.mp4'] = finalUploaded.webViewLink;
+    result.driveUrls = driveUrls;
+    result.driveFolderId = contentFolderId;
+    log('drive', `All files uploaded to Drive folder: ${contentFolderId}`);
+
+    // Step 5: Update sheet with all URLs
+    log('sheet', 'Updating content_pipeline sheet...');
+    await updateContentStatus(contentId, 'completed', {
+      hook_video_url: driveUrls['01_hook.mp4'] || '',
+      body_video_url: driveUrls['02_body.mp4'] || '',
+      cta_video_url: driveUrls['03_cta.mp4'] || '',
+      final_video_url: driveUrls['final.mp4'] || '',
+      drive_folder_id: contentFolderId,
+    });
+    log('done', `Pipeline complete! Content ID: ${contentId}`);
+
+    return result;
+  } catch (err) {
+    log('error', `Pipeline failed: ${err.message}`);
+    try {
+      await updateContentStatus(contentId, 'error', { error_message: err.message });
+    } catch (_) {
+      // ignore sheet update error during error handling
+    }
+    throw err;
+  }
 }
 
 module.exports = { runPipeline };

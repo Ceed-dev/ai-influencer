@@ -7,9 +7,9 @@ const SHEET_ID = config.google.masterSpreadsheetId;
 const TAB = 'content_pipeline';
 
 const HEADERS = [
-  'content_id', 'account_id', 'status', 'character_image_url', 'script_text',
-  'kling_video_url', 'tts_audio_url', 'lipsync_video_url', 'final_video_url',
-  'drive_file_id', 'platform_post_id', 'views_48h', 'error_message',
+  'content_id', 'account_id', 'status', 'character_folder_id', 'section_count',
+  'hook_video_url', 'body_video_url', 'cta_video_url', 'final_video_url',
+  'drive_folder_id', 'platform_post_id', 'views_48h', 'error_message',
   'created_at', 'updated_at',
 ];
 
