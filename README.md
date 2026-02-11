@@ -6,6 +6,22 @@ YouTube Shorts / TikTok / Instagram Reels / X に対応。Node.js パイプラ�
 
 ---
 
+## ドキュメント一覧
+
+このプロジェクトのドキュメントは以下のファイルに分かれています。目的に応じて参照してください。
+
+| ドキュメント | 概要 | 対象読者 |
+|---|---|---|
+| **[README.md](README.md)**（本ファイル） | システム仕様・スキーマ・セットアップ手順・コスト構造の技術リファレンス | エンジニア |
+| **[ARCHITECTURE.md](ARCHITECTURE.md)** | システム全体図・データフロー・API統合・コスト見積もりを図解で説明 | エンジニア / PM |
+| **[STRATEGY.md](STRATEGY.md)** | KPI計画・収益モデル・フェーズ計画・会議メモ・TODO・意思決定ログ | PM / ビジネス |
+| **[OPERATIONS.md](OPERATIONS.md)** | インベントリ管理・動画制作ワークフロー・トラブルシューティングの運用手順書 | オペレーター |
+| **[MANUAL.md](MANUAL.md)** | GASアナリティクス（CSV取込・KPI分析・AI推奨）の操作マニュアル | オペレーター |
+| **[docs/USER_GUIDE.md](docs/USER_GUIDE.md)** | 制作ループ全体の概要ガイド | 全チーム |
+| **[docs/n8n-integration.md](docs/n8n-integration.md)** | GAS Web App との n8n ワークフロー連携ガイド | エンジニア |
+
+---
+
 ## 目次
 
 1. [システム概要](#システム概要)
@@ -100,7 +116,7 @@ v4.0 ではインベントリ実データ投入・パイプライン並列化が
 
 Productions フォルダ配下に日付 + コンテンツID のフォルダを自動作成し、4ファイルをアップロード:
 ```
-Productions/YYYY-MM-DD/CNT_XXXX/
+Productions/YYYY-MM-DD/VID_YYYYMM_XXXX/
 ├── 01_hook.mp4      # hookセクション単体
 ├── 02_body.mp4      # bodyセクション単体
 ├── 03_cta.mp4       # ctaセクション単体
@@ -207,7 +223,7 @@ AI-Influencer Root/ (Shared Drives > Product)
 │
 ├── Productions/                         # 【出力】パイプライン生成物
 │   └── YYYY-MM-DD/                      # 日付フォルダ（自動作成）
-│       └── CNT_XXXXXX_XXXX/            # コンテンツIDフォルダ（自動作成）
+│       └── VID_YYYYMM_XXXX/            # コンテンツIDフォルダ（自動作成）
 │           ├── 01_hook.mp4              # hookセクション動画
 │           ├── 02_body.mp4              # bodyセクション動画
 │           ├── 03_cta.mp4              # ctaセクション動画
@@ -239,7 +255,7 @@ AI-Influencer Root/ (Shared Drives > Product)
 |---|---|---|
 | キャラクターフォルダ | `CHR_XXXX` | `CHR_0001` |
 | キャラクター画像 | `CHR_XXXX_vN.jpg` | `CHR_0001_v1.jpg` |
-| コンテンツID | `CNT_YYYYMM_XXXX` | `CNT_202602_2916` |
+| 動画ID | `VID_YYYYMM_XXXX` | `VID_202602_0001` |
 | セクション動画 | `NN_セクション名.mp4` | `01_hook.mp4`, `02_body.mp4`, `03_cta.mp4` |
 | 結合動画 | `final.mp4` | `final.mp4` |
 
@@ -295,40 +311,43 @@ AI-Influencer Root/ (Shared Drives > Product)
 
 動画制作の本番管理タブ。32カラムで制作の全情報を記録。新規パイプライン実行はこのタブに記録される。
 
-| カラム | 型 | 説明 | なぜ必要か |
+| # | カラム | 型 | 説明 |
 |---|---|---|---|
-| `video_id` | string | 一意ID（例: `VID_202602_0001`） | 動画を一意に識別 |
-| `account_id` | string | 紐付くアカウントID | アカウント別の生成管理 |
-| `character_id` | string | キャラクターID | 使用キャラクターの記録 |
-| `scenario_id` | string | シナリオID | 使用シナリオの記録 |
-| `motion_hook_id` | string | hookモーションID | hookセクションのモーション素材 |
-| `motion_body_id` | string | bodyモーションID | bodyセクションのモーション素材 |
-| `motion_cta_id` | string | ctaモーションID | ctaセクションのモーション素材 |
-| `audio_id` | string | BGM/音声ID | 使用音声素材の記録 |
-| `status` | string | 処理ステータス | パイプライン進行状況の追跡 |
-| `section_count` | number | セクション数（通常3） | 動画構成の記録 |
-| `hook_script` | string | hookスクリプト | TTSに使用したテキスト |
-| `body_script` | string | bodyスクリプト | TTSに使用したテキスト |
-| `cta_script` | string | ctaスクリプト | TTSに使用したテキスト |
-| `hook_video_url` | url | hook動画のDriveリンク | セクション動画へのアクセス |
-| `body_video_url` | url | body動画のDriveリンク | セクション動画へのアクセス |
-| `cta_video_url` | url | cta動画のDriveリンク | セクション動画へのアクセス |
-| `final_video_url` | url | 結合版動画のDriveリンク | 投稿用動画へのアクセス |
-| `drive_folder_id` | string | 出力先DriveフォルダID | Driveフォルダへの直接アクセス |
-| `character_image_url` | string | キャラクター画像URL | 使用画像の記録 |
-| `voice_id` | string | TTS音声ID | 使用音声の記録 |
-| `duration_seconds` | number | 動画総尺（秒） | コンテンツ長の記録 |
-| `file_size_bytes` | number | 最終ファイルサイズ | ストレージ管理 |
-| `processing_time_ms` | number | 処理時間（ミリ秒） | パフォーマンス計測 |
-| `platform_post_id` | string | プラットフォーム側投稿ID | 投稿後のメトリクス紐付け |
-| `posted_at` | datetime | 投稿日時 | 投稿タイミングの記録 |
-| `views_48h` | number | 48時間後の視聴数 | 初期パフォーマンス指標 |
-| `api_cost_usd` | number | API費用（USD） | コスト管理 |
-| `error_message` | string | エラーメッセージ | デバッグ情報 |
-| `error_step` | string | エラー発生ステップ | 障害箇所の特定 |
-| `retry_count` | number | リトライ回数 | リトライ履歴の記録 |
-| `created_at` | datetime | レコード作成日時 | パイプライン開始時刻 |
-| `updated_at` | datetime | 最終更新日時 | ステータス変更の時刻 |
+| 1 | `video_id` | string | 一意ID（例: `VID_202602_0001`） |
+| 2 | `account_id` | string | 紐付くアカウントID |
+| 3 | `title` | string | 動画タイトル |
+| 4 | `edit_status` | string | 編集ステータス（`draft`/`ready`/`done`） |
+| 5 | `character_id` | string | キャラクターID |
+| 6 | `hook_scenario_id` | string | hookシナリオID |
+| 7 | `body_scenario_id` | string | bodyシナリオID |
+| 8 | `cta_scenario_id` | string | ctaシナリオID |
+| 9 | `hook_motion_id` | string | hookモーションID |
+| 10 | `body_motion_id` | string | bodyモーションID |
+| 11 | `cta_motion_id` | string | ctaモーションID |
+| 12 | `voice_id` | string | TTS音声ID（例: `Aria`） |
+| 13 | `pipeline_status` | string | パイプライン処理ステータス（自動更新） |
+| 14 | `current_phase` | string | 現在の処理フェーズ（自動更新） |
+| 15 | `hook_video_url` | url | hook動画のDriveリンク（自動記録） |
+| 16 | `body_video_url` | url | body動画のDriveリンク（自動記録） |
+| 17 | `cta_video_url` | url | cta動画のDriveリンク（自動記録） |
+| 18 | `final_video_url` | url | 結合版動画のDriveリンク（自動記録） |
+| 19 | `drive_folder_id` | string | 出力先DriveフォルダID（自動記録） |
+| 20 | `error_message` | string | エラーメッセージ（自動記録） |
+| 21 | `processing_time_sec` | number | 処理時間（秒）（自動記録） |
+| 22 | `created_at` | datetime | レコード作成日時 |
+| 23 | `updated_at` | datetime | 最終更新日時（自動更新） |
+| 24 | `platform_post_ids` | string | プラットフォーム側投稿ID |
+| 25 | `yt_views` | number | YouTube視聴数 |
+| 26 | `yt_engagement` | number | YouTubeエンゲージメント |
+| 27 | `tt_views` | number | TikTok視聴数 |
+| 28 | `tt_engagement` | number | TikTokエンゲージメント |
+| 29 | `ig_views` | number | Instagram視聴数 |
+| 30 | `ig_engagement` | number | Instagramエンゲージメント |
+| 31 | `overall_score` | number | 総合スコア |
+| 32 | `analysis_date` | datetime | 分析実行日 |
+
+> **ステータス遷移**: `edit_status=ready` かつ `pipeline_status` が空/queued の行がパイプライン処理対象。
+> 処理中は `pipeline_status` が `processing` → `completed` / `error` に自動更新される。
 
 ### `content_pipeline` タブ（レガシー）
 
@@ -336,7 +355,7 @@ v3.1以前のパイプライン実行ログ。新規実行は `production` タ�
 
 | カラム | 型 | 説明 | なぜ必要か |
 |---|---|---|---|
-| `content_id` | string | 一意ID（例: `CNT_202602_2916`） | コンテンツを一意に識別。年月+連番で時系列順を保つ |
+| `content_id` | string | 一意ID（例: `VID_202602_0001`） | コンテンツを一意に識別。年月+連番で時系列順を保つ |
 | `account_id` | string | 紐付くアカウントID | どのアカウントのコンテンツかを紐付けるため |
 | `status` | string | 処理ステータス（下記参照） | パイプラインの進行状況を追跡しエラー検知するため |
 | `character_folder_id` | string | Drive上のキャラクターフォルダID | どのキャラクター画像を使ったかを記録するため |
@@ -425,11 +444,12 @@ processing → uploading_image → generating_video_hook → generating_audio_ho
 │   ├── run-daily.js       # 日次バッチ実行（後続フェーズ）
 │   └── collect-metrics.js # メトリクス収集（後続フェーズ）
 ├── tests/                 # パイプラインテスト
-│   └── pipeline.test.js   # 21 tests
+│   └── pipeline.test.js   # 27 tests
 ├── docs/                  # 追加ドキュメント
 ├── STRATEGY.md            # 戦略・KPI・会議メモ
 ├── ARCHITECTURE.md        # 技術アーキテクチャ
-├── CONTEXT.md             # プロジェクト履歴（英語）
+├── OPERATIONS.md          # 運用マニュアル（日本語）
+├── CONTEXT.md             # プロジェクト履歴（AI用）
 └── MANUAL.md              # GAS操作マニュアル
 ```
 
@@ -508,7 +528,7 @@ node scripts/run-pipeline.js --character-folder 1zAZj-Cm3rLZ2oJHZDPUwvDfxL_ufS8g
 
 出力:
 ```
-[pipeline:init] Content ID: CNT_202602_2916, sections: 3
+[pipeline:init] Video: VID_202602_0001, character: CHR_0001, voice: Aria
 [pipeline:image] fal.storage URL: https://v3b.fal.media/files/...
 [pipeline:parallel] Processing 3 sections in parallel...
 [pipeline:hook] Kling done: https://...
@@ -570,7 +590,7 @@ ffmpeg結合は無料（ローカル処理）。
 既存の GAS アナリティクスシステム（v2.0）は変更なしで動作。詳細は [MANUAL.md](MANUAL.md) を参照。
 
 - **14 GAS ファイル**: Code, Config, Setup, Migration, CSVParser, Normalizer, Linker, KPIEngine, LLMAnalyzer, SheetWriter, ComponentManager, MasterManager, ScoreUpdater, Utils
-- **Web App**: [デプロイ URL](https://script.google.com/macros/s/AKfycbzBcjrOBC1lIEJZFMl4D6Dz1TJQCjq8h5JaaapQ_qA4ZJIYs83iGNDN2oPj4OAR5GaK/exec)
+- **Web App**: `https://script.google.com/macros/s/{DEPLOYMENT_ID}/exec`
 - **API エンドポイント**: GET 5種 + POST 12種（詳細は [ARCHITECTURE.md](ARCHITECTURE.md)）
 
 ---
@@ -580,8 +600,8 @@ ffmpeg結合は無料（ローカル処理）。
 | スイート | テスト数 | 対象 |
 |---|---|---|
 | GAS テスト（9スイート） | 330 | GAS全モジュール |
-| パイプラインテスト（1スイート） | 21 | メディア生成、CLI、スキーマ、ffmpeg結合 |
-| **合計** | **351** | |
+| パイプラインテスト（1スイート） | 27 | メディア生成、CLI、スキーマ、ffmpeg結合、v4.0モジュール |
+| **合計** | **357** | |
 
 ```bash
 # 全テスト実行
@@ -602,11 +622,13 @@ npx jest tests/pipeline.test.js
 |---|---|
 | [STRATEGY.md](STRATEGY.md) | 戦略・KPI・収益モデル・フェーズ計画・会議メモ |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | 技術アーキテクチャ・データフロー・API仕様 |
-| [MANUAL.md](MANUAL.md) | GAS操作マニュアル（日本語） |
-| [CONTEXT.md](CONTEXT.md) | プロジェクト履歴（英語） |
+| [OPERATIONS.md](OPERATIONS.md) | 運用マニュアル — インベントリ管理・動画制作ワークフロー（日本語） |
+| [MANUAL.md](MANUAL.md) | GAS分析操作マニュアル（日本語） |
+| [docs/USER_GUIDE.md](docs/USER_GUIDE.md) | 制作ループ全体の概要ガイド |
+| [docs/n8n-integration.md](docs/n8n-integration.md) | n8n ワークフロー連携ガイド |
 
 ---
 
 ## ライセンス
 
-Private - Internal Use Only
+MIT

@@ -353,7 +353,7 @@ graph LR
 - [x] ElevenLabs eleven-v3 TTS
 - [x] Sync Lipsync v2/pro リップシンク
 - [x] ffmpeg 3セクション結合
-- [x] Google Driveへの自動保存（Productions/YYYY-MM-DD/CNT_XXXX/）
+- [x] Google Driveへの自動保存（Productions/YYYY-MM-DD/VID_YYYYMM_XXXX/）
 - [x] content_pipelineシートへの自動記録
 - [x] パイプラインテスト（21テスト全パス）
 - [x] **E2E dry-run確認**
@@ -501,7 +501,7 @@ graph LR
 - [x] メディア生成モジュール実装（Kling motion-control, ElevenLabs eleven-v3, Lipsync v2/pro）
 - [x] ffmpeg結合ユーティリティ実装
 - [x] Google Drive保存の動作確認
-- [x] パイプラインテスト（351テスト全パス: 330 GAS + 21 pipeline）
+- [x] パイプラインテスト（357テスト全パス: 330 GAS + 27 pipeline）
 - [ ] E2E: 本番API呼び出しによる動画生成テスト（キャラクター画像の準備待ち）
 
 ### 後続TODO

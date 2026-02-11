@@ -1,4 +1,4 @@
-# Video Analytics Hub v2.0 - ユーザーガイド
+# AI-Influencer ユーザーガイド
 
 ## このシステムは何をするのか
 

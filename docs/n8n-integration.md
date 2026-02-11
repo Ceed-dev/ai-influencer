@@ -1,6 +1,6 @@
 # n8n Integration Guide (v2.0)
 
-This document describes how to integrate n8n workflows with the Video Analytics Hub v2.0 GAS Web App.
+This document describes how to integrate n8n workflows with the AI-Influencer GAS Web App.
 
 ## 1. Overview
 

@@ -128,7 +128,7 @@ graph TB
 
 5. 保存
    4ファイル(01_hook.mp4, 02_body.mp4, 03_cta.mp4, final.mp4)
-   → Google Drive (Productions/YYYY-MM-DD/CNT_XXXX/)
+   → Google Drive (Productions/YYYY-MM-DD/VID_YYYYMM_XXXX/)
 
 6. 記録
    production-manager.js: production タブにURL・ステータスを自動記録（32カラム）
@@ -248,7 +248,7 @@ AI-Influencer/
 │   └── Images/         # 画像ファイル
 ├── Productions/        # 出力: 生成動画
 │   └── YYYY-MM-DD/     # 日付別
-│       └── CNT_XXXX/   # コンテンツID別
+│       └── VID_YYYYMM_XXXX/   # コンテンツID別
 │           ├── 01_hook.mp4
 │           ├── 02_body.mp4
 │           ├── 03_cta.mp4
@@ -313,40 +313,40 @@ AI-Influencer/
 
 本番動画制作の管理タブ。content_pipelineの後継として、新規実行はこちらに記録。
 
-| カラム | 型 | 説明 |
-|---|---|---|
-| video_id | String | 一意ID（VID_YYYYMM_XXXX） |
-| account_id | String | 投稿先アカウント |
-| character_id | String | キャラクターID |
-| scenario_id | String | シナリオID |
-| motion_hook_id | String | hookモーションID |
-| motion_body_id | String | bodyモーションID |
-| motion_cta_id | String | ctaモーションID |
-| audio_id | String | BGM/音声ID |
-| status | String | queued→processing→...→completed/error |
-| section_count | Number | セクション数（通常3） |
-| hook_script | String | hookセクションのスクリプト |
-| body_script | String | bodyセクションのスクリプト |
-| cta_script | String | ctaセクションのスクリプト |
-| hook_video_url | String | hook動画のDrive URL |
-| body_video_url | String | body動画のDrive URL |
-| cta_video_url | String | cta動画のDrive URL |
-| final_video_url | String | 結合版動画のDrive URL |
-| drive_folder_id | String | 出力フォルダのDrive ID |
-| character_image_url | String | キャラクター画像URL |
-| voice_id | String | TTS音声ID |
-| duration_seconds | Number | 動画総尺（秒） |
-| file_size_bytes | Number | 最終ファイルサイズ |
-| processing_time_ms | Number | 処理時間（ミリ秒） |
-| platform_post_id | String | 投稿後のプラットフォーム側ID |
-| posted_at | DateTime | 投稿日時 |
-| views_48h | Number | 48時間後の視聴数 |
-| api_cost_usd | Number | API費用（USD） |
-| error_message | String | エラーメッセージ |
-| error_step | String | エラー発生ステップ |
-| retry_count | Number | リトライ回数 |
-| created_at | DateTime | 作成日時 |
-| updated_at | DateTime | 更新日時 |
+| カラム | 型 | 入力 | 説明 |
+|---|---|---|---|
+| video_id | String | 手動 | 一意ID（VID_YYYYMM_XXXX） |
+| account_id | String | 手動 | 投稿先アカウント |
+| title | String | 手動 | 動画タイトル |
+| edit_status | String | 手動 | 編集ステータス（draft/ready/done） |
+| character_id | String | 手動 | キャラクターID |
+| hook_scenario_id | String | 手動 | hookシナリオID |
+| body_scenario_id | String | 手動 | bodyシナリオID |
+| cta_scenario_id | String | 手動 | ctaシナリオID |
+| hook_motion_id | String | 手動 | hookモーションID |
+| body_motion_id | String | 手動 | bodyモーションID |
+| cta_motion_id | String | 手動 | ctaモーションID |
+| voice_id | String | 手動 | TTS音声ID（例: Aria） |
+| pipeline_status | String | 自動 | パイプライン処理ステータス |
+| current_phase | String | 自動 | 現在の処理フェーズ |
+| hook_video_url | String | 自動 | hook動画のDrive URL |
+| body_video_url | String | 自動 | body動画のDrive URL |
+| cta_video_url | String | 自動 | cta動画のDrive URL |
+| final_video_url | String | 自動 | 結合版動画のDrive URL |
+| drive_folder_id | String | 自動 | 出力フォルダのDrive ID |
+| error_message | String | 自動 | エラーメッセージ |
+| processing_time_sec | Number | 自動 | 処理時間（秒） |
+| created_at | DateTime | 自動 | 作成日時 |
+| updated_at | DateTime | 自動 | 更新日時 |
+| platform_post_ids | String | 手動 | プラットフォーム側投稿ID |
+| yt_views | Number | 分析 | YouTube視聴数 |
+| yt_engagement | Number | 分析 | YouTubeエンゲージメント |
+| tt_views | Number | 分析 | TikTok視聴数 |
+| tt_engagement | Number | 分析 | TikTokエンゲージメント |
+| ig_views | Number | 分析 | Instagram視聴数 |
+| ig_engagement | Number | 分析 | Instagramエンゲージメント |
+| overall_score | Number | 分析 | 総合スコア |
+| analysis_date | DateTime | 分析 | 分析実行日 |
 
 #### content_pipeline（レガシー — v3.1以前の実行ログ）
 
@@ -378,7 +378,7 @@ v3.1以前のパイプライン実行ログ。新規実行はproductionタブを
 - **Motions Inventory** (`1ycnmfpL8OgAI7WvlPTr3Z9p1H8UTmCNMV7ahunMlsEw`)
 - **Characters Inventory** (`1-m4f5LgNmArtpECZqqxFL-6P4eabBmPkOYX2VkFHCHA`)
 - **Audio Inventory** (`1Dw_atybwdGpi1Q0jh6CsuUSwzqVw1ZXB6jQT_-VDVak`)
-- **Accounts Inventory**（v4.0新規 — 7アカウント + 12 Gmail認証情報）
+- **Accounts Inventory** (`1CmT6C3qCW3md6lJ9Rvc2WNQkWa5zcvlq6Zp_enJHoUE`) — v4.0新規
 
 共通カラム: component_id, type, name, description, file_link, tags, times_used, avg_performance_score, created_date, status
 
@@ -413,7 +413,7 @@ GAS API エンドポイント詳細は [MANUAL.md](MANUAL.md) を参照。
 |---|---|---|
 | Google Sheets Read (Inventories) | pipeline/sheets/inventory-reader.js | インベントリ読み取り + ID解決（v4.0新規） |
 | Google Sheets Write (Production) | pipeline/sheets/production-manager.js | productionタブ管理（v4.0新規） |
-| Google Sheets Read (Scenarios) | pipeline/sheets/scenario-reader.js | シナリオ読み込み（レガシー） |
+| Google Sheets Read (Scenarios) | pipeline/sheets/content-manager.js | シナリオ読み込み（レガシー） |
 | fal.storage upload | pipeline/media/fal-client.js | キャラクター画像の一時URL生成 |
 | fal-ai/kling-video motion-control | pipeline/media/video-generator.js | 画像+モーション参照動画→動画生成 |
 | fal-ai/elevenlabs eleven-v3 | pipeline/media/tts-generator.js | テキスト→音声生成 |
