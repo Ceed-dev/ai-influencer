@@ -185,13 +185,13 @@ graph LR
 
 全メディア生成は fal.ai 経由で呼び出す。各サービスの役割：
 
-| サービス | 用途 | 何をするか | 単価 | 10秒あたり |
+| サービス | 用途 | 何をするか | 単価 | 5秒あたり |
 |---|---|---|---|---|
-| Kling 2.6 motion-control | AI動画生成 | image_url + video_url → 動画を生成 | $0.07/秒 | $0.70 |
-| ElevenLabs eleven-v3 | テキスト音声合成 (TTS) | スクリプトテキスト → 音声を生成 (voice: "Aria") | ~$0.05/1K文字 | ~$0.04 |
-| Sync Lipsync v2/pro | リップシンク | 動画+音声 → 口の動きを同期させた動画を生成 (sync_mode: "bounce") | $3.00/分 | $0.50 |
+| Kling 2.6 motion-control | AI動画生成 | image_url + video_url → 動画を生成 | [$0.07/秒](https://fal.ai/models/fal-ai/kling-video/v2.6/standard/motion-control) | $0.35 |
+| ElevenLabs eleven-v3 | テキスト音声合成 (TTS) | スクリプトテキスト → 音声を生成 (voice: "Aria") | [$0.10/1K文字](https://fal.ai/models/fal-ai/elevenlabs/tts/eleven-v3) | ~$0.01 |
+| Sync Lipsync v2/pro | リップシンク | 動画+音声 → 口の動きを同期させた動画を生成 (sync_mode: "bounce") | [$5.00/分](https://fal.ai/models/fal-ai/sync-lipsync/v2/pro) | $0.42 |
 
-**セクション単価: ~$1.24（10秒）/ 1本あたり(3セクション): ~$3.72**
+**セクション単価: ~$0.78（5秒）/ 1本あたり(3セクション): ~$2.34**
 
 ### Google APIs
 
@@ -329,4 +329,4 @@ GAS API エンドポイント詳細は [GAS操作マニュアル](manuals/GAS_MA
 
 > 詳細なコスト構造・月次見積もりは [README.md — コスト構造](../README.md#コスト構造) を参照。
 
-**1動画（3セクション）あたり: ~$3.72**（Kling $2.10 + ElevenLabs $0.12 + Lipsync $1.50）
+**1動画（3セクション×5秒）あたり: ~$2.34**（Kling $1.05 + ElevenLabs ~$0.03 + Lipsync $1.26）

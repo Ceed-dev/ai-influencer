@@ -554,6 +554,6 @@ Shared Drives > Product > AI-Influencer > Productions > {日付} > {video_id} /
 
 コスト構造、スプレッドシートスキーマ（全タブ・カラム定義）、Drive フォルダ構造・ID一覧は [README.md](../../README.md) にまとめています:
 
-- [コスト構造](../../README.md#コスト構造) — 1本あたり ~$3.72、月次見積もり
+- [コスト構造](../../README.md#コスト構造) — 1本あたり ~$2.34、月次見積もり
 - [Google Sheets データスキーマ](../../README.md#google-sheets-データスキーマ) — 全タブ・カラム定義
 - [Google Drive フォルダ構造](../../README.md#google-drive-フォルダ構造) — フォルダツリー・命名規則・Drive ID一覧
