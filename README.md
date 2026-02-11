@@ -18,6 +18,7 @@ YouTube Shorts / TikTok / Instagram Reels / X に対応。Node.js パイプラ�
 | **[OPERATIONS.md](OPERATIONS.md)** | インベントリ管理・動画制作ワークフロー・トラブルシューティングの運用手順書 | オペレーター |
 | **[MANUAL.md](MANUAL.md)** | GASアナリティクス（CSV取込・KPI分析・AI推奨）の操作マニュアル | オペレーター |
 | **[docs/USER_GUIDE.md](docs/USER_GUIDE.md)** | 制作ループ全体の概要ガイド | 全チーム |
+| **[docs/account-design-guide.md](docs/account-design-guide.md)** | 50アカウント運用に向けたペルソナ設計・インベントリ登録の完全ガイド | オペレーター / PM |
 | **[docs/n8n-integration.md](docs/n8n-integration.md)** | GAS Web App との n8n ワークフロー連携ガイド | エンジニア |
 
 ---
@@ -560,9 +561,40 @@ npx jest tests/pipeline.test.js
 
 ---
 
+## 技術スタック・外部API一覧
+
+本プロジェクトが使用する全ての外部サービスとAPIの一覧。
+
+### 動画生成パイプライン（有料API）
+
+全て [fal.ai](https://fal.ai) 経由で利用。**プリペイド課金**（事前にクレジット購入が必要）。
+
+| サービス | fal.ai エンドポイント | 用途 | 入力 → 出力 | コスト/セクション |
+|---|---|---|---|---|
+| **Kling 2.6** | `fal-ai/kling-video/v2.6/standard/motion-control` | AI動画生成 | キャラクター画像 + モーション参照動画 → 動画 | $0.70 |
+| **ElevenLabs** | `fal-ai/elevenlabs/tts/eleven-v3` | テキスト音声合成 (TTS) | スクリプトテキスト → 音声ファイル | ~$0.04 |
+| **Sync Lipsync** | `fal-ai/sync-lipsync/v2/pro` | リップシンク（口パク同期） | 動画 + 音声 → 口の動きを同期した動画 | $0.50 |
+
+### Google Cloud（無料枠内）
+
+| サービス | 用途 | API制限 |
+|---|---|---|
+| **Google Sheets API** | インベントリ・production管理の読み書き | 300 req/min |
+| **Google Drive API** | 動画・アセットファイルの保存・取得 | 12,000 req/100s |
+| **YouTube Data API** | 動画投稿（Phase 2、未実装） | 10,000 units/day |
+
+### その他
+
+| サービス | 用途 | コスト |
+|---|---|---|
+| **OpenAI GPT-4o** | GAS分析: KPI分析・改善提案生成 | ~$0.01/分析 |
+| **ffmpeg** | 3セクション動画の結合（ローカル実行） | 無料 |
+| **TikTok Content API** | 動画投稿（Phase 2、未実装） | 無料 |
+| **Instagram Graph API** | 動画投稿（Phase 2、未実装） | 無料 |
+
 ## コスト構造
 
-### 1セクション（約10秒）あたり
+### 1セクション（約10秒）あたり: $1.24
 
 | ステップ | サービス | コスト |
 |---|---|---|
