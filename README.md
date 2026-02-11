@@ -13,12 +13,12 @@ YouTube Shorts / TikTok / Instagram Reels / X に対応。Node.js パイプラ�
 | ドキュメント | 概要 | 対象読者 |
 |---|---|---|
 | **[README.md](README.md)**（本ファイル） | システム仕様・スキーマ・セットアップ手順・コスト構造の技術リファレンス | エンジニア |
-| **[ARCHITECTURE.md](ARCHITECTURE.md)** | システム全体図・データフロー・API統合・コスト見積もりを図解で説明 | エンジニア / PM |
-| **[STRATEGY.md](STRATEGY.md)** | KPI計画・収益モデル・フェーズ計画・会議メモ・TODO・意思決定ログ | PM / ビジネス |
-| **[OPERATIONS.md](OPERATIONS.md)** | インベントリ管理・動画制作ワークフロー・トラブルシューティングの運用手順書 | オペレーター |
-| **[MANUAL.md](MANUAL.md)** | GASアナリティクス（CSV取込・KPI分析・AI推奨）の操作マニュアル | オペレーター |
-| **[docs/USER_GUIDE.md](docs/USER_GUIDE.md)** | 制作ループ全体の概要ガイド | 全チーム |
-| **[docs/account-design-guide.md](docs/account-design-guide.md)** | 50アカウント運用に向けたペルソナ設計・インベントリ登録の完全ガイド | オペレーター / PM |
+| **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** | システム全体図・データフロー・API統合を図解で説明 | エンジニア / PM |
+| **[docs/STRATEGY.md](docs/STRATEGY.md)** | KPI計画・収益モデル・フェーズ計画・会議メモ・TODO・意思決定ログ | PM / ビジネス |
+| **[docs/manuals/OPERATIONS.md](docs/manuals/OPERATIONS.md)** | インベントリ管理・動画制作ワークフロー・トラブルシューティングの運用手順書 | オペレーター |
+| **[docs/manuals/GAS_MANUAL.md](docs/manuals/GAS_MANUAL.md)** | GASアナリティクス（CSV取込・KPI分析・AI推奨）の操作マニュアル | オペレーター |
+| **[docs/manuals/USER_GUIDE.md](docs/manuals/USER_GUIDE.md)** | 制作ループ全体の概要ガイド | 全チーム |
+| **[docs/manuals/account-design-guide.md](docs/manuals/account-design-guide.md)** | 50アカウント運用に向けたペルソナ設計・インベントリ登録の完全ガイド | オペレーター / PM |
 | **[docs/n8n-integration.md](docs/n8n-integration.md)** | GAS Web App との n8n ワークフロー連携ガイド | エンジニア |
 
 ---
@@ -446,12 +446,17 @@ processing → uploading_image → generating_video_hook → generating_audio_ho
 │   └── collect-metrics.js # メトリクス収集（後続フェーズ）
 ├── tests/                 # パイプラインテスト
 │   └── pipeline.test.js   # 27 tests
-├── docs/                  # 追加ドキュメント
-├── STRATEGY.md            # 戦略・KPI・会議メモ
-├── ARCHITECTURE.md        # 技術アーキテクチャ
-├── OPERATIONS.md          # 運用マニュアル（日本語）
+├── docs/                  # ドキュメント
+│   ├── STRATEGY.md        # 戦略・KPI・会議メモ
+│   ├── ARCHITECTURE.md    # 技術アーキテクチャ
+│   ├── n8n-integration.md # n8nワークフロー連携ガイド
+│   └── manuals/           # ユーザー向けマニュアル
+│       ├── OPERATIONS.md          # 運用マニュアル
+│       ├── GAS_MANUAL.md          # GAS操作マニュアル
+│       ├── USER_GUIDE.md          # 制作ループ概要ガイド
+│       └── account-design-guide.md # アカウント設計ガイド
 ├── CONTEXT.md             # プロジェクト履歴（AI用）
-└── MANUAL.md              # GAS操作マニュアル
+└── README.md              # 技術リファレンス（本ファイル）
 ```
 
 ---
@@ -613,17 +618,19 @@ ffmpeg結合は無料（ローカル処理）。
 |---|---|---|---|---|
 | 2月 | 50 | 50 | 1,500 | $5,580 |
 | 3月 | 160 | 160 | 4,800 | $17,856 |
-| 6月 | 700 | 700 | 21,000 | $78,120 |
+| 4月 | 340 | 340 | 10,200 | $37,944 |
+| 5月 | 1,480 | 1,480 | 44,400 | $165,168 |
+| 6月 | 3,500 | 3,500 | 105,000 | $390,600 |
 
 ---
 
 ## GAS アナリティクス
 
-既存の GAS アナリティクスシステム（v2.0）は変更なしで動作。詳細は [MANUAL.md](MANUAL.md) を参照。
+既存の GAS アナリティクスシステム（v2.0）は変更なしで動作。詳細は [GAS操作マニュアル](docs/manuals/GAS_MANUAL.md) を参照。
 
 - **14 GAS ファイル**: Code, Config, Setup, Migration, CSVParser, Normalizer, Linker, KPIEngine, LLMAnalyzer, SheetWriter, ComponentManager, MasterManager, ScoreUpdater, Utils
 - **Web App**: `https://script.google.com/macros/s/{DEPLOYMENT_ID}/exec`
-- **API エンドポイント**: GET 5種 + POST 12種（詳細は [ARCHITECTURE.md](ARCHITECTURE.md)）
+- **API エンドポイント**: GET 5種 + POST 12種（詳細は [ARCHITECTURE.md](docs/ARCHITECTURE.md)）
 
 ---
 
@@ -652,11 +659,12 @@ npx jest tests/pipeline.test.js
 
 | ドキュメント | 内容 |
 |---|---|
-| [STRATEGY.md](STRATEGY.md) | 戦略・KPI・収益モデル・フェーズ計画・会議メモ |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | 技術アーキテクチャ・データフロー・API仕様 |
-| [OPERATIONS.md](OPERATIONS.md) | 運用マニュアル — インベントリ管理・動画制作ワークフロー（日本語） |
-| [MANUAL.md](MANUAL.md) | GAS分析操作マニュアル（日本語） |
-| [docs/USER_GUIDE.md](docs/USER_GUIDE.md) | 制作ループ全体の概要ガイド |
+| [docs/STRATEGY.md](docs/STRATEGY.md) | 戦略・KPI・収益モデル・フェーズ計画・会議メモ |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 技術アーキテクチャ・データフロー・API仕様 |
+| [docs/manuals/OPERATIONS.md](docs/manuals/OPERATIONS.md) | 運用マニュアル — インベントリ管理・動画制作ワークフロー |
+| [docs/manuals/GAS_MANUAL.md](docs/manuals/GAS_MANUAL.md) | GAS分析操作マニュアル |
+| [docs/manuals/USER_GUIDE.md](docs/manuals/USER_GUIDE.md) | 制作ループ全体の概要ガイド |
+| [docs/manuals/account-design-guide.md](docs/manuals/account-design-guide.md) | アカウント設計ガイド |
 | [docs/n8n-integration.md](docs/n8n-integration.md) | n8n ワークフロー連携ガイド |
 
 ---

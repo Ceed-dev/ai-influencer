@@ -417,6 +417,6 @@ Phase 5: テスト（Step 5）
 
 | ドキュメント | 内容 |
 |---|---|
-| [OPERATIONS.md](../OPERATIONS.md) | インベントリ管理・動画制作の運用手順書 |
-| [README.md](../README.md) | 全カラムのスキーマ定義・技術リファレンス |
+| [OPERATIONS.md](OPERATIONS.md) | インベントリ管理・動画制作の運用手順書 |
+| [README.md](../../README.md) | 全カラムのスキーマ定義・技術リファレンス |
 | [ARCHITECTURE.md](../ARCHITECTURE.md) | システム全体図・データフロー |

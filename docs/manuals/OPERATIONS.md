@@ -20,8 +20,7 @@
    - [4.3 処理中の確認方法](#43-処理中の確認方法)
    - [4.4 完了後の確認](#44-完了後の確認)
 5. [トラブルシューティング](#5-トラブルシューティング)
-6. [コスト参考](#6-コスト参考)
-7. [スプレッドシートスキーマ一覧](#7-スプレッドシートスキーマ一覧)
+6. [リファレンス](#6-リファレンス)
 
 ---
 
@@ -551,117 +550,10 @@ Shared Drives > Product > AI-Influencer > Productions > {日付} > {video_id} /
 
 ---
 
-## 6. コスト参考
+## 6. リファレンス
 
-### 1セクションあたりのコスト（約10秒の動画）
+コスト構造、スプレッドシートスキーマ（全タブ・カラム定義）、Drive フォルダ構造・ID一覧は [README.md](../../README.md) にまとめています:
 
-| サービス | 役割 | コスト |
-|---|---|---|
-| Kling 2.6 motion-control | AI動画生成（画像+モーション→動画） | ~$0.70 |
-| ElevenLabs eleven-v3 | テキスト音声合成（スクリプト→音声） | ~$0.04 |
-| Sync Lipsync v2/pro | リップシンク（動画+音声→口同期動画） | ~$0.50 |
-| **セクション合計** | | **~$1.24** |
-
-### 1動画あたりのコスト（3セクション: hook + body + cta）
-
-| 項目 | コスト |
-|---|---|
-| Kling (動画生成) x3 | ~$2.10 |
-| ElevenLabs (TTS) x3 | ~$0.12 |
-| Lipsync x3 | ~$1.50 |
-| **動画1本 合計** | **~$3.72** |
-
-### 月次コスト見積もり
-
-| 月 | アカウント数 | 月間動画本数 | 月間コスト（概算） |
-|---|---|---|---|
-| 2月 | 50 | 1,500 | ~$5,580 |
-| 3月 | 160 | 4,800 | ~$17,856 |
-| 6月 | 700 | 21,000 | ~$78,120 |
-
-> **注意**: 上記は1アカウント = 月30本（1日1本）の前提です。実際の本数はアカウントの投稿頻度によります。
-
----
-
-## 7. スプレッドシートスキーマ一覧
-
-### production タブ（32カラム）
-
-[Master Spreadsheet](https://docs.google.com/spreadsheets/d/1fI1s_KLcegpiACJYpmpNe9tnQmnZo2o8eHIXNV5SpPg) の `production` タブ
-
-| # | カラム名 | 説明 | 入力方法 |
-|---|---|---|---|
-| 1 | `video_id` | 動画の一意ID | `VID_YYYYMM_XXXX` 形式で手動入力 |
-| 2 | `account_id` | 投稿先アカウント | Accounts Inventory から選択 |
-| 3 | `title` | 動画タイトル | 手動入力 |
-| 4 | `edit_status` | 編集ステータス | `ready` で実行対象 |
-| 5 | `character_id` | キャラクターID | Characters Inventory から選択 |
-| 6 | `hook_scenario_id` | Hook シナリオID | Scenarios Inventory から選択 |
-| 7 | `body_scenario_id` | Body シナリオID | Scenarios Inventory から選択 |
-| 8 | `cta_scenario_id` | CTA シナリオID | Scenarios Inventory から選択 |
-| 9 | `hook_motion_id` | Hook モーションID | Motions Inventory から選択 |
-| 10 | `body_motion_id` | Body モーションID | Motions Inventory から選択 |
-| 11 | `cta_motion_id` | CTA モーションID | Motions Inventory から選択 |
-| 12 | `voice_id` | TTS音声ID | デフォルト `Aria` |
-| 13 | `pipeline_status` | 処理状態 | 自動（空/queued/processing/completed/error） |
-| 14 | `current_phase` | 現在のフェーズ | 自動 |
-| 15 | `hook_video_url` | Hook動画URL | 自動（Drive URL） |
-| 16 | `body_video_url` | Body動画URL | 自動（Drive URL） |
-| 17 | `cta_video_url` | CTA動画URL | 自動（Drive URL） |
-| 18 | `final_video_url` | 最終動画URL | 自動（Drive URL） |
-| 19 | `drive_folder_id` | 出力フォルダID | 自動（Drive フォルダID） |
-| 20 | `error_message` | エラーメッセージ | 自動 |
-| 21 | `processing_time_sec` | 処理時間（秒） | 自動 |
-| 22 | `created_at` | 作成日時 | 自動 |
-| 23 | `updated_at` | 更新日時 | 自動 |
-| 24 | `platform_post_ids` | 投稿先ID | 自動（投稿後） |
-| 25 | `yt_views` | YouTube 視聴数 | 自動（分析後） |
-| 26 | `yt_engagement` | YouTube エンゲージメント | 自動（分析後） |
-| 27 | `tt_views` | TikTok 視聴数 | 自動（分析後） |
-| 28 | `tt_engagement` | TikTok エンゲージメント | 自動（分析後） |
-| 29 | `ig_views` | Instagram 視聴数 | 自動（分析後） |
-| 30 | `ig_engagement` | Instagram エンゲージメント | 自動（分析後） |
-| 31 | `overall_score` | 総合スコア | 自動（分析後） |
-| 32 | `analysis_date` | 分析日 | 自動（分析後） |
-
-### インベントリスプレッドシート一覧
-
-| インベントリ | スプレッドシートID | リンク |
-|---|---|---|
-| Characters | `1-m4f5LgNmArtpECZqqxFL-6P4eabBmPkOYX2VkFHCHA` | [開く](https://docs.google.com/spreadsheets/d/1-m4f5LgNmArtpECZqqxFL-6P4eabBmPkOYX2VkFHCHA) |
-| Motions | `1ycnmfpL8OgAI7WvlPTr3Z9p1H8UTmCNMV7ahunMlsEw` | [開く](https://docs.google.com/spreadsheets/d/1ycnmfpL8OgAI7WvlPTr3Z9p1H8UTmCNMV7ahunMlsEw) |
-| Scenarios | `13Meu7cniKUr1JiEyKla0qhfiV9Az1IFuzIedzDxjpiY` | [開く](https://docs.google.com/spreadsheets/d/13Meu7cniKUr1JiEyKla0qhfiV9Az1IFuzIedzDxjpiY) |
-| Audio | `1Dw_atybwdGpi1Q0jh6CsuUSwzqVw1ZXB6jQT_-VDVak` | [開く](https://docs.google.com/spreadsheets/d/1Dw_atybwdGpi1Q0jh6CsuUSwzqVw1ZXB6jQT_-VDVak) |
-| Accounts | `1CmT6C3qCW3md6lJ9Rvc2WNQkWa5zcvlq6Zp_enJHoUE` | [開く](https://docs.google.com/spreadsheets/d/1CmT6C3qCW3md6lJ9Rvc2WNQkWa5zcvlq6Zp_enJHoUE) |
-
-> **注意**: すべてのインベントリで、データは `inventory` という名前のタブに入力してください（`Sheet1` ではありません）。
-
-### Google Drive フォルダ一覧
-
-| フォルダ | Drive ID | 用途 |
-|---|---|---|
-| AI-Influencer (ルート) | `1KRQuZ4W7u5CXRamjvN4xmavfu-7TPb0X` | プロジェクト全体のルート |
-| Characters/Images | `1g8OsaH0sFfHe91zEY22MdbllWPp3HJZK` | キャラクター画像 |
-| Motions/Hooks | `1M0mrI55dLLv73LSYX6cXW07tkGGavh4J` | Hook用モーション動画 |
-| Motions/Bodies | `1GGdM0Ig_VQ6MzYwNo5obPvCuHinCAgFJ` | Body用モーション動画 |
-| Motions/CTAs | `1wzIoCH_oFKBG0S1OtzR0-x8PjfTEi3L4` | CTA用モーション動画 |
-
-### Master Spreadsheet タブ一覧
-
-[Master Spreadsheet](https://docs.google.com/spreadsheets/d/1fI1s_KLcegpiACJYpmpNe9tnQmnZo2o8eHIXNV5SpPg) には以下のタブがあります:
-
-| タブ名 | 管理 | 用途 |
-|---|---|---|
-| `production` | Pipeline | 動画制作管理（このマニュアルで主に使用） |
-| `master` | GAS | 動画マスター（分析用） |
-| `metrics_youtube` | GAS | YouTube メトリクス |
-| `metrics_tiktok` | GAS | TikTok メトリクス |
-| `metrics_instagram` | GAS | Instagram メトリクス |
-| `kpi_targets` | GAS | KPI 目標値 |
-| `analysis_reports` | GAS | 分析レポート |
-| `recommendations` | GAS | AI推奨事項 |
-| `video_analysis` | GAS | 動画分析結果 |
-| `unlinked_imports` | GAS | 未リンクインポート |
-| `_config` | GAS | 設定値 |
-| `content_pipeline` | レガシー | v3.1以前の実行ログ（使用しない） |
-| `accounts` | Pipeline | アカウント管理 |
+- [コスト構造](../../README.md#コスト構造) — 1本あたり ~$3.72、月次見積もり
+- [Google Sheets データスキーマ](../../README.md#google-sheets-データスキーマ) — 全タブ・カラム定義
+- [Google Drive フォルダ構造](../../README.md#google-drive-フォルダ構造) — フォルダツリー・命名規則・Drive ID一覧

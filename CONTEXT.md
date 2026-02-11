@@ -1,4 +1,4 @@
-# Video Analytics Hub - Context
+# AI-Influencer - Context
 
 This file maintains the complete project history for AI continuity.
 
