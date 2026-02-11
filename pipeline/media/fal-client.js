@@ -29,6 +29,16 @@ async function submitAndWait(endpoint, input, opts = {}) {
     } catch (err) {
       lastError = err;
       const status = err.status || err.statusCode;
+      // Log full error details for debugging
+      if (attempt === 0) {
+        console.error(`[fal-client] Error on ${endpoint}: status=${status}, message=${err.message}`);
+        if (err.body) console.error(`[fal-client] Error body: ${JSON.stringify(err.body)}`);
+      }
+      // Enrich error message with fal.ai details
+      if (err.body && err.body.detail && !err._enriched) {
+        err.message = `${err.message}: ${err.body.detail}`;
+        err._enriched = true;
+      }
       const isTransient = status >= 500 || err.code === 'ECONNRESET' || err.code === 'ETIMEDOUT';
       if (!isTransient || attempt >= maxRetries - 1) throw err;
 

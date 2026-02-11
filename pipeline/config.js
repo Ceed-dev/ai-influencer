@@ -27,7 +27,9 @@ const config = {
       motions: '1ycnmfpL8OgAI7WvlPTr3Z9p1H8UTmCNMV7ahunMlsEw',
       characters: '1-m4f5LgNmArtpECZqqxFL-6P4eabBmPkOYX2VkFHCHA',
       audio: '1Dw_atybwdGpi1Q0jh6CsuUSwzqVw1ZXB6jQT_-VDVak',
+      accounts: process.env.ACCOUNTS_INVENTORY_ID || '1CmT6C3qCW3md6lJ9Rvc2WNQkWa5zcvlq6Zp_enJHoUE',
     },
+    productionTab: 'production',
   },
 
   youtube: {

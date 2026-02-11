@@ -1,6 +1,6 @@
 # AI-Influencer 技術アーキテクチャ
 
-> **バージョン**: 3.1
+> **バージョン**: 4.0
 > **最終更新**: 2026-02-10
 
 ---
@@ -9,8 +9,10 @@
 
 ```mermaid
 graph TB
-    subgraph Pipeline["Pipeline (Node.js)"]
-        ORC[orchestrator.js]
+    subgraph Pipeline["Pipeline (Node.js v4.0)"]
+        ORC[orchestrator.js<br/>並列処理]
+        INV[inventory-reader.js]
+        PROD[production-manager.js]
         MEDIA[media/]
         STORE[storage/]
         POST[posting/]
@@ -43,16 +45,19 @@ graph TB
         OPENAI[OpenAI GPT-4o]
     end
 
+    ORC --> INV
+    ORC --> PROD
     ORC --> MEDIA
     ORC --> STORE
     ORC --> POST
+    INV --> SHEETS
+    PROD --> SHEETS
     MEDIA --> FAL
     STORE --> DRIVE
     POST --> YT_API
     POST --> IG_API
     POST --> TT_API
     POST --> X_API
-    ORC --> SHEETS
 
     CODE --> CSV --> NORM --> LINK
     LINK --> KPI --> LLM --> SW
@@ -67,17 +72,19 @@ graph TB
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│                    Pipeline (Node.js)                             │
+│                    Pipeline (Node.js v4.0)                        │
 │                                                                  │
 │  orchestrator.js ──► media/ ──► fal.ai (Kling/ElevenLabs/Sync)  │
-│       │              │                                           │
+│       │              │         (3セクション並列処理)              │
 │       │              └──► ffmpeg (3セクション結合)                │
 │       │                                                          │
+│       ├──► inventory-reader.js ──► Inventory Sheets (4つ)        │
+│       ├──► production-manager.js ──► production タブ (32カラム)  │
 │       ├──► storage/ ──► Google Drive                             │
 │       │                                                          │
 │       └──► posting/ ──► YouTube / Instagram / TikTok / X        │
 │                                                                  │
-│  sheets/ ◄──► Google Sheets (accounts, content_pipeline)         │
+│  sheets/ ◄──► Google Sheets (accounts, production, inventories)  │
 └──────────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -101,27 +108,54 @@ graph TB
 
 ## データフロー
 
-### 動画制作フロー（Pipeline）
+### 動画制作フロー（Pipeline v4.0）
 
 ```
-1. キャラクター画像取得
+1. インベントリ読み取り
+   inventory-reader.js: Scenarios/Motions/Characters/Audio Inventory → 素材ID解決
+
+2. キャラクター画像取得
    Google Drive (Characters/) → fal.storage アップロード → 一時公開URL
 
-2. 3セクション(hook/body/cta)ループ処理
-   各セクションで:
-   fal.ai Kling motion-control (画像 + モーション参照動画 → 動画)
-   → fal.ai ElevenLabs eleven-v3 (スクリプト → 音声)
+3. 3セクション(hook/body/cta) 並列処理 (Promise.all)
+   各セクションで（セクション間は並列、セクション内も一部並列）:
+   ┌─ fal.ai Kling motion-control (画像 + モーション参照動画 → 動画) ─┐ 並列
+   └─ fal.ai ElevenLabs eleven-v3 (スクリプト → 音声)               ─┘
    → fal.ai Sync Lipsync v2/pro (動画 + 音声 → 口同期動画)
 
-3. 結合
+4. 結合
    ffmpeg concat demuxer (3本のセクション動画 → final.mp4)
 
-4. 保存
+5. 保存
    4ファイル(01_hook.mp4, 02_body.mp4, 03_cta.mp4, final.mp4)
    → Google Drive (Productions/YYYY-MM-DD/CNT_XXXX/)
 
-5. 記録
-   content_pipeline シートにURL・ステータスを自動記録
+6. 記録
+   production-manager.js: production タブにURL・ステータスを自動記録（32カラム）
+```
+
+### 並列処理フロー図
+
+```mermaid
+graph LR
+    subgraph 並列["Promise.all (3セクション並列)"]
+        subgraph Hook["hook セクション"]
+            HK[Kling] --> HL[Lipsync]
+            HT[TTS] --> HL
+        end
+        subgraph Body["body セクション"]
+            BK[Kling] --> BL[Lipsync]
+            BT[TTS] --> BL
+        end
+        subgraph CTA["cta セクション"]
+            CK[Kling] --> CL[Lipsync]
+            CT[TTS] --> CL
+        end
+    end
+    HL --> FF[ffmpeg concat]
+    BL --> FF
+    CL --> FF
+    FF --> DR[Drive保存]
 ```
 
 ### 分析フロー（GAS）※既存
@@ -275,15 +309,54 @@ AI-Influencer/
 | api_credential_key | String | OAuthトークンのScript Propertiesキー |
 | last_posted_at | DateTime | 最終投稿日時 |
 
-#### content_pipeline
+#### production（v4.0 新規 — 32カラム）
 
-パイプライン実行ログ。1行=1動画生成タスク。
+本番動画制作の管理タブ。content_pipelineの後継として、新規実行はこちらに記録。
+
+| カラム | 型 | 説明 |
+|---|---|---|
+| video_id | String | 一意ID（VID_YYYYMM_XXXX） |
+| account_id | String | 投稿先アカウント |
+| character_id | String | キャラクターID |
+| scenario_id | String | シナリオID |
+| motion_hook_id | String | hookモーションID |
+| motion_body_id | String | bodyモーションID |
+| motion_cta_id | String | ctaモーションID |
+| audio_id | String | BGM/音声ID |
+| status | String | queued→processing→...→completed/error |
+| section_count | Number | セクション数（通常3） |
+| hook_script | String | hookセクションのスクリプト |
+| body_script | String | bodyセクションのスクリプト |
+| cta_script | String | ctaセクションのスクリプト |
+| hook_video_url | String | hook動画のDrive URL |
+| body_video_url | String | body動画のDrive URL |
+| cta_video_url | String | cta動画のDrive URL |
+| final_video_url | String | 結合版動画のDrive URL |
+| drive_folder_id | String | 出力フォルダのDrive ID |
+| character_image_url | String | キャラクター画像URL |
+| voice_id | String | TTS音声ID |
+| duration_seconds | Number | 動画総尺（秒） |
+| file_size_bytes | Number | 最終ファイルサイズ |
+| processing_time_ms | Number | 処理時間（ミリ秒） |
+| platform_post_id | String | 投稿後のプラットフォーム側ID |
+| posted_at | DateTime | 投稿日時 |
+| views_48h | Number | 48時間後の視聴数 |
+| api_cost_usd | Number | API費用（USD） |
+| error_message | String | エラーメッセージ |
+| error_step | String | エラー発生ステップ |
+| retry_count | Number | リトライ回数 |
+| created_at | DateTime | 作成日時 |
+| updated_at | DateTime | 更新日時 |
+
+#### content_pipeline（レガシー — v3.1以前の実行ログ）
+
+v3.1以前のパイプライン実行ログ。新規実行はproductionタブを使用。
 
 | カラム | 型 | 説明 |
 |---|---|---|
 | content_id | String | 一意ID (CNT_YYYYMM_XXXX) |
 | account_id | String | 投稿先アカウント |
-| status | String | queued→processing→generating_video_hook→...→concatenating→uploading_to_drive→completed |
+| status | String | queued→processing→...→completed |
 | character_folder_id | String | Google Drive キャラクターフォルダID |
 | section_count | Number | セクション数(通常3) |
 | hook_video_url | String | hook動画のDrive URL |
@@ -297,7 +370,7 @@ AI-Influencer/
 | created_at | DateTime | 作成日時 |
 | updated_at | DateTime | 更新日時 |
 
-### インベントリスプレッドシート（4つ、既存）
+### インベントリスプレッドシート（5つ）
 
 各コンポーネントタイプに1つずつ独立したスプレッドシート:
 
@@ -305,6 +378,7 @@ AI-Influencer/
 - **Motions Inventory** (`1ycnmfpL8OgAI7WvlPTr3Z9p1H8UTmCNMV7ahunMlsEw`)
 - **Characters Inventory** (`1-m4f5LgNmArtpECZqqxFL-6P4eabBmPkOYX2VkFHCHA`)
 - **Audio Inventory** (`1Dw_atybwdGpi1Q0jh6CsuUSwzqVw1ZXB6jQT_-VDVak`)
+- **Accounts Inventory**（v4.0新規 — 7アカウント + 12 Gmail認証情報）
 
 共通カラム: component_id, type, name, description, file_link, tags, times_used, avg_performance_score, created_date, status
 
@@ -337,7 +411,9 @@ GAS API エンドポイント詳細は [MANUAL.md](MANUAL.md) を参照。
 
 | n8n ノード | Node.js モジュール | 説明 |
 |---|---|---|
-| Google Sheets Read | pipeline/sheets/scenario-reader.js | シナリオ・アカウント情報の読み込み |
+| Google Sheets Read (Inventories) | pipeline/sheets/inventory-reader.js | インベントリ読み取り + ID解決（v4.0新規） |
+| Google Sheets Write (Production) | pipeline/sheets/production-manager.js | productionタブ管理（v4.0新規） |
+| Google Sheets Read (Scenarios) | pipeline/sheets/scenario-reader.js | シナリオ読み込み（レガシー） |
 | fal.storage upload | pipeline/media/fal-client.js | キャラクター画像の一時URL生成 |
 | fal-ai/kling-video motion-control | pipeline/media/video-generator.js | 画像+モーション参照動画→動画生成 |
 | fal-ai/elevenlabs eleven-v3 | pipeline/media/tts-generator.js | テキスト→音声生成 |
@@ -348,7 +424,7 @@ GAS API エンドポイント詳細は [MANUAL.md](MANUAL.md) を参照。
 | Instagram Publish | pipeline/posting/adapters/instagram.js | Instagram Reels投稿 |
 | TikTok Publish | pipeline/posting/adapters/tiktok.js | TikTok投稿 |
 | X Post | pipeline/posting/adapters/twitter.js | X投稿 |
-| Google Sheets Write | pipeline/sheets/content-manager.js | パイプライン結果のシート書き込み |
+| Google Sheets Write | pipeline/sheets/content-manager.js | パイプライン結果のシート書き込み（レガシー） |
 | Schedule Trigger | scripts/run-daily.js | 日次バッチ (cron) |
 
 ---

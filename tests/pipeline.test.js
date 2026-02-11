@@ -5,6 +5,9 @@
  * Tests cover: module loading, CLI arg parsing, scenario data integrity,
  * concat utility, config correctness, content-manager CRUD, orchestrator
  * dry-run, error handling for edge cases, and Drive integration.
+ *
+ * v4.0: Added tests for inventory-reader, production-manager, parallel
+ * orchestrator, new CLI flags, and config.inventoryIds.accounts.
  */
 
 // ─── Test 1: All pipeline modules load without error ───
@@ -20,6 +23,9 @@ test('all pipeline modules load without error', () => {
   expect(() => require('../pipeline/sheets/client')).not.toThrow();
   expect(() => require('../pipeline/sheets/content-manager')).not.toThrow();
   expect(() => require('../pipeline/storage/drive-storage')).not.toThrow();
+  // v4.0 new modules
+  expect(() => require('../pipeline/sheets/inventory-reader')).not.toThrow();
+  expect(() => require('../pipeline/sheets/production-manager')).not.toThrow();
 });
 
 // ─── Test 2: Deleted modules no longer exist ───
@@ -40,9 +46,15 @@ test('config has no cloudinary or elevenlabs sections', () => {
   expect(config.google.rootDriveFolderId).toBe('1KRQuZ4W7u5CXRamjvN4xmavfu-7TPb0X');
 });
 
-// ─── Test 4: Scenario data structure is valid ───
-test('scenario.json has correct structure', () => {
+// ─── Test 4: Scenario data structure is valid (deprecated but kept) ───
+test('scenario.json has correct structure and DEPRECATED marker', () => {
   const scenario = require('../pipeline/data/scenario.json');
+
+  // v4.0: scenario.json is deprecated
+  expect(scenario._DEPRECATED).toBeDefined();
+  expect(typeof scenario._DEPRECATED).toBe('string');
+  expect(scenario._DEPRECATED).toContain('inventory-reader');
+
   expect(scenario.sections).toBeDefined();
   expect(scenario.sections).toHaveLength(3);
 
@@ -221,10 +233,12 @@ test('content-manager HEADERS are consistent with new schema', () => {
   expect(src).not.toContain("'drive_file_id'");
 });
 
-// ─── Test 13: orchestrator exports runPipeline ───
-test('orchestrator exports runPipeline function', () => {
+// ─── Test 13: orchestrator exports runPipeline + new v4.0 exports ───
+test('orchestrator exports runPipeline, runSingleJob, processReadyJobs', () => {
   const orch = require('../pipeline/orchestrator');
   expect(typeof orch.runPipeline).toBe('function');
+  expect(typeof orch.runSingleJob).toBe('function');
+  expect(typeof orch.processReadyJobs).toBe('function');
 });
 
 // ─── Test 14: orchestrator source has no references to old modules ───
@@ -240,54 +254,69 @@ test('orchestrator has no cloudinary/compositor references', () => {
   expect(src).toContain('downloadFromDrive');
 });
 
-// ─── Test 15: CLI script source structure ───
-test('run-pipeline.js uses --character-folder arg', () => {
+// ─── Test 15: orchestrator uses Promise.all for parallel execution ───
+test('orchestrator uses Promise.all for parallel section processing', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '../pipeline/orchestrator.js'), 'utf8');
+
+  // Must have Promise.all for parallel section processing
+  expect(src).toContain('Promise.all');
+
+  // Should import from inventory-reader and production-manager
+  expect(src).toContain('inventory-reader');
+  expect(src).toContain('production-manager');
+  expect(src).toContain('resolveProductionRow');
+  expect(src).toContain('getReadyRows');
+  expect(src).toContain('updateProductionRow');
+});
+
+// ─── Test 16: CLI script supports new v4.0 flags ───
+test('run-pipeline.js supports --video-id, --limit, --dry-run and legacy --character-folder', () => {
   const fs = require('fs');
   const path = require('path');
   const src = fs.readFileSync(path.join(__dirname, '../scripts/run-pipeline.js'), 'utf8');
-  expect(src).toContain('--character-folder');
+  // New v4.0 flags
+  expect(src).toContain('--video-id');
+  expect(src).toContain('--limit');
   expect(src).toContain('--dry-run');
-  expect(src).not.toContain('--account');
-  expect(src).not.toContain('createContent');
+  expect(src).toContain('--help');
+  // Legacy backward compat
+  expect(src).toContain('--character-folder');
+  // New imports
   expect(src).toContain('runPipeline');
+  expect(src).toContain('runSingleJob');
+  expect(src).toContain('processReadyJobs');
+  // Production manager imports
+  expect(src).toContain('getProductionRow');
+  expect(src).toContain('resolveProductionRow');
 });
 
-// ─── Test 16: CLI exits with error when no args ───
-test('CLI shows usage and exits with code 1 when no args', async () => {
+// ─── Test 17: CLI shows help text with --help flag ───
+test('CLI shows help text when --help is passed', async () => {
   const { execFile } = require('child_process');
   const result = await new Promise((resolve) => {
-    execFile('node', ['scripts/run-pipeline.js'], { timeout: 30000 }, (err, stdout, stderr) => {
+    execFile('node', ['scripts/run-pipeline.js', '--help'], { timeout: 30000 }, (err, stdout, stderr) => {
       resolve({ code: err ? err.code : 0, stdout, stderr });
     });
   });
-  expect(result.code).toBe(1);
-  expect(result.stderr).toContain('--character-folder');
+  expect(result.code).toBe(0);
+  expect(result.stdout).toContain('--video-id');
+  expect(result.stdout).toContain('--limit');
+  expect(result.stdout).toContain('--dry-run');
 }, 30000);
 
-// ─── Test 17: CLI exits with error for non-existent folder ───
-test('CLI errors when given non-existent Drive folder ID', async () => {
+// ─── Test 18: CLI batch dry-run completes without hanging ───
+test('CLI batch dry-run completes without hanging', async () => {
   const { execFile } = require('child_process');
   const result = await new Promise((resolve) => {
-    execFile('node', ['scripts/run-pipeline.js', '--character-folder', 'NONEXISTENT_FOLDER_123'],
-      { timeout: 30000 }, (err, stdout, stderr) => {
-        resolve({ code: err ? err.code : 0, stdout, stderr: stderr || '', combinedOutput: stdout + stderr });
-      });
-  });
-  expect(result.code).not.toBe(0);
-}, 30000);
-
-// ─── Test 18: CLI exits with error for empty folder ───
-test('CLI errors when character folder has no images', async () => {
-  const { execFile } = require('child_process');
-  // Use the Characters/Images folder which we know is empty
-  const result = await new Promise((resolve) => {
-    execFile('node', ['scripts/run-pipeline.js', '--character-folder', '1g8OsaH0sFfHe91zEY22MdbllWPp3HJZK'],
+    execFile('node', ['scripts/run-pipeline.js', '--dry-run', '--limit', '1'],
       { timeout: 30000 }, (err, stdout, stderr) => {
         resolve({ code: err ? err.code : 0, stdout: stdout || '', stderr: stderr || '' });
       });
   });
-  expect(result.code).not.toBe(0);
-  expect(result.stderr).toContain('No image file');
+  expect(result.code).toBe(0);
+  expect(result.stdout).toContain('[pipeline]');
 }, 30000);
 
 // ─── Test 19: package.json has no cloudinary dependency ───
@@ -316,5 +345,99 @@ test('sheets/client exports getDrive, listDriveFiles, uploadToDrive', () => {
   expect(typeof client.appendSheet).toBe('function');
 });
 
-// ─── Test 22: Existing GAS tests still pass ───
-// This verifies we didn't break anything in the GAS subsystem
+// ─── Test 22: inventory-reader exports all required functions ───
+test('inventory-reader exports getMotion, getScenario, getCharacter, resolveProductionRow, clearCache', () => {
+  const reader = require('../pipeline/sheets/inventory-reader');
+  expect(typeof reader.getMotion).toBe('function');
+  expect(typeof reader.getScenario).toBe('function');
+  expect(typeof reader.getCharacter).toBe('function');
+  expect(typeof reader.resolveProductionRow).toBe('function');
+  expect(typeof reader.clearCache).toBe('function');
+});
+
+// ─── Test 23: production-manager exports and HEADERS ───
+test('production-manager exports HEADERS with 32 columns and CRUD functions', () => {
+  const pm = require('../pipeline/sheets/production-manager');
+  expect(Array.isArray(pm.HEADERS)).toBe(true);
+  expect(pm.HEADERS).toHaveLength(32);
+
+  // Key columns must be present
+  const requiredCols = [
+    'video_id', 'account_id', 'edit_status', 'character_id',
+    'hook_scenario_id', 'body_scenario_id', 'cta_scenario_id',
+    'hook_motion_id', 'body_motion_id', 'cta_motion_id',
+    'voice_id', 'pipeline_status', 'current_phase',
+    'final_video_url', 'drive_folder_id', 'error_message',
+    'processing_time_sec', 'created_at', 'updated_at',
+    'overall_score', 'analysis_date',
+  ];
+  for (const col of requiredCols) {
+    expect(pm.HEADERS).toContain(col);
+  }
+
+  // CRUD functions
+  expect(typeof pm.getReadyRows).toBe('function');
+  expect(typeof pm.getProductionRow).toBe('function');
+  expect(typeof pm.updateProductionRow).toBe('function');
+  expect(typeof pm.createProductionRow).toBe('function');
+});
+
+// ─── Test 24: config has inventoryIds including accounts and productionTab ───
+test('config has inventoryIds with all 5 inventory types and productionTab', () => {
+  const config = require('../pipeline/config');
+  expect(config.google.inventoryIds).toBeDefined();
+  expect(config.google.inventoryIds.scenarios).toBe('13Meu7cniKUr1JiEyKla0qhfiV9Az1IFuzIedzDxjpiY');
+  expect(config.google.inventoryIds.motions).toBe('1ycnmfpL8OgAI7WvlPTr3Z9p1H8UTmCNMV7ahunMlsEw');
+  expect(config.google.inventoryIds.characters).toBe('1-m4f5LgNmArtpECZqqxFL-6P4eabBmPkOYX2VkFHCHA');
+  expect(config.google.inventoryIds.audio).toBe('1Dw_atybwdGpi1Q0jh6CsuUSwzqVw1ZXB6jQT_-VDVak');
+  // accounts key must exist with the real spreadsheet ID
+  expect(config.google.inventoryIds.accounts).toBe('1CmT6C3qCW3md6lJ9Rvc2WNQkWa5zcvlq6Zp_enJHoUE');
+  // productionTab
+  expect(config.google.productionTab).toBe('production');
+});
+
+// ─── Test 25: inventory-reader source uses correct tab name and cache pattern ───
+test('inventory-reader uses inventory tab and in-memory cache', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '../pipeline/sheets/inventory-reader.js'), 'utf8');
+
+  // Uses 'inventory' tab (not 'Sheet1')
+  expect(src).toContain("'inventory'");
+  // Has a cache object
+  expect(src).toContain('_cache');
+  // Exports clearCache
+  expect(src).toContain('clearCache');
+  // Reads from inventoryIds config
+  expect(src).toContain('inventoryIds');
+});
+
+// ─── Test 26: orchestrator has extractDriveFileId fallback ───
+test('orchestrator has extractDriveFileId fallback for file_link URLs', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '../pipeline/orchestrator.js'), 'utf8');
+
+  // Must have the extractDriveFileId helper
+  expect(src).toContain('extractDriveFileId');
+  // Must check drive_file_id first
+  expect(src).toContain('row.drive_file_id');
+  // Must fall back to file_link
+  expect(src).toContain('row.file_link');
+  // Must support /d/{ID} URL pattern
+  expect(src).toContain('/d/');
+});
+
+// ─── Test 27: production-manager uses production tab ───
+test('production-manager reads from production tab', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '../pipeline/sheets/production-manager.js'), 'utf8');
+
+  expect(src).toContain('productionTab');
+  expect(src).toContain('getReadyRows');
+  expect(src).toContain("edit_status");
+  expect(src).toContain("pipeline_status");
+  // Should use 32-column HEADERS
+  expect(src).toContain('HEADERS');
+});

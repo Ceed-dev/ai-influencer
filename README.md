@@ -34,7 +34,7 @@ YouTube Shorts / TikTok / Instagram Reels / X に対応。Node.js パイプラ�
 - **Pipeline (Node.js)**: キャラクター画像を入力 → 3セクション(hook/body/cta)の動画を自動生成 → Google Driveに保存
 - **Analytics (GAS)**: 各プラットフォームからメトリクスCSVを取込 → KPI比較 → OpenAI分析 → コンポーネントスコア更新 → 次回動画推奨
 
-現在 Phase 0（コンテンツ生成パイプライン）が完成しており、入力を与えれば動画が自動生成されてDriveに溜まる状態。投稿は手動で行う。
+v4.0 ではインベントリ実データ投入・パイプライン並列化が完了。3セクション並列処理により ~12分/本 で動画生成可能。投稿は手動で行う。
 
 ---
 
@@ -43,18 +43,21 @@ YouTube Shorts / TikTok / Instagram Reels / X に対応。Node.js パイプラ�
 ### 概要図
 
 ```
-入力（キャラクター画像フォルダ@Drive）
+入力（インベントリから自動読み取り or --video-id 指定）
+  → [自動] inventory-reader.js: シナリオ・キャラ・モーション・音声のID解決
   → [自動] fal.storage に画像アップロード（一時URL生成）
-  → [自動] 3セクション（hook/body/cta）ループ:
-      → 2a. Drive → fal.storage にモーション動画アップロード
-      → 2b. Kling motion-control で動画生成（キャラ画像 + モーション参照）
-      → 2c. ElevenLabs eleven-v3 で音声生成（スクリプト → 音声）
-      → 2d. Sync Lipsync v2/pro で口パク同期（動画 + 音声 → リップシンク動画）
+  → [自動] 3セクション（hook/body/cta）並列処理（Promise.all）:
+      各セクション内:
+      ┌─ Kling motion-control で動画生成 ─┐ 並列
+      └─ ElevenLabs eleven-v3 で音声生成 ─┘
+      → Sync Lipsync v2/pro で口パク同期
   → [自動] ffmpeg で3セクション結合 → final.mp4
   → [自動] Google Drive に4ファイル保存（3セクション + final）
-  → [自動] content_pipeline シートに記録
+  → [自動] production タブに記録（production-manager.js）
   → [手動] 人間が各プラットフォームに投稿
 ```
+
+> **処理時間**: ~12分/本（v3.1の~35分から約3倍高速化）
 
 ### 各ステップの詳細
 
@@ -65,9 +68,9 @@ YouTube Shorts / TikTok / Instagram Reels / X に対応。Node.js パイプラ�
 - **入力**: Drive フォルダID（`--character-folder` 引数）
 - **出力**: fal.storage の一時公開URL
 
-#### Step 2: 3セクション処理ループ
+#### Step 2: 3セクション並列処理
 
-`scenario.json` に定義された3セクション（hook, body, cta）を順番に処理する。各セクションごとに以下のサブステップを実行:
+インベントリシートから読み取った3セクション（hook, body, cta）を **Promise.all で並列処理** する。各セクション内ではKlingとTTSも並列実行:
 
 **Step 2a: モーション動画アップロード**
 - セクションごとのモーション参照動画をDriveからダウンロード
@@ -106,7 +109,9 @@ Productions/YYYY-MM-DD/CNT_XXXX/
 
 #### Step 5: Sheets 記録
 
-Master Spreadsheet の `content_pipeline` タブに1行追加。コンテンツID、ステータス、各動画のDriveリンク、DriveフォルダIDなどを記録する。処理中はステータスが段階的に更新される（processing → generating_video_hook → ... → completed）。
+Master Spreadsheet の `production` タブに1行追加（v4.0、32カラム）。ビデオID、使用したインベントリID、ステータス、各動画のDriveリンク、処理時間、コスト等を記録する。処理中はステータスが段階的に更新される（processing → generating → ... → completed）。
+
+> **Note**: v3.1以前の実行ログは `content_pipeline` タブに残る（後方互換）。新規実行は `production` タブに記録。
 
 ---
 
@@ -248,12 +253,13 @@ AI-Influencer Root/ (Shared Drives > Product)
 
 **ID**: `1fI1s_KLcegpiACJYpmpNe9tnQmnZo2o8eHIXNV5SpPg`
 
-12タブで構成:
+13タブで構成:
 
 | タブ名 | 用途 | カテゴリ |
 |---|---|---|
 | `accounts` | アカウント管理 | パイプライン |
-| `content_pipeline` | パイプライン実行ログ | パイプライン |
+| `production` | 動画制作管理（v4.0新規、32カラム） | パイプライン |
+| `content_pipeline` | パイプライン実行ログ（レガシー） | パイプライン |
 | `master` | 動画マスター（既存GAS管理） | アナリティクス |
 | `metrics_youtube` | YouTubeメトリクス | アナリティクス |
 | `metrics_tiktok` | TikTokメトリクス | アナリティクス |
@@ -285,9 +291,48 @@ AI-Influencer Root/ (Shared Drives > Product)
 | `api_credential_key` | string | API認証キーの参照名 | プラットフォームAPIの認証情報を安全に参照するため |
 | `last_posted_at` | datetime | 最終投稿日時 | 投稿頻度制限の管理とスケジューリングのため |
 
-### `content_pipeline` タブ
+### `production` タブ（v4.0新規）
 
-パイプラインの1回の実行 = 1行。全ての生成物のURLとステータスが記録される。
+動画制作の本番管理タブ。32カラムで制作の全情報を記録。新規パイプライン実行はこのタブに記録される。
+
+| カラム | 型 | 説明 | なぜ必要か |
+|---|---|---|---|
+| `video_id` | string | 一意ID（例: `VID_202602_0001`） | 動画を一意に識別 |
+| `account_id` | string | 紐付くアカウントID | アカウント別の生成管理 |
+| `character_id` | string | キャラクターID | 使用キャラクターの記録 |
+| `scenario_id` | string | シナリオID | 使用シナリオの記録 |
+| `motion_hook_id` | string | hookモーションID | hookセクションのモーション素材 |
+| `motion_body_id` | string | bodyモーションID | bodyセクションのモーション素材 |
+| `motion_cta_id` | string | ctaモーションID | ctaセクションのモーション素材 |
+| `audio_id` | string | BGM/音声ID | 使用音声素材の記録 |
+| `status` | string | 処理ステータス | パイプライン進行状況の追跡 |
+| `section_count` | number | セクション数（通常3） | 動画構成の記録 |
+| `hook_script` | string | hookスクリプト | TTSに使用したテキスト |
+| `body_script` | string | bodyスクリプト | TTSに使用したテキスト |
+| `cta_script` | string | ctaスクリプト | TTSに使用したテキスト |
+| `hook_video_url` | url | hook動画のDriveリンク | セクション動画へのアクセス |
+| `body_video_url` | url | body動画のDriveリンク | セクション動画へのアクセス |
+| `cta_video_url` | url | cta動画のDriveリンク | セクション動画へのアクセス |
+| `final_video_url` | url | 結合版動画のDriveリンク | 投稿用動画へのアクセス |
+| `drive_folder_id` | string | 出力先DriveフォルダID | Driveフォルダへの直接アクセス |
+| `character_image_url` | string | キャラクター画像URL | 使用画像の記録 |
+| `voice_id` | string | TTS音声ID | 使用音声の記録 |
+| `duration_seconds` | number | 動画総尺（秒） | コンテンツ長の記録 |
+| `file_size_bytes` | number | 最終ファイルサイズ | ストレージ管理 |
+| `processing_time_ms` | number | 処理時間（ミリ秒） | パフォーマンス計測 |
+| `platform_post_id` | string | プラットフォーム側投稿ID | 投稿後のメトリクス紐付け |
+| `posted_at` | datetime | 投稿日時 | 投稿タイミングの記録 |
+| `views_48h` | number | 48時間後の視聴数 | 初期パフォーマンス指標 |
+| `api_cost_usd` | number | API費用（USD） | コスト管理 |
+| `error_message` | string | エラーメッセージ | デバッグ情報 |
+| `error_step` | string | エラー発生ステップ | 障害箇所の特定 |
+| `retry_count` | number | リトライ回数 | リトライ履歴の記録 |
+| `created_at` | datetime | レコード作成日時 | パイプライン開始時刻 |
+| `updated_at` | datetime | 最終更新日時 | ステータス変更の時刻 |
+
+### `content_pipeline` タブ（レガシー）
+
+v3.1以前のパイプライン実行ログ。新規実行は `production` タブに記録される。
 
 | カラム | 型 | 説明 | なぜ必要か |
 |---|---|---|---|
@@ -314,9 +359,9 @@ processing → uploading_image → generating_video_hook → generating_audio_ho
   （エラー時は任意のステップから → error）
 ```
 
-### インベントリスプレッドシート（4つ）
+### インベントリスプレッドシート（5つ）
 
-パイプラインの素材管理用。Master Spreadsheet とは別のスプレッドシート。
+パイプラインの素材管理用。Master Spreadsheet とは別のスプレッドシート。v4.0で実データ投入済み。
 
 | スプレッドシート | ID | 用途 |
 |---|---|---|
@@ -324,6 +369,7 @@ processing → uploading_image → generating_video_hook → generating_audio_ho
 | Motions | `1ycnmfp...` | モーション動画のメタデータ（Drive ID、カテゴリ等） |
 | Characters | `1-m4f5L...` | キャラクター定義（名前、特徴、画像フォルダID等） |
 | Audio | `1Dw_aty...` | BGM/ボイス素材のメタデータ |
+| Accounts | v4.0新規 | アカウント情報（7アカウント + 12 Gmail認証情報） |
 
 ### GAS管理タブ（アナリティクス系）
 
@@ -348,15 +394,17 @@ processing → uploading_image → generating_video_hook → generating_audio_ho
 ├── gas/                    # GAS アナリティクス（既存、変更なし）
 │   ├── *.gs               # 14 GAS files
 │   └── tests/             # 330 tests, 9 suites
-├── pipeline/              # Node.js コンテンツパイプライン
-│   ├── config.js          # 環境設定・API キー管理
-│   ├── orchestrator.js    # 3セクション(hook/body/cta)パイプライン制御
+├── pipeline/              # Node.js コンテンツパイプライン (v4.0)
+│   ├── config.js          # 環境設定・API キー管理（Accounts ID追加）
+│   ├── orchestrator.js    # 3セクション並列処理(Promise.all) パイプライン制御
 │   ├── data/              # 静的データ
-│   │   └── scenario.json  # シナリオ定義(3セクション、スクリプト、モーションDrive ID)
+│   │   └── scenario.json  # シナリオ定義（非推奨、インベントリ読み取りに移行）
 │   ├── sheets/            # Google Sheets/Drive API 連携
 │   │   ├── client.js      # OAuth2認証、Sheets/Drive API クライアント
-│   │   ├── account-manager.js  # accounts タブ CRUD
-│   │   └── content-manager.js  # content_pipeline タブ CRUD
+│   │   ├── inventory-reader.js   # インベントリ読み取り + ID解決（v4.0新規）
+│   │   ├── production-manager.js # productionタブ管理（v4.0新規）
+│   │   ├── account-manager.js    # accounts タブ CRUD
+│   │   └── content-manager.js    # content_pipeline タブ CRUD（レガシー）
 │   ├── media/             # fal.ai メディア生成 + ffmpeg結合
 │   │   ├── fal-client.js       # fal.ai SDK ラッパー + fal.storage + Drive download
 │   │   ├── video-generator.js  # Kling v2.6 motion-control 動画生成
@@ -373,7 +421,7 @@ processing → uploading_image → generating_video_hook → generating_audio_ho
 │           ├── tiktok.js       # TikTok Content Posting API（スタブ）
 │           └── twitter.js      # X/Twitter v2 API（スタブ）
 ├── scripts/               # CLI エントリポイント
-│   ├── run-pipeline.js    # パイプライン実行 (--character-folder)
+│   ├── run-pipeline.js    # パイプライン実行 (--video-id / --limit / --dry-run)
 │   ├── run-daily.js       # 日次バッチ実行（後続フェーズ）
 │   └── collect-metrics.js # メトリクス収集（後続フェーズ）
 ├── tests/                 # パイプラインテスト
@@ -413,6 +461,7 @@ FAL_KEY=your-fal-api-key          # fal.ai APIキー（必須）
 GOOGLE_CREDENTIALS_PATH=./video_analytics_hub_claude_code_oauth.json  # Google OAuth認証ファイル
 GOOGLE_TOKEN_PATH=./.gsheets_token.json   # Google OAuthトークン
 MASTER_SPREADSHEET_ID=1fI1s_KLcegpiACJYpmpNe9tnQmnZo2o8eHIXNV5SpPg  # Master SpreadsheetのID
+ACCOUNTS_SPREADSHEET_ID=           # Accounts Inventory ID（v4.0）
 YOUTUBE_CLIENT_ID=                 # YouTube投稿用（後続フェーズ）
 YOUTUBE_CLIENT_SECRET=             # YouTube投稿用（後続フェーズ）
 YOUTUBE_REFRESH_TOKEN=             # YouTube投稿用（後続フェーズ）
@@ -422,17 +471,37 @@ YOUTUBE_REFRESH_TOKEN=             # YouTube投稿用（後続フェーズ）
 
 ## 使い方
 
-### 単一動画の生成
+### CLI フラグ一覧（v4.0）
+
+| フラグ | 説明 | 例 |
+|---|---|---|
+| `--video-id <ID>` | 特定のビデオIDを指定して生成（v4.0推奨） | `--video-id VID_202602_0001` |
+| `--limit <N>` | 生成する動画数を制限（バッチ時） | `--limit 5` |
+| `--dry-run` | APIを呼ばずにフローを確認 | `--dry-run` |
+| `--character-folder <ID>` | キャラクターフォルダID指定（非推奨、v3.1互換） | `--character-folder 1zAZj...` |
+
+### 動画生成
 
 ```bash
-# 本番実行: キャラクターフォルダIDを指定して動画を生成
-node scripts/run-pipeline.js --character-folder <DRIVE_FOLDER_ID>
+# v4.0 推奨: ビデオIDを指定して生成（インベントリから自動読み取り）
+node scripts/run-pipeline.js --video-id <VIDEO_ID>
+
+# バッチ実行: 最大N本を生成
+node scripts/run-pipeline.js --limit 5
 
 # ドライラン: APIを呼ばずにフローを確認
-node scripts/run-pipeline.js --character-folder <DRIVE_FOLDER_ID> --dry-run
+node scripts/run-pipeline.js --video-id <VIDEO_ID> --dry-run
+
+# v3.1 互換（非推奨）: キャラクターフォルダIDを指定
+node scripts/run-pipeline.js --character-folder <DRIVE_FOLDER_ID>
 ```
 
-**例（初回E2Eテスト時）**:
+**例（v4.0）**:
+```bash
+node scripts/run-pipeline.js --video-id VID_202602_0001
+```
+
+**例（v3.1互換、初回E2Eテスト時）**:
 ```bash
 node scripts/run-pipeline.js --character-folder 1zAZj-Cm3rLZ2oJHZDPUwvDfxL_ufS8g0
 ```
@@ -441,17 +510,16 @@ node scripts/run-pipeline.js --character-folder 1zAZj-Cm3rLZ2oJHZDPUwvDfxL_ufS8g
 ```
 [pipeline:init] Content ID: CNT_202602_2916, sections: 3
 [pipeline:image] fal.storage URL: https://v3b.fal.media/files/...
-[pipeline:hook] --- Processing section 1: hook ---
+[pipeline:parallel] Processing 3 sections in parallel...
 [pipeline:hook] Kling done: https://...
-[pipeline:hook] TTS done: https://...
-[pipeline:hook] Lipsync done: https://...
-[pipeline:hook] Section hook complete (7748776 bytes)
-[pipeline:body] --- Processing section 2: body ---
-...
-[pipeline:cta] Section cta complete (20768547 bytes)
+[pipeline:body] Kling done: https://...
+[pipeline:cta] Kling done: https://...
+[pipeline:hook] Lipsync done
+[pipeline:body] Lipsync done
+[pipeline:cta] Lipsync done
 [pipeline:concat] Final video: 54010069 bytes
 [pipeline:drive] All files uploaded to Drive folder: ...
-[pipeline:done] Pipeline complete! Content ID: CNT_202602_2916
+[pipeline:done] Pipeline complete! (~12min)
 ```
 
 ### その他のコマンド
