@@ -3,7 +3,6 @@
 > **バージョン**: 4.0
 > **最終更新**: 2026-02-10
 
----
 
 ## システム全体図
 
@@ -104,7 +103,6 @@ graph TB
 └──────────────────────────────────────────────────────────────────┘
 ```
 
----
 
 ## データフロー
 
@@ -177,7 +175,6 @@ graph LR
    SheetWriter: 分析レポート・推奨事項を書き込み
 ```
 
----
 
 ## API統合
 
@@ -217,7 +214,6 @@ graph LR
 | コンポーネント別パフォーマンス分析 | GPT-4o |
 | 改善提案・次回コンポーネント推奨 | GPT-4o |
 
----
 
 ## データ管理方針
 
@@ -252,7 +248,6 @@ graph LR
 - content_pipeline シートの `drive_folder_id` カラム → 出力フォルダのDrive ID
 - 全てのアセットはDriveに実体を保存し、Sheetsでメタデータを管理する（Sheets内にファイル実体を置かない）
 
----
 
 ## Google Sheetsスキーマ
 
@@ -278,7 +273,6 @@ graph LR
 
 共通カラム: component_id, type, name, description, file_link, drive_file_id, tags, times_used, avg_performance_score, created_date, status
 
----
 
 ## GASモジュール一覧（変更なし）
 
@@ -301,7 +295,6 @@ graph LR
 
 GAS API エンドポイント詳細は [GAS操作マニュアル](manuals/GAS_MANUAL.md) を参照。
 
----
 
 ## n8n → Node.js コードマッピング
 
@@ -323,7 +316,6 @@ GAS API エンドポイント詳細は [GAS操作マニュアル](manuals/GAS_MA
 | Google Sheets Write | pipeline/sheets/content-manager.js | パイプライン結果のシート書き込み（レガシー） |
 | Schedule Trigger | scripts/run-daily.js | 日次バッチ (cron) |
 
----
 
 ## コスト見積もり
 

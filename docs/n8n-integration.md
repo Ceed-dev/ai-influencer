@@ -61,7 +61,6 @@ This document describes how to integrate n8n workflows with the AI-Influencer GA
 └─────────────────────────────────────────────────────────────┘
 ```
 
----
 
 ## 2. GAS Web App Endpoint Specification
 
@@ -91,7 +90,6 @@ Error:
 }
 ```
 
----
 
 ### GET Actions
 
@@ -180,7 +178,6 @@ Response:
 }
 ```
 
----
 
 ### POST Actions
 
@@ -317,7 +314,6 @@ Or for a specific video:
 }
 ```
 
----
 
 ## 3. n8n Workflow Examples
 
@@ -389,7 +385,6 @@ This is the key v2.0 workflow. n8n:
                                                   [Send Email]
 ```
 
----
 
 ## 4. Error Handling
 
@@ -414,7 +409,6 @@ if ($json.status === 'error') {
 }
 ```
 
----
 
 ## 5. Troubleshooting
 
@@ -455,7 +449,6 @@ curl -X POST \
 - Execution time: 6 minutes max per execution
 - URL Fetch: 20,000 calls/day
 
----
 
 ## Appendix: Quick Reference
 

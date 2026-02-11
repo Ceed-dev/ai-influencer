@@ -14,7 +14,6 @@ v2.0の制作ループ:
 6. 分析→改善提案→次の動画へ（ループ）
 ```
 
----
 
 ## 初期セットアップ
 
@@ -36,7 +35,6 @@ v2.0の制作ループ:
    - `OPENAI_API_KEY`: OpenAI API キー
    - `SPREADSHEET_ID`: マスタースプレッドシートのID
 
----
 
 ## 日常の使い方フロー
 
@@ -103,7 +101,6 @@ Google Drive の `Analytics/CSV_Imports/` 各プラットフォームフォル�
 | `analysis_reports` | 全体レポート |
 | `master` | 動画一覧・ステータス・スコア |
 
----
 
 ## コンポーネント管理
 
@@ -130,7 +127,6 @@ Google Drive の `Analytics/CSV_Imports/` 各プラットフォームフォル�
 メニュー → 「Components」→「Update All Scores」
 - 全コンポーネントの avg_performance_score を再計算
 
----
 
 ## 各シートの見方
 
@@ -175,7 +171,6 @@ Google Drive の `Analytics/CSV_Imports/` 各プラットフォームフォル�
 | avg_performance_score | 平均パフォーマンススコア（自動更新） |
 | status | active / archived |
 
----
 
 ## KPI目標の設定
 
@@ -187,7 +182,6 @@ Google Drive の `Analytics/CSV_Imports/` 各プラットフォームフォル�
 | tiktok | engagement_rate | 0.08 | 8%エンゲージメント |
 | instagram | avg_watch_time | 15 | 15秒平均視聴 |
 
----
 
 ## v1.0からのアップグレード
 
@@ -200,7 +194,6 @@ Google Drive の `Analytics/CSV_Imports/` 各プラットフォームフォル�
 - インベントリスプレッドシートを新規作成
 - Drive フォルダ構造を作成
 
----
 
 ## よくある質問
 
@@ -219,7 +212,6 @@ Google Drive の `Analytics/CSV_Imports/` 各プラットフォームフォル�
 ### Q: 分析が間違っている気がする
 **A: AIの提案は参考程度に。** 最終判断は経験と勘が重要。明らかに的外れな提案は無視してOK。
 
----
 
 ## トラブルシューティング
 
@@ -242,7 +234,6 @@ Google Drive の `Analytics/CSV_Imports/` 各プラットフォームフォル�
 2. API の残高があるか確認
 3. GAS の実行ログを確認
 
----
 
 ## 用語集
 
@@ -258,7 +249,6 @@ Google Drive の `Analytics/CSV_Imports/` 各プラットフォームフォル�
 | body | 動画の本編部分 |
 | CTA | Call To Action（最後のアクション促進部分） |
 
----
 
 ## サポート
 

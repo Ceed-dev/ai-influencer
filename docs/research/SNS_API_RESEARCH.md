@@ -3,7 +3,6 @@
 > 対象: 最大3,500アカウント管理（TikTok / Instagram / YouTube / Twitter）
 > 調査日: 2026-02-11
 
----
 
 ## 目次
 
@@ -21,7 +20,6 @@
 3. [統合型ソーシャルメディアAPI](#3-統合型ソーシャルメディアapi)
 4. [3,500アカウント運用のための推奨構成](#4-3500アカウント運用のための推奨構成)
 
----
 
 ## 1. 分析収集（メトリクス取得）
 
@@ -80,7 +78,6 @@ music_id, region_code, username, effect_ids
 - [TikTok Content Posting API](https://developers.tiktok.com/doc/content-posting-api-get-started)
 - [TikTok API for Business Portal](https://business-api.tiktok.com/portal/docs)
 
----
 
 ### 1.2 YouTube Analytics API
 
@@ -131,7 +128,6 @@ YouTube Analytics APIはOAuth 2.0認証を使い、チャンネルの詳細分�
 - [YouTube Reporting API](https://developers.google.com/youtube/reporting/v1/reference/rest)
 - [YouTube OAuth Implementation](https://developers.google.com/youtube/reporting/guides/authorization)
 
----
 
 ### 1.3 Instagram Insights API（Graph API）
 
@@ -190,7 +186,6 @@ Instagram Graph API（現在v22.0）でBusiness/Creatorアカウントの分析�
 - [Meta API Updates for Instagram Marketing API](https://www.socialmediatoday.com/news/meta-announces-updates-for-the-instagram-marketing-api/807083/)
 - [Instagram Graph API Guide 2026 (Authentication, Limits, Errors)](https://getlate.dev/blog/instagram-graph-api)
 
----
 
 ### 1.4 Twitter/X API v2
 
@@ -237,7 +232,6 @@ Instagram Graph API（現在v22.0）でBusiness/Creatorアカウントの分析�
 - [Twitter API Pricing and Limits (Data365)](https://data365.co/guides/twitter-api-limitations-and-pricing)
 - [X API Pricing Updates](https://www.socialmediatoday.com/news/x-formerly-twitter-launches-usage-based-api-access-charges/803315/)
 
----
 
 ## 2. マーケットリサーチ・トレンド分析
 
@@ -292,7 +286,6 @@ Instagram Graph API（現在v22.0）でBusiness/Creatorアカウントの分析�
 - [TikTok Research API Product Page](https://developers.tiktok.com/products/research-api/)
 - [TikTok Research API Video Query Specs](https://developers.tiktok.com/doc/research-api-specs-query-videos/)
 
----
 
 ### 2.2 YouTube Data API v3（トレンドリサーチ用）
 
@@ -323,7 +316,6 @@ Instagram Graph API（現在v22.0）でBusiness/Creatorアカウントの分析�
 - [YouTube Data API v3 Guide](https://elfsight.com/blog/youtube-data-api-v3-limits-operations-resources-methods-etc/)
 - [YouTube Videos: list](https://developers.google.com/youtube/v3/docs/videos/list)
 
----
 
 ### 2.3 Google Trends API / SerpAPI
 
@@ -361,7 +353,6 @@ Instagram Graph API（現在v22.0）でBusiness/Creatorアカウントの分析�
 - [SerpAPI Pricing vs Alternatives](https://www.searchcans.com/blog/serpapi-pricing-alternatives-comparison-2026/)
 - [Best Google Trends Scraping APIs 2026 (ScrapingBee)](https://www.scrapingbee.com/blog/best-google-trends-api/)
 
----
 
 ### 2.4 スクレイピングツール
 
@@ -459,7 +450,6 @@ OpenClawはソーシャルメディアスクレイピングツールではなく
 - [Browserless Pricing](https://www.browserless.io/pricing)
 - [OpenClaw Pricing](https://www.getopenclaw.ai/pricing)
 
----
 
 ### 2.5 トレンド検出サービス
 
@@ -498,7 +488,6 @@ OpenClawはソーシャルメディアスクレイピングツールではなく
 - [Phyllo Pricing](https://www.getphyllo.com/pricing)
 - [Data365 Pricing](https://data365.co/pricing)
 
----
 
 ## 3. 統合型ソーシャルメディアAPI
 
@@ -518,7 +507,6 @@ OpenClawはソーシャルメディアスクレイピングツールではなく
 - [EnsembleData Pricing](https://ensembledata.com/pricing)
 - [Best Unified Social Media APIs 2026](https://www.outstand.so/blog/best-unified-social-media-apis-for-devs)
 
----
 
 ## 4. 3,500アカウント運用のための推奨構成
 
