@@ -248,22 +248,25 @@ test('content-manager HEADERS are consistent with new schema', () => {
   expect(src).not.toContain("'drive_file_id'");
 });
 
-// ─── Test 13: orchestrator exports runPipeline + new v4.0 exports ───
-test('orchestrator exports runPipeline, runSingleJob, processReadyJobs', () => {
+// ─── Test 13: orchestrator exports runSingleJob + processReadyJobs (runPipeline removed) ───
+test('orchestrator exports runSingleJob and processReadyJobs but NOT runPipeline', () => {
   const orch = require('../pipeline/orchestrator');
-  expect(typeof orch.runPipeline).toBe('function');
+  expect(orch.runPipeline).toBeUndefined();
   expect(typeof orch.runSingleJob).toBe('function');
   expect(typeof orch.processReadyJobs).toBe('function');
 });
 
-// ─── Test 14: orchestrator source has no references to old modules ───
-test('orchestrator has no cloudinary/compositor references', () => {
+// ─── Test 14: orchestrator source has no references to old/deprecated modules ───
+test('orchestrator has no cloudinary/compositor/content-manager references', () => {
   const fs = require('fs');
   const path = require('path');
   const src = fs.readFileSync(path.join(__dirname, '../pipeline/orchestrator.js'), 'utf8');
   expect(src).not.toContain('cloudinary');
   expect(src).not.toContain('compositor');
   expect(src).not.toContain('composite');
+  expect(src).not.toContain('content-manager');
+  expect(src).not.toContain('runPipeline');
+  expect(src).not.toContain('listDriveFiles');
   expect(src).toContain('concatVideos');
   expect(src).toContain('uploadToFalStorage');
   expect(src).toContain('downloadFromDrive');
@@ -286,20 +289,20 @@ test('orchestrator uses Promise.all for parallel section processing', () => {
   expect(src).toContain('updateProductionRow');
 });
 
-// ─── Test 16: CLI script supports new v4.0 flags ───
-test('run-pipeline.js supports --video-id, --limit, --dry-run and legacy --character-folder', () => {
+// ─── Test 16: CLI script supports v4.0 flags (legacy --character-folder removed) ───
+test('run-pipeline.js supports --video-id, --limit, --dry-run and no legacy --character-folder', () => {
   const fs = require('fs');
   const path = require('path');
   const src = fs.readFileSync(path.join(__dirname, '../scripts/run-pipeline.js'), 'utf8');
-  // New v4.0 flags
+  // v4.0 flags
   expect(src).toContain('--video-id');
   expect(src).toContain('--limit');
   expect(src).toContain('--dry-run');
   expect(src).toContain('--help');
-  // Legacy backward compat
-  expect(src).toContain('--character-folder');
-  // New imports
-  expect(src).toContain('runPipeline');
+  // Legacy removed
+  expect(src).not.toContain('--character-folder');
+  expect(src).not.toContain('runPipeline');
+  // Current imports
   expect(src).toContain('runSingleJob');
   expect(src).toContain('processReadyJobs');
   // Production manager imports
@@ -455,4 +458,17 @@ test('production-manager reads from production tab', () => {
   expect(src).toContain("pipeline_status");
   // Should use 32-column HEADERS
   expect(src).toContain('HEADERS');
+});
+
+// ─── Test 28: inventory-reader requires voice_id (throws if missing) ───
+test('inventory-reader throws if voice_id is missing', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '../pipeline/sheets/inventory-reader.js'), 'utf8');
+
+  // Source must contain the error message about voice_id being required
+  expect(src).toContain('voice_id is required for video');
+  expect(src).toContain('Fish Audio reference_id');
+  // The old fallback to empty string should NOT be present
+  expect(src).not.toMatch(/voice:\s*row\.voice_id\s*\|\|\s*''/);
 });

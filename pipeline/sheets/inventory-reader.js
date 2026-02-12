@@ -92,7 +92,7 @@ async function resolveProductionRow(row) {
 
   return {
     character,
-    voice: row.voice_id || '',
+    voice: row.voice_id || (() => { throw new Error(`voice_id is required for video ${row.video_id}. Set a Fish Audio reference_id in the production sheet.`); })(),
     sections: [
       { scenario: hookScenario, motion: hookMotion, prefix: '01_hook', name: 'hook' },
       { scenario: bodyScenario, motion: bodyMotion, prefix: '02_body', name: 'body' },

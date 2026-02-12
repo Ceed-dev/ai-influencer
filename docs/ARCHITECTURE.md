@@ -75,8 +75,8 @@ graph TB
 ┌──────────────────────────────────────────────────────────────────┐
 │                    Pipeline (Node.js v4.0)                        │
 │                                                                  │
-│  orchestrator.js ──► media/ ──► fal.ai (Kling/Sync)             │
-│       │              │         Fish Audio (TTS)                 │
+│  orchestrator.js ──► media/ ──► fal.ai (Kling / Lipsync)        │
+│                      │     ──► Fish Audio TTS (直接API)          │
 │       │              │         (3セクション並列処理)              │
 │       │              └──► ffmpeg (3セクション結合)                │
 │       │                                                          │
@@ -121,7 +121,7 @@ graph TB
 3. 3セクション(hook/body/cta) 並列処理 (Promise.all)
    各セクションで（セクション間は並列、セクション内も一部並列）:
    ┌─ fal.ai Kling motion-control (画像 + モーション参照動画 → 動画) ─┐ 並列
-   └─ Fish Audio TTS (スクリプト → 音声MP3 → fal.storage URL)       ─┘
+   └─ Fish Audio TTS 直接API (スクリプト → 音声MP3 → fal.storage URL) ─┘
    → fal.ai Sync Lipsync v2/pro (動画 + 音声 → 口同期動画)
 
 4. 結合
@@ -181,15 +181,15 @@ graph LR
 
 ## API統合
 
-### fal.ai（メディア生成ハブ）
+### fal.ai（動画生成 + リップシンク）
 
-全メディア生成は fal.ai 経由で呼び出す。各サービスの役割：
+Kling と Lipsync は fal.ai 経由で呼び出す。TTS は Fish Audio の直接REST API（fal.ai とは別サービス）。
 
-| サービス | 用途 | 何をするか | 単価 | 5秒あたり |
-|---|---|---|---|---|
-| Kling 2.6 motion-control | AI動画生成 | image_url + video_url → 動画を生成 | [$0.07/秒](https://fal.ai/models/fal-ai/kling-video/v2.6/standard/motion-control) | $0.35 |
-| Fish Audio TTS | テキスト音声合成 (TTS) | スクリプトテキスト → 音声MP3を生成 (reference_id指定) | ~$0.001/セクション | ~$0.001 |
-| Sync Lipsync v2/pro | リップシンク | 動画+音声 → 口の動きを同期させた動画を生成 (sync_mode: "bounce") | [$5.00/分](https://fal.ai/models/fal-ai/sync-lipsync/v2/pro) | $0.42 |
+| サービス | プロバイダー | 用途 | 何をするか | 単価 | 5秒あたり |
+|---|---|---|---|---|---|
+| Kling 2.6 motion-control | fal.ai | AI動画生成 | image_url + video_url → 動画を生成 | [$0.07/秒](https://fal.ai/models/fal-ai/kling-video/v2.6/standard/motion-control) | $0.35 |
+| Fish Audio TTS API（直接REST API） | Fish Audio | テキスト音声合成 (TTS) | スクリプトテキスト → 音声MP3を生成 (reference_id指定) | ~$0.001/セクション | ~$0.001 |
+| Sync Lipsync v2/pro | fal.ai | リップシンク | 動画+音声 → 口の動きを同期させた動画を生成 (sync_mode: "bounce") | [$5.00/分](https://fal.ai/models/fal-ai/sync-lipsync/v2/pro) | $0.42 |
 
 **セクション単価: ~$0.77（5秒）/ 1本あたり(3セクション): ~$2.31**
 
@@ -324,4 +324,4 @@ GAS API エンドポイント詳細は [GAS操作マニュアル](manuals/GAS_MA
 
 > 詳細なコスト構造・月次見積もりは [README.md — コスト構造](../README.md#コスト構造) を参照。
 
-**1動画（3セクション×5秒）あたり: ~$2.31**（Kling $1.05 + Fish Audio ~$0.003 + Lipsync $1.26）
+**1動画（3セクション×5秒）あたり: ~$2.31**（fal.ai: Kling $1.05 + Lipsync $1.26 / Fish Audio: TTS ~$0.003）

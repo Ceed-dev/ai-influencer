@@ -19,12 +19,12 @@
 
 | ステップ | サービス | 単価 | 計算 | コスト |
 |----------|----------|------|------|--------|
-| 動画生成 | Kling v2.6 Standard | [$0.07/秒](https://fal.ai/models/fal-ai/kling-video/v2.6/standard/motion-control) | $0.07 × 5秒 | **$0.35** |
-| 音声生成 | Fish Audio TTS | ~$0.001/セクション | 直接REST API | **~$0.001** |
-| 口パク同期 | Sync Lipsync v2/pro | [$5.00/分](https://fal.ai/models/fal-ai/sync-lipsync/v2/pro) | $5.00 × 5/60分 | **$0.42** |
+| 動画生成 | Kling v2.6 Standard (fal.ai) | [$0.07/秒](https://fal.ai/models/fal-ai/kling-video/v2.6/standard/motion-control) | $0.07 × 5秒 | **$0.35** |
+| 音声生成 | Fish Audio TTS (直接API) | ~$0.001/セクション | 直接REST API（fal.ai とは別サービス） | **~$0.001** |
+| 口パク同期 | Sync Lipsync v2/pro (fal.ai) | [$5.00/分](https://fal.ai/models/fal-ai/sync-lipsync/v2/pro) | $5.00 × 5/60分 | **$0.42** |
 | **セクション計** | | | | **$0.77** |
 
-> Fish Audio TTS: ElevenLabs (fal.ai経由) から移行。コスト約90%削減。バイナリMP3を返却し、fal.storageにアップロードしてリップシンク用URLを取得。
+> Fish Audio TTS: ElevenLabs から移行。コスト約90%削減。Fish Audio は fal.ai とは独立した直接REST APIで、バイナリMP3を返却し、fal.storageにアップロードしてリップシンク用URLを取得。
 
 
 ## 1動画（3セクション = 15秒）あたり
@@ -67,10 +67,10 @@
 | サービス | 現在の単価 | 直接API | 差額 | 備考 |
 |----------|------------|---------|------|------|
 | Kling v2.6 Std (fal.ai) | $0.07/秒 | $0.07/秒 | **同額** | 直接は [$4,200/3ヶ月](https://klingai.com/global/dev/pricing) 前払い必要 |
-| Fish Audio TTS (直接) | ~$0.001/セクション | - | **直接利用** | ElevenLabs ($0.01/セクション) から ~90% コスト削減 |
+| Fish Audio TTS (直接API) | ~$0.001/セクション | - | **直接利用** | fal.ai とは別サービス。ElevenLabs ($0.01/セクション) から ~90% コスト削減 |
 | Sync Lipsync Pro (fal.ai) | $5.00/分 | $4.02-$4.98/分 | **ほぼ同等** | [Sync Labs](https://sync.so/pricing) はスケールプラン必要 |
 
-→ Kling/Lipsync は fal.ai 経由（前払い不要・統一SDK）、TTS は Fish Audio 直接APIで最適なコスト構成。
+→ Kling/Lipsync は fal.ai 経由（前払い不要・統一SDK）、TTS は Fish Audio 直接API（fal.ai とは独立したサービス）で最適なコスト構成。
 
 
 ## 参照元

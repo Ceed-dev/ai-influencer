@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 'use strict';
 
-const { runPipeline, runSingleJob, processReadyJobs } = require('../pipeline/orchestrator');
+const { runSingleJob, processReadyJobs } = require('../pipeline/orchestrator');
 const { getProductionRow } = require('../pipeline/sheets/production-manager');
 const { resolveProductionRow } = require('../pipeline/sheets/inventory-reader');
-const { listDriveFiles } = require('../pipeline/sheets/client');
 
 function parseArgs() {
   const args = process.argv.slice(2);
@@ -12,14 +11,11 @@ function parseArgs() {
     videoId: null,
     limit: 10,
     dryRun: false,
-    // Legacy
-    characterFolder: null,
   };
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--video-id' && args[i + 1]) opts.videoId = args[++i];
     if (args[i] === '--limit' && args[i + 1]) opts.limit = parseInt(args[++i], 10);
     if (args[i] === '--dry-run') opts.dryRun = true;
-    if (args[i] === '--character-folder' && args[i + 1]) opts.characterFolder = args[++i];
     if (args[i] === '--help' || args[i] === '-h') {
       showUsage();
       process.exit(0);
@@ -40,44 +36,7 @@ Options:
   --limit <N>              Max number of ready rows to process (default: 10)
   --dry-run                Skip all API calls, just log what would happen
   --help, -h               Show this help message
-
-Deprecated (backward compat):
-  --character-folder <ID>  Legacy mode using scenario.json + Drive folder
 `);
-}
-
-async function runLegacyMode(opts) {
-  console.warn('[pipeline] WARNING: --character-folder is deprecated. Use the production tab + --video-id instead.');
-  console.log(`[pipeline] Character folder: ${opts.characterFolder}`);
-  console.log(`[pipeline] Dry run: ${opts.dryRun}`);
-
-  const files = await listDriveFiles(opts.characterFolder);
-  const images = files.filter((f) => f.mimeType && f.mimeType.startsWith('image/'));
-  if (images.length === 0) {
-    console.error(`[pipeline] No image files found in Drive folder ${opts.characterFolder}`);
-    console.error(`[pipeline] Found ${files.length} files: ${files.map((f) => f.name).join(', ') || '(empty)'}`);
-    process.exit(1);
-  }
-  console.log(`[pipeline] Found ${images.length} character image(s): ${images.map((f) => f.name).join(', ')}`);
-
-  const result = await runPipeline({
-    characterFolderId: opts.characterFolder,
-    dryRun: opts.dryRun,
-  });
-
-  console.log('\n=== Pipeline Result ===');
-  console.log(`Content ID: ${result.contentId}`);
-  if (result.dryRun) {
-    console.log('(dry run — no files generated)');
-  } else {
-    console.log(`Drive folder: ${result.driveFolderId}`);
-    if (result.driveUrls) {
-      console.log('Files:');
-      for (const [name, url] of Object.entries(result.driveUrls)) {
-        console.log(`  ${name}: ${url}`);
-      }
-    }
-  }
 }
 
 async function runSingleVideoMode(opts) {
@@ -140,17 +99,12 @@ async function runBatchMode(opts) {
 async function main() {
   const opts = parseArgs();
 
-  // Legacy mode
-  if (opts.characterFolder) {
-    return runLegacyMode(opts);
-  }
-
-  // New mode: specific video ID
+  // Single video mode
   if (opts.videoId) {
     return runSingleVideoMode(opts);
   }
 
-  // New mode: batch processing
+  // Batch processing
   return runBatchMode(opts);
 }
 

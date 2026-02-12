@@ -65,8 +65,8 @@ cp .env.example .env
 
 | 変数名 | 必須 | 説明 | 例 |
 |---|---|---|---|
-| `FAL_KEY` | **必須** | fal.ai の APIキー（動画生成・リップシンクに使用） | `fal-xxxxxxxxxxxx` |
-| `FISH_AUDIO_API_KEY` | **必須** | Fish Audio の APIキー（TTS音声生成に使用） | `xxxxxxxxxxxxxxxx` |
+| `FAL_KEY` | **必須** | fal.ai の APIキー（Kling動画生成・Sync Lipsync に使用） | `fal-xxxxxxxxxxxx` |
+| `FISH_AUDIO_API_KEY` | **必須** | Fish Audio の APIキー（TTS音声生成に使用、fal.ai とは別サービス） | `xxxxxxxxxxxxxxxx` |
 | `GOOGLE_CREDENTIALS_PATH` | 必須 | Google OAuth 認証情報ファイルのパス | `./video_analytics_hub_claude_code_oauth.json` |
 | `GOOGLE_TOKEN_PATH` | 必須 | Google OAuth トークンファイルのパス | `./.gsheets_token.json` |
 | `MASTER_SPREADSHEET_ID` | 任意 | Master スプレッドシート ID（デフォルト値あり） | `1fI1s_KLceg...` |
@@ -282,7 +282,7 @@ node scripts/run-pipeline.js --dry-run --limit 1
 | `timezone` | タイムゾーン | `Asia/Tokyo` |
 | `posting_window` | 投稿時間帯 | `18:00-22:00` |
 | `content_niche` | コンテンツジャンル | `beauty` / `lifestyle` / `tech` |
-| `voice_id` | Fish Audio reference_id（32文字16進数） | （空欄で可） |
+| `voice_id` | Fish Audio reference_id（32文字16進数）**必須** | `a1b2c3d4e5f6...` |
 | `status` | ステータス | `setup` → 準備完了後に `active` に変更 |
 | `api_credential_key` | OAuth認証のキー名 | `youtube_acc_0008` |
 
@@ -321,7 +321,7 @@ node scripts/run-pipeline.js --dry-run --limit 1
 | `hook_motion_id` | Hook用モーションID | `MOT_0001` | **必須** |
 | `body_motion_id` | Body用モーションID | `MOT_0002` | **必須** |
 | `cta_motion_id` | CTA用モーションID | `MOT_0003` | **必須** |
-| `voice_id` | Fish Audio reference_id（32文字16進数、省略可） | （空欄で可） | 任意 |
+| `voice_id` | Fish Audio reference_id（32文字16進数） | `a1b2c3d4e5f6...` | **必須** |
 
 > **重要**: `edit_status` を `ready` に設定すると、パイプラインの処理対象になります。まだ準備中の場合は `draft` のままにしておいてください。
 

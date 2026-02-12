@@ -10,12 +10,17 @@ const RETRY_DELAYS = [2000, 5000, 10000]; // ms
  * Returns a fal.storage URL (compatible with lipsync pipeline).
  * @param {object} params
  * @param {string} params.text - Text to speak
- * @param {string} [params.referenceId=''] - Fish Audio voice reference_id
+ * @param {string} params.referenceId - Fish Audio voice reference_id (required)
  * @returns {Promise<string>} Audio URL (fal.storage)
  */
-async function generateSpeech({ text, referenceId = '' }) {
-  const body = { text, format: config.fishAudio.defaultFormat };
-  if (referenceId) body.reference_id = referenceId;
+async function generateSpeech({ text, referenceId }) {
+  if (!config.fishAudio.apiKey) {
+    throw new Error('FISH_AUDIO_API_KEY is not set. Add it to your .env file.');
+  }
+  if (!referenceId) {
+    throw new Error('referenceId (Fish Audio voice reference_id) is required.');
+  }
+  const body = { text, format: config.fishAudio.defaultFormat, reference_id: referenceId };
 
   let lastError;
   for (let attempt = 0; attempt < 3; attempt++) {

@@ -134,9 +134,9 @@ Master Spreadsheet の `production` タブに1行追加（v4.0、32カラム）�
 
 ### fal.ai（AIモデルホスティング）
 
-[fal.ai](https://fal.ai) はAIモデルをAPI経由で実行できるプラットフォーム。個別のAIサービス（Kling, Lipsync）のAPIを統一的なインターフェースで利用できる。キュー管理、自動ポーリング、一時ファイルストレージ（fal.storage）も提供。TTS は Fish Audio の直接APIを使用し、生成されたMP3を fal.storage にアップロードしてリップシンク用URLを取得する。
+[fal.ai](https://fal.ai) はAIモデルをAPI経由で実行できるプラットフォーム。Kling（動画生成）と Sync Lipsync（口パク同期）のAPIを統一的なインターフェースで利用できる。キュー管理、自動ポーリング、一時ファイルストレージ（fal.storage）も提供。
 
-**なぜ fal.ai を使うのか**: 各AIサービスと個別にAPI契約するのではなく、fal.ai 1箇所でKlingとLipsyncを従量課金で利用できる。SDKが統一されているためコードが簡潔。
+**なぜ fal.ai を使うのか**: Kling と Lipsync を1箇所で従量課金で利用できる。SDKが統一されているためコードが簡潔。
 
 - `fal-client.js`: fal.ai Node.js SDK のラッパー。リトライ処理、タイムアウト管理、fal.storage アップロード機能を提供。
 
@@ -152,7 +152,7 @@ Master Spreadsheet の `production` タブに1行追加（v4.0、32カラム）�
 
 ### Fish Audio TTS（AI音声合成 / TTS）
 
-[Fish Audio](https://fish.audio) は高品質な音声合成AI。テキストを入力すると、指定したボイス（reference_id）で自然な音声を生成する。
+[Fish Audio](https://fish.audio) は Hanabi AI Inc. が運営する独立した音声合成AIサービス。fal.ai とは別のサービスであり、直接REST APIで利用する。テキストを入力すると、指定したボイス（reference_id）で自然な音声を生成する。
 
 **なぜ Fish Audio を使うのか**: 高品質なTTSを従来の約1/10のコストで利用可能（~$0.001/セクション）。直接REST APIで呼び出し、バイナリMP3が返却される。fal.storage にアップロードすることでリップシンク入力用のURLを取得する。
 
@@ -299,7 +299,7 @@ AI-Influencer Root/ (Shared Drives > Product)
 | `timezone` | string | タイムゾーン（例: `America/New_York`） | 投稿タイミングを現地時間で管理するため |
 | `posting_window` | string | 投稿時間帯（例: `08:00-10:00`） | エンゲージメント最大化のための最適投稿時間 |
 | `content_niche` | string | コンテンツジャンル（例: `startup_tips`） | シナリオ選択やAI分析時のカテゴリ分類 |
-| `voice_id` | string | Fish Audio reference_id（32文字の16進数） | TTS音声生成時にどのボイスを使うかを指定するため |
+| `voice_id` | string | Fish Audio reference_id（32文字の16進数）**必須** | TTS音声生成時にどのボイスを使うかを指定するため |
 | `status` | string | ステータス（`active`/`paused`/`banned`） | バッチ実行時にアクティブなアカウントのみ処理するため |
 | `api_credential_key` | string | API認証キーの参照名 | プラットフォームAPIの認証情報を安全に参照するため |
 | `last_posted_at` | datetime | 最終投稿日時 | 投稿頻度制限の管理とスケジューリングのため |
@@ -321,7 +321,7 @@ AI-Influencer Root/ (Shared Drives > Product)
 | 9 | `hook_motion_id` | string | hookモーションID |
 | 10 | `body_motion_id` | string | bodyモーションID |
 | 11 | `cta_motion_id` | string | ctaモーションID |
-| 12 | `voice_id` | string | Fish Audio reference_id（32文字の16進数） |
+| 12 | `voice_id` | string | Fish Audio reference_id（32文字の16進数）**必須** |
 | 13 | `pipeline_status` | string | パイプライン処理ステータス（自動更新） |
 | 14 | `current_phase` | string | 現在の処理フェーズ（自動更新） |
 | 15 | `hook_video_url` | url | hook動画のDriveリンク（自動記録） |
@@ -477,8 +477,11 @@ cp .env.example .env
 ### .env 設定
 
 ```bash
-FAL_KEY=your-fal-api-key          # fal.ai APIキー（必須）
-FISH_AUDIO_API_KEY=your-fish-audio-api-key  # Fish Audio APIキー（TTS用、必須）
+# --- fal.ai（動画生成 + リップシンク）---
+FAL_KEY=your-fal-api-key          # fal.ai APIキー（必須）— Kling, Sync Lipsync 用
+
+# --- Fish Audio（TTS音声合成 / fal.ai とは別サービス）---
+FISH_AUDIO_API_KEY=your-fish-audio-api-key  # Fish Audio APIキー（必須）— TTS用、直接REST API
 GOOGLE_CREDENTIALS_PATH=./video_analytics_hub_claude_code_oauth.json  # Google OAuth認証ファイル
 GOOGLE_TOKEN_PATH=./.gsheets_token.json   # Google OAuthトークン
 MASTER_SPREADSHEET_ID=1fI1s_KLcegpiACJYpmpNe9tnQmnZo2o8eHIXNV5SpPg  # Master SpreadsheetのID
@@ -565,13 +568,13 @@ npx jest tests/pipeline.test.js
 
 ### 動画生成パイプライン（有料API）
 
-Kling と Lipsync は [fal.ai](https://fal.ai) 経由で利用（**プリペイド課金**、事前にクレジット購入が必要）。TTS は Fish Audio の直接REST APIを利用。
+Kling と Lipsync は [fal.ai](https://fal.ai) 経由、TTS は [Fish Audio](https://fish.audio)（Hanabi AI Inc.）の直接REST APIを利用。fal.ai は**プリペイド課金**（事前にクレジット購入が必要）。
 
-| サービス | エンドポイント | 用途 | 入力 → 出力 | 単価 | コスト/セクション(5秒) |
-|---|---|---|---|---|---|
-| **Kling 2.6** | `fal-ai/kling-video/v2.6/standard/motion-control` | AI動画生成 | キャラクター画像 + モーション参照動画 → 動画 | [$0.07/秒](https://fal.ai/models/fal-ai/kling-video/v2.6/standard/motion-control) | $0.35 |
-| **Fish Audio** | `https://api.fish.audio/v1/tts` | テキスト音声合成 (TTS) | スクリプトテキスト → 音声ファイル(MP3) | ~$0.001/セクション | ~$0.001 |
-| **Sync Lipsync** | `fal-ai/sync-lipsync/v2/pro` | リップシンク（口パク同期） | 動画 + 音声 → 口の動きを同期した動画 | [$5.00/分](https://fal.ai/models/fal-ai/sync-lipsync/v2/pro) | $0.42 |
+| サービス | プロバイダー | エンドポイント | 用途 | 入力 → 出力 | 単価 | コスト/セクション(5秒) |
+|---|---|---|---|---|---|---|
+| **Kling 2.6** | fal.ai | `fal-ai/kling-video/v2.6/standard/motion-control` | AI動画生成 | キャラクター画像 + モーション参照動画 → 動画 | [$0.07/秒](https://fal.ai/models/fal-ai/kling-video/v2.6/standard/motion-control) | $0.35 |
+| **Fish Audio** | Fish Audio（直接API） | `https://api.fish.audio/v1/tts` | テキスト音声合成 (TTS) | スクリプトテキスト → 音声ファイル(MP3) | ~$0.001/セクション | ~$0.001 |
+| **Sync Lipsync** | fal.ai | `fal-ai/sync-lipsync/v2/pro` | リップシンク（口パク同期） | 動画 + 音声 → 口の動きを同期した動画 | [$5.00/分](https://fal.ai/models/fal-ai/sync-lipsync/v2/pro) | $0.42 |
 
 ### Google Cloud（無料枠内）
 
@@ -611,7 +614,7 @@ ffmpeg結合は無料（ローカル処理）。
 >
 > **詳細分析**: [1動画あたりのコスト分析](docs/cost-analysis/per-video-cost.md) / [1分あたりのコスト分析](docs/cost-analysis/per-minute-cost.md)
 
-### 月間コスト見積もり
+### 月間コスト見積もり（fal.ai + Fish Audio 合計）
 
 | 時期 | アカウント数 | 動画/日 | 月間動画 | 月間コスト(Pro) | 月間コスト(Std) |
 |---|---|---|---|---|---|
