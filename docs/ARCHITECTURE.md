@@ -69,12 +69,40 @@ graph TB
     SW --> SHEETS
 ```
 
+### ウォッチャーアーキテクチャ（GUI実行）
+
+```
+[Google Sheets UI]
+  │  メニュー: Pipeline > Queue All Ready Videos...
+  │  GAS: バリデーション → pipeline_status = 'queued' 設定
+  │
+  ▼
+[production タブ]  pipeline_status = 'queued' or 'queued_dry'
+  │
+  │  30秒ポーリング
+  ▼
+[watch-pipeline.js on VM (PM2)]
+  │  getQueuedRows(1) → 1行取得 → resolveProductionRow → runSingleJob
+  │  処理完了 → 次のpoll → 次のqueued行を処理 → ...
+  │
+  ▼
+[Pipeline Orchestrator] → fal.ai / Fish Audio / Drive
+```
+
+- GASはシートのステータス更新のみ。API呼び出しはVM上のNode.jsが担当。
+- ウォッチャーは1回のpollで1行だけ処理（完了後に次をpoll）
+- `SIGINT`/`SIGTERM` でグレースフルシャットダウン（現ジョブ完了後に停止）
+- PM2で自動再起動・systemd起動を管理
+
 ### テキスト版
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
 │                    Pipeline (Node.js v4.0)                        │
 │                                                                  │
+│  watch-pipeline.js ──► 30秒ポーリング (PM2常駐デーモン)         │
+│       │                                                          │
+│       ▼                                                          │
 │  orchestrator.js ──► media/ ──► fal.ai (Kling / Lipsync)        │
 │                      │     ──► Fish Audio TTS (直接API)          │
 │       │              │         (3セクション並列処理)              │
@@ -277,12 +305,13 @@ Kling と Lipsync は fal.ai 経由で呼び出す。TTS は Fish Audio の直�
 共通カラム: component_id, type, name, description, file_link, drive_file_id, tags, times_used, avg_performance_score, created_date, status
 
 
-## GASモジュール一覧（変更なし）
+## GASモジュール一覧
 
 | モジュール | 行数 | 役割 |
 |---|---|---|
-| Code.gs | 1157 | Web App エンドポイント + UIメニュー |
-| Config.gs | 389 | 設定値、スキーマ、定数 |
+| Code.gs | ~1160 | Web App エンドポイント + UIメニュー |
+| Config.gs | ~400 | 設定値、スキーマ、定数 |
+| PipelineUI.gs | ~250 | Pipeline メニューハンドラー（キューイング・バリデーション・ステータス表示） |
 | Setup.gs | 762 | ワンクリックセットアップ |
 | Migration.gs | 224 | v1→v2 マイグレーション |
 | CSVParser.gs | 190 | プラットフォーム別CSVパーサー |
@@ -318,6 +347,7 @@ GAS API エンドポイント詳細は [GAS操作マニュアル](manuals/GAS_MA
 | X Post | pipeline/posting/adapters/twitter.js | X投稿 |
 | Google Sheets Write | pipeline/sheets/content-manager.js | パイプライン結果のシート書き込み（レガシー） |
 | Schedule Trigger | scripts/run-daily.js | 日次バッチ (cron) |
+| Queue Watcher | scripts/watch-pipeline.js | シートUIからのキュー監視デーモン (PM2) |
 
 
 ## コスト見積もり

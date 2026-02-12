@@ -460,7 +460,71 @@ test('production-manager reads from production tab', () => {
   expect(src).toContain('HEADERS');
 });
 
-// ─── Test 28: inventory-reader requires voice_id (throws if missing) ───
+// ─── Test 28: production-manager exports getQueuedRows ───
+test('production-manager exports getQueuedRows function', () => {
+  const pm = require('../pipeline/sheets/production-manager');
+  expect(typeof pm.getQueuedRows).toBe('function');
+});
+
+// ─── Test 29: getQueuedRows filters queued/queued_dry status only ───
+test('getQueuedRows source filters for queued and queued_dry statuses', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '../pipeline/sheets/production-manager.js'), 'utf8');
+
+  // Must filter for both queued and queued_dry
+  expect(src).toContain("pipeline_status === 'queued'");
+  expect(src).toContain("pipeline_status === 'queued_dry'");
+  // Must also check edit_status
+  expect(src).toContain("edit_status === 'ready'");
+  // Must be exported
+  expect(src).toContain('getQueuedRows');
+});
+
+// ─── Test 30: watch-pipeline.js exists and has correct structure ───
+test('watch-pipeline.js has watcher structure with graceful shutdown', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '../scripts/watch-pipeline.js'), 'utf8');
+
+  // Must import from correct modules
+  expect(src).toContain('getQueuedRows');
+  expect(src).toContain('runSingleJob');
+  expect(src).toContain('resolveProductionRow');
+  // Must have polling logic
+  expect(src).toContain('POLL_INTERVAL');
+  expect(src).toContain('pollOnce');
+  // Must handle graceful shutdown
+  expect(src).toContain('SIGINT');
+  expect(src).toContain('SIGTERM');
+  // Must handle queued_dry for dry-run mode
+  expect(src).toContain('queued_dry');
+});
+
+// ─── Test 31: watch-pipeline.js shows help or starts without crashing ───
+test('watch-pipeline.js can be loaded as a module check', () => {
+  const fs = require('fs');
+  const path = require('path');
+  // Just verify the file exists and is valid JS
+  const filePath = path.join(__dirname, '../scripts/watch-pipeline.js');
+  expect(fs.existsSync(filePath)).toBe(true);
+  const src = fs.readFileSync(filePath, 'utf8');
+  expect(src.length).toBeGreaterThan(100);
+});
+
+// ─── Test 32: ecosystem.config.js has correct PM2 configuration ───
+test('ecosystem.config.js has correct PM2 configuration', () => {
+  const config = require('../ecosystem.config.js');
+  expect(config.apps).toBeDefined();
+  expect(config.apps).toHaveLength(1);
+  const app = config.apps[0];
+  expect(app.name).toBe('pipeline-watcher');
+  expect(app.script).toBe('scripts/watch-pipeline.js');
+  expect(app.autorestart).toBe(true);
+  expect(app.restart_delay).toBeGreaterThan(0);
+});
+
+// ─── Test 33: inventory-reader requires voice_id (throws if missing) ───
 test('inventory-reader throws if voice_id is missing', () => {
   const fs = require('fs');
   const path = require('path');

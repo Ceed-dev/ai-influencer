@@ -630,6 +630,33 @@ Instagram variations:
 - Top-performing components surfaced in AI recommendation prompts
 - Score updates cascade: video analyzed -> master updated -> all linked components updated
 
+### 2026-02-12: Pipeline GUI Execution — Sheet Button → Auto Generation
+
+**What was done:**
+- Added Pipeline submenu to Google Sheets UI (Video Analytics v2 > Pipeline)
+- Created `gas/PipelineUI.gs` with queue/validate/status/stop handlers
+- Added `getQueuedRows()` to `production-manager.js` (watcher-specific filter)
+- Created `scripts/watch-pipeline.js` polling daemon (30s interval, PM2-managed)
+- Created `ecosystem.config.js` for PM2 process management
+- Added 5 pipeline tests (tests 28-32) and 13 GAS PipelineUI tests
+- Updated OPERATIONS.md with GUI workflow as primary, CLI as "advanced"
+- Updated ARCHITECTURE.md with watcher architecture diagram
+
+**Key decisions:**
+1. **GAS for UI only, Node.js for processing**: GAS handles menu/validation/status. All API calls run on VM.
+2. **Polling over webhooks**: 30s polling is simpler and more reliable than GAS triggers or webhooks.
+3. **queued vs queued_dry**: Two statuses allow dry-run from the same GUI workflow.
+4. **1 job per poll**: Watcher processes 1 video at a time (completes before next poll).
+5. **PM2 for process management**: Auto-restart, systemd integration, log management.
+
+**New files:**
+- `gas/PipelineUI.gs` — GAS Pipeline menu handlers
+- `scripts/watch-pipeline.js` — Polling watcher daemon
+- `ecosystem.config.js` — PM2 configuration
+- `gas/tests/PipelineUI.test.js` — 13 GAS UI handler tests
+
+**Test count: 376** (343 GAS / 10 suites + 33 pipeline / 1 suite)
+
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID
 - `.gsheets_token.json` - OAuth token for Sheets/Drive API

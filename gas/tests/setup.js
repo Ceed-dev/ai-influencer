@@ -36,6 +36,7 @@ global.CONFIG = {
   ROOT_FOLDER_ID: 'test-root-folder-id',
   SHEETS: {
     MASTER: 'master',
+    PRODUCTION: 'production',
     METRICS_YOUTUBE: 'metrics_youtube',
     METRICS_TIKTOK: 'metrics_tiktok',
     METRICS_INSTAGRAM: 'metrics_instagram',
@@ -153,6 +154,11 @@ global.CONFIG = {
       saves: ['Saves']
     }
   },
+  PRODUCTION_REQUIRED_FIELDS: [
+    'character_id', 'hook_scenario_id', 'body_scenario_id', 'cta_scenario_id',
+    'hook_motion_id', 'body_motion_id', 'cta_motion_id', 'voice_id'
+  ],
+  PIPELINE_STATUSES: ['queued', 'queued_dry', 'processing', 'completed', 'error', 'dry_run_complete'],
   RETRY: { MAX_ATTEMPTS: 3, BASE_DELAY_MS: 100, MAX_DELAY_MS: 1000 },
   OPENAI_BATCH_SIZE: 5,
   EXECUTION_TIME_LIMIT_MS: 330000

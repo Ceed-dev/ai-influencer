@@ -55,7 +55,7 @@ async function getAllRows() {
 }
 
 /**
- * Get rows that are ready for pipeline processing.
+ * Get rows that are ready for pipeline processing (CLI mode).
  * Criteria: edit_status = 'ready' AND (pipeline_status is empty OR 'queued')
  */
 async function getReadyRows(limit = 10) {
@@ -64,6 +64,20 @@ async function getReadyRows(limit = 10) {
     .filter((r) =>
       r.edit_status === 'ready' &&
       (!r.pipeline_status || r.pipeline_status === 'queued')
+    )
+    .slice(0, limit);
+}
+
+/**
+ * Get rows that have been queued via the Sheets UI (watcher mode).
+ * Criteria: edit_status = 'ready' AND pipeline_status IN ('queued', 'queued_dry')
+ */
+async function getQueuedRows(limit = 1) {
+  const { rows } = await getAllRows();
+  return rows
+    .filter((r) =>
+      r.edit_status === 'ready' &&
+      (r.pipeline_status === 'queued' || r.pipeline_status === 'queued_dry')
     )
     .slice(0, limit);
 }
@@ -126,6 +140,7 @@ async function createProductionRow(data) {
 module.exports = {
   HEADERS,
   getReadyRows,
+  getQueuedRows,
   getProductionRow,
   updateProductionRow,
   createProductionRow,

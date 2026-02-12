@@ -350,9 +350,60 @@ node scripts/run-pipeline.js --dry-run --limit 1
 
 ### 4.2 パイプライン実行
 
-ターミナルでプロジェクトのルートディレクトリに移動してから、以下のコマンドを実行します。
+#### 方法A: シートGUI（推奨）
 
-#### 特定の動画を処理する
+Google Sheets のメニューからパイプラインを操作できます。VM上でウォッチャーデーモンが常駐しており、キューに入った動画を自動処理します。
+
+##### ウォッチャーの起動（初回のみ / VM再起動後）
+
+```bash
+# PM2 で起動
+pm2 start ecosystem.config.js
+
+# 自動起動設定（VM再起動後も自動で起動する）
+pm2 save
+pm2 startup  # 表示されたコマンドを実行
+```
+
+##### シートからの実行手順
+
+1. **[Master Spreadsheet](https://docs.google.com/spreadsheets/d/1fI1s_KLcegpiACJYpmpNe9tnQmnZo2o8eHIXNV5SpPg)** の `production` タブを開く
+2. 動画の行を入力し、`edit_status` を `ready` に設定する
+3. メニュー **Video Analytics v2 > Pipeline** から操作:
+
+| メニュー項目 | 動作 |
+|---|---|
+| **Queue All Ready Videos...** | ready な全行をバリデーション → 処理数を確認 → `pipeline_status = 'queued'` に設定 |
+| **Queue All Ready (Dry Run)...** | 同上だが `pipeline_status = 'queued_dry'`（APIを呼ばないテスト実行） |
+| **Queue Selected Videos** | シート上で選択中の行のみキューイング（行をShift+クリックまたはドラッグで範囲選択） |
+| **Pipeline Status** | 全行の pipeline_status ごとの件数と処理中ジョブを表示 |
+| **Stop Pipeline** | `queued` / `queued_dry` の行を全てクリア（処理中のジョブは完了まで続行） |
+
+4. 30秒以内にVM上のウォッチャーが検出し、1行ずつ順番に処理を開始
+5. `pipeline_status` と `current_phase` がリアルタイムで更新される
+6. 完了後、`final_video_url` に動画URLが入る
+
+##### ウォッチャーの管理
+
+```bash
+# ログの確認
+pm2 logs pipeline-watcher
+
+# ステータス確認
+pm2 status
+
+# 再起動
+pm2 restart pipeline-watcher
+
+# 停止
+pm2 stop pipeline-watcher
+```
+
+#### 方法B: CLI（上級者向け）
+
+ターミナルから直接パイプラインを実行することもできます。
+
+##### 特定の動画を処理する
 
 ```bash
 # まずドライラン（実際のAPIは呼ばない、動作確認用）
@@ -362,7 +413,7 @@ node scripts/run-pipeline.js --video-id VID_202602_0001 --dry-run
 node scripts/run-pipeline.js --video-id VID_202602_0001
 ```
 
-#### ready な全行をまとめて処理する
+##### ready な全行をまとめて処理する
 
 ```bash
 # バッチのドライラン（最大5件）
@@ -375,7 +426,7 @@ node scripts/run-pipeline.js --limit 10
 node scripts/run-pipeline.js
 ```
 
-#### コマンドオプション一覧
+##### コマンドオプション一覧
 
 | オプション | 説明 | デフォルト |
 |---|---|---|
@@ -403,7 +454,13 @@ Step 5: production タブのステータス・URLを更新
 
 パイプライン実行中は、以下の方法で進捗を確認できます。
 
-#### ターミナルのログを見る
+#### ウォッチャーのログを見る（GUI実行の場合）
+
+```bash
+pm2 logs pipeline-watcher --lines 50
+```
+
+#### ターミナルのログを見る（CLI実行の場合）
 
 実行中のターミナルにリアルタイムでログが表示されます:
 
@@ -535,6 +592,22 @@ Shared Drives > Product > AI-Influencer > Productions > {日付} > {video_id} /
 **対処法**:
 - パイプラインは `edit_status = 'ready'` かつ `pipeline_status` が空または `'queued'` の行のみ処理します
 - 再実行したい場合は `pipeline_status` を空にするか `queued` に変更してください
+
+#### ウォッチャーが動作しない / キューした動画が処理されない
+
+**原因**: VM上のウォッチャーデーモンが停止しています。
+
+**対処法**:
+```bash
+# ステータス確認
+pm2 status
+
+# 停止していれば起動
+pm2 start ecosystem.config.js
+
+# ログでエラーを確認
+pm2 logs pipeline-watcher --lines 100
+```
 
 
 ## 6. リファレンス

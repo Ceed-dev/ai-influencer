@@ -61,6 +61,7 @@ const CONFIG = {
   // Master Spreadsheet Sheet Names (bound script)
   SHEETS: {
     MASTER: 'master',
+    PRODUCTION: 'production',
     METRICS_YOUTUBE: 'metrics_youtube',
     METRICS_TIKTOK: 'metrics_tiktok',
     METRICS_INSTAGRAM: 'metrics_instagram',
@@ -114,6 +115,15 @@ const CONFIG = {
       this.MASTER_COLUMNS.APPROVAL
     );
   },
+
+  // Production tab required fields for pipeline validation
+  PRODUCTION_REQUIRED_FIELDS: [
+    'character_id', 'hook_scenario_id', 'body_scenario_id', 'cta_scenario_id',
+    'hook_motion_id', 'body_motion_id', 'cta_motion_id', 'voice_id'
+  ],
+
+  // Pipeline statuses
+  PIPELINE_STATUSES: ['queued', 'queued_dry', 'processing', 'completed', 'error', 'dry_run_complete'],
 
   // Inventory Common Columns
   INVENTORY_COLUMNS: [
