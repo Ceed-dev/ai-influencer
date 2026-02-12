@@ -34,8 +34,8 @@ test('compositor and cloudinary modules are removed', () => {
   expect(() => require('../pipeline/media/cloudinary')).toThrow();
 });
 
-// ─── Test 3: Config has no cloudinary/elevenlabs sections ───
-test('config has no cloudinary or elevenlabs sections', () => {
+// ─── Test 3: Config has no cloudinary/elevenlabs sections, has fishAudio ───
+test('config has no cloudinary or elevenlabs sections, has fishAudio', () => {
   const config = require('../pipeline/config');
   expect(config.cloudinary).toBeUndefined();
   expect(config.elevenlabs).toBeUndefined();
@@ -44,6 +44,12 @@ test('config has no cloudinary or elevenlabs sections', () => {
   expect(config.google).toBeDefined();
   expect(config.google.masterSpreadsheetId).toBe('1fI1s_KLcegpiACJYpmpNe9tnQmnZo2o8eHIXNV5SpPg');
   expect(config.google.rootDriveFolderId).toBe('1KRQuZ4W7u5CXRamjvN4xmavfu-7TPb0X');
+  // Fish Audio config
+  expect(config.fishAudio).toBeDefined();
+  expect(config.fishAudio.apiKey).toBeDefined();
+  expect(config.fishAudio.baseUrl).toBe('https://api.fish.audio/v1');
+  expect(config.fishAudio.model).toBe('s1');
+  expect(config.fishAudio.defaultFormat).toBe('mp3');
 });
 
 // ─── Test 4: Scenario data structure is valid (deprecated but kept) ───
@@ -94,15 +100,24 @@ test('video-generator uses motion-control endpoint', () => {
   expect(src).not.toContain('keep_original_sound');
 });
 
-// ─── Test 6: TTS generator uses correct endpoint ───
-test('tts-generator uses eleven-v3 endpoint with voice name', () => {
+// ─── Test 6: TTS generator uses Fish Audio API ───
+test('tts-generator uses Fish Audio API with referenceId', () => {
   const fs = require('fs');
   const path = require('path');
   const src = fs.readFileSync(path.join(__dirname, '../pipeline/media/tts-generator.js'), 'utf8');
-  expect(src).toContain('fal-ai/elevenlabs/tts/eleven-v3');
-  expect(src).not.toContain('tts/v3');
-  expect(src).toContain("voice = 'Aria'");
-  expect(src).not.toContain('voice_id');
+  // Fish Audio endpoint
+  expect(src).toContain('fishAudio.baseUrl');
+  expect(src).toContain('/tts');
+  expect(src).toContain('Fish Audio');
+  // Uses referenceId, not voice name
+  expect(src).toContain('referenceId');
+  expect(src).toContain('reference_id');
+  // Uploads to fal.storage (binary → URL conversion)
+  expect(src).toContain('uploadToFalStorage');
+  // No ElevenLabs references
+  expect(src).not.toContain('elevenlabs');
+  expect(src).not.toContain('eleven-v3');
+  expect(src).not.toContain('Aria');
 });
 
 // ─── Test 7: Lipsync uses correct endpoint ───

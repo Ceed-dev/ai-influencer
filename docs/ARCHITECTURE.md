@@ -18,7 +18,8 @@ graph TB
     end
 
     subgraph External["外部API"]
-        FAL[fal.ai<br/>Kling / ElevenLabs / Lipsync]
+        FAL[fal.ai<br/>Kling / Lipsync]
+        FISH[Fish Audio TTS]
         YT_API[YouTube Data API]
         IG_API[Instagram Graph API]
         TT_API[TikTok Content API]
@@ -52,6 +53,7 @@ graph TB
     INV --> SHEETS
     PROD --> SHEETS
     MEDIA --> FAL
+    MEDIA --> FISH
     STORE --> DRIVE
     POST --> YT_API
     POST --> IG_API
@@ -73,7 +75,8 @@ graph TB
 ┌──────────────────────────────────────────────────────────────────┐
 │                    Pipeline (Node.js v4.0)                        │
 │                                                                  │
-│  orchestrator.js ──► media/ ──► fal.ai (Kling/ElevenLabs/Sync)  │
+│  orchestrator.js ──► media/ ──► fal.ai (Kling/Sync)             │
+│       │              │         Fish Audio (TTS)                 │
 │       │              │         (3セクション並列処理)              │
 │       │              └──► ffmpeg (3セクション結合)                │
 │       │                                                          │
@@ -118,7 +121,7 @@ graph TB
 3. 3セクション(hook/body/cta) 並列処理 (Promise.all)
    各セクションで（セクション間は並列、セクション内も一部並列）:
    ┌─ fal.ai Kling motion-control (画像 + モーション参照動画 → 動画) ─┐ 並列
-   └─ fal.ai ElevenLabs eleven-v3 (スクリプト → 音声)               ─┘
+   └─ Fish Audio TTS (スクリプト → 音声MP3 → fal.storage URL)       ─┘
    → fal.ai Sync Lipsync v2/pro (動画 + 音声 → 口同期動画)
 
 4. 結合
@@ -185,10 +188,10 @@ graph LR
 | サービス | 用途 | 何をするか | 単価 | 5秒あたり |
 |---|---|---|---|---|
 | Kling 2.6 motion-control | AI動画生成 | image_url + video_url → 動画を生成 | [$0.07/秒](https://fal.ai/models/fal-ai/kling-video/v2.6/standard/motion-control) | $0.35 |
-| ElevenLabs eleven-v3 | テキスト音声合成 (TTS) | スクリプトテキスト → 音声を生成 (voice: "Aria") | [$0.10/1K文字](https://fal.ai/models/fal-ai/elevenlabs/tts/eleven-v3) | ~$0.01 |
+| Fish Audio TTS | テキスト音声合成 (TTS) | スクリプトテキスト → 音声MP3を生成 (reference_id指定) | ~$0.001/セクション | ~$0.001 |
 | Sync Lipsync v2/pro | リップシンク | 動画+音声 → 口の動きを同期させた動画を生成 (sync_mode: "bounce") | [$5.00/分](https://fal.ai/models/fal-ai/sync-lipsync/v2/pro) | $0.42 |
 
-**セクション単価: ~$0.78（5秒）/ 1本あたり(3セクション): ~$2.34**
+**セクション単価: ~$0.77（5秒）/ 1本あたり(3セクション): ~$2.31**
 
 ### Google APIs
 
@@ -305,7 +308,7 @@ GAS API エンドポイント詳細は [GAS操作マニュアル](manuals/GAS_MA
 | Google Sheets Read (Scenarios) | pipeline/sheets/content-manager.js | シナリオ読み込み（レガシー） |
 | fal.storage upload | pipeline/media/fal-client.js | キャラクター画像の一時URL生成 |
 | fal-ai/kling-video motion-control | pipeline/media/video-generator.js | 画像+モーション参照動画→動画生成 |
-| fal-ai/elevenlabs eleven-v3 | pipeline/media/tts-generator.js | テキスト→音声生成 |
+| Fish Audio TTS API | pipeline/media/tts-generator.js | テキスト→音声生成 |
 | fal-ai/sync-lipsync v2/pro | pipeline/media/lipsync.js | 動画+音声→口同期 |
 | ffmpeg concat | pipeline/media/concat.js | 3セクション動画の結合 |
 | Google Drive Upload | pipeline/storage/drive-storage.js | 完成動画のDrive保存 |
@@ -321,4 +324,4 @@ GAS API エンドポイント詳細は [GAS操作マニュアル](manuals/GAS_MA
 
 > 詳細なコスト構造・月次見積もりは [README.md — コスト構造](../README.md#コスト構造) を参照。
 
-**1動画（3セクション×5秒）あたり: ~$2.34**（Kling $1.05 + ElevenLabs ~$0.03 + Lipsync $1.26）
+**1動画（3セクション×5秒）あたり: ~$2.31**（Kling $1.05 + Fish Audio ~$0.003 + Lipsync $1.26）

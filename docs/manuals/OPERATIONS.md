@@ -36,7 +36,7 @@ AI-Influencer は、AIキャラクターの動画コンテンツを自動生成�
 ### 自動で行われること
 
 - キャラクター画像からAI動画を生成（Kling）
-- スクリプトから音声を生成（ElevenLabs）
+- スクリプトから音声を生成（Fish Audio）
 - 動画と音声のリップシンク
 - 3セクション（hook/body/cta）の結合
 - Google Drive への動画アップロード
@@ -65,7 +65,8 @@ cp .env.example .env
 
 | 変数名 | 必須 | 説明 | 例 |
 |---|---|---|---|
-| `FAL_KEY` | **必須** | fal.ai の APIキー（動画・音声・リップシンク生成に使用） | `fal-xxxxxxxxxxxx` |
+| `FAL_KEY` | **必須** | fal.ai の APIキー（動画生成・リップシンクに使用） | `fal-xxxxxxxxxxxx` |
+| `FISH_AUDIO_API_KEY` | **必須** | Fish Audio の APIキー（TTS音声生成に使用） | `xxxxxxxxxxxxxxxx` |
 | `GOOGLE_CREDENTIALS_PATH` | 必須 | Google OAuth 認証情報ファイルのパス | `./video_analytics_hub_claude_code_oauth.json` |
 | `GOOGLE_TOKEN_PATH` | 必須 | Google OAuth トークンファイルのパス | `./.gsheets_token.json` |
 | `MASTER_SPREADSHEET_ID` | 任意 | Master スプレッドシート ID（デフォルト値あり） | `1fI1s_KLceg...` |
@@ -281,7 +282,7 @@ node scripts/run-pipeline.js --dry-run --limit 1
 | `timezone` | タイムゾーン | `Asia/Tokyo` |
 | `posting_window` | 投稿時間帯 | `18:00-22:00` |
 | `content_niche` | コンテンツジャンル | `beauty` / `lifestyle` / `tech` |
-| `voice_id` | TTS音声ID | `Aria` |
+| `voice_id` | Fish Audio reference_id（32文字16進数） | （空欄で可） |
 | `status` | ステータス | `setup` → 準備完了後に `active` に変更 |
 | `api_credential_key` | OAuth認証のキー名 | `youtube_acc_0008` |
 
@@ -320,7 +321,7 @@ node scripts/run-pipeline.js --dry-run --limit 1
 | `hook_motion_id` | Hook用モーションID | `MOT_0001` | **必須** |
 | `body_motion_id` | Body用モーションID | `MOT_0002` | **必須** |
 | `cta_motion_id` | CTA用モーションID | `MOT_0003` | **必須** |
-| `voice_id` | TTS音声ID（省略時は `Aria`） | `Aria` | 任意 |
+| `voice_id` | Fish Audio reference_id（32文字16進数、省略可） | （空欄で可） | 任意 |
 
 > **重要**: `edit_status` を `ready` に設定すると、パイプラインの処理対象になります。まだ準備中の場合は `draft` のままにしておいてください。
 
@@ -390,7 +391,7 @@ Step 1: キャラクター画像を fal.storage にアップロード
 Step 2: 3セクション(hook/body/cta)を並列処理
         各セクション:
         ├─ モーション動画を fal.storage にアップロード
-        ├─ Kling (動画生成) + ElevenLabs (TTS) を並列実行
+        ├─ Kling (動画生成) + Fish Audio (TTS) を並列実行
         └─ Lipsync (口同期)
 Step 3: ffmpeg で3セクションを結合 → final.mp4
 Step 4: 4ファイルを Google Drive にアップロード
@@ -407,7 +408,7 @@ Step 5: production タブのステータス・URLを更新
 実行中のターミナルにリアルタイムでログが表示されます:
 
 ```
-[pipeline:init] Video: VID_202602_0001, character: CHR_0001, voice: Aria
+[pipeline:init] Video: VID_202602_0001, character: CHR_0001
 [pipeline:image] Uploading character CHR_0001 to fal.storage...
 [pipeline:image] fal.storage URL: https://fal.media/files/...
 [pipeline:parallel] Processing 3 sections in parallel...
@@ -540,6 +541,6 @@ Shared Drives > Product > AI-Influencer > Productions > {日付} > {video_id} /
 
 コスト構造、スプレッドシートスキーマ（全タブ・カラム定義）、Drive フォルダ構造・ID一覧は [README.md](../../README.md) にまとめています:
 
-- [コスト構造](../../README.md#コスト構造) — 1本あたり ~$2.34、月次見積もり
+- [コスト構造](../../README.md#コスト構造) — 1本あたり ~$2.31、月次見積もり
 - [Google Sheets データスキーマ](../../README.md#google-sheets-データスキーマ) — 全タブ・カラム定義
 - [Google Drive フォルダ構造](../../README.md#google-drive-フォルダ構造) — フォルダツリー・命名規則・Drive ID一覧

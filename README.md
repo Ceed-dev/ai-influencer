@@ -64,7 +64,7 @@ v4.0 ではインベントリ実データ投入・パイプライン並列化が
   → [自動] 3セクション（hook/body/cta）並列処理（Promise.all）:
       各セクション内:
       ┌─ Kling motion-control で動画生成 ─┐ 並列
-      └─ ElevenLabs eleven-v3 で音声生成 ─┘
+      └─ Fish Audio TTS で音声生成      ─┘
       → Sync Lipsync v2/pro で口パク同期
   → [自動] ffmpeg で3セクション結合 → final.mp4
   → [自動] Google Drive に4ファイル保存（3セクション + final）
@@ -78,7 +78,7 @@ v4.0 ではインベントリ実データ投入・パイプライン並列化が
 
 #### Step 1: キャラクター画像の準備
 
-パイプラインは最初に、指定されたDriveフォルダからキャラクター画像を取得する。Google Drive APIでファイルをバイナリとしてダウンロードし、fal.storageにアップロードする。fal.storageは一時的な公開URLを返す。この一時URLは、後続のfal.ai APIコール（Kling, ElevenLabs, Lipsync）がファイルを読み取るために必要。
+パイプラインは最初に、指定されたDriveフォルダからキャラクター画像を取得する。Google Drive APIでファイルをバイナリとしてダウンロードし、fal.storageにアップロードする。fal.storageは一時的な公開URLを返す。この一時URLは、後続のfal.ai APIコール（Kling, Lipsync）がファイルを読み取るために必要。
 
 - **入力**: Drive フォルダID（`--character-folder` 引数）
 - **出力**: fal.storage の一時公開URL
@@ -97,10 +97,11 @@ v4.0 ではインベントリ実データ投入・パイプライン並列化が
 - キャラクターがモーション動画と同じ動きをする動画が出力される
 - 処理時間: 2〜5分/セクション
 
-**Step 2c: ElevenLabs eleven-v3（音声生成）**
+**Step 2c: Fish Audio TTS（音声生成）**
 - scenario.json のスクリプトテキスト → 自然な音声ファイルを生成
-- ボイス: Aria（女性、英語）
+- ボイス: Fish Audio reference_id で指定（32文字の16進数）
 - 処理時間: 数秒
+- Fish Audio REST API に直接リクエストし、返却されるバイナリMP3を fal.storage にアップロードしてリップシンク用URLを取得
 
 **Step 2d: Sync Lipsync v2/pro（口パク同期）**
 - Step 2b の動画 + Step 2c の音声 → 口の動きを音声に合わせた動画
@@ -133,9 +134,9 @@ Master Spreadsheet の `production` タブに1行追加（v4.0、32カラム）�
 
 ### fal.ai（AIモデルホスティング）
 
-[fal.ai](https://fal.ai) はAIモデルをAPI経由で実行できるプラットフォーム。個別のAIサービス（Kling, ElevenLabs, Lipsync）のAPIを統一的なインターフェースで利用できる。キュー管理、自動ポーリング、一時ファイルストレージ（fal.storage）も提供。
+[fal.ai](https://fal.ai) はAIモデルをAPI経由で実行できるプラットフォーム。個別のAIサービス（Kling, Lipsync）のAPIを統一的なインターフェースで利用できる。キュー管理、自動ポーリング、一時ファイルストレージ（fal.storage）も提供。TTS は Fish Audio の直接APIを使用し、生成されたMP3を fal.storage にアップロードしてリップシンク用URLを取得する。
 
-**なぜ fal.ai を使うのか**: 各AIサービスと個別にAPI契約するのではなく、fal.ai 1箇所で全てのモデルを従量課金で利用できる。SDKが統一されているためコードが簡潔。
+**なぜ fal.ai を使うのか**: 各AIサービスと個別にAPI契約するのではなく、fal.ai 1箇所でKlingとLipsyncを従量課金で利用できる。SDKが統一されているためコードが簡潔。
 
 - `fal-client.js`: fal.ai Node.js SDK のラッパー。リトライ処理、タイムアウト管理、fal.storage アップロード機能を提供。
 
@@ -149,15 +150,15 @@ Master Spreadsheet の `production` タブに1行追加（v4.0、32カラム）�
 - 入力: `image_url`（キャラ画像）, `video_url`（モーション参照）, `duration`（5秒）, `aspect_ratio`（9:16）, `character_orientation`（video）
 - 出力: 動画URL
 
-### ElevenLabs eleven-v3（AI音声合成 / TTS）
+### Fish Audio TTS（AI音声合成 / TTS）
 
-[ElevenLabs](https://elevenlabs.io) は高品質な音声合成AI。テキストを入力すると、指定したボイスで自然な音声を生成する。
+[Fish Audio](https://fish.audio) は高品質な音声合成AI。テキストを入力すると、指定したボイス（reference_id）で自然な音声を生成する。
 
-**なぜ ElevenLabs を使うのか**: 最高品質のTTSモデルの一つ。多言語対応、感情表現、自然なイントネーション。fal.ai 経由で利用可能。
+**なぜ Fish Audio を使うのか**: 高品質なTTSを従来の約1/10のコストで利用可能（~$0.001/セクション）。直接REST APIで呼び出し、バイナリMP3が返却される。fal.storage にアップロードすることでリップシンク入力用のURLを取得する。
 
-- エンドポイント: `fal-ai/elevenlabs/tts/eleven-v3`
-- 入力: `text`（スクリプト）, `voice`（"Aria"）
-- 出力: 音声URL（.mp3）
+- エンドポイント: `https://api.fish.audio/v1/tts`（直接REST API）
+- 入力: `text`（スクリプト）, `reference_id`（Fish Audio の32文字16進数ボイスID）
+- 出力: バイナリMP3 → fal.storage にアップロード → 音声URL
 
 ### Sync Lipsync v2/pro（口パク同期）
 
@@ -298,7 +299,7 @@ AI-Influencer Root/ (Shared Drives > Product)
 | `timezone` | string | タイムゾーン（例: `America/New_York`） | 投稿タイミングを現地時間で管理するため |
 | `posting_window` | string | 投稿時間帯（例: `08:00-10:00`） | エンゲージメント最大化のための最適投稿時間 |
 | `content_niche` | string | コンテンツジャンル（例: `startup_tips`） | シナリオ選択やAI分析時のカテゴリ分類 |
-| `voice_id` | string | ElevenLabs ボイスID（例: `Aria`） | TTS音声生成時にどのボイスを使うかを指定するため |
+| `voice_id` | string | Fish Audio reference_id（32文字の16進数） | TTS音声生成時にどのボイスを使うかを指定するため |
 | `status` | string | ステータス（`active`/`paused`/`banned`） | バッチ実行時にアクティブなアカウントのみ処理するため |
 | `api_credential_key` | string | API認証キーの参照名 | プラットフォームAPIの認証情報を安全に参照するため |
 | `last_posted_at` | datetime | 最終投稿日時 | 投稿頻度制限の管理とスケジューリングのため |
@@ -320,7 +321,7 @@ AI-Influencer Root/ (Shared Drives > Product)
 | 9 | `hook_motion_id` | string | hookモーションID |
 | 10 | `body_motion_id` | string | bodyモーションID |
 | 11 | `cta_motion_id` | string | ctaモーションID |
-| 12 | `voice_id` | string | TTS音声ID（例: `Aria`） |
+| 12 | `voice_id` | string | Fish Audio reference_id（32文字の16進数） |
 | 13 | `pipeline_status` | string | パイプライン処理ステータス（自動更新） |
 | 14 | `current_phase` | string | 現在の処理フェーズ（自動更新） |
 | 15 | `hook_video_url` | url | hook動画のDriveリンク（自動記録） |
@@ -422,7 +423,7 @@ processing → uploading_image → generating_video_hook → generating_audio_ho
 │   ├── media/             # fal.ai メディア生成 + ffmpeg結合
 │   │   ├── fal-client.js       # fal.ai SDK ラッパー + fal.storage + Drive download
 │   │   ├── video-generator.js  # Kling v2.6 motion-control 動画生成
-│   │   ├── tts-generator.js    # ElevenLabs eleven-v3 TTS音声生成
+│   │   ├── tts-generator.js    # Fish Audio TTS音声生成（直接REST API）
 │   │   ├── lipsync.js          # Sync Lipsync v2/pro 口パク同期
 │   │   └── concat.js           # ffmpeg concat demuxer 動画結合
 │   ├── storage/           # Google Drive ストレージ
@@ -477,6 +478,7 @@ cp .env.example .env
 
 ```bash
 FAL_KEY=your-fal-api-key          # fal.ai APIキー（必須）
+FISH_AUDIO_API_KEY=your-fish-audio-api-key  # Fish Audio APIキー（TTS用、必須）
 GOOGLE_CREDENTIALS_PATH=./video_analytics_hub_claude_code_oauth.json  # Google OAuth認証ファイル
 GOOGLE_TOKEN_PATH=./.gsheets_token.json   # Google OAuthトークン
 MASTER_SPREADSHEET_ID=1fI1s_KLcegpiACJYpmpNe9tnQmnZo2o8eHIXNV5SpPg  # Master SpreadsheetのID
@@ -526,7 +528,7 @@ node scripts/run-pipeline.js --character-folder 1zAZj-Cm3rLZ2oJHZDPUwvDfxL_ufS8g
 
 出力:
 ```
-[pipeline:init] Video: VID_202602_0001, character: CHR_0001, voice: Aria
+[pipeline:init] Video: VID_202602_0001, character: CHR_0001
 [pipeline:image] fal.storage URL: https://v3b.fal.media/files/...
 [pipeline:parallel] Processing 3 sections in parallel...
 [pipeline:hook] Kling done: https://...
@@ -563,12 +565,12 @@ npx jest tests/pipeline.test.js
 
 ### 動画生成パイプライン（有料API）
 
-全て [fal.ai](https://fal.ai) 経由で利用。**プリペイド課金**（事前にクレジット購入が必要）。
+Kling と Lipsync は [fal.ai](https://fal.ai) 経由で利用（**プリペイド課金**、事前にクレジット購入が必要）。TTS は Fish Audio の直接REST APIを利用。
 
-| サービス | fal.ai エンドポイント | 用途 | 入力 → 出力 | 単価 | コスト/セクション(5秒) |
+| サービス | エンドポイント | 用途 | 入力 → 出力 | 単価 | コスト/セクション(5秒) |
 |---|---|---|---|---|---|
 | **Kling 2.6** | `fal-ai/kling-video/v2.6/standard/motion-control` | AI動画生成 | キャラクター画像 + モーション参照動画 → 動画 | [$0.07/秒](https://fal.ai/models/fal-ai/kling-video/v2.6/standard/motion-control) | $0.35 |
-| **ElevenLabs** | `fal-ai/elevenlabs/tts/eleven-v3` | テキスト音声合成 (TTS) | スクリプトテキスト → 音声ファイル | [$0.10/1K文字](https://fal.ai/models/fal-ai/elevenlabs/tts/eleven-v3) | ~$0.01 |
+| **Fish Audio** | `https://api.fish.audio/v1/tts` | テキスト音声合成 (TTS) | スクリプトテキスト → 音声ファイル(MP3) | ~$0.001/セクション | ~$0.001 |
 | **Sync Lipsync** | `fal-ai/sync-lipsync/v2/pro` | リップシンク（口パク同期） | 動画 + 音声 → 口の動きを同期した動画 | [$5.00/分](https://fal.ai/models/fal-ai/sync-lipsync/v2/pro) | $0.42 |
 
 ### Google Cloud（無料枠内）
@@ -592,20 +594,20 @@ npx jest tests/pipeline.test.js
 
 > **料金参照元**: [fal.ai Pricing](https://fal.ai/pricing) — 2026-02-11時点
 
-### 1セクション（5秒）あたり: $0.78
+### 1セクション（5秒）あたり: $0.77
 
 | ステップ | サービス | 単価 | コスト |
 |---|---|---|---|
 | 動画生成 | Kling 2.6 (motion-control) | $0.07/秒 × 5秒 | $0.35 |
-| 音声生成 | ElevenLabs eleven-v3 | $0.10/1K文字 × ~50文字 | ~$0.01 |
+| 音声生成 | Fish Audio TTS | ~$0.001/セクション | ~$0.001 |
 | 口パク同期 | Sync Lipsync v2/pro | $5.00/分 × 5秒/60秒 | $0.42 |
-| **セクション計** | | | **$0.78** |
+| **セクション計** | | | **$0.77** |
 
-### 1動画（3セクション = 15秒）あたり: ~$2.34
+### 1動画（3セクション = 15秒）あたり: ~$2.31
 
 ffmpeg結合は無料（ローカル処理）。
 
-> **コスト削減オプション**: Lipsync を Standard版（`v2`、$3.00/分）に変更すると ~$1.83/動画。画質は若干低下するが近接ショットでなければ十分。
+> **コスト削減オプション**: Lipsync を Standard版（`v2`、$3.00/分）に変更すると ~$1.80/動画。画質は若干低下するが近接ショットでなければ十分。
 >
 > **詳細分析**: [1動画あたりのコスト分析](docs/cost-analysis/per-video-cost.md) / [1分あたりのコスト分析](docs/cost-analysis/per-minute-cost.md)
 
@@ -613,10 +615,10 @@ ffmpeg結合は無料（ローカル処理）。
 
 | 時期 | アカウント数 | 動画/日 | 月間動画 | 月間コスト(Pro) | 月間コスト(Std) |
 |---|---|---|---|---|---|
-| 2月 | 50 | 50 | 1,500 | $3,510 | $2,745 |
-| 3月 | 160 | 160 | 4,800 | $11,232 | $8,784 |
-| 4月 | 340 | 340 | 10,200 | $23,868 | $18,666 |
-| 6月 | 700 | 700 | 21,000 | $49,140 | $38,430 |
+| 2月 | 50 | 50 | 1,500 | $3,465 | $2,700 |
+| 3月 | 160 | 160 | 4,800 | $11,088 | $8,640 |
+| 4月 | 340 | 340 | 10,200 | $23,562 | $18,360 |
+| 6月 | 700 | 700 | 21,000 | $48,510 | $37,800 |
 
 
 ## GAS アナリティクス

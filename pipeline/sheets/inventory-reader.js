@@ -92,7 +92,7 @@ async function resolveProductionRow(row) {
 
   return {
     character,
-    voice: row.voice_id || 'Aria',
+    voice: row.voice_id || '',
     sections: [
       { scenario: hookScenario, motion: hookMotion, prefix: '01_hook', name: 'hook' },
       { scenario: bodyScenario, motion: bodyMotion, prefix: '02_body', name: 'body' },

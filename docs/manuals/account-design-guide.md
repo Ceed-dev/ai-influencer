@@ -98,7 +98,7 @@ Accounts ──(character_id)──► Characters
 | **ターゲット地域** | JP or US | `JP`, `US` |
 | **キャラクターの性格・トーン** | strategy_notes に記載 | 「フレンドリーで親しみやすい。専門用語は避ける」 |
 | **使用するキャラクター画像** | 既存 or 新規作成 | `CHR_0001` or 新規 `CHR_0002` |
-| **ボイス** | TTS音声（現在は`Aria`のみ検証済み） | `Aria` |
+| **ボイス** | Fish Audio reference_id（32文字16進数、空欄で可） | （空欄で可） |
 
 ### ペルソナ設計シートの書き方（推奨）
 
@@ -297,7 +297,7 @@ SCN_C_0001 (cta)   → set_id: SET_0001
 | `hook_motion_id` | hook モーションID | `MOT_0001` |
 | `body_motion_id` | body モーションID | `MOT_0002` |
 | `cta_motion_id` | cta モーションID | `MOT_0003` |
-| `voice_id` | TTS音声名 | `Aria` |
+| `voice_id` | Fish Audio reference_id | （空欄で可） |
 
 他のカラム（`pipeline_status`, `hook_video_url` 等）はパイプラインが自動で埋めます。
 
@@ -383,7 +383,7 @@ Phase 5: テスト（Step 5）
 **A: 基本的に不要。** 現在の3本（MOT_0001〜0003）は全キャラクターで共有できます。異なる動きのパターン（座っている、歩いている等）が必要な場合のみ追加します。
 
 ### Q: voice_id は何を指定する？
-**A: 現在は `Aria` のみ検証済み。** ElevenLabs の他のボイス（`Josh`, `Rachel` 等）も技術的には使用可能ですが、品質は未検証です。
+**A: Fish Audio の reference_id（32文字の16進数）を指定します。** 空欄の場合はデフォルトボイスが使用されます。Fish Audio のウェブサイトでボイスを選択し、そのreference_idをコピーしてください。
 
 ### Q: account_id の連番はどこから始める？
 **A: 現在 ACC_0007 まで使用済み。** 新規は `ACC_0008` から始めてください。

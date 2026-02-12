@@ -107,7 +107,7 @@ async function uploadMotionVideo(motion) {
  *   1. Upload character image to fal.storage (shared across all sections)
  *   2. Process 3 sections IN PARALLEL:
  *      - Upload motion video to fal.storage
- *      - Kling motion-control + ElevenLabs TTS (parallel)
+ *      - Kling motion-control + Fish Audio TTS (parallel)
  *      - Sync Lipsync (needs both Kling + TTS)
  *      - Download lipsync result
  *   3. ffmpeg concat → final.mp4
@@ -168,7 +168,7 @@ async function runSingleJob(videoId, resolved, dryRun = false) {
         log(sName, 'Starting Kling + TTS in parallel...');
         const [rawVideoUrl, audioUrl] = await Promise.all([
           generateVideo({ imageUrl: falImageUrl, motionVideoUrl: falMotionUrl }),
-          generateSpeech({ text: section.scenario.script_en, voice: resolved.voice }),
+          generateSpeech({ text: section.scenario.script_en, referenceId: resolved.voice }),
         ]);
         log(sName, `Kling done: ${rawVideoUrl}`);
         log(sName, `TTS done: ${audioUrl}`);
@@ -351,7 +351,7 @@ async function runPipeline({ characterFolderId, dryRun = false }) {
       sectionResult.rawVideoUrl = rawVideoUrl;
       log(section.name, `Kling done: ${rawVideoUrl}`);
 
-      log(section.name, 'Generating speech with ElevenLabs...');
+      log(section.name, 'Generating speech with Fish Audio...');
       await updateContentStatus(contentId, `generating_audio_${section.name}`);
       const audioUrl = await generateSpeech({ text: section.script });
       sectionResult.audioUrl = audioUrl;

@@ -32,6 +32,13 @@ const config = {
     productionTab: 'production',
   },
 
+  fishAudio: {
+    apiKey: process.env.FISH_AUDIO_API_KEY || '',
+    baseUrl: 'https://api.fish.audio/v1',
+    model: 's1',
+    defaultFormat: 'mp3',
+  },
+
   youtube: {
     clientId: process.env.YOUTUBE_CLIENT_ID || '',
     clientSecret: process.env.YOUTUBE_CLIENT_SECRET || '',
