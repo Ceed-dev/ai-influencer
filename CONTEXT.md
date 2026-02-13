@@ -825,6 +825,27 @@ Instagram variations:
 
 **Commit:** `be2eb62`
 
+### 2026-02-13: Kling タイムアウト延長 & リトライ改善 + Characters Inventory 画像データ登録
+
+**Why:** VID_202602_0002 の本番パイプライン実行時に body セクションの Kling 動画生成（`fal-ai/kling-video/v2.6/standard/motion-control`）が fal.ai のキュー混雑により 10分のデフォルトタイムアウトで失敗。また Characters Inventory の `file_link`/`drive_file_id` が未登録でパイプラインがキャラクター画像を取得できなかった。
+
+**What was done:**
+
+- **Kling タイムアウト延長** (`pipeline/media/video-generator.js`):
+  - `submitAndWait` に `timeout: 1800000`（30分）を明示指定（デフォルト10分では不足）
+
+- **タイムアウトをリトライ対象に追加** (`pipeline/media/fal-client.js`):
+  - `err.message.includes('timed out')` をリトライ条件に追加
+  - タイムアウト発生時も最大3回リトライするように改善
+
+- **Characters Inventory 画像データ登録**:
+  - Drive `Characters/Images/` フォルダ内の CHR_0001〜CHR_0012 サブフォルダから画像ファイルを特定
+  - E列（`file_link`）: 12行に Google Drive URL を記入
+  - K列（`drive_file_id`）: 12行に生のファイルIDを記入
+  - パイプラインは `drive_file_id` を優先使用、なければ `file_link` からIDを正規表現で抽出（`orchestrator.js` L68-74）
+
+**Commits:** `be2eb62` (cache fix), `56c92c8` (CONTEXT.md), `6ec4189` (timeout + retry)
+
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID
 - `.gsheets_token.json` - OAuth token for Sheets/Drive API
