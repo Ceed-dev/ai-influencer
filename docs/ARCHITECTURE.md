@@ -106,7 +106,7 @@ graph TB
 │  orchestrator.js ──► media/ ──► fal.ai (Kling / Lipsync)        │
 │                      │     ──► Fish Audio TTS (直接API)          │
 │       │              │         (3セクション並列処理)              │
-│       │              └──► ffmpeg (3セクション結合)                │
+│       │              └──► ffmpeg (3セクション結合 + 黒フレーム検証) │
 │       │                                                          │
 │       ├──► inventory-reader.js ──► Inventory Sheets (4つ)        │
 │       ├──► production-manager.js ──► production タブ (33カラム)  │
@@ -152,8 +152,11 @@ graph TB
    └─ Fish Audio TTS 直接API (script_language に応じて script_en/jp → 音声MP3 → fal.storage URL) ─┘
    → fal.ai Sync Lipsync v2/pro (動画 + 音声 → 口同期動画)
 
-4. 結合
-   ffmpeg concat demuxer (3本のセクション動画 → final.mp4)
+4. 結合 + 黒フレーム検証
+   ffmpeg filter_complex concat (再エンコード方式、H.264 CRF18)
+   → blackdetect フィルタで黒フレーム検出
+   → 先頭に黒フレームがあれば自動トリム → 再検証
+   → クリーンなfinal.mp4を生成
 
 5. 保存
    4ファイル(01_hook.mp4, 02_body.mp4, 03_cta.mp4, final.mp4)
@@ -181,10 +184,11 @@ graph LR
             CT[TTS] --> CL
         end
     end
-    HL --> FF[ffmpeg concat]
+    HL --> FF[ffmpeg concat<br/>filter_complex再エンコード]
     BL --> FF
     CL --> FF
-    FF --> DR[Drive保存]
+    FF --> BV[blackdetect検証<br/>+ 自動トリム]
+    BV --> DR[Drive保存]
 ```
 
 ### 分析フロー（GAS）※既存
@@ -339,7 +343,7 @@ GAS API エンドポイント詳細は [GAS操作マニュアル](manuals/GAS_MA
 | fal-ai/kling-video motion-control | pipeline/media/video-generator.js | 画像+モーション参照動画→動画生成 |
 | Fish Audio TTS API | pipeline/media/tts-generator.js | テキスト→音声生成 |
 | fal-ai/sync-lipsync v2/pro | pipeline/media/lipsync.js | 動画+音声→口同期 |
-| ffmpeg concat | pipeline/media/concat.js | 3セクション動画の結合 |
+| ffmpeg concat + blackdetect | pipeline/media/concat.js | 3セクション動画の結合 (filter_complex再エンコード) + 黒フレーム検出・トリム |
 | Google Drive Upload | pipeline/storage/drive-storage.js | 完成動画のDrive保存 |
 | YouTube Upload | pipeline/posting/adapters/youtube.js | YouTube Shorts投稿 |
 | Instagram Publish | pipeline/posting/adapters/instagram.js | Instagram Reels投稿 |

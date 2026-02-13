@@ -140,10 +140,12 @@ test('fal-client exports submitAndWait, checkStatus, uploadToFalStorage, downloa
   expect(typeof falClient.downloadFromDrive).toBe('function');
 });
 
-// ─── Test 9: concat module exports concatVideos function ───
-test('concat module exports concatVideos', () => {
+// ─── Test 9: concat module exports concatVideos, detectBlackFrames, trimBlackStart ───
+test('concat module exports concatVideos, detectBlackFrames, trimBlackStart', () => {
   const concat = require('../pipeline/media/concat');
   expect(typeof concat.concatVideos).toBe('function');
+  expect(typeof concat.detectBlackFrames).toBe('function');
+  expect(typeof concat.trimBlackStart).toBe('function');
 });
 
 // ─── Test 10: ffmpeg concat works with real video files ───
@@ -190,7 +192,7 @@ test('concatVideos concatenates video buffers with ffmpeg', async () => {
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
-}, 60000);
+}, 120000);
 
 // ─── Test 11: concatVideos with 3 clips (matches pipeline usage) ───
 test('concatVideos handles 3 clips like the actual pipeline', async () => {
@@ -220,7 +222,54 @@ test('concatVideos handles 3 clips like the actual pipeline', async () => {
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
+}, 120000);
+
+// ─── Test 11b: detectBlackFrames finds black frames in test video ───
+test('detectBlackFrames detects black frames at the start of a video', async () => {
+  const { execFileSync } = require('child_process');
+  const fs = require('fs');
+  const path = require('path');
+  const os = require('os');
+  const { detectBlackFrames } = require('../pipeline/media/concat');
+
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bdetect-test-'));
+  try {
+    const videoPath = path.join(tmpDir, 'test.mp4');
+    // Create a video with 0.5s black then 1s red — should detect the black segment
+    execFileSync('ffmpeg', [
+      '-f', 'lavfi', '-i', 'color=c=black:s=320x240:d=0.5:r=30',
+      '-f', 'lavfi', '-i', 'color=c=red:s=320x240:d=1:r=30',
+      '-f', 'lavfi', '-i', 'anullsrc=r=44100:cl=mono',
+      '-filter_complex', '[0:v][1:v]concat=n=2:v=1:a=0[outv]',
+      '-map', '[outv]', '-map', '2:a',
+      '-t', '1.5', '-c:v', 'libx264', '-c:a', 'aac', '-shortest',
+      '-pix_fmt', 'yuv420p', videoPath,
+    ], { timeout: 30000 });
+
+    const buffer = fs.readFileSync(videoPath);
+    const blacks = await detectBlackFrames(buffer);
+    expect(Array.isArray(blacks)).toBe(true);
+    // Should detect at least the black segment at the start
+    expect(blacks.length).toBeGreaterThanOrEqual(1);
+    expect(blacks[0].start).toBe(0);
+    expect(blacks[0].duration).toBeGreaterThanOrEqual(0.1);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
 }, 60000);
+
+// ─── Test 11c: concat uses filter_complex (re-encoding, not stream copy) ───
+test('concat.js uses filter_complex re-encoding instead of stream copy', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '../pipeline/media/concat.js'), 'utf8');
+  expect(src).toContain('filter_complex');
+  expect(src).toContain('concat=n=');
+  expect(src).toContain('libx264');
+  expect(src).toContain('yuv420p');
+  // concatVideos should NOT use the old concat demuxer approach
+  expect(src).not.toContain("'-f', 'concat'");
+});
 
 // ─── Test 12: content-manager HEADERS match sheet structure ───
 test('content-manager HEADERS are consistent with new schema', () => {
@@ -268,6 +317,8 @@ test('orchestrator has no cloudinary/compositor/content-manager references', () 
   expect(src).not.toContain('runPipeline');
   expect(src).not.toContain('listDriveFiles');
   expect(src).toContain('concatVideos');
+  expect(src).toContain('detectBlackFrames');
+  expect(src).toContain('trimBlackStart');
   expect(src).toContain('uploadToFalStorage');
   expect(src).toContain('downloadFromDrive');
 });

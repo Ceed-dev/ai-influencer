@@ -846,6 +846,29 @@ Instagram variations:
 
 **Commits:** `be2eb62` (cache fix), `56c92c8` (CONTEXT.md), `6ec4189` (timeout + retry)
 
+### Session: 2026-02-13 — 黒フレーム修正（ffmpeg concat 再エンコード + 検証）
+
+**問題**: 結合動画の先頭 ~0.1秒に黒フレームが発生。
+**根本原因**: ffmpeg `-c copy` concat demuxer がストリームタイムスタンプをリマップせず、`start_time=0.023s` のオフセットが残る。プレーヤーは 0s〜0.023s の間を黒で表示する。
+
+**修正内容**:
+- **`pipeline/media/concat.js`**: concat demuxer + `-c copy` → filter_complex + H.264 再エンコード方式に変更
+  - `[0:v][0:a][1:v][1:a]...concat=n=N:v=1:a=1` フィルタで動的にクリップ数対応
+  - `-c:v libx264 -preset medium -crf 18 -pix_fmt yuv420p -c:a aac -b:a 192k -movflags +faststart`
+  - タイムアウト 60s → 180s（再エンコードのため）
+  - 新規エクスポート: `detectBlackFrames(buffer)` — blackdetect フィルタで黒フレーム検出
+  - 新規エクスポート: `trimBlackStart(buffer, duration)` — 先頭の黒フレームをトリム
+- **`pipeline/orchestrator.js`**: Step 3 に黒フレーム検証ステップ追加
+  - `validating_video` フェーズ: blackdetect → 先頭黒フレーム自動トリム → 再検証 → Drive保存
+  - 中間の黒フレームはWARNINGログ（パイプラインは停止しない）
+- **`tests/pipeline.test.js`**: 38テスト（+3新規）
+  - Test 9: `detectBlackFrames`, `trimBlackStart` エクスポート確認
+  - Test 11b: blackdetect が黒フレームを検出するテスト
+  - Test 11c: filter_complex 再エンコード方式の確認
+  - Test 14: orchestrator に `detectBlackFrames`, `trimBlackStart` 参照確認
+- **`docs/ARCHITECTURE.md`**: Step 4 説明更新、mermaid図に blackdetect 検証ステップ追加
+- **既存動画修正**: VID_202602_0001〜0003 を `setpts=PTS-STARTPTS` で再エンコード（start_time 0.023s → 0.000s）、Drive 上でファイルID保持のまま差し替え
+
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID
 - `.gsheets_token.json` - OAuth token for Sheets/Drive API

@@ -5,7 +5,7 @@ const { uploadToFalStorage, downloadFromDrive } = require('./media/fal-client');
 const { generateVideo } = require('./media/video-generator');
 const { generateSpeech } = require('./media/tts-generator');
 const { syncLips } = require('./media/lipsync');
-const { concatVideos } = require('./media/concat');
+const { concatVideos, detectBlackFrames, trimBlackStart } = require('./media/concat');
 const { getDrive, uploadToDrive } = require('./sheets/client');
 const { resolveProductionRow, clearCache: clearInventoryCache } = require('./sheets/inventory-reader');
 const { getReadyRows, getProductionRow, updateProductionRow } = require('./sheets/production-manager');
@@ -129,7 +129,7 @@ async function runSingleJob(videoId, resolved, dryRun = false) {
     for (const sec of resolved.sections) {
       log('dry-run', `Step 2: [${sec.name}] Motion upload → Kling + TTS (parallel) → Lipsync`);
     }
-    log('dry-run', 'Step 3: ffmpeg concat 3 sections → final.mp4');
+    log('dry-run', 'Step 3: ffmpeg concat 3 sections → final.mp4 + black frame validation');
     log('dry-run', 'Step 4: Upload 4 files to Drive');
     log('dry-run', 'Step 5: Update production sheet');
     await updateProductionRow(videoId, {
@@ -189,10 +189,40 @@ async function runSingleJob(videoId, resolved, dryRun = false) {
       })
     );
 
-    // Step 3: ffmpeg concat
-    log('concat', 'Concatenating 3 sections with ffmpeg...');
+    // Step 3: ffmpeg concat + black frame validation
+    log('concat', 'Concatenating 3 sections with ffmpeg (re-encoding)...');
     await updateProductionRow(videoId, { current_phase: 'concatenating' });
-    const finalBuffer = await concatVideos(sectionResults);
+    let finalBuffer = await concatVideos(sectionResults);
+    log('concat', `Concatenated video: ${finalBuffer.length} bytes`);
+
+    // Step 3b: Validate — detect and trim black frames
+    await updateProductionRow(videoId, { current_phase: 'validating_video' });
+    log('validate', 'Scanning for black frames...');
+    const blackFrames = await detectBlackFrames(finalBuffer);
+    if (blackFrames.length > 0) {
+      log('validate', `Detected ${blackFrames.length} black region(s): ${JSON.stringify(blackFrames)}`);
+      // Trim black frames at the start (start === 0)
+      const startBlack = blackFrames.find((bf) => bf.start === 0);
+      if (startBlack) {
+        log('validate', `Trimming ${startBlack.duration}s black start...`);
+        finalBuffer = await trimBlackStart(finalBuffer, startBlack.duration);
+        // Re-validate after trim
+        const recheck = await detectBlackFrames(finalBuffer);
+        const recheckStart = recheck.find((bf) => bf.start === 0);
+        if (recheckStart) {
+          log('validate', `WARNING: Black start still present after trim (${recheckStart.duration}s)`);
+        } else {
+          log('validate', 'Black start successfully removed');
+        }
+      }
+      // Log any mid-video black frames as warnings (don't fail)
+      const midBlack = blackFrames.filter((bf) => bf.start > 0);
+      if (midBlack.length > 0) {
+        log('validate', `WARNING: ${midBlack.length} mid-video black region(s) found: ${JSON.stringify(midBlack)}`);
+      }
+    } else {
+      log('validate', 'No black frames detected — video is clean');
+    }
     result.finalBufferSize = finalBuffer.length;
     log('concat', `Final video: ${finalBuffer.length} bytes`);
 
