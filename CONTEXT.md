@@ -810,6 +810,21 @@ Instagram variations:
 
 **Test results:** 379 tests passing (343 GAS / 10 suites + 36 pipeline / 1 suite)
 
+### 2026-02-13: インベントリキャッシュ修正 — 毎ポーリング最新取得
+
+**Why:** watch-pipeline.js がインベントリデータをプロセス起動時に1回だけキャッシュし、以降は再読み込みしなかった。そのため、インベントリシートに新しいコンポーネント（モーション、シナリオ、キャラクター）を追加しても、watcher を再起動しない限り反映されなかった。
+
+**What was done:**
+
+- `scripts/watch-pipeline.js`: `clearCache` を import に追加、`pollOnce()` の先頭で毎回 `clearCache()` を呼び出し
+- これにより毎ポーリング（30秒ごと）に motions/scenarios/characters の3インベントリキャッシュがクリアされ、`resolveProductionRow()` 実行時に各インベントリシートから最新データを取得
+
+**影響:**
+- 今後はインベントリシートにコンポーネントを追加した際、watcher 再起動不要で自動的に反映される
+- Google Sheets API の呼び出し回数は増加するが、ポーリング間隔（30秒）で十分なレート内
+
+**Commit:** `be2eb62`
+
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID
 - `.gsheets_token.json` - OAuth token for Sheets/Drive API
