@@ -20,7 +20,7 @@ async function generateVideo({ imageUrl, motionVideoUrl, duration = 5, aspectRat
     duration,
     aspect_ratio: aspectRatio,
     character_orientation: 'video',
-  });
+  }, { timeout: 1800000 }); // 30 min — Kling can take 10-20min under heavy fal.ai load
   return result.video.url;
 }
 

@@ -39,7 +39,8 @@ async function submitAndWait(endpoint, input, opts = {}) {
         err.message = `${err.message}: ${err.body.detail}`;
         err._enriched = true;
       }
-      const isTransient = status >= 500 || err.code === 'ECONNRESET' || err.code === 'ETIMEDOUT';
+      const isTimeout = err.message && err.message.includes('timed out');
+      const isTransient = status >= 500 || err.code === 'ECONNRESET' || err.code === 'ETIMEDOUT' || isTimeout;
       if (!isTransient || attempt >= maxRetries - 1) throw err;
 
       const delay = RETRY_DELAYS[attempt] || 10000;
