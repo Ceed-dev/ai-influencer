@@ -3,7 +3,7 @@
 
 const { runSingleJob } = require('../pipeline/orchestrator');
 const { getQueuedRows, getProductionRow } = require('../pipeline/sheets/production-manager');
-const { resolveProductionRow } = require('../pipeline/sheets/inventory-reader');
+const { resolveProductionRow, clearCache } = require('../pipeline/sheets/inventory-reader');
 
 const POLL_INTERVAL = parseInt(process.env.POLL_INTERVAL, 10) || 30000;
 
@@ -18,6 +18,7 @@ function log(msg) {
  * Poll once: pick up the first queued row and process it.
  */
 async function pollOnce() {
+  clearCache(); // Always fetch latest inventory data each poll cycle
   const rows = await getQueuedRows(1);
   if (rows.length === 0) return;
 
