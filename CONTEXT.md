@@ -883,6 +883,9 @@ Instagram variations:
 **Note**: Row 9 の voice_id は production シート側のデータ問題（31文字）。正しい32文字hex IDに修正が必要。
 
 - **`scripts/watch-pipeline.js`**: `resolveProductionRow` エラー時もシートを `error` に更新するよう修正。以前は `runSingleJob` の前にエラーが発生すると `queued` のまま無限ループしていた。
+- **`pipeline/orchestrator.js`**: `trimVideoIfNeeded()` 関数追加。モーション参照動画が30秒を超える場合、ffmpeg で先頭30秒に自動トリムしてからfal.storageにアップロード（Kling motion-control の上限: 30s）。
+  - Row 8 (MOT_0008: 209s) と Row 11 (MOT_0008: 209s) のエラーを解決。
+  - Motions Inventory 全体で body モーション12本中9本が30秒超（最大209s）。全てパイプライン側で自動対応。
 
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID

@@ -151,14 +151,69 @@ async function uploadCharacterImage(character) {
 }
 
 /**
+ * Trim a video buffer to maxDuration seconds if it exceeds the limit.
+ * Kling motion-control requires reference videos <= 30s.
+ * @param {Buffer} buffer - Video data
+ * @param {number} maxDuration - Max duration in seconds
+ * @returns {Promise<Buffer>} Possibly trimmed video buffer
+ */
+async function trimVideoIfNeeded(buffer, maxDuration) {
+  const { execFile: execFileCb } = require('child_process');
+  const fs = require('fs');
+  const path = require('path');
+  const os = require('os');
+
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ai-inf-trimvid-'));
+  try {
+    const inputPath = path.join(tmpDir, 'input.mp4');
+    fs.writeFileSync(inputPath, buffer);
+
+    // Check duration
+    const duration = await new Promise((resolve, reject) => {
+      execFileCb('ffprobe', [
+        '-v', 'quiet', '-show_entries', 'format=duration',
+        '-of', 'csv=p=0', inputPath,
+      ], { timeout: 10000 }, (err, stdout) => {
+        if (err) return reject(err);
+        resolve(parseFloat(stdout.trim()));
+      });
+    });
+
+    if (duration <= maxDuration) return buffer;
+
+    console.log(`[pipeline:motion] Trimming motion video from ${duration.toFixed(1)}s to ${maxDuration}s`);
+    const outputPath = path.join(tmpDir, 'trimmed.mp4');
+    await new Promise((resolve, reject) => {
+      execFileCb('ffmpeg', [
+        '-i', inputPath,
+        '-t', String(maxDuration),
+        '-c', 'copy',
+        '-movflags', '+faststart',
+        outputPath,
+        '-y',
+      ], { timeout: 60000 }, (err, stdout, stderr) => {
+        if (err) reject(new Error(`Motion trim failed: ${err.message}\n${stderr}`));
+        else resolve();
+      });
+    });
+
+    return fs.readFileSync(outputPath);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
+/**
  * Upload a motion video from Drive to fal.storage.
+ * Auto-trims to 30s if video exceeds Kling's limit.
  * @param {object} motion - Motion inventory row with drive_file_id or file_link
  * @returns {Promise<string>} fal.storage URL
  */
 async function uploadMotionVideo(motion) {
   const fileId = extractDriveFileId(motion, 'Motion');
   const { buffer, mimeType } = await downloadFromDrive(fileId);
-  return uploadToFalStorage(buffer, mimeType);
+  const trimmed = await trimVideoIfNeeded(buffer, 30);
+  return uploadToFalStorage(trimmed, mimeType);
 }
 
 /**
