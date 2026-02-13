@@ -36,7 +36,10 @@ async function submitAndWait(endpoint, input, opts = {}) {
       }
       // Enrich error message with fal.ai details
       if (err.body && err.body.detail && !err._enriched) {
-        err.message = `${err.message}: ${err.body.detail}`;
+        const detail = typeof err.body.detail === 'string'
+          ? err.body.detail
+          : JSON.stringify(err.body.detail);
+        err.message = `${err.message}: ${detail}`;
         err._enriched = true;
       }
       const isTimeout = err.message && err.message.includes('timed out');

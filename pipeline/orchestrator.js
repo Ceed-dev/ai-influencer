@@ -76,13 +76,77 @@ function extractDriveFileId(row, label) {
 }
 
 /**
+ * Resize an image buffer if it exceeds max dimensions using ffmpeg.
+ * Kling motion-control requires images <= 3850x3850.
+ * @param {Buffer} buffer - Image data
+ * @param {string} mimeType - MIME type
+ * @returns {Promise<{buffer: Buffer, mimeType: string}>} Possibly resized image
+ */
+async function resizeImageIfNeeded(buffer, mimeType) {
+  const { execFile: execFileCb } = require('child_process');
+  const fs = require('fs');
+  const path = require('path');
+  const os = require('os');
+
+  const MAX_DIM = 3850;
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ai-inf-resize-'));
+
+  try {
+    const ext = mimeType.includes('png') ? 'png' : 'jpg';
+    const inputPath = path.join(tmpDir, `input.${ext}`);
+    const outputPath = path.join(tmpDir, `output.${ext}`);
+    fs.writeFileSync(inputPath, buffer);
+
+    // Check dimensions
+    const dims = await new Promise((resolve, reject) => {
+      execFileCb('ffprobe', [
+        '-v', 'quiet', '-show_entries', 'stream=width,height',
+        '-of', 'csv=p=0', inputPath,
+      ], { timeout: 10000 }, (err, stdout) => {
+        if (err) return reject(err);
+        const [w, h] = stdout.trim().split(',').map(Number);
+        resolve({ width: w, height: h });
+      });
+    });
+
+    if (dims.width <= MAX_DIM && dims.height <= MAX_DIM) {
+      return { buffer, mimeType };
+    }
+
+    console.log(`[pipeline:image] Resizing ${dims.width}x${dims.height} → max ${MAX_DIM}px`);
+
+    // Resize preserving aspect ratio
+    await new Promise((resolve, reject) => {
+      execFileCb('ffmpeg', [
+        '-i', inputPath,
+        '-vf', `scale='min(${MAX_DIM},iw)':'min(${MAX_DIM},ih)':force_original_aspect_ratio=decrease`,
+        '-q:v', '2',
+        outputPath,
+        '-y',
+      ], { timeout: 30000 }, (err, stdout, stderr) => {
+        if (err) reject(new Error(`Image resize failed: ${err.message}\n${stderr}`));
+        else resolve();
+      });
+    });
+
+    const resized = fs.readFileSync(outputPath);
+    console.log(`[pipeline:image] Resized to ${resized.length} bytes`);
+    return { buffer: resized, mimeType };
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
+/**
  * Upload a character image from Drive to fal.storage.
+ * Auto-resizes if image exceeds Kling's 3850x3850 limit.
  * @param {object} character - Character inventory row with drive_file_id or file_link
  * @returns {Promise<string>} fal.storage URL
  */
 async function uploadCharacterImage(character) {
   const fileId = extractDriveFileId(character, 'Character');
-  const { buffer, mimeType } = await downloadFromDrive(fileId);
+  const downloaded = await downloadFromDrive(fileId);
+  const { buffer, mimeType } = await resizeImageIfNeeded(downloaded.buffer, downloaded.mimeType);
   return uploadToFalStorage(buffer, mimeType);
 }
 

@@ -869,6 +869,19 @@ Instagram variations:
 - **`docs/ARCHITECTURE.md`**: Step 4 説明更新、mermaid図に blackdetect 検証ステップ追加
 - **既存動画修正**: VID_202602_0001〜0003 を `setpts=PTS-STARTPTS` で再エンコード（start_time 0.023s → 0.000s）、Drive 上でファイルID保持のまま差し替え
 
+### Session: 2026-02-13 — 画像サイズ超過 & voice_id バリデーション修正
+
+**問題**:
+- Row 6 (VID_202602_0005, CHR_0007): `Unprocessable Entity: [object Object]` — 画像 3840x6832 が Kling の 3850x3850 上限を超過
+- Row 9 (VID_202602_0008, CHR_0010): `Fish Audio TTS failed (400): Reference not found` — voice_id `4cf4237e99a4d78999fe05acad79a60` が31文字（正しくは32文字hex）
+
+**修正内容**:
+- **`pipeline/orchestrator.js`**: `resizeImageIfNeeded()` 関数追加。キャラクター画像が 3850px を超える場合、ffmpeg で自動リサイズしてからfal.storageにアップロード
+- **`pipeline/media/fal-client.js`**: エラーメッセージの enrichment 修正。`err.body.detail` が配列の場合 `JSON.stringify` で文字列化（`[object Object]` 表示バグ修正）
+- **`pipeline/sheets/inventory-reader.js`**: voice_id バリデーション強化。32文字hex 正規表現チェック追加（不正な voice_id を早期検出してエラーメッセージ改善）
+
+**Note**: Row 9 の voice_id は production シート側のデータ問題（31文字）。正しい32文字hex IDに修正が必要。
+
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID
 - `.gsheets_token.json` - OAuth token for Sheets/Drive API

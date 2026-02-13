@@ -97,7 +97,12 @@ async function resolveProductionRow(row) {
 
   return {
     character,
-    voice: row.voice_id || (() => { throw new Error(`voice_id is required for video ${row.video_id}. Set a Fish Audio reference_id in the production sheet.`); })(),
+    voice: (() => {
+      const vid = row.voice_id;
+      if (!vid) throw new Error(`voice_id is required for video ${row.video_id}. Set a Fish Audio reference_id in the production sheet.`);
+      if (!/^[0-9a-f]{32}$/.test(vid)) throw new Error(`voice_id "${vid}" for video ${row.video_id} is not a valid Fish Audio reference_id (expected 32-char hex). Got ${vid.length} chars.`);
+      return vid;
+    })(),
     scriptLanguage,
     sections: [
       { scenario: hookScenario, motion: hookMotion, prefix: '01_hook', name: 'hook' },
