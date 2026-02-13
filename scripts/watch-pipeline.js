@@ -2,7 +2,7 @@
 'use strict';
 
 const { runSingleJob } = require('../pipeline/orchestrator');
-const { getQueuedRows, getProductionRow } = require('../pipeline/sheets/production-manager');
+const { getQueuedRows, getProductionRow, updateProductionRow } = require('../pipeline/sheets/production-manager');
 const { resolveProductionRow, clearCache } = require('../pipeline/sheets/inventory-reader');
 
 const POLL_INTERVAL = parseInt(process.env.POLL_INTERVAL, 10) || 30000;
@@ -41,8 +41,14 @@ async function pollOnce() {
     }
   } catch (err) {
     log(`Error processing ${row.video_id}: ${err.message}`);
-    // Error is already recorded in the sheet by runSingleJob's catch block.
-    // Watcher continues to the next poll.
+    // Update sheet status to 'error' — resolveProductionRow errors happen
+    // before runSingleJob, so its error handler won't have run.
+    try {
+      await updateProductionRow(row.video_id, {
+        pipeline_status: 'error',
+        error_message: err.message,
+      });
+    } catch (_) { /* ignore sheet update failure during error handling */ }
   } finally {
     processing = false;
   }

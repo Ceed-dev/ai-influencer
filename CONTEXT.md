@@ -882,6 +882,8 @@ Instagram variations:
 
 **Note**: Row 9 の voice_id は production シート側のデータ問題（31文字）。正しい32文字hex IDに修正が必要。
 
+- **`scripts/watch-pipeline.js`**: `resolveProductionRow` エラー時もシートを `error` に更新するよう修正。以前は `runSingleJob` の前にエラーが発生すると `queued` のまま無限ループしていた。
+
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID
 - `.gsheets_token.json` - OAuth token for Sheets/Drive API
