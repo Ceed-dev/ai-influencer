@@ -374,17 +374,17 @@ test('inventory-reader exports getMotion, getScenario, getCharacter, resolveProd
 });
 
 // ─── Test 23: production-manager exports and HEADERS ───
-test('production-manager exports HEADERS with 32 columns and CRUD functions', () => {
+test('production-manager exports HEADERS with 33 columns and CRUD functions', () => {
   const pm = require('../pipeline/sheets/production-manager');
   expect(Array.isArray(pm.HEADERS)).toBe(true);
-  expect(pm.HEADERS).toHaveLength(32);
+  expect(pm.HEADERS).toHaveLength(33);
 
   // Key columns must be present
   const requiredCols = [
     'video_id', 'account_id', 'edit_status', 'character_id',
     'hook_scenario_id', 'body_scenario_id', 'cta_scenario_id',
     'hook_motion_id', 'body_motion_id', 'cta_motion_id',
-    'voice_id', 'pipeline_status', 'current_phase',
+    'voice_id', 'script_language', 'pipeline_status', 'current_phase',
     'final_video_url', 'drive_folder_id', 'error_message',
     'processing_time_sec', 'created_at', 'updated_at',
     'overall_score', 'analysis_date',
@@ -446,8 +446,50 @@ test('orchestrator has extractDriveFileId fallback for file_link URLs', () => {
   expect(src).toContain('/d/');
 });
 
-// ─── Test 27: production-manager uses production tab ───
-test('production-manager reads from production tab', () => {
+// ─── Test 27: production-manager HEADERS contains script_language ───
+test('production-manager HEADERS contains script_language after voice_id', () => {
+  const pm = require('../pipeline/sheets/production-manager');
+  expect(pm.HEADERS).toContain('script_language');
+  const voiceIdx = pm.HEADERS.indexOf('voice_id');
+  const langIdx = pm.HEADERS.indexOf('script_language');
+  expect(langIdx).toBe(voiceIdx + 1);
+});
+
+// ─── Test 28: orchestrator uses dynamic scriptKey ───
+test('orchestrator uses dynamic scriptKey instead of hardcoded script_en', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '../pipeline/orchestrator.js'), 'utf8');
+
+  // Must use dynamic scriptKey pattern
+  expect(src).toContain('script_${');
+  expect(src).toContain('scriptLanguage');
+  // The generateSpeech call should use section.scenario[scriptKey], not hardcoded script_en
+  expect(src).toContain('section.scenario[scriptKey]');
+  expect(src).not.toMatch(/section\.scenario\.script_en/);
+});
+
+// ─── Test 29: inventory-reader validates scriptLanguage ───
+test('inventory-reader validates script_language to en or jp', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '../pipeline/sheets/inventory-reader.js'), 'utf8');
+
+  // Must read script_language from row
+  expect(src).toContain('row.script_language');
+  // Must default to 'en'
+  expect(src).toContain("|| 'en'");
+  // Must validate allowed values
+  expect(src).toContain("!== 'en'");
+  expect(src).toContain("!== 'jp'");
+  // Must return scriptLanguage field
+  expect(src).toContain('scriptLanguage');
+  // Must include script_language in error message
+  expect(src).toContain('Invalid script_language');
+});
+
+// ─── Test 30: production-manager reads from production tab ───
+test('production-manager reads from production tab (uses 33-column HEADERS)', () => {
   const fs = require('fs');
   const path = require('path');
   const src = fs.readFileSync(path.join(__dirname, '../pipeline/sheets/production-manager.js'), 'utf8');
@@ -456,17 +498,17 @@ test('production-manager reads from production tab', () => {
   expect(src).toContain('getReadyRows');
   expect(src).toContain("edit_status");
   expect(src).toContain("pipeline_status");
-  // Should use 32-column HEADERS
+  // Should use 33-column HEADERS
   expect(src).toContain('HEADERS');
 });
 
-// ─── Test 28: production-manager exports getQueuedRows ───
+// ─── Test 31: production-manager exports getQueuedRows ───
 test('production-manager exports getQueuedRows function', () => {
   const pm = require('../pipeline/sheets/production-manager');
   expect(typeof pm.getQueuedRows).toBe('function');
 });
 
-// ─── Test 29: getQueuedRows filters queued/queued_dry status only ───
+// ─── Test 32: getQueuedRows filters queued/queued_dry status only ───
 test('getQueuedRows source filters for queued and queued_dry statuses', () => {
   const fs = require('fs');
   const path = require('path');
@@ -481,7 +523,7 @@ test('getQueuedRows source filters for queued and queued_dry statuses', () => {
   expect(src).toContain('getQueuedRows');
 });
 
-// ─── Test 30: watch-pipeline.js exists and has correct structure ───
+// ─── Test 33: watch-pipeline.js exists and has correct structure ───
 test('watch-pipeline.js has watcher structure with graceful shutdown', () => {
   const fs = require('fs');
   const path = require('path');
@@ -501,7 +543,7 @@ test('watch-pipeline.js has watcher structure with graceful shutdown', () => {
   expect(src).toContain('queued_dry');
 });
 
-// ─── Test 31: watch-pipeline.js shows help or starts without crashing ───
+// ─── Test 34: watch-pipeline.js shows help or starts without crashing ───
 test('watch-pipeline.js can be loaded as a module check', () => {
   const fs = require('fs');
   const path = require('path');
@@ -512,7 +554,7 @@ test('watch-pipeline.js can be loaded as a module check', () => {
   expect(src.length).toBeGreaterThan(100);
 });
 
-// ─── Test 32: ecosystem.config.js has correct PM2 configuration ───
+// ─── Test 35: ecosystem.config.js has correct PM2 configuration ───
 test('ecosystem.config.js has correct PM2 configuration', () => {
   const config = require('../ecosystem.config.js');
   expect(config.apps).toBeDefined();
@@ -524,7 +566,7 @@ test('ecosystem.config.js has correct PM2 configuration', () => {
   expect(app.restart_delay).toBeGreaterThan(0);
 });
 
-// ─── Test 33: inventory-reader requires voice_id (throws if missing) ───
+// ─── Test 36: inventory-reader requires voice_id (throws if missing) ───
 test('inventory-reader throws if voice_id is missing', () => {
   const fs = require('fs');
   const path = require('path');

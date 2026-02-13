@@ -90,9 +90,15 @@ async function resolveProductionRow(row) {
   if (!bodyMotion) throw new Error(`Body motion not found: ${row.body_motion_id}`);
   if (!ctaMotion) throw new Error(`CTA motion not found: ${row.cta_motion_id}`);
 
+  const scriptLanguage = row.script_language || 'en';
+  if (scriptLanguage !== 'en' && scriptLanguage !== 'jp') {
+    throw new Error(`Invalid script_language "${scriptLanguage}" for video ${row.video_id}. Must be "en" or "jp".`);
+  }
+
   return {
     character,
     voice: row.voice_id || (() => { throw new Error(`voice_id is required for video ${row.video_id}. Set a Fish Audio reference_id in the production sheet.`); })(),
+    scriptLanguage,
     sections: [
       { scenario: hookScenario, motion: hookMotion, prefix: '01_hook', name: 'hook' },
       { scenario: bodyScenario, motion: bodyMotion, prefix: '02_body', name: 'body' },

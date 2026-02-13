@@ -350,7 +350,7 @@
 
 ### ボトルネック6: Google Sheetsのスケーラビリティ（影響度: 中）
 
-**現状**: productionタブ（32カラム）でジョブ管理。inventoryもすべてGoogle Sheets。
+**現状**: productionタブ（33カラム）でジョブ管理。inventoryもすべてGoogle Sheets。
 
 **限界**:
 - Google Sheets APIは300リクエスト/分

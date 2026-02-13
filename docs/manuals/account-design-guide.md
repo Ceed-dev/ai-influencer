@@ -80,10 +80,10 @@ Accounts ──(character_id)──► Characters
 
 ### 2.3 ターゲット地域 × 言語
 
-| target_region | 言語 | シナリオ | 備考 |
-|---|---|---|---|
-| `JP` | 日本語 | `script_jp` を使用 | 日本市場向け |
-| `US` | 英語 | `script_en` を使用 | 英語圏市場向け |
+| target_region | 言語 | script_language | 使用されるスクリプト | 備考 |
+|---|---|---|---|---|
+| `JP` | 日本語 | `jp` | `script_jp` | 日本市場向け |
+| `US` | 英語 | `en` | `script_en` | 英語圏市場向け |
 
 
 ## 3. Step 1: ペルソナを設計する
@@ -162,7 +162,7 @@ AI生成（Midjourney, Stable Diffusion 等）でキャラクター画像を作�
 ### シナリオの書き方
 
 - `script_en`（英語）と `script_jp`（日本語）の両方を用意する
-- ターゲット地域に応じてパイプラインが自動選択する（現在は `script_en` を使用）
+- production タブの `script_language` カラム（`en` / `jp`）に応じてパイプラインが自動選択する
 - 1セット（hook + body + cta）で1つの動画の台本になる
 
 ### セット管理
@@ -298,6 +298,7 @@ SCN_C_0001 (cta)   → set_id: SET_0001
 | `body_motion_id` | body モーションID | `MOT_0002` |
 | `cta_motion_id` | cta モーションID | `MOT_0003` |
 | `voice_id` | Fish Audio reference_id **必須** | `a1b2c3d4e5f6...` |
+| `script_language` | TTS音声生成に使用するスクリプト言語 **必須** | `en` または `jp` |
 
 他のカラム（`pipeline_status`, `hook_video_url` 等）はパイプラインが自動で埋めます。
 

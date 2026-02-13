@@ -216,13 +216,13 @@ node scripts/run-pipeline.js --dry-run --limit 1
 
 **スプレッドシート**: [Scenarios Inventory](https://docs.google.com/spreadsheets/d/13Meu7cniKUr1JiEyKla0qhfiV9Az1IFuzIedzDxjpiY)
 
-シナリオは動画の「台本」です。キャラクターが話す内容を英語と日本語で用意します。パイプラインでは `script_en`（英語）が音声生成に使用されます。
+シナリオは動画の「台本」です。キャラクターが話す内容を英語と日本語で用意します。パイプラインでは、production タブの `script_language` カラムの値（`en` または `jp`）に応じて、対応するスクリプトカラム（`script_en` または `script_jp`）が音声生成に使用されます。
 
 #### 手順
 
 1. **スクリプトを用意する**
-   - `script_en`: 英語のスクリプト（TTS音声生成に使用される）
-   - `script_jp`: 日本語のスクリプト（参考用）
+   - `script_en`: 英語のスクリプト（`script_language=en` のとき音声生成に使用）
+   - `script_jp`: 日本語のスクリプト（`script_language=jp` のとき音声生成に使用）
    - 1シナリオ = 1セクション分（5〜10秒程度の発話）
 
 2. **タイプとIDを決定する**
@@ -322,6 +322,7 @@ node scripts/run-pipeline.js --dry-run --limit 1
 | `body_motion_id` | Body用モーションID | `MOT_0001` | **必須** |
 | `cta_motion_id` | CTA用モーションID | `MOT_0001` | **必須** |
 | `voice_id` | Fish Audio reference_id（32文字16進数） | `a1b2c3d4e5f6...` | **必須** |
+| `script_language` | TTS音声生成に使用するスクリプト言語 | `en` または `jp` | **必須** |
 
 > **重要**: `edit_status` を `ready` に設定すると、パイプラインの処理対象になります。まだ準備中の場合は `draft` のままにしておいてください。
 

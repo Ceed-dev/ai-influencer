@@ -10,6 +10,7 @@ const HEADERS = [
   'video_id', 'account_id', 'title', 'edit_status', 'character_id',
   'hook_scenario_id', 'body_scenario_id', 'cta_scenario_id',
   'hook_motion_id', 'body_motion_id', 'cta_motion_id', 'voice_id',
+  'script_language',
   'pipeline_status', 'current_phase',
   'hook_video_url', 'body_video_url', 'cta_video_url', 'final_video_url',
   'drive_folder_id', 'error_message', 'processing_time_sec',
@@ -19,7 +20,7 @@ const HEADERS = [
   'ig_views', 'ig_engagement', 'overall_score', 'analysis_date',
 ];
 
-const COL_COUNT = HEADERS.length; // 32
+const COL_COUNT = HEADERS.length; // 33
 
 function colLetter(n) {
   let s = '';

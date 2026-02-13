@@ -98,7 +98,7 @@ v4.0 ではインベントリ実データ投入・パイプライン並列化が
 - 処理時間: 2〜5分/セクション
 
 **Step 2c: Fish Audio TTS（音声生成）**
-- scenario.json のスクリプトテキスト → 自然な音声ファイルを生成
+- production タブの `script_language`（`en`/`jp`）に応じて、Scenarios Inventory の `script_en` または `script_jp` からスクリプトテキストを取得 → 自然な音声ファイルを生成
 - ボイス: Fish Audio reference_id で指定（32文字の16進数）
 - 処理時間: 数秒
 - Fish Audio REST API に直接リクエストし、返却されるバイナリMP3を fal.storage にアップロードしてリップシンク用URLを取得
@@ -125,7 +125,7 @@ Productions/YYYY-MM-DD/VID_YYYYMM_XXXX/
 
 #### Step 5: Sheets 記録
 
-Master Spreadsheet の `production` タブに1行追加（v4.0、32カラム）。ビデオID、使用したインベントリID、ステータス、各動画のDriveリンク、処理時間、コスト等を記録する。処理中はステータスが段階的に更新される（processing → generating → ... → completed）。
+Master Spreadsheet の `production` タブに1行追加（v4.0、33カラム）。ビデオID、使用したインベントリID、ステータス、各動画のDriveリンク、処理時間、コスト等を記録する。処理中はステータスが段階的に更新される（processing → generating → ... → completed）。
 
 > **Note**: v3.1以前の実行ログは `content_pipeline` タブに残る（後方互換）。新規実行は `production` タブに記録。
 
@@ -271,7 +271,7 @@ AI-Influencer Root/ (Shared Drives > Product)
 | タブ名 | 用途 | カテゴリ |
 |---|---|---|
 | `accounts` | アカウント管理 | パイプライン |
-| `production` | 動画制作管理（v4.0新規、32カラム） | パイプライン |
+| `production` | 動画制作管理（v4.0新規、33カラム） | パイプライン |
 | `content_pipeline` | パイプライン実行ログ（レガシー） | パイプライン |
 | `master` | 動画マスター（既存GAS管理） | アナリティクス |
 | `metrics_youtube` | YouTubeメトリクス | アナリティクス |
@@ -306,7 +306,7 @@ AI-Influencer Root/ (Shared Drives > Product)
 
 ### `production` タブ（v4.0新規）
 
-動画制作の本番管理タブ。32カラムで制作の全情報を記録。新規パイプライン実行はこのタブに記録される。
+動画制作の本番管理タブ。33カラムで制作の全情報を記録。新規パイプライン実行はこのタブに記録される。
 
 | # | カラム | 型 | 説明 |
 |---|---|---|---|
@@ -322,26 +322,27 @@ AI-Influencer Root/ (Shared Drives > Product)
 | 10 | `body_motion_id` | string | bodyモーションID |
 | 11 | `cta_motion_id` | string | ctaモーションID |
 | 12 | `voice_id` | string | Fish Audio reference_id（32文字の16進数）**必須** |
-| 13 | `pipeline_status` | string | パイプライン処理ステータス（自動更新） |
-| 14 | `current_phase` | string | 現在の処理フェーズ（自動更新） |
-| 15 | `hook_video_url` | url | hook動画のDriveリンク（自動記録） |
-| 16 | `body_video_url` | url | body動画のDriveリンク（自動記録） |
-| 17 | `cta_video_url` | url | cta動画のDriveリンク（自動記録） |
-| 18 | `final_video_url` | url | 結合版動画のDriveリンク（自動記録） |
-| 19 | `drive_folder_id` | string | 出力先DriveフォルダID（自動記録） |
-| 20 | `error_message` | string | エラーメッセージ（自動記録） |
-| 21 | `processing_time_sec` | number | 処理時間（秒）（自動記録） |
-| 22 | `created_at` | datetime | レコード作成日時 |
-| 23 | `updated_at` | datetime | 最終更新日時（自動更新） |
-| 24 | `platform_post_ids` | string | プラットフォーム側投稿ID |
-| 25 | `yt_views` | number | YouTube視聴数 |
-| 26 | `yt_engagement` | number | YouTubeエンゲージメント |
-| 27 | `tt_views` | number | TikTok視聴数 |
-| 28 | `tt_engagement` | number | TikTokエンゲージメント |
-| 29 | `ig_views` | number | Instagram視聴数 |
-| 30 | `ig_engagement` | number | Instagramエンゲージメント |
-| 31 | `overall_score` | number | 総合スコア |
-| 32 | `analysis_date` | datetime | 分析実行日 |
+| 13 | `script_language` | string | TTS音声生成に使用するスクリプト言語（`en` または `jp`）**必須** |
+| 14 | `pipeline_status` | string | パイプライン処理ステータス（自動更新） |
+| 15 | `current_phase` | string | 現在の処理フェーズ（自動更新） |
+| 16 | `hook_video_url` | url | hook動画のDriveリンク（自動記録） |
+| 17 | `body_video_url` | url | body動画のDriveリンク（自動記録） |
+| 18 | `cta_video_url` | url | cta動画のDriveリンク（自動記録） |
+| 19 | `final_video_url` | url | 結合版動画のDriveリンク（自動記録） |
+| 20 | `drive_folder_id` | string | 出力先DriveフォルダID（自動記録） |
+| 21 | `error_message` | string | エラーメッセージ（自動記録） |
+| 22 | `processing_time_sec` | number | 処理時間（秒）（自動記録） |
+| 23 | `created_at` | datetime | レコード作成日時 |
+| 24 | `updated_at` | datetime | 最終更新日時（自動更新） |
+| 25 | `platform_post_ids` | string | プラットフォーム側投稿ID |
+| 26 | `yt_views` | number | YouTube視聴数 |
+| 27 | `yt_engagement` | number | YouTubeエンゲージメント |
+| 28 | `tt_views` | number | TikTok視聴数 |
+| 29 | `tt_engagement` | number | TikTokエンゲージメント |
+| 30 | `ig_views` | number | Instagram視聴数 |
+| 31 | `ig_engagement` | number | Instagramエンゲージメント |
+| 32 | `overall_score` | number | 総合スコア |
+| 33 | `analysis_date` | datetime | 分析実行日 |
 
 > **ステータス遷移**: `edit_status=ready` かつ `pipeline_status` が空/queued の行がパイプライン処理対象。
 > 処理中は `pipeline_status` が `processing` → `completed` / `error` に自動更新される。
@@ -408,7 +409,7 @@ processing → uploading_image → generating_video_hook → generating_audio_ho
 ```
 ├── gas/                    # GAS アナリティクス（既存、変更なし）
 │   ├── *.gs               # 14 GAS files
-│   └── tests/             # 330 tests, 9 suites
+│   └── tests/             # 343 tests, 10 suites
 ├── pipeline/              # Node.js コンテンツパイプライン (v4.0)
 │   ├── config.js          # 環境設定・API キー管理（Accounts ID追加）
 │   ├── orchestrator.js    # 3セクション並列処理(Promise.all) パイプライン制御
@@ -440,7 +441,7 @@ processing → uploading_image → generating_video_hook → generating_audio_ho
 │   ├── run-daily.js       # 日次バッチ実行（後続フェーズ）
 │   └── collect-metrics.js # メトリクス収集（後続フェーズ）
 ├── tests/                 # パイプラインテスト
-│   └── pipeline.test.js   # 27 tests
+│   └── pipeline.test.js   # 36 tests
 ├── docs/                  # ドキュメント
 │   ├── STRATEGY.md        # 戦略・KPI・会議メモ
 │   ├── ARCHITECTURE.md    # 技術アーキテクチャ
@@ -637,9 +638,9 @@ ffmpeg結合は無料（ローカル処理）。
 
 | スイート | テスト数 | 対象 |
 |---|---|---|
-| GAS テスト（9スイート） | 330 | GAS全モジュール |
-| パイプラインテスト（1スイート） | 27 | メディア生成、CLI、スキーマ、ffmpeg結合、v4.0モジュール |
-| **合計** | **357** | |
+| GAS テスト（10スイート） | 343 | GAS全モジュール |
+| パイプラインテスト（1スイート） | 36 | メディア生成、CLI、スキーマ、ffmpeg結合、v4.0モジュール |
+| **合計** | **379** | |
 
 ```bash
 # 全テスト実行

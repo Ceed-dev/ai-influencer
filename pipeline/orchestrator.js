@@ -121,7 +121,8 @@ async function runSingleJob(videoId, resolved, dryRun = false) {
   const startTime = Date.now();
   const result = { videoId, sections: {}, dryRun };
 
-  log('init', `Video: ${videoId}, character: ${resolved.character.component_id}, voice: ${resolved.voice}`);
+  const scriptKey = `script_${resolved.scriptLanguage}`;
+  log('init', `Video: ${videoId}, character: ${resolved.character.component_id}, voice: ${resolved.voice}, lang: ${resolved.scriptLanguage}`);
 
   if (dryRun) {
     log('dry-run', 'Step 1: Upload character image to fal.storage');
@@ -162,10 +163,14 @@ async function runSingleJob(videoId, resolved, dryRun = false) {
         log(sName, `Motion fal.storage URL: ${falMotionUrl}`);
 
         // 2b: Kling + TTS in PARALLEL ★★
+        const scriptText = section.scenario[scriptKey];
+        if (!scriptText) {
+          throw new Error(`Section ${sName}: ${scriptKey} is empty for scenario ${section.scenario.component_id}. Fill in the ${resolved.scriptLanguage === 'en' ? 'script_en (K column)' : 'script_jp (L column)'} in the Scenarios Inventory.`);
+        }
         log(sName, 'Starting Kling + TTS in parallel...');
         const [rawVideoUrl, audioUrl] = await Promise.all([
           generateVideo({ imageUrl: falImageUrl, motionVideoUrl: falMotionUrl }),
-          generateSpeech({ text: section.scenario.script_en, referenceId: resolved.voice }),
+          generateSpeech({ text: scriptText, referenceId: resolved.voice }),
         ]);
         log(sName, `Kling done: ${rawVideoUrl}`);
         log(sName, `TTS done: ${audioUrl}`);

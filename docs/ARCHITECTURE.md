@@ -109,7 +109,7 @@ graph TB
 │       │              └──► ffmpeg (3セクション結合)                │
 │       │                                                          │
 │       ├──► inventory-reader.js ──► Inventory Sheets (4つ)        │
-│       ├──► production-manager.js ──► production タブ (32カラム)  │
+│       ├──► production-manager.js ──► production タブ (33カラム)  │
 │       ├──► storage/ ──► Google Drive                             │
 │       │                                                          │
 │       └──► posting/ ──► YouTube / Instagram / TikTok / X        │
@@ -149,7 +149,7 @@ graph TB
 3. 3セクション(hook/body/cta) 並列処理 (Promise.all)
    各セクションで（セクション間は並列、セクション内も一部並列）:
    ┌─ fal.ai Kling motion-control (画像 + モーション参照動画 → 動画) ─┐ 並列
-   └─ Fish Audio TTS 直接API (スクリプト → 音声MP3 → fal.storage URL) ─┘
+   └─ Fish Audio TTS 直接API (script_language に応じて script_en/jp → 音声MP3 → fal.storage URL) ─┘
    → fal.ai Sync Lipsync v2/pro (動画 + 音声 → 口同期動画)
 
 4. 結合
@@ -160,7 +160,7 @@ graph TB
    → Google Drive (Productions/YYYY-MM-DD/VID_YYYYMM_XXXX/)
 
 6. 記録
-   production-manager.js: production タブにURL・ステータスを自動記録（32カラム）
+   production-manager.js: production タブにURL・ステータスを自動記録（33カラム）
 ```
 
 ### 並列処理フロー図
@@ -288,7 +288,7 @@ Kling と Lipsync は fal.ai 経由で呼び出す。TTS は Fish Audio の直�
 
 | カテゴリ | タブ | 管理 |
 |---|---|---|
-| パイプライン | `production`（32カラム、v4.0新規）, `accounts`, `content_pipeline`（レガシー） | Pipeline |
+| パイプライン | `production`（33カラム、v4.0新規）, `accounts`, `content_pipeline`（レガシー） | Pipeline |
 | アナリティクス | `master`, `metrics_*`, `kpi_targets`, `analysis_reports`, `recommendations`, `video_analysis`, `unlinked_imports` | GAS |
 | 設定 | `_config` | GAS |
 

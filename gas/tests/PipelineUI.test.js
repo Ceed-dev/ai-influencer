@@ -24,6 +24,7 @@ const PROD_HEADERS = [
   'video_id', 'account_id', 'title', 'edit_status', 'character_id',
   'hook_scenario_id', 'body_scenario_id', 'cta_scenario_id',
   'hook_motion_id', 'body_motion_id', 'cta_motion_id', 'voice_id',
+  'script_language',
   'pipeline_status', 'current_phase',
   'hook_video_url', 'body_video_url', 'cta_video_url', 'final_video_url',
   'drive_folder_id', 'error_message', 'processing_time_sec',
@@ -44,6 +45,7 @@ function makeProductionRow(overrides = {}) {
     body_motion_id: 'MOT_0002',
     cta_motion_id: 'MOT_0003',
     voice_id: 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4',
+    script_language: 'en',
     pipeline_status: '',
     current_phase: ''
   };
@@ -57,7 +59,7 @@ beforeEach(() => {
   CONFIG.SHEETS.PRODUCTION = 'production';
   CONFIG.PRODUCTION_REQUIRED_FIELDS = [
     'character_id', 'hook_scenario_id', 'body_scenario_id', 'cta_scenario_id',
-    'hook_motion_id', 'body_motion_id', 'cta_motion_id', 'voice_id'
+    'hook_motion_id', 'body_motion_id', 'cta_motion_id', 'voice_id', 'script_language'
   ];
   CONFIG.PIPELINE_STATUSES = ['queued', 'queued_dry', 'processing', 'completed', 'error', 'dry_run_complete'];
   jest.clearAllMocks();
@@ -98,7 +100,8 @@ describe('PipelineUI - validateProductionRow_', () => {
       hook_motion_id: 'MOT_0001',
       body_motion_id: 'MOT_0002',
       cta_motion_id: 'MOT_0003',
-      voice_id: 'abc123'
+      voice_id: 'abc123',
+      script_language: 'en'
     };
     expect(validateProductionRow_(row)).toEqual([]);
   });
@@ -118,7 +121,8 @@ describe('PipelineUI - validateProductionRow_', () => {
     expect(missing).toContain('hook_scenario_id');
     expect(missing).toContain('cta_scenario_id');
     expect(missing).toContain('voice_id');
-    expect(missing).toHaveLength(3);
+    expect(missing).toContain('script_language');
+    expect(missing).toHaveLength(4);
   });
 });
 

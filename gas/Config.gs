@@ -119,7 +119,7 @@ const CONFIG = {
   // Production tab required fields for pipeline validation
   PRODUCTION_REQUIRED_FIELDS: [
     'character_id', 'hook_scenario_id', 'body_scenario_id', 'cta_scenario_id',
-    'hook_motion_id', 'body_motion_id', 'cta_motion_id', 'voice_id'
+    'hook_motion_id', 'body_motion_id', 'cta_motion_id', 'voice_id', 'script_language'
   ],
 
   // Pipeline statuses
