@@ -915,6 +915,24 @@ Instagram variations:
 
 **Commit:** `63aab64`
 
+### Session: 2026-02-14 — ffmpeg concat タイムアウト修正
+
+**問題**: 5ジョブ同時並列処理時、ffmpeg concat（H.264再エンコード）が複数同時実行されるとCPU競合でタイムアウト（180秒）を超過。8本がconcatエラーで失敗（VID_202602_0010, 0021, 0022, 0031, 0032, 0034, 0035, 0036）。
+
+**根本原因**: `preset: medium` は 0.11x リアルタイム速度（3fps）。20秒の動画に約180秒かかり、5ジョブ同時CPU競合で180秒タイムアウトを超過。
+
+**修正内容**:
+- **`pipeline/media/concat.js`**:
+  - `preset: medium` → `preset: fast` — エンコード速度2-3倍向上、短尺動画では品質差なし
+  - `timeout: 180000` → `timeout: 600000` — 安全マージン確保（180秒→600秒）
+
+**処理結果（このセッション全体）**:
+- 成功（10本）: VID_202602_0007, 0019, 0023, 0024, 0025, 0026, 0027, 0028, 0029, 0030
+- concat エラー（8本、修正前に発生）: VID_202602_0010, 0021, 0022, 0031, 0032, 0034, 0035, 0036
+  - これらは修正後のコードで再キューすれば処理可能
+
+**Test results:** 38 pipeline tests passing
+
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID
 - `.gsheets_token.json` - OAuth token for Sheets/Drive API

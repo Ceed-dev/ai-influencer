@@ -38,7 +38,7 @@ async function concatVideos(clips) {
       '-map', '[outv]',
       '-map', '[outa]',
       '-c:v', 'libx264',
-      '-preset', 'medium',
+      '-preset', 'fast',
       '-crf', '18',
       '-pix_fmt', 'yuv420p',
       '-c:a', 'aac',
@@ -51,7 +51,7 @@ async function concatVideos(clips) {
       execFile(
         'ffmpeg',
         args,
-        { timeout: 180000 },
+        { timeout: 600000 },
         (err, stdout, stderr) => {
           if (err) {
             reject(new Error(`ffmpeg concat failed: ${err.message}\n${stderr}`));
