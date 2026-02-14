@@ -565,17 +565,17 @@ pipeline/                       # Node.js content pipeline (v4.0)
   media/video-generator.js      # Kling v2.6 motion-control
   media/tts-generator.js        # Fish Audio TTS (direct REST API)
   media/lipsync.js              # Sync Lipsync v2/pro (sync_mode: bounce)
-  media/concat.js               # ffmpeg concat demuxer
+  media/concat.js               # ffmpeg filter_complex re-encode + blackdetect
   storage/drive-storage.js      # Video URL → Drive upload
   posting/poster.js             # Unified posting interface (stub)
   posting/adapters/*.js         # Platform adapters (stubs)
 
 tests/                          # Pipeline tests
-  pipeline.test.js              # 36 tests
+  pipeline.test.js              # 38 tests
 
 scripts/                        # CLI entry points
   run-pipeline.js               # --video-id <ID> [--limit N] [--dry-run]
-  watch-pipeline.js             # Polling watcher daemon (PM2-managed, 30s interval)
+  watch-pipeline.js             # Polling watcher daemon (PM2-managed, 30s, MAX_CONCURRENT=5)
   run-daily.js                  # Daily batch execution (stub)
   collect-metrics.js            # Metrics collection (stub)
   gsheet.py                     # Google Sheets CLI utility
@@ -656,7 +656,7 @@ Instagram variations:
 1. **GAS for UI only, Node.js for processing**: GAS handles menu/validation/status. All API calls run on VM.
 2. **Polling over webhooks**: 30s polling is simpler and more reliable than GAS triggers or webhooks.
 3. **queued vs queued_dry**: Two statuses allow dry-run from the same GUI workflow.
-4. **1 job per poll**: Watcher processes 1 video at a time (completes before next poll).
+4. **Concurrent job processing**: Watcher processes up to MAX_CONCURRENT=5 videos simultaneously (updated 2026-02-14, was 1 job per poll).
 5. **PM2 for process management**: Auto-restart, systemd integration, log management.
 
 **New files:**
@@ -886,6 +886,34 @@ Instagram variations:
 - **`pipeline/orchestrator.js`**: `trimVideoIfNeeded()` 関数追加。モーション参照動画が30秒を超える場合、ffmpeg で先頭30秒に自動トリムしてからfal.storageにアップロード（Kling motion-control の上限: 30s）。
   - Row 8 (MOT_0008: 209s) と Row 11 (MOT_0008: 209s) のエラーを解決。
   - Motions Inventory 全体で body モーション12本中9本が30秒超（最大209s）。全てパイプライン側で自動対応。
+
+### Session: 2026-02-14 — パイプライン並列化 + 短尺モーション自動ループ
+
+**問題**:
+1. watcher が1ジョブずつ逐次処理で、1動画20分×多数行のデッドラインに間に合わない
+2. モーション動画が3秒未満（Kling最小3s）のものが7行エラー（Row 26-31, 33）
+
+**修正内容**:
+- **`scripts/watch-pipeline.js`**: 逐次処理 → 最大5ジョブ同時並列処理
+  - `processing` boolean → `activeJobs` Map（video_id → Promise）で複数ジョブを追跡
+  - `getQueuedRows(1)` → `getQueuedRows(MAX_CONCURRENT - activeJobs.size)` で空きスロット分だけ取得
+  - `pollOnce()`: 空きスロットがあるときのみポーリング、既に処理中の video_id はスキップ
+  - グレースフルシャットダウン: `Promise.allSettled` で全アクティブジョブの完了を待機
+- **`ecosystem.config.js`**: `MAX_CONCURRENT: 5` を env に追加
+- **`pipeline/orchestrator.js`**: `trimVideoIfNeeded(buffer, max, min=3)` を拡張
+  - 3秒未満: ffmpeg `-stream_loop` でループ再生 → `-t 3` で3秒に切り詰め（H.264再エンコード）
+  - 30秒超: 従来通り `-c copy` でトリム
+  - JSDoc更新: "3-30s" 範囲対応を明記
+- **`tests/pipeline.test.js`**: watcher テストに `MAX_CONCURRENT`/`activeJobs` 確認追加、ecosystem テストに `MAX_CONCURRENT=5` 追加
+
+**並列処理の制約要因**:
+- fal.ai: アカウント単位の同時処理数制限（5並列で30同時リクエスト）
+- Fish Audio TTS: Plus プランのレート制限
+- Google Sheets API: 60 write/min/user（5並列で~25回/min → 安全圏）
+- メモリ: 5並列で~1GB（VM スペック内）
+- **推奨上限: 5**（8以上はSheets APIクォータ超えリスク）
+
+**Commit:** `63aab64`
 
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID
