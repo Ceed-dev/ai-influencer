@@ -152,12 +152,14 @@ async function uploadCharacterImage(character) {
 
 /**
  * Trim a video buffer to maxDuration seconds if it exceeds the limit.
- * Kling motion-control requires reference videos <= 30s.
+ * Kling motion-control requires reference videos 3-30s.
+ * Auto-loops short videos and trims long ones.
  * @param {Buffer} buffer - Video data
  * @param {number} maxDuration - Max duration in seconds
- * @returns {Promise<Buffer>} Possibly trimmed video buffer
+ * @param {number} [minDuration=3] - Min duration in seconds
+ * @returns {Promise<Buffer>} Adjusted video buffer
  */
-async function trimVideoIfNeeded(buffer, maxDuration) {
+async function trimVideoIfNeeded(buffer, maxDuration, minDuration = 3) {
   const { execFile: execFileCb } = require('child_process');
   const fs = require('fs');
   const path = require('path');
@@ -179,23 +181,46 @@ async function trimVideoIfNeeded(buffer, maxDuration) {
       });
     });
 
-    if (duration <= maxDuration) return buffer;
+    if (duration >= minDuration && duration <= maxDuration) return buffer;
 
-    console.log(`[pipeline:motion] Trimming motion video from ${duration.toFixed(1)}s to ${maxDuration}s`);
-    const outputPath = path.join(tmpDir, 'trimmed.mp4');
-    await new Promise((resolve, reject) => {
-      execFileCb('ffmpeg', [
-        '-i', inputPath,
-        '-t', String(maxDuration),
-        '-c', 'copy',
-        '-movflags', '+faststart',
-        outputPath,
-        '-y',
-      ], { timeout: 60000 }, (err, stdout, stderr) => {
-        if (err) reject(new Error(`Motion trim failed: ${err.message}\n${stderr}`));
-        else resolve();
+    const outputPath = path.join(tmpDir, 'adjusted.mp4');
+
+    if (duration < minDuration) {
+      // Loop the video to reach minimum duration
+      const loops = Math.ceil(minDuration / duration);
+      console.log(`[pipeline:motion] Looping motion video from ${duration.toFixed(1)}s to ${(duration * loops).toFixed(1)}s (${loops}x, min: ${minDuration}s)`);
+      await new Promise((resolve, reject) => {
+        execFileCb('ffmpeg', [
+          '-stream_loop', String(loops - 1),
+          '-i', inputPath,
+          '-t', String(minDuration),
+          '-c:v', 'libx264', '-preset', 'fast', '-crf', '18',
+          '-c:a', 'aac', '-b:a', '192k',
+          '-movflags', '+faststart',
+          outputPath,
+          '-y',
+        ], { timeout: 60000 }, (err, stdout, stderr) => {
+          if (err) reject(new Error(`Motion loop failed: ${err.message}\n${stderr}`));
+          else resolve();
+        });
       });
-    });
+    } else {
+      // Trim to max duration
+      console.log(`[pipeline:motion] Trimming motion video from ${duration.toFixed(1)}s to ${maxDuration}s`);
+      await new Promise((resolve, reject) => {
+        execFileCb('ffmpeg', [
+          '-i', inputPath,
+          '-t', String(maxDuration),
+          '-c', 'copy',
+          '-movflags', '+faststart',
+          outputPath,
+          '-y',
+        ], { timeout: 60000 }, (err, stdout, stderr) => {
+          if (err) reject(new Error(`Motion trim failed: ${err.message}\n${stderr}`));
+          else resolve();
+        });
+      });
+    }
 
     return fs.readFileSync(outputPath);
   } finally {
@@ -205,7 +230,7 @@ async function trimVideoIfNeeded(buffer, maxDuration) {
 
 /**
  * Upload a motion video from Drive to fal.storage.
- * Auto-trims to 30s if video exceeds Kling's limit.
+ * Auto-adjusts duration: loops if <3s, trims if >30s (Kling requires 3-30s).
  * @param {object} motion - Motion inventory row with drive_file_id or file_link
  * @returns {Promise<string>} fal.storage URL
  */

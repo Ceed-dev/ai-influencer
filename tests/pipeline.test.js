@@ -592,6 +592,9 @@ test('watch-pipeline.js has watcher structure with graceful shutdown', () => {
   expect(src).toContain('SIGTERM');
   // Must handle queued_dry for dry-run mode
   expect(src).toContain('queued_dry');
+  // Must support concurrent job processing
+  expect(src).toContain('MAX_CONCURRENT');
+  expect(src).toContain('activeJobs');
 });
 
 // ─── Test 34: watch-pipeline.js shows help or starts without crashing ───
@@ -615,6 +618,7 @@ test('ecosystem.config.js has correct PM2 configuration', () => {
   expect(app.script).toBe('scripts/watch-pipeline.js');
   expect(app.autorestart).toBe(true);
   expect(app.restart_delay).toBeGreaterThan(0);
+  expect(app.env.MAX_CONCURRENT).toBe(5);
 });
 
 // ─── Test 36: inventory-reader requires voice_id (throws if missing) ───
