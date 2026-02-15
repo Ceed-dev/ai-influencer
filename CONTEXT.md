@@ -990,6 +990,60 @@ Instagram variations:
 | X投稿管理スプレッドシート | `1pWqXHckZWoTuTQ1r1hqnmr57ioo5aQ8ZTSRntzMHJ08` |
 | X投稿Driveフォルダ | `1tR4IJU3_ROOkNARNh5Jf1MELa14LJTBF` |
 
+### Session: 2026-02-15 — 動画投稿スケジュールシート作成
+
+**Why:** 36本の生成済み動画を3日間（2/15, 2/16, 2/17）で12アカウント × 3プラットフォーム（YouTube, TikTok, Instagram）に投稿する必要がある。productionシートはIDベースで投稿担当者には分かりづらいため、必要情報を1シートにまとめた投稿スケジュールを作成。
+
+**What was done:**
+
+- **投稿スケジュールシート作成** (`投稿スケジュール_202602`):
+  - Drive AI-Influencer フォルダ直下に新規スプレッドシート作成
+  - ID: `1f9cB4EZU2eDsa-ibjyht6FQZkPqiIPgfGgPFYxl6AM4`
+
+- **データ集約（4ソースから読み取り専用で取得）**:
+  - **productionシート** (`1fI1s_...SpPg`): account_id, title, final_video_url
+  - **キャラクターインベントリ** (`1-m4f5...FHCHA`): character_id → character_name 解決
+  - **アカウントインベントリ** (`1CmT6...oUE`): persona_name, platform, email, password（accounts tab）+ gmail_password, two_factor_recovery（gmail_credentials tab）
+  - **管理ボード** (`1miRw...zC84`): ACC_0010〜ACC_0034 の不足情報（persona, email, IG password）を補完 + Gメールログイン情報タブからgmail_password/2FA
+
+- **アカウントマッピング（管理ボード → account_id）**:
+  - ACC_0001 → 0xviolet.xyz (TikTok)
+  - ACC_0004 → 0xvioletxyz (Instagram)
+  - ACC_0007 → tramdestiny_2000 (Instagram)
+  - ACC_0010〜ACC_0034 → 管理ボード rows 10-18（Instagram、順序ベースのマッピング）
+
+- **シート構成変更の経緯**:
+  1. production B,C,E,S列をコピー → character_id → character_name に置換・ID列削除
+  2. accounts inventory からアカウント情報4列追加（persona, platform, email, password）
+  3. gmail_password, two_factor_recovery 2列追加（email/password の横に配置）
+  4. チェックボックス列（投稿済み）をA列に追加
+  5. account_id 昇順ソート（ACC_0001〜ACC_0034）
+  6. 各動画行の下に空2行追加 → 3プラットフォーム展開（TikTok/Instagram/YouTube）
+  7. 全108行にチェックボックスData Validation適用
+
+- **最終シート構成**（108行 = 36動画 × 3プラットフォーム、11列）:
+
+| A | B | C | D | E | F | G | H | I | J | K |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 投稿済み☐ | account_id | persona_name | platform | email | password | gmail_password | two_factor_recovery | title | character_name | final_video_url |
+
+**残課題（未対応）:**
+1. **TikTok/YouTubeのパスワードが不正確**: 現在IGパスワードをコピーしているが、管理ボードにはプラットフォーム別パスワードが存在（rows 18-27がTikTok用）
+2. **8本の動画にfinal_video_urlなし**: VID_0010, 0025, 0026, 0027, 0028, 0029, 0031, 0032（lipsyncエラー等）→ 24行が動画なし
+3. **投稿日の列なし**: 36本を3日間にどう割り当てるか未指定
+4. **YouTubeアカウント情報なし**: 管理ボードにYouTubeの行が存在しない
+5. **ACC_0001のTikTokパスワード空**: 管理ボード・インベントリどちらにも未登録
+
+**Key decisions:**
+1. **元シート変更禁止**: production, accounts inventory, character inventory, 管理ボード全て読み取り専用
+2. **1動画3行展開**: 各動画を3プラットフォーム（TikTok/Instagram/YouTube）分に展開し、投稿担当者が1行ずつチェックできる構成
+3. **ACC_0010〜ACC_0034のマッピング**: 管理ボードの順序ベースで割り当て（platformがInstagramで一致、9アカウント=9行）
+
+**New Resource IDs:**
+| Resource | ID |
+|----------|-----|
+| 投稿スケジュール_202602 | `1f9cB4EZU2eDsa-ibjyht6FQZkPqiIPgfGgPFYxl6AM4` |
+
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID
 - `.gsheets_token.json` - OAuth token for Sheets/Drive API
