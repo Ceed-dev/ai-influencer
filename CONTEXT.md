@@ -624,6 +624,17 @@ docs/                           # ドキュメント（2026-02-13 更新）
     GAS_MANUAL.md               # GAS操作マニュアル（日本語）
     USER_GUIDE.md               # ユーザーガイド（日本語）
     account-design-guide.md     # アカウント設計ガイド（チーム向け）
+  v5-specification/             # v5.0技術仕様書（2026-02-16）
+    README.md                   # 概要・ドキュメント構成・アーキテクチャ概要図
+    01-tech-stack.md            # 技術スタック一覧（9フレームワーク比較含む）
+    02-architecture.md          # システムアーキテクチャ（4層・データフロー・ライフサイクル）
+    03-database-schema.md       # PostgreSQLスキーマ完全定義（15テーブル・78インデックス）
+    04-agent-design.md          # AIエージェント設計（階層構造・~60 MCPツール・LangGraphグラフ）
+    05-cost-analysis.md         # 運用コスト分析（月額・単価・スケール別試算）
+    06-development-roadmap.md   # 開発ロードマップ（19週・5フェーズ・Gantt）
+    07-kpi-analysis.md          # KPI達成可能性分析 v3（v5仕様での再評価）
+    08-algorithm-analysis.md    # アルゴリズム精度分析（仮説的中率・学習曲線）
+    09-risks-and-bottlenecks.md # リスク・ボトルネック分析（14リスク・5ボトルネック）
 
 README.md                       # 技術SSOT（スキーマ, コスト, Drive構造）
 CONTEXT.md                      # プロジェクト履歴（このファイル）
@@ -1182,6 +1193,36 @@ Instagram variations:
   - `npm run tiktok:setup` / `npm run ig:setup` で各アカウントを認可
   - TikTok: TIKTOK_CLIENT_KEY + TIKTOK_CLIENT_SECRET を.envに設定
   - Instagram: IG_APP_ID + IG_APP_SECRET を.envに設定
+
+### 2026-02-16: v5.0技術仕様書作成（全9ファイル、約8,400行）
+
+**目的:** v5.0（DB + MCP + Multi-Agent）の完全技術仕様書を作成
+
+**作成ファイル（`docs/v5-specification/`）:**
+
+| ファイル | 行数 | 内容 |
+|---------|------|------|
+| README.md | 96 | 概要・ドキュメント構成・アーキテクチャ概要図・主要技術決定 |
+| 01-tech-stack.md | 100 | 全技術スタック・9フレームワーク比較表・LangGraph選定理由 |
+| 02-architecture.md | 1,077 | 4層アーキテクチャ・MCP Server・コンテンツライフサイクル・v4.0移行 |
+| 03-database-schema.md | 1,742 | PostgreSQL完全スキーマ（15テーブル・78インデックス・6トリガー・SQL例） |
+| 04-agent-design.md | 1,731 | 4層エージェント階層・~60 MCPツール定義・LangGraphグラフ設計・仮説駆動サイクル |
+| 05-cost-analysis.md | 368 | コンテンツ単価$2.31・Claude API・インフラ・スケール別月額試算 |
+| 06-development-roadmap.md | 715 | 19週スケジュール・5フェーズ・Ganttチャート・マイルストーン |
+| 07-kpi-analysis.md | 593 | KPI v3分析（6月達成率14-43%）・v1/v2比較・KPI改訂提案 |
+| 08-algorithm-analysis.md | 867 | 仮説的中率予測（15%→70%）・4段階学習モデル・pgvector貢献分析 |
+| 09-risks-and-bottlenecks.md | 644 | 14リスク（4カテゴリ）・5ボトルネック・リスクマトリクス・優先度別緩和策 |
+
+**主要な設計決定:**
+- **DB**: PostgreSQL 16+ with pgvector（Sheets完全廃止、ベクトル検索統合）
+- **オーケストレーション**: LangGraph.js v1.0（9フレームワーク比較の結果）
+- **LLM**: Claude Opus（戦略/分析）+ Sonnet（プランナー/ワーカー）
+- **AI-DB接続**: 自作MCP Server（~60ツール）
+- **エージェント構造**: 4層階層型（社長→専門職→部長→作業員）
+- **ダッシュボード**: Next.js + Shadcn/ui（操作可能UI必要）
+
+**品質レビューで発見・修正:**
+- 02-architecture.md: テーブル名 `contents` → `content`（10箇所一括修正、03-database-schemaと整合性統一）
 
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID
