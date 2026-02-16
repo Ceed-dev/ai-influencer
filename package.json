@@ -13,7 +13,11 @@
     "x:setup": "node scripts/x-oauth-setup.js",
     "x:post": "node scripts/watch-posting.js",
     "yt:setup": "node scripts/yt-oauth-setup.js",
-    "yt:post": "node scripts/watch-yt-posting.js"
+    "yt:post": "node scripts/watch-yt-posting.js",
+    "tiktok:setup": "node scripts/tiktok-oauth-setup.js",
+    "tiktok:post": "node scripts/watch-tiktok-posting.js",
+    "ig:setup": "node scripts/ig-oauth-setup.js",
+    "ig:post": "node scripts/watch-ig-posting.js"
   },
   "dependencies": {
     "@fal-ai/client": "^1.2.0",

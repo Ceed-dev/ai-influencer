@@ -1126,6 +1126,63 @@ Instagram variations:
 - TikTok投稿自動化: Content Posting API（同パターンで実装予定）
 - Instagram投稿自動化: Graph API（同パターンで実装予定）
 
+### 2026-02-16: TikTok + Instagram 自動投稿実装
+
+**概要:** X + YouTube Shortsに続き、残り2プラットフォーム（TikTok / Instagram）の自動投稿コード実装を完了。4プラットフォーム全て同一アーキテクチャ（credential-manager → adapter → task-manager → watcher daemon）。npm追加なし（Node.js stdlib `https` で全API通信）。OAuth認可作業は4プラットフォーム一括で後日実施。
+
+**新規ファイル（8ファイル）:**
+- `pipeline/posting/tiktok-credential-manager.js`: per-account OAuth2トークン管理 + `refreshAccessToken()`（24時間で期限切れ→自動更新）+ `getValidToken()`
+- `pipeline/posting/ig-credential-manager.js`: per-account Facebook OAuth管理 + `refreshLongLivedToken()`（60日期限、残り7日で自動更新）+ `getValidToken()`
+- `pipeline/sheets/tiktok-posting-task-manager.js`: TikTok投稿管理スプレッドシート読み書き（12列 A-L）、`TIKTOK_CHARACTER_NAME_MAP`（12エントリ）
+- `pipeline/sheets/ig-posting-task-manager.js`: IG投稿管理スプレッドシート読み書き（11列 A-K）、`IG_CHARACTER_NAME_MAP`（12エントリ）、`buildCaption()`
+- `scripts/tiktok-oauth-setup.js`: TikTok OAuth 2.0認可CLI（localhost:3000 callback + `--manual` mode）
+- `scripts/ig-oauth-setup.js`: Facebook/Instagram OAuth認可CLI（short→long-lived token交換、IG Business Account自動検出）
+- `scripts/watch-tiktok-posting.js`: PM2 TikTokスケジューラデーモン（120秒ポーリング、50/日制限）
+- `scripts/watch-ig-posting.js`: PM2 Instagramスケジューラデーモン（120秒ポーリング、25/時制限）
+
+**変更ファイル（7ファイル）:**
+- `pipeline/posting/adapters/tiktok.js`: スタブ→完全実装。FILE_UPLOAD方式（init → PUT → status poll）。Drive→tmp→TikTokアップロード
+- `pipeline/posting/adapters/instagram.js`: スタブ→完全実装。Reels 2-step upload。Drive→tmp→fal.storage(公開URL)→container作成→publish
+- `pipeline/config.js`: `tiktok`セクション（clientKey, clientSecret, credentialsPath, postingSpreadsheetId, postingTab, baseUrl）+ `instagram`セクション（appId, appSecret, credentialsPath, postingSpreadsheetId, postingTab, graphApiVersion）追加
+- `ecosystem.config.js`: PM2アプリ 3→5（`tiktok-posting-scheduler`, `ig-posting-scheduler` 追加）
+- `.gitignore`: `.tiktok-credentials.json`, `.ig-credentials.json` 追加
+- `package.json`: `tiktok:setup`, `tiktok:post`, `ig:setup`, `ig:post` スクリプト追加
+- `tests/pipeline.test.js`: 20テスト追加（Tests 56-75）、Test 35更新（PM2アプリ数 3→5）
+
+**TikTokアダプタ詳細:**
+- `uploadVideo(accountId, { driveFileId, title, privacyLevel })`: メイン投稿関数
+  - `getValidToken()` → Drive DL → `POST /v2/post/publish/video/init/` → `PUT upload_url` → `POST /v2/post/publish/status/fetch/`（最大60秒ポーリング）
+- 未審査アプリ制限: `SELF_ONLY`がデフォルト（スプレッドシート列Kで管理、審査通過後に`PUBLIC_TO_EVERYONE`に変更可能）
+- `downloadVideoToTemp(driveFileId)`: Drive API streaming DL → os.tmpdir
+
+**Instagramアダプタ詳細:**
+- `uploadReel(accountId, { driveFileId, caption })`: メイン投稿関数
+  - `getValidToken()` → Drive DL → `uploadToFalStorage`(fal-client.js) → `POST /{igUserId}/media` → status poll（最大120秒） → `POST /{igUserId}/media_publish`
+- 公開URL問題の解決: Drive直接共有ではなく`uploadToFalStorage`経由で一時公開URLを生成
+- `downloadVideoToTemp(driveFileId)`: Drive API streaming DL → os.tmpdir
+
+**新規スプレッドシート:**
+| Resource | ID |
+|----------|-----|
+| TikTok投稿管理 | `1ZSrjY0Ty5yDMoyNYNAO2HHWl121R8Po3qI4o9DVnByQ` (tab: TikTok投稿タスク, 12列) |
+| IG投稿管理 | `1cgf2viMY_cjxu4qrL2lwMmR_kBRQUGy8yQxsQYG3xFs` (tab: IG投稿タスク, 11列) |
+
+**アカウント対応:**
+| Platform | Accounts (12 chars each) |
+|----------|--------------------------|
+| TikTok | ACC_0001, ACC_0005, ACC_0008, ACC_0011, ACC_0014, ACC_0017, ACC_0020, ACC_0023, ACC_0026, ACC_0029, ACC_0032, ACC_0035 |
+| Instagram | ACC_0002, ACC_0004, ACC_0007, ACC_0010, ACC_0013, ACC_0016, ACC_0019, ACC_0022, ACC_0025, ACC_0028, ACC_0031, ACC_0034 |
+
+**テスト結果:** 420 tests passing (343 GAS / 10 suites + 77 pipeline / 1 suite)
+- 新規テスト: Tests 56-75（TikTok: 56-65, Instagram: 66-75）
+- Test 35 更新: PM2アプリ数 3→5
+
+**残作業:**
+- **OAuth認可設定のみ**: 4プラットフォーム（X・YouTube・TikTok・Instagram）まとめてOAuth認可作業を実施予定
+  - `npm run tiktok:setup` / `npm run ig:setup` で各アカウントを認可
+  - TikTok: TIKTOK_CLIENT_KEY + TIKTOK_CLIENT_SECRET を.envに設定
+  - Instagram: IG_APP_ID + IG_APP_SECRET を.envに設定
+
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID
 - `.gsheets_token.json` - OAuth token for Sheets/Drive API
@@ -1134,4 +1191,6 @@ Instagram variations:
 - `.mcp.json` - MCP server config with OAuth credentials
 - `.x-credentials.json` - X/Twitter per-account OAuth 1.0a tokens
 - `.yt-credentials.json` - YouTube per-account OAuth 2.0 refresh tokens
+- `.tiktok-credentials.json` - TikTok per-account OAuth 2.0 tokens
+- `.ig-credentials.json` - Instagram per-account long-lived tokens
 - `_config` sheet in spreadsheet - contains OpenAI API key

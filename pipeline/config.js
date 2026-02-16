@@ -59,6 +59,24 @@ const config = {
     postingTab: '投稿タスク',
   },
 
+  tiktok: {
+    clientKey: process.env.TIKTOK_CLIENT_KEY || '',
+    clientSecret: process.env.TIKTOK_CLIENT_SECRET || '',
+    credentialsPath: process.env.TIKTOK_CREDENTIALS_PATH || path.join(ROOT_DIR, '.tiktok-credentials.json'),
+    postingSpreadsheetId: process.env.TIKTOK_POSTING_SPREADSHEET_ID || '1ZSrjY0Ty5yDMoyNYNAO2HHWl121R8Po3qI4o9DVnByQ',
+    postingTab: 'TikTok投稿タスク',
+    baseUrl: 'https://open.tiktokapis.com',
+  },
+
+  instagram: {
+    appId: process.env.IG_APP_ID || '',
+    appSecret: process.env.IG_APP_SECRET || '',
+    credentialsPath: process.env.IG_CREDENTIALS_PATH || path.join(ROOT_DIR, '.ig-credentials.json'),
+    postingSpreadsheetId: process.env.IG_POSTING_SPREADSHEET_ID || '1cgf2viMY_cjxu4qrL2lwMmR_kBRQUGy8yQxsQYG3xFs',
+    postingTab: 'IG投稿タスク',
+    graphApiVersion: 'v22.0',
+  },
+
 };
 
 module.exports = config;

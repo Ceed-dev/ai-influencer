@@ -26,6 +26,12 @@ video_analytics_hub_*oauth*.json
 # YouTube OAuth credentials
 .yt-credentials.json
 
+# TikTok OAuth credentials
+.tiktok-credentials.json
+
+# Instagram OAuth credentials
+.ig-credentials.json
+
 # OS generated files
 .DS_Store
 .DS_Store?

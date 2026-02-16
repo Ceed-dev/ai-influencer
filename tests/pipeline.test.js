@@ -609,10 +609,10 @@ test('watch-pipeline.js can be loaded as a module check', () => {
 });
 
 // ─── Test 35: ecosystem.config.js has correct PM2 configuration ───
-test('ecosystem.config.js has correct PM2 configuration for all 3 daemons', () => {
+test('ecosystem.config.js has correct PM2 configuration for all 5 daemons', () => {
   const config = require('../ecosystem.config.js');
   expect(config.apps).toBeDefined();
-  expect(config.apps).toHaveLength(3);
+  expect(config.apps).toHaveLength(5);
 
   const watcher = config.apps.find((a) => a.name === 'pipeline-watcher');
   expect(watcher).toBeDefined();
@@ -828,4 +828,215 @@ test('yt-posting-task-manager imports time window functions from posting-task-ma
   expect(src).toContain('drive_file_id');
   expect(src).toContain('markPosted');
   expect(src).toContain('markError');
+});
+
+// ─── Test 56: tiktok-credential-manager loads without error ───
+test('tiktok-credential-manager loads without error', () => {
+  expect(() => require('../pipeline/posting/tiktok-credential-manager')).not.toThrow();
+});
+
+// ─── Test 57: tiktok-credential-manager returns null for unknown account ───
+test('tiktok-credential-manager returns null for unknown account', () => {
+  const { getAccountCredentials } = require('../pipeline/posting/tiktok-credential-manager');
+  expect(getAccountCredentials('ACC_9999')).toBeNull();
+});
+
+// ─── Test 58: tiktok-credential-manager source has refreshAccessToken ───
+test('tiktok-credential-manager source has refreshAccessToken', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '../pipeline/posting/tiktok-credential-manager.js'), 'utf8');
+  expect(src).toContain('refreshAccessToken');
+  expect(src).toContain('getValidToken');
+  expect(src).toContain('/v2/oauth/token/');
+  expect(src).toContain('refresh_token');
+});
+
+// ─── Test 59: tiktok adapter exports uploadVideo ───
+test('tiktok adapter exports uploadVideo and downloadVideoToTemp', () => {
+  const tiktok = require('../pipeline/posting/adapters/tiktok');
+  expect(typeof tiktok.uploadVideo).toBe('function');
+  expect(typeof tiktok.downloadVideoToTemp).toBe('function');
+});
+
+// ─── Test 60: tiktok-posting-task-manager loads without error ───
+test('tiktok-posting-task-manager loads without error', () => {
+  expect(() => require('../pipeline/sheets/tiktok-posting-task-manager')).not.toThrow();
+});
+
+// ─── Test 61: TIKTOK_CHARACTER_NAME_MAP has 12 entries ───
+test('TIKTOK_CHARACTER_NAME_MAP has 12 entries for TikTok accounts', () => {
+  const { TIKTOK_CHARACTER_NAME_MAP } = require('../pipeline/sheets/tiktok-posting-task-manager');
+  expect(Object.keys(TIKTOK_CHARACTER_NAME_MAP)).toHaveLength(12);
+  // Spot-check: TikTok accounts use ACC_0001, ACC_0005, etc.
+  expect(TIKTOK_CHARACTER_NAME_MAP['清楚AI先生']).toEqual({ characterId: 'CHR_0001', accountId: 'ACC_0001' });
+  expect(TIKTOK_CHARACTER_NAME_MAP['彼氏感カウンセラー']).toEqual({ characterId: 'CHR_0012', accountId: 'ACC_0035' });
+});
+
+// ─── Test 62: config.tiktok has credentialsPath and postingTab ───
+test('config.tiktok has credentialsPath and postingTab', () => {
+  const config = require('../pipeline/config');
+  expect(config.tiktok).toBeDefined();
+  expect(config.tiktok.credentialsPath).toBeDefined();
+  expect(config.tiktok.credentialsPath).toContain('.tiktok-credentials.json');
+  expect(config.tiktok.postingTab).toBe('TikTok投稿タスク');
+  expect(config.tiktok.baseUrl).toBe('https://open.tiktokapis.com');
+});
+
+// ─── Test 63: watch-tiktok-posting.js has correct structure ───
+test('watch-tiktok-posting.js has correct structure with poll and shutdown', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '../scripts/watch-tiktok-posting.js'), 'utf8');
+
+  expect(src).toContain('TIKTOK_POLL_INTERVAL');
+  expect(src).toContain('TIKTOK_MAX_PER_POLL');
+  expect(src).toContain('TIKTOK_DAILY_LIMIT');
+  expect(src).toContain('dailyUploadCount');
+  expect(src).toContain('pollOnce');
+  expect(src).toContain('SIGINT');
+  expect(src).toContain('SIGTERM');
+  expect(src).toContain('tiktok-posting-task-manager');
+  expect(src).toContain('tiktok-credential-manager');
+});
+
+// ─── Test 64: tiktok adapter source uses tiktok-credential-manager ───
+test('tiktok adapter source uses tiktok-credential-manager', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '../pipeline/posting/adapters/tiktok.js'), 'utf8');
+
+  expect(src).toContain('tiktok-credential-manager');
+  expect(src).toContain('getValidToken');
+  expect(src).toContain('downloadVideoToTemp');
+  expect(src).toContain('uploadVideo');
+  expect(src).toContain('FILE_UPLOAD');
+  expect(src).toContain('publish/video/init');
+  expect(src).toContain('publish/status/fetch');
+  expect(src).toContain('tmpPath');
+  expect(src).toContain('cleanup');
+  expect(src).toContain('getDrive');
+});
+
+// ─── Test 65: tiktok-oauth-setup.js has OAuth 2.0 flow ───
+test('tiktok-oauth-setup.js has TikTok OAuth 2.0 flow', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '../scripts/tiktok-oauth-setup.js'), 'utf8');
+
+  expect(src).toContain('tiktok.com/v2/auth/authorize');
+  expect(src).toContain('/v2/oauth/token/');
+  expect(src).toContain('video.publish');
+  expect(src).toContain('--manual');
+  expect(src).toContain('tiktok-credential-manager');
+  expect(src).toContain('storeAccountCredentials');
+  expect(src).toContain('localhost:3000/callback');
+});
+
+// ─── Test 66: ig-credential-manager loads without error ───
+test('ig-credential-manager loads without error', () => {
+  expect(() => require('../pipeline/posting/ig-credential-manager')).not.toThrow();
+});
+
+// ─── Test 67: ig-credential-manager returns null for unknown account ───
+test('ig-credential-manager returns null for unknown account', () => {
+  const { getAccountCredentials } = require('../pipeline/posting/ig-credential-manager');
+  expect(getAccountCredentials('ACC_9999')).toBeNull();
+});
+
+// ─── Test 68: ig-credential-manager source has refreshLongLivedToken ───
+test('ig-credential-manager source has refreshLongLivedToken', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '../pipeline/posting/ig-credential-manager.js'), 'utf8');
+  expect(src).toContain('refreshLongLivedToken');
+  expect(src).toContain('getValidToken');
+  expect(src).toContain('ig_refresh_token');
+  expect(src).toContain('tokenExpiresAt');
+});
+
+// ─── Test 69: instagram adapter exports uploadReel ───
+test('instagram adapter exports uploadReel and downloadVideoToTemp', () => {
+  const ig = require('../pipeline/posting/adapters/instagram');
+  expect(typeof ig.uploadReel).toBe('function');
+  expect(typeof ig.downloadVideoToTemp).toBe('function');
+});
+
+// ─── Test 70: ig-posting-task-manager loads without error ───
+test('ig-posting-task-manager loads without error', () => {
+  expect(() => require('../pipeline/sheets/ig-posting-task-manager')).not.toThrow();
+});
+
+// ─── Test 71: IG_CHARACTER_NAME_MAP has 12 entries ───
+test('IG_CHARACTER_NAME_MAP has 12 entries for Instagram accounts', () => {
+  const { IG_CHARACTER_NAME_MAP } = require('../pipeline/sheets/ig-posting-task-manager');
+  expect(Object.keys(IG_CHARACTER_NAME_MAP)).toHaveLength(12);
+  // Spot-check: Instagram accounts use ACC_0002, ACC_0004, etc.
+  expect(IG_CHARACTER_NAME_MAP['清楚AI先生']).toEqual({ characterId: 'CHR_0001', accountId: 'ACC_0002' });
+  expect(IG_CHARACTER_NAME_MAP['彼氏感カウンセラー']).toEqual({ characterId: 'CHR_0012', accountId: 'ACC_0034' });
+});
+
+// ─── Test 72: config.instagram has credentialsPath and postingTab ───
+test('config.instagram has credentialsPath and postingTab', () => {
+  const config = require('../pipeline/config');
+  expect(config.instagram).toBeDefined();
+  expect(config.instagram.credentialsPath).toBeDefined();
+  expect(config.instagram.credentialsPath).toContain('.ig-credentials.json');
+  expect(config.instagram.postingTab).toBe('IG投稿タスク');
+  expect(config.instagram.graphApiVersion).toBe('v22.0');
+});
+
+// ─── Test 73: watch-ig-posting.js has correct structure with hourly limit ───
+test('watch-ig-posting.js has correct structure with poll, hourly limit, and shutdown', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '../scripts/watch-ig-posting.js'), 'utf8');
+
+  expect(src).toContain('IG_POLL_INTERVAL');
+  expect(src).toContain('IG_MAX_PER_POLL');
+  expect(src).toContain('IG_HOURLY_LIMIT');
+  expect(src).toContain('hourlyUploadCount');
+  expect(src).toContain('pollOnce');
+  expect(src).toContain('SIGINT');
+  expect(src).toContain('SIGTERM');
+  expect(src).toContain('ig-posting-task-manager');
+  expect(src).toContain('ig-credential-manager');
+});
+
+// ─── Test 74: instagram adapter source uses ig-credential-manager and uploadToFalStorage ───
+test('instagram adapter source uses ig-credential-manager and uploadToFalStorage', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '../pipeline/posting/adapters/instagram.js'), 'utf8');
+
+  expect(src).toContain('ig-credential-manager');
+  expect(src).toContain('getValidToken');
+  expect(src).toContain('uploadToFalStorage');
+  expect(src).toContain('uploadReel');
+  expect(src).toContain('downloadVideoToTemp');
+  expect(src).toContain('media_type');
+  expect(src).toContain('REELS');
+  expect(src).toContain('media_publish');
+  expect(src).toContain('tmpPath');
+  expect(src).toContain('cleanup');
+  expect(src).toContain('getDrive');
+  expect(src).toContain('igUserId');
+});
+
+// ─── Test 75: ig-oauth-setup.js has Facebook OAuth flow ───
+test('ig-oauth-setup.js has Facebook OAuth flow for Instagram', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '../scripts/ig-oauth-setup.js'), 'utf8');
+
+  expect(src).toContain('facebook.com');
+  expect(src).toContain('dialog/oauth');
+  expect(src).toContain('instagram_basic');
+  expect(src).toContain('instagram_content_publish');
+  expect(src).toContain('pages_show_list');
+  expect(src).toContain('--manual');
+  expect(src).toContain('ig-credential-manager');
+  expect(src).toContain('storeAccountCredentials');
+  expect(src).toContain('instagram_business_account');
+  expect(src).toContain('localhost:3000/callback');
 });

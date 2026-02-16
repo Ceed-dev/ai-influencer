@@ -34,5 +34,31 @@ module.exports = {
     restart_delay: 10000,
     max_restarts: 50,
     autorestart: true,
+  }, {
+    name: 'tiktok-posting-scheduler',
+    script: 'scripts/watch-tiktok-posting.js',
+    cwd: '/home/pochi/workspaces/work/ai-influencer',
+    env: {
+      NODE_ENV: 'production',
+      TIKTOK_POLL_INTERVAL: 120000,
+      TIKTOK_MAX_PER_POLL: 3,
+      TIKTOK_DAILY_LIMIT: 50,
+    },
+    restart_delay: 10000,
+    max_restarts: 50,
+    autorestart: true,
+  }, {
+    name: 'ig-posting-scheduler',
+    script: 'scripts/watch-ig-posting.js',
+    cwd: '/home/pochi/workspaces/work/ai-influencer',
+    env: {
+      NODE_ENV: 'production',
+      IG_POLL_INTERVAL: 120000,
+      IG_MAX_PER_POLL: 3,
+      IG_HOURLY_LIMIT: 25,
+    },
+    restart_delay: 10000,
+    max_restarts: 50,
+    autorestart: true,
   }],
 };
