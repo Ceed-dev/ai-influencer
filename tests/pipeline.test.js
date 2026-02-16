@@ -609,16 +609,30 @@ test('watch-pipeline.js can be loaded as a module check', () => {
 });
 
 // ─── Test 35: ecosystem.config.js has correct PM2 configuration ───
-test('ecosystem.config.js has correct PM2 configuration', () => {
+test('ecosystem.config.js has correct PM2 configuration for all 3 daemons', () => {
   const config = require('../ecosystem.config.js');
   expect(config.apps).toBeDefined();
-  expect(config.apps).toHaveLength(1);
-  const app = config.apps[0];
-  expect(app.name).toBe('pipeline-watcher');
-  expect(app.script).toBe('scripts/watch-pipeline.js');
-  expect(app.autorestart).toBe(true);
-  expect(app.restart_delay).toBeGreaterThan(0);
-  expect(app.env.MAX_CONCURRENT).toBe(5);
+  expect(config.apps).toHaveLength(3);
+
+  const watcher = config.apps.find((a) => a.name === 'pipeline-watcher');
+  expect(watcher).toBeDefined();
+  expect(watcher.script).toBe('scripts/watch-pipeline.js');
+  expect(watcher.autorestart).toBe(true);
+  expect(watcher.env.MAX_CONCURRENT).toBe(5);
+
+  const poster = config.apps.find((a) => a.name === 'posting-scheduler');
+  expect(poster).toBeDefined();
+  expect(poster.script).toBe('scripts/watch-posting.js');
+  expect(poster.autorestart).toBe(true);
+  expect(poster.env.POLL_INTERVAL).toBe(60000);
+
+  const ytPoster = config.apps.find((a) => a.name === 'yt-posting-scheduler');
+  expect(ytPoster).toBeDefined();
+  expect(ytPoster.script).toBe('scripts/watch-yt-posting.js');
+  expect(ytPoster.autorestart).toBe(true);
+  expect(ytPoster.env.YT_POLL_INTERVAL).toBe(120000);
+  expect(ytPoster.env.YT_MAX_PER_POLL).toBe(2);
+  expect(ytPoster.env.YT_DAILY_LIMIT).toBe(6);
 });
 
 // ─── Test 36: inventory-reader requires voice_id (throws if missing) ───
@@ -632,4 +646,186 @@ test('inventory-reader throws if voice_id is missing', () => {
   expect(src).toContain('Fish Audio reference_id');
   // The old fallback to empty string should NOT be present
   expect(src).not.toMatch(/voice:\s*row\.voice_id\s*\|\|\s*''/);
+});
+
+// ─── Test 37: posting-task-manager loads without error ───
+test('posting-task-manager loads without error', () => {
+  expect(() => require('../pipeline/sheets/posting-task-manager')).not.toThrow();
+});
+
+// ─── Test 38: x-credential-manager loads without error ───
+test('x-credential-manager loads without error', () => {
+  expect(() => require('../pipeline/posting/x-credential-manager')).not.toThrow();
+});
+
+// ─── Test 39: twitter adapter loads without error ───
+test('twitter adapter loads without error', () => {
+  expect(() => require('../pipeline/posting/adapters/twitter')).not.toThrow();
+});
+
+// ─── Test 40: CHARACTER_NAME_MAP has 12 entries ───
+test('CHARACTER_NAME_MAP has 12 entries for all characters', () => {
+  const { CHARACTER_NAME_MAP } = require('../pipeline/sheets/posting-task-manager');
+  expect(Object.keys(CHARACTER_NAME_MAP)).toHaveLength(12);
+  // Spot-check key mappings
+  expect(CHARACTER_NAME_MAP['清楚AI先生']).toEqual({ characterId: 'CHR_0001', accountId: 'ACC_0037' });
+  expect(CHARACTER_NAME_MAP['彼氏感カウンセラー']).toEqual({ characterId: 'CHR_0012', accountId: 'ACC_0048' });
+});
+
+// ─── Test 41: parseTimeWindow parses valid time windows ───
+test('parseTimeWindow parses "7:00-8:00" correctly', () => {
+  const { parseTimeWindow } = require('../pipeline/sheets/posting-task-manager');
+  expect(parseTimeWindow('7:00-8:00')).toEqual({ startHour: 7, startMin: 0, endHour: 8, endMin: 0 });
+  expect(parseTimeWindow('12:30-13:45')).toEqual({ startHour: 12, startMin: 30, endHour: 13, endMin: 45 });
+  expect(parseTimeWindow('')).toBeNull();
+  expect(parseTimeWindow(null)).toBeNull();
+  expect(parseTimeWindow('invalid')).toBeNull();
+});
+
+// ─── Test 42: buildTweetText respects 280 char limit ───
+test('buildTweetText truncates to 280 chars', () => {
+  const { buildTweetText } = require('../pipeline/sheets/posting-task-manager');
+  const longBody = 'A'.repeat(300);
+  const result = buildTweetText(longBody, '');
+  expect(result.length).toBeLessThanOrEqual(280);
+});
+
+// ─── Test 43: buildTweetText combines body + hashtags ───
+test('buildTweetText joins body and hashtags with double newline', () => {
+  const { buildTweetText } = require('../pipeline/sheets/posting-task-manager');
+  const result = buildTweetText('Hello world', '#AI #test');
+  expect(result).toBe('Hello world\n\n#AI #test');
+});
+
+// ─── Test 44: credential manager returns null for unknown account ───
+test('x-credential-manager returns null for unknown account', () => {
+  const { getAccountCredentials } = require('../pipeline/posting/x-credential-manager');
+  expect(getAccountCredentials('ACC_9999')).toBeNull();
+});
+
+// ─── Test 45: config has x section with posting spreadsheet ID ───
+test('config has x section with postingSpreadsheetId and postingTab', () => {
+  const config = require('../pipeline/config');
+  expect(config.x).toBeDefined();
+  expect(config.x.postingSpreadsheetId).toBe('1pWqXHckZWoTuTQ1r1hqnmr57ioo5aQ8ZTSRntzMHJ08');
+  expect(config.x.postingTab).toBe('投稿タスク');
+  expect(config.x.credentialsPath).toBeDefined();
+});
+
+// ─── Test 46: yt-credential-manager loads without error ───
+test('yt-credential-manager loads without error', () => {
+  expect(() => require('../pipeline/posting/yt-credential-manager')).not.toThrow();
+});
+
+// ─── Test 47: yt-credential-manager returns null for unknown account ───
+test('yt-credential-manager returns null for unknown account', () => {
+  const { getAccountCredentials } = require('../pipeline/posting/yt-credential-manager');
+  expect(getAccountCredentials('ACC_9999')).toBeNull();
+});
+
+// ─── Test 48: youtube adapter exports uploadShort and downloadVideoToTemp ───
+test('youtube adapter exports uploadShort, downloadVideoToTemp, getYouTubeClientForAccount', () => {
+  const yt = require('../pipeline/posting/adapters/youtube');
+  expect(typeof yt.uploadShort).toBe('function');
+  expect(typeof yt.downloadVideoToTemp).toBe('function');
+  expect(typeof yt.getYouTubeClientForAccount).toBe('function');
+  expect(typeof yt.upload).toBe('function');
+});
+
+// ─── Test 49: yt-posting-task-manager loads without error ───
+test('yt-posting-task-manager loads without error', () => {
+  expect(() => require('../pipeline/sheets/yt-posting-task-manager')).not.toThrow();
+});
+
+// ─── Test 50: YT_CHARACTER_NAME_MAP has 12 entries ───
+test('YT_CHARACTER_NAME_MAP has 12 entries for YouTube accounts', () => {
+  const { YT_CHARACTER_NAME_MAP } = require('../pipeline/sheets/yt-posting-task-manager');
+  expect(Object.keys(YT_CHARACTER_NAME_MAP)).toHaveLength(12);
+  // Spot-check: YouTube accounts use different ACC IDs than X accounts
+  expect(YT_CHARACTER_NAME_MAP['清楚AI先生']).toEqual({ characterId: 'CHR_0001', accountId: 'ACC_0003' });
+  expect(YT_CHARACTER_NAME_MAP['彼氏感カウンセラー']).toEqual({ characterId: 'CHR_0012', accountId: 'ACC_0036' });
+});
+
+// ─── Test 51: config.youtube has credentialsPath and postingTab ───
+test('config.youtube has credentialsPath and postingTab', () => {
+  const config = require('../pipeline/config');
+  expect(config.youtube).toBeDefined();
+  expect(config.youtube.credentialsPath).toBeDefined();
+  expect(config.youtube.credentialsPath).toContain('.yt-credentials.json');
+  expect(config.youtube.postingTab).toBe('YT投稿タスク');
+  expect(config.youtube.postingSpreadsheetId).toBe('1n332Q6LjAl9I4c6y3OwqFiontuum3LbVu9mM1gjxN-0');
+});
+
+// ─── Test 52: watch-yt-posting.js has quota tracking structure ───
+test('watch-yt-posting.js has quota tracking and correct structure', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '../scripts/watch-yt-posting.js'), 'utf8');
+
+  // Quota tracking
+  expect(src).toContain('dailyUploadCount');
+  expect(src).toContain('YT_DAILY_LIMIT');
+  expect(src).toContain('YT_POLL_INTERVAL');
+  expect(src).toContain('YT_MAX_PER_POLL');
+  // Must handle quota exceeded
+  expect(src).toContain('quotaExceeded');
+  // Must have graceful shutdown
+  expect(src).toContain('SIGINT');
+  expect(src).toContain('SIGTERM');
+  // Must import from yt-posting-task-manager
+  expect(src).toContain('yt-posting-task-manager');
+  expect(src).toContain('yt-credential-manager');
+});
+
+// ─── Test 53: youtube adapter source uses yt-credential-manager ───
+test('youtube adapter source uses yt-credential-manager', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '../pipeline/posting/adapters/youtube.js'), 'utf8');
+
+  expect(src).toContain('yt-credential-manager');
+  expect(src).toContain('getAppCredentials');
+  expect(src).toContain('getAccountCredentials');
+  expect(src).toContain('downloadVideoToTemp');
+  expect(src).toContain('uploadShort');
+  // Must use Drive download → tmp file → YouTube upload pattern
+  expect(src).toContain('tmpPath');
+  expect(src).toContain('cleanup');
+  expect(src).toContain('getDrive');
+});
+
+// ─── Test 54: yt-oauth-setup.js has OAuth 2.0 flow structure ───
+test('yt-oauth-setup.js has OAuth 2.0 flow structure', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '../scripts/yt-oauth-setup.js'), 'utf8');
+
+  // OAuth 2.0 flow
+  expect(src).toContain('generateAuthUrl');
+  expect(src).toContain('getToken');
+  expect(src).toContain('refresh_token');
+  expect(src).toContain('youtube.upload');
+  // Must support manual mode
+  expect(src).toContain('--manual');
+  // Must get channel info after authorization
+  expect(src).toContain('channels.list');
+  expect(src).toContain('channelId');
+  expect(src).toContain('channelTitle');
+  // Must use yt-credential-manager
+  expect(src).toContain('yt-credential-manager');
+  expect(src).toContain('storeAccountCredentials');
+});
+
+// ─── Test 55: yt-posting-task-manager reuses parseTimeWindow from posting-task-manager ───
+test('yt-posting-task-manager imports time window functions from posting-task-manager', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '../pipeline/sheets/yt-posting-task-manager.js'), 'utf8');
+
+  expect(src).toContain("require('./posting-task-manager')");
+  expect(src).toContain('parseTimeWindow');
+  expect(src).toContain('isWithinWindow');
+  expect(src).toContain('drive_file_id');
+  expect(src).toContain('markPosted');
+  expect(src).toContain('markError');
 });

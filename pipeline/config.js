@@ -42,12 +42,21 @@ const config = {
   youtube: {
     clientId: process.env.YOUTUBE_CLIENT_ID || '',
     clientSecret: process.env.YOUTUBE_CLIENT_SECRET || '',
-    refreshToken: process.env.YOUTUBE_REFRESH_TOKEN || '',
+    refreshToken: process.env.YOUTUBE_REFRESH_TOKEN || '',  // 後方互換
+    credentialsPath: process.env.YT_CREDENTIALS_PATH || path.join(ROOT_DIR, '.yt-credentials.json'),
+    postingSpreadsheetId: process.env.YT_POSTING_SPREADSHEET_ID || '1n332Q6LjAl9I4c6y3OwqFiontuum3LbVu9mM1gjxN-0',
+    postingTab: 'YT投稿タスク',
   },
 
   openai: {
     apiKey: process.env.OPENAI_API_KEY || '',
     model: process.env.OPENAI_MODEL || 'gpt-4o',
+  },
+
+  x: {
+    credentialsPath: process.env.X_CREDENTIALS_PATH || path.join(ROOT_DIR, '.x-credentials.json'),
+    postingSpreadsheetId: process.env.X_POSTING_SPREADSHEET_ID || '1pWqXHckZWoTuTQ1r1hqnmr57ioo5aQ8ZTSRntzMHJ08',
+    postingTab: '投稿タスク',
   },
 
 };

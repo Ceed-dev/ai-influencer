@@ -20,6 +20,12 @@ video_analytics_hub_*oauth*.json
 # MCP configuration (contains OAuth client secrets)
 .mcp.json
 
+# X/Twitter OAuth credentials
+.x-credentials.json
+
+# YouTube OAuth credentials
+.yt-credentials.json
+
 # OS generated files
 .DS_Store
 .DS_Store?

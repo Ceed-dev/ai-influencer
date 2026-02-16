@@ -9,12 +9,17 @@
     "test": "jest",
     "test:gas": "jest --testPathPattern=gas/tests",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "x:setup": "node scripts/x-oauth-setup.js",
+    "x:post": "node scripts/watch-posting.js",
+    "yt:setup": "node scripts/yt-oauth-setup.js",
+    "yt:post": "node scripts/watch-yt-posting.js"
   },
   "dependencies": {
     "@fal-ai/client": "^1.2.0",
     "dotenv": "^16.4.0",
-    "googleapis": "^144.0.0"
+    "googleapis": "^144.0.0",
+    "twitter-api-v2": "^1.29.0"
   },
   "devDependencies": {
     "jest": "^29.7.0"
@@ -24,13 +29,19 @@
       {
         "displayName": "gas",
         "testEnvironment": "node",
-        "setupFilesAfterEnv": ["<rootDir>/gas/tests/setup.js"],
-        "testMatch": ["**/gas/tests/**/*.test.js"]
+        "setupFilesAfterEnv": [
+          "<rootDir>/gas/tests/setup.js"
+        ],
+        "testMatch": [
+          "**/gas/tests/**/*.test.js"
+        ]
       },
       {
         "displayName": "pipeline",
         "testEnvironment": "node",
-        "testMatch": ["**/tests/pipeline.test.js"]
+        "testMatch": [
+          "**/tests/pipeline.test.js"
+        ]
       }
     ],
     "verbose": true
