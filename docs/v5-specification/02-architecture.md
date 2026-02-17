@@ -621,10 +621,9 @@ v5.0では1日の投稿数が大量になるため、複数のコンテンツを
           │  ・measure_after設定 │
           │    (posted_at + 48h) │
           │                      │
-          │  content単位:        │
-          │  ・全publicationが   │
-          │    posted → content  │
-          │    status = 'posted' │
+          │  ※contentのstatusは │
+          │   変更しない         │
+          │   (readyのまま維持)  │
           └──────────┬───────────┘
                      │
                      ▼

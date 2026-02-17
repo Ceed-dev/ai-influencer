@@ -1417,6 +1417,25 @@ node scripts/generate-digest.js --force               # 既存ファイル上書
 - statusコメントに`measured: 計測完了`の説明を追加
 - `04-agent-design.md` 計測ワーカーフローチャート: `content.status → 'measured'` → `publications.status → 'measured'` に修正
 
+### 2026-02-17: v5.0仕様書レビュー — 2層ステータスモデルの不整合修正
+
+02-architecture.mdのセクション別レビュー中（セクション3「AIエージェント層」）に、contentとpublicationsのステータスが混在している不整合を3箇所発見・修正。
+
+**修正内容**:
+1. `02-architecture.md` 投稿スケジューラーフローチャート: `content status = 'posted'` → contentのstatusは変更しない旨に修正（contentに'posted'は存在しない）
+2. `04-agent-design.md` グラフ間連携図: `content.status`にscheduled/posted/measuredを混在表示していたのを、`content.status`と`publications.status`を分離して正しく表示
+3. `04-agent-design.md` `get_content_pool_status`戻り値: 混在していたステータスをcontent/publicationsに分離
+
+**正しいステータス遷移**:
+- `content.status`: planned → producing → ready → analyzed
+- `publications.status`: scheduled → posted → measured (+ failed)
+
+**レビュー進捗** (02-architecture.md):
+- セクション1 (全体アーキテクチャ): 完了
+- セクション2 (データ基盤層): 完了
+- セクション3 (AIエージェント層): 完了
+- セクション4〜11: 未確認
+
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID
 - `.gsheets_token.json` - OAuth token for Sheets/Drive API

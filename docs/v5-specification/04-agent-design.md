@@ -547,7 +547,7 @@ COMMIT;
 | 5 | `plan_content` | `{ hypothesis_id, character_id, script_language, sections: [{ component_id, section_label }] }` | `{ content_id }` | コンテンツ計画の作成 |
 | 6 | `schedule_content` | `{ content_id, planned_post_date }` | `{ success }` | 投稿スケジュール設定 |
 | 7 | `get_niche_learnings` | `{ niche, min_confidence: 0.5, limit: 10 }` | `[{ insight, confidence, category }]` | ニッチ関連の知見取得 |
-| 8 | `get_content_pool_status` | `{ cluster }` | `{ planned, producing, ready, scheduled, posted }` | コンテンツプールの状況 |
+| 8 | `get_content_pool_status` | `{ cluster }` | `{ content: { planned, producing, ready, analyzed }, publications: { scheduled, posted, measured } }` | コンテンツプールの状況 |
 | 9 | `request_production` | `{ content_id, priority: 0 }` | `{ task_id }` | 制作タスクの発行 (task_queueにINSERT) |
 
 ### 4.5 ツールスペシャリスト用 (5ツール)
@@ -1279,10 +1279,11 @@ interface CollectedMetrics {
             │  content.status:      │
             │  planned → producing  │──→ 制作パイプライン
             │  → ready              │    グラフ (連続)
-            │  → scheduled          │
-            │  → posted ────────────│──→ 投稿スケジューラー
-            │  → measured           │    グラフ (連続)
             │  → analyzed           │
+            │                       │
+            │  publications.status: │
+            │  scheduled → posted   │──→ 投稿スケジューラー
+            │  → measured           │    グラフ (連続)
             │                       │──→ 計測ジョブ
             │  task_queue:          │    グラフ (連続)
             │  produce / publish    │
