@@ -17,12 +17,15 @@
     "tiktok:setup": "node scripts/tiktok-oauth-setup.js",
     "tiktok:post": "node scripts/watch-tiktok-posting.js",
     "ig:setup": "node scripts/ig-oauth-setup.js",
-    "ig:post": "node scripts/watch-ig-posting.js"
+    "ig:post": "node scripts/watch-ig-posting.js",
+    "digest": "node scripts/generate-digest.js"
   },
   "dependencies": {
     "@fal-ai/client": "^1.2.0",
+    "@slack/web-api": "^7.14.1",
     "dotenv": "^16.4.0",
     "googleapis": "^144.0.0",
+    "openai": "^4.104.0",
     "twitter-api-v2": "^1.29.0"
   },
   "devDependencies": {
@@ -45,6 +48,13 @@
         "testEnvironment": "node",
         "testMatch": [
           "**/tests/pipeline.test.js"
+        ]
+      },
+      {
+        "displayName": "digest",
+        "testEnvironment": "node",
+        "testMatch": [
+          "**/tests/digest.test.js"
         ]
       }
     ],

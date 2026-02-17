@@ -1271,6 +1271,52 @@ Instagram variations:
 - テーブル数: 15 → 20
 - MCPツール: ~60 → ~68
 
+### 2026-02-17: Slack Daily Digest System
+
+**目的**: Slackチャンネル「ceed-aiインフルエンサー」の会話を日次で要約し、GitHubリポジトリにコミット。各メンバーのClaude Codeがローカルcloneから参照・質問・壁打ちに活用。
+
+**実装内容**:
+- `digest/` モジュール (4ファイル): config, slack-client, formatter, summarizer
+- `scripts/generate-digest.js`: CLIエントリポイント (単日/バックフィル/dry-run)
+- `.github/workflows/daily-digest.yml`: 毎日00:30 JST自動実行 + 手動dispatch
+- `digests/YYYY/MM/YYYY-MM-DD.md`: 日次要約出力ディレクトリ (git tracked)
+- `tests/digest.test.js`: 26テスト
+
+**技術スタック**:
+- Slack API (`@slack/web-api`): メッセージ取得・スレッド取得・ユーザー名解決
+- OpenAI GPT-4o (`openai`): 日本語要約生成 (チャンク分割 + 3回リトライ対応)
+- GitHub Actions: 日次cron (15:30 UTC = 00:30 JST) + workflow_dispatch (バックフィル対応)
+
+**主要機能**:
+- YAML frontmatter付きMarkdown出力 (メタデータ抽出可能)
+- 全タイムスタンプJST変換
+- Slackパーマリンク埋め込み (SLACK_WORKSPACE_DOMAIN設定時)
+- 前日以前スレッド続行検出: 30日ルックバックで古いスレッドの新規返信を捕捉
+- 150K文字超の会話: 分割→個別要約→統合要約
+- バックフィルモード: `--from 2026-02-01 --to 2026-02-16` で範囲一括生成
+- 会話ログは `<details>` 折りたたみ (GitHub上で読みやすく、全文検索可能)
+
+**Slack App**: `AI-Influencer Digest Bot` (Ceed Inc. workspace)
+- Scopes: `channels:history`, `channels:read`, `groups:history`, `groups:read`, `users:read`
+- チャンネル: `#ceed-aiインフルエンサー` (プライベートチャンネル)
+
+**必要な環境変数** (.env):
+- `SLACK_BOT_TOKEN` — Slack Bot User OAuth Token
+- `OPENAI_API_KEY` — OpenAI API Key
+- `SLACK_WORKSPACE_DOMAIN` — パーマリンク用 (例: `ceed0105`)
+
+**GitHub Secrets** (GitHub Actions用): `SLACK_BOT_TOKEN`, `OPENAI_API_KEY`
+
+**CLI使用法**:
+```
+node scripts/generate-digest.js                       # 前日 (JST) の要約を生成
+node scripts/generate-digest.js --date 2026-02-16     # 指定日
+node scripts/generate-digest.js --from 2026-02-01     # バックフィル (〜昨日)
+node scripts/generate-digest.js --from 2026-02-01 --to 2026-02-16  # 範囲指定
+node scripts/generate-digest.js --dry-run             # stdout出力のみ
+node scripts/generate-digest.js --force               # 既存ファイル上書き
+```
+
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID
 - `.gsheets_token.json` - OAuth token for Sheets/Drive API
