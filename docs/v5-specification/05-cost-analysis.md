@@ -157,29 +157,29 @@ v5.0ではGoogle Sheetsベースからの移行に伴い、PostgreSQLホステ�
 | コンポーネント | サービス | 月額 |
 |-------------|---------|------|
 | GCE VM (本番) | e2-standard-4 (4vCPU, 16GB) | ~$120/月 |
-| PostgreSQL | GCE上に自前構築 | $0 (GCE費用に含む) |
-| PostgreSQL (代替案) | Cloud SQL | ~$70/月 |
+| PostgreSQL | Cloud SQL (PostgreSQL 16+ / pgvector) | ~$70/月 |
 | Google Drive | Shared Drive (Google Workspace) | 既存契約 ($0追加) |
 | Dockerオーバーヘッド | GCE VM上で実行 | **$0** (追加クラウドサービスなし) |
 | ドメイン/SSL | 不要 (内部システム) | $0 |
 
 **GCE VMのスペック選定理由**:
 - 4vCPU: LangGraphオーケストレーション + MCP Server + パイプラインワーカーの並行処理
-- 16GB RAM: PostgreSQL + pgvector + Node.jsプロセスプール
+- 16GB RAM: Node.jsプロセスプール + LangGraphオーケストレーション (PostgreSQLはCloud SQLで外部管理)
 - e2シリーズ: コスト最適化インスタンス、安定したワークロード向け
 
 **Dockerオーバーヘッドについて**:
 
 v5.0ではdocker-composeによるコンテナ化を採用するが、Docker自体はGCE VM上にインストールして実行するため、追加のクラウドサービス費用は発生しない。Cloud Run, ECS, GKE等のコンテナマネージドサービスは使用せず、docker-compose upで直接VMのリソースを利用する設計。コンテナ化のオーバーヘッド (メモリ・CPU) は微小であり、GCEのスペック選定に既に含まれている。
 
-**PostgreSQLホスティングの選択肢**:
+**PostgreSQLホスティング**:
 
-| 方式 | コスト | メリット | デメリット |
-|------|--------|---------|----------|
-| GCE上に自前構築 | $0追加 | 最安、フル制御 | 運用・バックアップは自己管理 |
-| Cloud SQL | ~$70/月 | マネージド、自動バックアップ | 追加コスト |
+Phase 1からCloud SQL (PostgreSQL) を使用。マネージドサービスにより、自動バックアップ・HA・スケーリングの運用負荷を排除する。Cloud SQLはpgvector拡張をネイティブサポートしている。
 
-> Phase 1-2 (50-160アカウント) はGCE上の自前構築で十分。Phase 3以降 (340+) でCloud SQLへの移行を検討。
+| 方式 | コスト | メリット |
+|------|--------|---------|
+| Cloud SQL (Phase 1から使用) | ~$70/月 | マネージド、自動バックアップ、HA対応、pgvectorネイティブサポート |
+
+> ローカル開発環境では `pgvector/pgvector:pg16` Dockerイメージを使用し、本番Cloud SQLと同等のスキーマで開発・テストを行う。
 
 **開発/本番環境のコスト**:
 

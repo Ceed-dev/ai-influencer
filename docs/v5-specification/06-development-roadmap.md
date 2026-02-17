@@ -667,7 +667,7 @@ Phase 2完了 (Week 6) まではSheetsとPostgreSQLの両方にデータが存�
 | 2 | YouTube OAuth審査の遅延、fal.aiのAPI変更 | 中 | 高 | 投稿ワーカーがWeek 6までに完成しない場合 | YouTube OAuthをPhase 1から事前申請。fal.ai APIは既存v4.0コードを最大限再利用 |
 | 3 | LangGraphの学習コスト、MCPアダプターの互換性問題 | 高 | 高 | LangGraph統合がWeek 8までに完成しない場合 | LangGraphの公式サンプルを先にフォーク。最悪はMCPなしで直接ツール呼出し |
 | 4 | Supervisorパターンの安定性、マルチPF API審査遅延 | 中 | 高 | 全自動サイクルがWeek 14までに安定しない場合 | YouTube単独でまず安定化。他PFは順次追加 |
-| 5 | 3,500アカウント規模での性能問題 | 高 | 中 | 負荷テストで目標スループットに未達 | PostgreSQL設定チューニング、クエリ最適化、必要ならCloud SQL移行 |
+| 5 | 3,500アカウント規模での性能問題 | 高 | 中 | 負荷テストで目標スループットに未達 | Cloud SQLインスタンスのスケールアップ、クエリ最適化、接続プーリング調整 |
 
 ### 7.2 バッファの運用方針
 
@@ -756,7 +756,8 @@ Phase完了タイミング:        P1(M1)  P2(M2)  P3(M3)  P4(M4)  P5(M5)
 |------|------|------|
 | GCE VM | 既存VMを継続使用 | スペック不足時はアップグレード (Phase 5で判断) |
 | Docker + Docker Compose | GCE上で稼働 | `docker-compose.dev.yml` / `docker-compose.prod.yml` で環境分離 |
-| PostgreSQL | `pgvector/pgvector:pg16` Dockerコンテナ | 将来的にCloud SQL移行の可能性あり |
+| PostgreSQL (本番) | Cloud SQL (PostgreSQL 16+ / pgvector) | Phase 1から使用。マネージド運用 |
+| PostgreSQL (開発) | `pgvector/pgvector:pg16` Dockerコンテナ | ローカル開発・テスト用 |
 | PM2 → Docker移行 | Phase 2まで既存PM2、Phase 5 (W18) でDocker完全移行 | PM2は段階的に廃止 |
 | ネットワーク | GCEから外部API (fal.ai, YouTube等) への接続 | ファイアウォール設定済み |
 
@@ -767,7 +768,7 @@ Phase完了タイミング:        P1(M1)  P2(M2)  P3(M3)  P4(M4)  P5(M5)
 | fal.aiクレジット | 確保済み | 月次で残高確認が必要 |
 | Anthropic APIキー | 確保済み (Opus + Sonnet) | LLMコスト月額の承認が必要 |
 | Embeddingモデル | OpenAI or Anthropic APIキー | Phase 3開始前に取得 |
-| YouTube OAuth | Phase 1から並行申請 | GCPプロジェクト `video-analytics-hub` を利用 |
+| YouTube OAuth | Phase 1から並行申請 | GCPプロジェクト `ai-influencer` を利用 |
 | TikTok API審査 | Phase 1から並行申請 | 審査に2-4週間。早期申請が重要 |
 | Instagram Graph API | Phase 1から並行申請 | Metaビジネスアカウントの事前取得が必要 |
 | X API v2 Premium | 即日利用可 ($8/月/アカウント) | コスト承認が必要 |

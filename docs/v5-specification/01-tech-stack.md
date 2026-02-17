@@ -7,13 +7,13 @@
 | コンポーネント | サービス | 用途 | 備考 |
 |---|---|---|---|
 | アプリケーションサーバー | Google Compute Engine (GCE) | 全Node.jsプロセスの実行環境 | 既存VM継続利用 |
-| データベース | PostgreSQL 16+ | 全構造化データの一元管理 | GCE上にインストール or Cloud SQL |
+| データベース | PostgreSQL 16+ (Cloud SQL) | 全構造化データの一元管理 | Cloud SQL (PostgreSQL) を Phase 1 から使用 |
 | ベクトル拡張 | pgvector | 類似仮説・知見・トレンドのベクトル検索 | PostgreSQL拡張として追加 |
 | ファイルストレージ | Google Drive (Shared Drive) | 動画・画像・音声ファイル保存 | 既存構造を継続 |
 | プロセス管理 | PM2 | Node.jsプロセスの常駐管理・自動再起動 | 既存設定を拡張 |
 | コンテナ化 | Docker + docker-compose | コンテナ化基盤 | 段階的導入（Phase 1からPostgreSQLを開始） |
 | 環境分離 | docker-compose.dev.yml / docker-compose.prod.yml | 開発/本番環境の分離 | 設定・シークレット・ポートを環境別に管理 |
-| GCP Project | `video-analytics-hub` | GCE, Cloud API等 | 既存 |
+| GCP Project | `ai-influencer` | GCE, Cloud SQL, Cloud API等 | 新規専用プロジェクト |
 
 ## AIエージェント層
 

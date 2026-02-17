@@ -1366,6 +1366,24 @@ node scripts/generate-digest.js --force               # 既存ファイル上書
 
 **整合性修正**: Operations テーブル数の誤記修正 (4→5)、MCPツール数を~73に全ファイル統一
 
+### Session 3: v5仕様 — Cloud SQL + GCPプロジェクト + 図の整列 (2026-02-17)
+
+**GCPプロジェクト変更**: `video-analytics-hub` → `ai-influencer` (新規専用プロジェクト作成)
+- 01-tech-stack.md, 06-development-roadmap.md の2箇所を更新
+
+**Cloud SQL Phase 1から採用**: GCE自前構築の選択肢を廃止、Phase 1からCloud SQLを使用
+- 01-tech-stack.md: "GCE上にインストール or Cloud SQL" → "Cloud SQL (PostgreSQL) を Phase 1 から使用"
+- 02-architecture.md: Section 2.1 タイトル・説明を Cloud SQL に変更
+- 05-cost-analysis.md: コスト計算をCloud SQL前提に統一 (~$70/月)
+- 06-development-roadmap.md: prod=Cloud SQL, dev=Docker pgvector コンテナ に明確化
+- 09-risks-and-bottlenecks.md: Cloud SQL運用前提にリスク緩和策を更新
+
+**02-architecture.md ASCII art図の全面整列修正** (696行変更):
+- 自動スクリプト(fix_diagrams.py) + 手動修正で全ブロックの縦線・ボックス幅を統一
+- 日本語テキストの表示幅(East Asian Width)を考慮した精密な整列
+- テキスト短縮: "レシピに基づく" → "レシピ準拠の", "リサーチャー" → "リサーチ" 等
+- ランキングテーブル列幅再配分、プロンプト提案UIのテキスト折り返し
+
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID
 - `.gsheets_token.json` - OAuth token for Sheets/Drive API
