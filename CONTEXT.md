@@ -1415,6 +1415,7 @@ node scripts/generate-digest.js --force               # 既存ファイル上書
 `publications`テーブルのCHECK制約に`measured`が欠落していた不整合を修正。
 - CHECK制約: `('scheduled', 'posted', 'failed')` → `('scheduled', 'posted', 'measured', 'failed')`
 - statusコメントに`measured: 計測完了`の説明を追加
+- `04-agent-design.md` 計測ワーカーフローチャート: `content.status → 'measured'` → `publications.status → 'measured'` に修正
 
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID

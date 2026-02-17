@@ -1204,8 +1204,8 @@ interface PublishMetadata {
 │                  │
 │ metricsテーブル   │     更新内容:
 │ に保存           │       metrics INSERT
-│                  │       content.status → 'measured'
-│ engagement_rate  │       publications.status確認
+│                  │       publications.status → 'measured'
+│ engagement_rate  │       全pub measured後 → content 'analyzed'
 │ を計算して保存    │
 │                  │
 │ 次回計測の判定:   │
