@@ -571,7 +571,7 @@ COMMENT ON COLUMN content.production_metadata IS 'fal.ai request ID, 処理時�
 
 ### 2.2 content_sections — セクション構成
 
-コンテンツを構成するセクションの順序と使用コンポーネントを管理するジャンクションテーブル。v4.0では固定3セクション (Hook/Body/CTA) だったが、v5.0ではセクション数・種類をコンテンツごとに動的に決定する。ツールスペシャリストが `create_content_sections` MCPツールで作成する。
+コンテンツを構成するセクションの順序と使用コンポーネントを管理するジャンクションテーブル。v4.0では固定3セクション (Hook/Body/CTA) だったが、v5.0ではセクション数・種類をコンテンツごとに動的に決定する。プランナーが `plan_content` MCPツールでコンテンツ計画と同時に作成する。
 
 ```sql
 CREATE TABLE content_sections (

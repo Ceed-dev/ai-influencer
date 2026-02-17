@@ -1400,6 +1400,16 @@ node scripts/generate-digest.js --force               # 既存ファイル上書
 - `03-database-schema.md`: content_sectionsテーブル追加、content.account_id削除、FK一覧・移行マッピング・SQLクエリ更新
 - `04-agent-design.md`: plan_contentツール引数・ContentPlan型・実行例・データフロー図を全更新
 
+### 2026-02-17: v5.0仕様書レビュー — セクション構成の責務修正
+
+セクション構成(何セクションに分けるか)の決定責務をツールスペシャリスト→プランナーに移動。
+- **プランナー**: セクション構成を決定(`plan_content`でcontent + content_sectionsを同時作成)
+- **ツールスペシャリスト**: セクション構成を受け取り、各セクションに最適なツールレシピを割当
+
+**変更ファイル** (2ファイル):
+- `02-architecture.md`: 制作パイプラインフローチャートからセクション構成決定をプランナー側に、比較表の責務記述修正
+- `03-database-schema.md`: content_sectionsテーブル説明の作成者をプランナーに修正
+
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID
 - `.gsheets_token.json` - OAuth token for Sheets/Drive API
