@@ -5,6 +5,38 @@ const { buildPermalink } = require('./slack-client');
 const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
 
 /**
+ * Known API key / secret patterns to redact from conversation logs.
+ * Each entry: [regex, label]
+ */
+const SECRET_PATTERNS = [
+  [/xai-[A-Za-z0-9_-]{20,}/g, '[REDACTED:xAI_KEY]'],
+  [/sk-proj-[A-Za-z0-9_-]{20,}/g, '[REDACTED:OPENAI_KEY]'],
+  [/sk-[A-Za-z0-9_-]{40,}/g, '[REDACTED:OPENAI_KEY]'],
+  [/xoxb-[A-Za-z0-9-]{30,}/g, '[REDACTED:SLACK_BOT_TOKEN]'],
+  [/xoxp-[A-Za-z0-9-]{30,}/g, '[REDACTED:SLACK_USER_TOKEN]'],
+  [/xoxe\.xoxp-[A-Za-z0-9-]{30,}/g, '[REDACTED:SLACK_TOKEN]'],
+  [/ghp_[A-Za-z0-9]{36,}/g, '[REDACTED:GITHUB_PAT]'],
+  [/gho_[A-Za-z0-9]{36,}/g, '[REDACTED:GITHUB_OAUTH]'],
+  [/ghs_[A-Za-z0-9]{36,}/g, '[REDACTED:GITHUB_APP_TOKEN]'],
+  [/github_pat_[A-Za-z0-9_]{20,}/g, '[REDACTED:GITHUB_PAT]'],
+  [/AIza[A-Za-z0-9_-]{30,}/g, '[REDACTED:GOOGLE_API_KEY]'],
+  [/ya29\.[A-Za-z0-9_-]{50,}/g, '[REDACTED:GOOGLE_OAUTH_TOKEN]'],
+  [/AKIA[A-Z0-9]{16}/g, '[REDACTED:AWS_ACCESS_KEY]'],
+  [/fal-[A-Za-z0-9_-]{20,}/g, '[REDACTED:FAL_KEY]'],
+];
+
+/**
+ * Redact known API keys and secrets from text.
+ */
+function redactSecrets(text) {
+  let result = text;
+  for (const [pattern, replacement] of SECRET_PATTERNS) {
+    result = result.replace(pattern, replacement);
+  }
+  return result;
+}
+
+/**
  * Convert Unix timestamp (seconds) to JST Date.
  */
 function tsToJST(ts) {
@@ -122,7 +154,8 @@ function composeMarkdown(dateStr, summary, rawFormatted, stats, channelName) {
     '</details>',
   ].join('\n');
 
-  return [frontmatter, '', header, '', '## サマリー', '', summary, '', '---', '', statsSection, '', logSection, ''].join('\n');
+  const raw = [frontmatter, '', header, '', '## サマリー', '', summary, '', '---', '', statsSection, '', logSection, ''].join('\n');
+  return redactSecrets(raw);
 }
 
 /**
@@ -221,5 +254,6 @@ module.exports = {
   composeMarkdown,
   composeNoActivity,
   formatConversationLog,
+  redactSecrets,
   JST_OFFSET_MS,
 };

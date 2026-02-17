@@ -118,7 +118,7 @@ describe('slack-client buildPermalink', () => {
 // ── Formatter tests ──
 
 describe('digest/formatter', () => {
-  const { tsToJST, formatTimeJST, formatForSummarizer, composeNoActivity, composeMarkdown } = require('../digest/formatter');
+  const { tsToJST, formatTimeJST, formatForSummarizer, composeNoActivity, composeMarkdown, redactSecrets } = require('../digest/formatter');
 
   test('tsToJST converts Unix timestamp to JST', () => {
     // 2026-02-16 00:00:00 UTC = 2026-02-16 09:00:00 JST
@@ -185,6 +185,46 @@ describe('digest/formatter', () => {
     expect(md).toContain('messages: 0');
     expect(md).toContain('活動なし');
     expect(md).toContain('2026年2月16日');
+  });
+
+  test('redactSecrets masks xAI API keys', () => {
+    // Build key dynamically to avoid GitHub push protection
+    const key = 'xai-' + 'A'.repeat(40);
+    const text = `API Key: ${key}`;
+    expect(redactSecrets(text)).toBe('API Key: [REDACTED:xAI_KEY]');
+  });
+
+  test('redactSecrets masks OpenAI API keys', () => {
+    const key = 'sk-proj-' + 'B'.repeat(40);
+    const text = `key: ${key}`;
+    expect(redactSecrets(text)).toBe('key: [REDACTED:OPENAI_KEY]');
+  });
+
+  test('redactSecrets masks Slack tokens', () => {
+    const key = 'xoxb-' + '1234567890-'.repeat(4) + 'abcdefghij';
+    const text = `token: ${key}`;
+    expect(redactSecrets(text)).toBe('token: [REDACTED:SLACK_BOT_TOKEN]');
+  });
+
+  test('redactSecrets masks GitHub PATs', () => {
+    const key = 'ghp_' + 'C'.repeat(40);
+    expect(redactSecrets(key)).toBe('[REDACTED:GITHUB_PAT]');
+  });
+
+  test('redactSecrets masks AWS access keys', () => {
+    const key = 'AKIA' + 'D'.repeat(16);
+    const text = `key: ${key}`;
+    expect(redactSecrets(text)).toBe('key: [REDACTED:AWS_ACCESS_KEY]');
+  });
+
+  test('redactSecrets masks Google API keys', () => {
+    const key = 'AIza' + 'E'.repeat(35);
+    expect(redactSecrets(key)).toBe('[REDACTED:GOOGLE_API_KEY]');
+  });
+
+  test('redactSecrets leaves normal text unchanged', () => {
+    const text = 'This is a normal message with no secrets.';
+    expect(redactSecrets(text)).toBe(text);
   });
 
   test('composeMarkdown generates full markdown with frontmatter', () => {
