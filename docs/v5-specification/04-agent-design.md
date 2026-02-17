@@ -343,13 +343,12 @@ v4.0パイプラインは「デフォルトレシピ」として残り、ツー�
 
 [Day 2 - 朝7時]
   投稿ワーカー: ready状態 + planned_post_date到来のコンテンツを投稿
-    → publications (INSERT, posted_at=NOW())
-    → content (UPDATE, status='posted')
+    → publications (INSERT, status='posted', posted_at=NOW())
 
 [Day 4 - 朝7時]
   計測ワーカー: posted_at + 48hを過ぎた投稿のメトリクスを収集
     → metrics (INSERT, views=..., engagement_rate=...)
-    → content (UPDATE, status='measured')
+    → publications (UPDATE, status='measured')
 
 [Day 5 - 朝]
   アナリスト: predicted_kpis vs actual_kpis を比較
@@ -545,7 +544,7 @@ COMMIT;
 | 2 | `get_account_performance` | `{ account_id, period: "7d" }` | `{ avg_views, avg_engagement, top_content, trend }` | アカウント別パフォーマンス |
 | 3 | `get_available_components` | `{ type: "scenario", niche, subtype }` | `[{ component_id, name, score, usage_count, data }]` | 利用可能コンポーネント |
 | 4 | `create_hypothesis` | `{ category, statement, rationale, target_accounts[], predicted_kpis }` | `{ id }` | 仮説の作成 |
-| 5 | `plan_content` | `{ account_id, hypothesis_id, hook/body/cta_component_id, character_id, script_language }` | `{ content_id }` | コンテンツ計画の作成 |
+| 5 | `plan_content` | `{ hypothesis_id, character_id, script_language, sections: [{ component_id, section_label }] }` | `{ content_id }` | コンテンツ計画の作成 |
 | 6 | `schedule_content` | `{ content_id, planned_post_date }` | `{ success }` | 投稿スケジュール設定 |
 | 7 | `get_niche_learnings` | `{ niche, min_confidence: 0.5, limit: 10 }` | `[{ insight, confidence, category }]` | ニッチ関連の知見取得 |
 | 8 | `get_content_pool_status` | `{ cluster }` | `{ planned, producing, ready, scheduled, posted }` | コンテンツプールの状況 |
@@ -808,14 +807,16 @@ interface AgentReflection {
 
 interface ContentPlan {
   content_id: string;
-  account_id: string;
   hypothesis_id: number;
-  hook_component_id: string;
-  body_component_id: string;
-  cta_component_id: string;
   character_id: string;
   script_language: 'en' | 'jp';
   planned_post_date: string; // YYYY-MM-DD
+  sections: Array<{
+    section_order: number;
+    section_label: string;
+    component_id: string;
+    script?: string;
+  }>;
 }
 
 interface ToolRecipe {
@@ -1581,15 +1582,17 @@ MCPツール呼び出し:
      → Hookシナリオ候補を取得 (scoreの高い順)
 
   2. plan_content({
-       account_id: "ACC_0013",
        hypothesis_id: 42,
-       hook_component_id: "SCN_0101",
-       body_component_id: "SCN_0102",
-       cta_component_id: "SCN_0103",
        character_id: "CHR_0001",
-       script_language: "jp"
+       script_language: "jp",
+       sections: [
+         { section_order: 1, section_label: "hook", component_id: "SCN_0101" },
+         { section_order: 2, section_label: "body", component_id: "SCN_0102" },
+         { section_order: 3, section_label: "cta",  component_id: "SCN_0103" }
+       ]
      })
      → content INSERT (status='planned', hypothesis_id=42)
+     → content_sections INSERT ×3
 
   3. schedule_content({
        content_id: "CNT_202603_0001",
@@ -1730,15 +1733,13 @@ MCPツール呼び出し:
        post_url: "https://youtube.com/shorts/dQw4w9WgXcQ",
        posted_at: "2026-03-05T07:00:00Z"
      })
-     → publications INSERT (posted_at, measure_after=posted_at+48h)
-     → content UPDATE (status='posted')
+     → publications INSERT (status='posted', posted_at, measure_after=posted_at+48h)
      → task_queue INSERT (type='measure', payload に measure_after を含める)
 
 データフロー:
   [読み取り] task_queue → 投稿タスク取得
   [外部API] YouTube/TikTok/Instagram/X → 投稿実行
-  [書き込み] publications INSERT → 投稿記録
-  [書き込み] content UPDATE → status: ready → posted
+  [書き込み] publications INSERT → 投稿記録 (status='posted')
   [書き込み] task_queue INSERT → 計測タスク発行 (measure_after設定)
 ```
 
@@ -1771,14 +1772,14 @@ MCPツール呼び出し:
        }
      })
      → metrics INSERT
-     → content UPDATE (status='measured')
+     → publications UPDATE (status='measured')
      → accounts UPDATE (follower_count=1250)
 
 データフロー:
   [読み取り] task_queue → 計測タスク取得
   [外部API] YouTube/TikTok/Instagram/X Analytics API → メトリクス取得
   [書き込み] metrics INSERT → パフォーマンスデータ
-  [書き込み] content UPDATE → status: posted → measured
+  [書き込み] publications UPDATE → status: posted → measured
   [書き込み] accounts UPDATE → follower_count更新
 ```
 
@@ -1971,9 +1972,10 @@ Day 0 (朝)          Day 0 (昼)        Day 2 (朝)         Day 4 (朝)         
 │                    │                  │                  │                  │
 ▼                    ▼                  ▼                  ▼                  ▼
 cycles INSERT        content UPDATE     publications       metrics INSERT     hypotheses UPDATE
-hypotheses INSERT    status='ready'     INSERT             content UPDATE     analyses INSERT
-content INSERT       Drive保存          posted_at記録      status='measured'  learnings INSERT
-status='planned'                        measure_after設定                    algo_perf INSERT
+hypotheses INSERT    status='ready'     INSERT             publications       analyses INSERT
+content INSERT       Drive保存          status='posted'    UPDATE             learnings INSERT
+status='planned'                        posted_at記録      status='measured'  algo_perf INSERT
+                                        measure_after設定
                                                                             ↓
                                                                          Day 5 = 次サイクルの
                                                                          Step 1 開始
@@ -1989,8 +1991,8 @@ status='planned'                        measure_after設定                    a
 | 4 | プランナー | `content`, `task_queue` | INSERT (status='planned'), INSERT (type='produce') |
 | 4.5 | ツールスペシャリスト | `content` | UPDATE (recipe設定) |
 | 5 | 動画制作ワーカー | `content` | UPDATE (planned→producing→ready) |
-| 6 | 投稿ワーカー | `publications`, `content`, `task_queue` | INSERT, UPDATE (status='posted'), INSERT (type='measure') |
-| 7 | 計測ワーカー | `metrics`, `content`, `accounts` | INSERT, UPDATE (status='measured'), UPDATE (follower_count) |
+| 6 | 投稿ワーカー | `publications`, `task_queue` | INSERT (status='posted'), INSERT (type='measure') |
+| 7 | 計測ワーカー | `metrics`, `publications`, `accounts` | INSERT, UPDATE (status='measured'), UPDATE (follower_count) |
 | 8 | アナリスト | (読み取りのみ) | - |
 | 9 | アナリスト | `hypotheses`, `analyses` | UPDATE (verdict, confidence), INSERT |
 | 10 | アナリスト | `learnings`, `algorithm_performance` | INSERT or UPDATE, INSERT |

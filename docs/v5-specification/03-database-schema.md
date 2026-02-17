@@ -4,7 +4,7 @@
 >
 > **データベース**: PostgreSQL 16+ with pgvector extension
 >
-> **テーブル数**: 25テーブル (Entity 3 / Production 2 / Intelligence 5 / Operations 5 / Observability 5 / Tool Management 5)
+> **テーブル数**: 26テーブル (Entity 3 / Production 3 / Intelligence 5 / Operations 5 / Observability 5 / Tool Management 5)
 >
 > **関連ドキュメント**: [02-architecture.md](02-architecture.md) (データ基盤層の設計思想), [01-tech-stack.md](01-tech-stack.md) (pgvector・ORM選定)
 
@@ -17,7 +17,7 @@ v5.0のPostgreSQLスキーマは、AI-Influencerシステムの全構造化デ�
 | カテゴリ | テーブル数 | 役割 | 主要テーブル |
 |---------|----------|------|------------|
 | **Entity** | 3 | システムの基本エンティティ定義 | accounts, characters, components |
-| **Production** | 2 | コンテンツ制作から投稿までのライフサイクル | content, publications |
+| **Production** | 3 | コンテンツ制作から投稿までのライフサイクル | content, content_sections, publications |
 | **Intelligence** | 5 | 仮説駆動サイクルの知的資産 | hypotheses, market_intel, metrics, analyses, learnings |
 | **Operations** | 5 | システム運用・タスク管理 | cycles, human_directives, task_queue, algorithm_performance |
 | **Observability** | 5 | エージェントの運用可視化・自己学習・デバッグ | agent_prompt_versions, agent_thought_logs, agent_reflections, agent_individual_learnings, agent_communications |
@@ -33,38 +33,38 @@ v5.0のPostgreSQLスキーマは、AI-Influencerシステムの全構造化デ�
 │ name        │       │ platform    │       │ type            │
 │ voice_id    │       │ niche       │       │ subtype         │
 │ appearance  │       │ status      │       │ data (JSONB)    │
-└──────┬──────┘       └──────┬──────┘       └──┬──┬──┬───────┘
-       │                     │                 │  │  │
-       │  character_id       │  account_id     │  │  │ hook/body/cta
-       │                     │                 │  │  │ _component_id
-       │              ┌──────▼──────┐          │  │  │
-       └─────────────►│   content   │◄─────────┘──┘──┘
-                      │             │
-                      │ content_id  │
-                      │ status      │───────────────────┐
-                      │ hypothesis_id                   │
-                      └──────┬──────┘                   │
-                             │                          │
-                hypothesis_id│  content_id              │
-                             │                          │
-                ┌────────────▼──┐    ┌──────────────┐   │
-                │  hypotheses   │    │ publications │◄──┘
-                │               │    │              │
-                │ statement     │    │ platform     │
-                │ verdict       │    │ posted_at    │
-                │ embedding     │    │ post_url     │
-                │ (vector)      │    └──────┬───────┘
-                └───────┬───────┘           │
-                        │                   │ publication_id
-                  cycle_id                  │
-                        │           ┌───────▼──────┐
-                ┌───────▼───────┐   │   metrics    │
-                │    cycles     │   │              │
-                │               │   │ views        │
-                │ cycle_number  │   │ likes        │
-                │ status        │   │ engagement   │
-                └───────┬───────┘   │ raw_data     │
-                        │           └──────────────┘
+└──────┬──────┘       └─────────────┘       └────────┬────────┘
+       │                                             │
+       │  character_id                               │ component_id
+       │                                             │
+       │              ┌──────────────┐     ┌─────────▼─────────┐
+       └─────────────►│   content    │     │ content_sections  │
+                      │              │◄────│                   │
+                      │ content_id   │     │ content_id (FK)   │
+                      │ status       │     │ component_id (FK) │
+                      │ hypothesis_id│     │ section_order     │
+                      └──────┬──────┘      │ section_label     │
+                             │             └───────────────────┘
+                hypothesis_id│  content_id
+                             │         │
+                ┌────────────▼──┐      │    ┌──────────────┐
+                │  hypotheses   │      └───►│ publications │
+                │               │           │              │
+                │ statement     │           │ content_id   │
+                │ verdict       │           │ account_id   │
+                │ embedding     │           │ platform     │
+                │ (vector)      │           │ posted_at    │
+                └───────┬───────┘           └──────┬───────┘
+                        │                          │
+                  cycle_id                         │ publication_id
+                        │                          │
+                ┌───────▼───────┐   ┌──────────────▼───┐
+                │    cycles     │   │     metrics       │
+                │               │   │                   │
+                │ cycle_number  │   │ views, likes      │
+                │ status        │   │ platform_data     │
+                └───────┬───────┘   │ raw_data (JSONB)  │
+                        │           └──────────────────┘
                   cycle_id
                         │
                 ┌───────▼───────┐   ┌──────────────────┐
@@ -360,15 +360,17 @@ CREATE TABLE components (
         -- motion: モーション参照動画（Kling入力用）
         -- audio: BGM・効果音
         -- image: 背景画像・オーバーレイ素材
-    subtype         VARCHAR(20),
-        -- hook / body / cta
-        -- 動画の3セクション構成に対応
-        -- scenario・motionでは必須、audio・imageでは任意
+    subtype         VARCHAR(30),
+        -- コンポーネントの用途分類（自由タグ）
+        -- 例: hook / body / cta / intro / main / transition / summary 等
+        -- v4.0ではhook/body/ctaの3分類だったが、v5.0ではセクション構成が
+        -- コンテンツごとに動的に決まるため、制約を緩和
+        -- 任意フィールド (NULLも可)
 
     -- 基本情報
     name            VARCHAR(200) NOT NULL,
         -- コンポーネント名
-        -- 例: "朝のスキンケアルーティン - Hook"
+        -- 例: "朝のスキンケアルーティン - イントロ"
     description     TEXT,
         -- コンポーネントの説明
         -- 例: "視聴者の注意を引く冒頭5秒。驚きの表情から始まる"
@@ -435,8 +437,7 @@ CREATE TABLE components (
     -- 制約
     CONSTRAINT chk_components_type
         CHECK (type IN ('scenario', 'motion', 'audio', 'image')),
-    CONSTRAINT chk_components_subtype
-        CHECK (subtype IS NULL OR subtype IN ('hook', 'body', 'cta'))
+    -- subtype は自由タグのため CHECK 制約なし (任意の文字列を許可)
 );
 
 COMMENT ON TABLE components IS 'シナリオ・モーション・オーディオ・画像の統合コンポーネント管理';
@@ -447,11 +448,11 @@ COMMENT ON COLUMN components.tags IS '自由タグ配列。GINインデックス
 
 ## 2. Production Tables (制作テーブル)
 
-コンテンツの制作から投稿までのライフサイクルを管理する。`content` テーブルがv4.0の production タブ (33カラム) の後継、`publications` テーブルが投稿記録を分離して保持する。
+コンテンツの制作から投稿までのライフサイクルを管理する。`content` テーブルがv4.0の production タブ (33カラム) の後継、`content_sections` テーブルが動的セクション構成を管理し、`publications` テーブルが投稿記録を分離して保持する。
 
 ### 2.1 content — コンテンツ管理
 
-コンテンツの全ライフサイクルを管理する中核テーブル。ステータス遷移 (`planned` → `producing` → `ready` → `scheduled` → `posted` → `measured` → `analyzed`) を追跡し、4つのLangGraphグラフ間の間接連携ポイントとなる。
+コンテンツの制作ライフサイクルを管理する中核テーブル。制作ステータス (`planned` → `producing` → `ready` → `analyzed`) を追跡し、LangGraphグラフ間の間接連携ポイントとなる。投稿以降のライフサイクル (`scheduled` → `posted` → `measured`) は `publications` テーブルで管理する（1コンテンツ→N投稿の1:Nモデル）。
 
 v4.0の production タブ (33カラム) からの移行先。
 
@@ -464,35 +465,26 @@ CREATE TABLE content (
         -- 例: CNT_202602_2916 (v4.0の初回E2E成功コンテンツ)
 
     -- 紐付け
-    account_id      VARCHAR(20) NOT NULL REFERENCES accounts(account_id),
-        -- このコンテンツを投稿するアカウント
     hypothesis_id   INTEGER REFERENCES hypotheses(id),
         -- この制作の根拠となった仮説
         -- NULLの場合: 人間が直接指示したコンテンツ（仮説駆動でない）
         -- 戦略サイクルグラフが仮説に基づいてコンテンツ計画を作成する際に設定
 
-    -- ステータス管理
+    -- ステータス管理 (制作ライフサイクルのみ)
     status          VARCHAR(20) NOT NULL DEFAULT 'planned',
         -- planned:    戦略サイクルが計画承認済み。制作待ち
         -- producing:  制作パイプラインが動画生成中
         -- ready:      動画完成。投稿待ちプール内
-        -- scheduled:  投稿スケジュール確定
-        -- posted:     投稿完了
-        -- measured:   パフォーマンス計測完了
-        -- analyzed:   分析結果が知見として保存済み
-        -- error:      制作or投稿で回復不能エラー発生
+        --             ※ readyの後はpublicationsテーブルで各投稿先を管理
+        -- analyzed:   全publicationsの計測完了後、分析結果が知見として保存済み
+        -- error:      制作で回復不能エラー発生
         -- cancelled:  人間orエージェントが取消
     planned_post_date DATE,
         -- 投稿予定日。戦略サイクルが設定
         -- 投稿スケジューラーがこの日付+最適時間帯で投稿
 
-    -- コンポーネント紐付け (3セクション構成)
-    hook_component_id VARCHAR(30) REFERENCES components(component_id),
-        -- Hook部分のシナリオ or モーションID
-    body_component_id VARCHAR(30) REFERENCES components(component_id),
-        -- Body部分のシナリオ or モーションID
-    cta_component_id  VARCHAR(30) REFERENCES components(component_id),
-        -- CTA部分のシナリオ or モーションID
+    -- セクション構成は content_sections テーブルで管理
+    -- (動的N分割: コンテンツごとにセクション数・種類が異なる)
 
     -- キャラクター
     character_id    VARCHAR(20) REFERENCES characters(character_id),
@@ -505,13 +497,8 @@ CREATE TABLE content (
         -- en / jp
         -- components.data.script_en or script_jp のどちらを使用するかを決定
         -- v4.0の script_language カラムからの継続
-    script_hook     TEXT,
-        -- 実際に使用されたHookスクリプト
-        -- componentsのscript_en/jpをコピー or LLMが調整した版
-    script_body     TEXT,
-        -- 実際に使用されたBodyスクリプト
-    script_cta      TEXT,
-        -- 実際に使用されたCTAスクリプト
+    -- セクション別スクリプトは content_sections テーブルで管理
+    -- (各セクションに script カラムがあり、LLM調整版を保持)
 
     -- 完成動画情報
     video_drive_id  VARCHAR(100),
@@ -521,34 +508,38 @@ CREATE TABLE content (
         -- 例: https://drive.google.com/file/d/{id}/view
     drive_folder_id VARCHAR(100),
         -- 動画保存先フォルダのDrive ID
-        -- Productions/YYYY-MM-DD/VID_YYYYMM_XXXX/ のフォルダID
+        -- Productions/YYYY-MM-DD/CNT_YYYYMM_XXXX/ のフォルダID
 
     -- 制作メタデータ
     production_metadata JSONB,
         -- 制作パイプラインの実行情報
         -- 構造例:
         -- {
-        --   "fal_request_ids": {
-        --     "hook_kling": "req_abc123",
-        --     "body_kling": "req_def456",
-        --     "cta_kling": "req_ghi789",
-        --     "hook_tts": "req_jkl012",
-        --     "hook_lipsync": "req_mno345"
-        --   },
-        --   "processing_times": {
-        --     "total_seconds": 720,
-        --     "hook_seconds": 240,
-        --     "body_seconds": 230,
-        --     "cta_seconds": 250,
-        --     "concat_seconds": 15
-        --   },
-        --   "file_sizes": {
-        --     "hook_mp4": 18000000,
-        --     "body_mp4": 20000000,
-        --     "cta_mp4": 16000000,
-        --     "final_mp4": 54000000
-        --   },
-        --   "pipeline_version": "4.0",
+        --   "sections": [
+        --     {
+        --       "order": 1, "label": "hook",
+        --       "fal_request_ids": {"kling": "req_abc123", "tts": "req_jkl012", "lipsync": "req_mno345"},
+        --       "processing_time_seconds": 240,
+        --       "file_size_bytes": 18000000
+        --     },
+        --     {
+        --       "order": 2, "label": "body",
+        --       "fal_request_ids": {"kling": "req_def456", "tts": "req_pqr678", "lipsync": "req_stu901"},
+        --       "processing_time_seconds": 230,
+        --       "file_size_bytes": 20000000
+        --     },
+        --     {
+        --       "order": 3, "label": "cta",
+        --       "fal_request_ids": {"kling": "req_ghi789", "tts": "req_vwx234", "lipsync": "req_yza567"},
+        --       "processing_time_seconds": 250,
+        --       "file_size_bytes": 16000000
+        --     }
+        --   ],
+        --   "total_seconds": 720,
+        --   "concat_seconds": 15,
+        --   "final_file_size_bytes": 54000000,
+        --   "pipeline_version": "5.0",
+        --   "recipe_id": "RCP_0001",
         --   "dry_run": false
         -- }
 
@@ -565,8 +556,7 @@ CREATE TABLE content (
     -- 制約
     CONSTRAINT chk_content_status
         CHECK (status IN (
-            'planned', 'producing', 'ready', 'scheduled',
-            'posted', 'measured', 'analyzed',
+            'planned', 'producing', 'ready', 'analyzed',
             'error', 'cancelled'
         )),
     CONSTRAINT chk_content_script_language
@@ -574,12 +564,64 @@ CREATE TABLE content (
 );
 
 COMMENT ON TABLE content IS 'コンテンツのライフサイクル管理。4つのLangGraphグラフ間の間接連携ポイント';
-COMMENT ON COLUMN content.status IS 'planned→producing→ready→scheduled→posted→measured→analyzed のステータス遷移';
+COMMENT ON COLUMN content.status IS 'planned→producing→ready→analyzed の制作ステータス遷移。投稿以降はpublicationsテーブルで管理';
 COMMENT ON COLUMN content.hypothesis_id IS '仮説駆動サイクルの根拠。NULLは人間の直接指示';
 COMMENT ON COLUMN content.production_metadata IS 'fal.ai request ID, 処理時間, ファイルサイズ等';
 ```
 
-### 2.2 publications — 投稿記録
+### 2.2 content_sections — セクション構成
+
+コンテンツを構成するセクションの順序と使用コンポーネントを管理するジャンクションテーブル。v4.0では固定3セクション (Hook/Body/CTA) だったが、v5.0ではセクション数・種類をコンテンツごとに動的に決定する。ツールスペシャリストが `create_content_sections` MCPツールで作成する。
+
+```sql
+CREATE TABLE content_sections (
+    -- 主キー
+    id              SERIAL PRIMARY KEY,
+
+    -- 紐付け
+    content_id      VARCHAR(20) NOT NULL REFERENCES content(content_id),
+        -- このセクションが属するコンテンツ
+    component_id    VARCHAR(30) NOT NULL REFERENCES components(component_id),
+        -- このセクションで使用するコンポーネント (シナリオ or モーション)
+
+    -- セクション情報
+    section_order   INTEGER NOT NULL,
+        -- セクションの表示順序 (1, 2, 3, ...)
+        -- ffmpeg concatの結合順序を決定
+    section_label   VARCHAR(30) NOT NULL,
+        -- セクションの名前 (自由タグ)
+        -- 例: "hook", "body", "cta", "intro", "main", "transition", "summary"
+        -- ファイル名にも使用: section_01_{label}.mp4
+
+    -- スクリプト
+    script          TEXT,
+        -- このセクションで実際に使用されたスクリプト
+        -- componentsのscript_en/jpをコピー or LLMが調整した版
+        -- テキストコンテンツ (X投稿等) の場合は最終テキスト
+
+    -- 制作結果
+    drive_file_id   VARCHAR(100),
+        -- 完成したセクション動画のDrive ID
+        -- 例: section_01.mp4 のファイルID
+    duration_seconds NUMERIC(8,2),
+        -- セクションの長さ (秒)
+
+    -- タイムスタンプ
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    -- 制約
+    CONSTRAINT uq_content_section_order
+        UNIQUE (content_id, section_order)
+        -- 同じコンテンツ内でセクション順序は一意
+);
+
+COMMENT ON TABLE content_sections IS 'コンテンツのセクション構成。1コンテンツに対して動的にN件のセクションを定義';
+COMMENT ON COLUMN content_sections.section_order IS 'セクションの結合順序。ffmpeg concatの順序を決定';
+COMMENT ON COLUMN content_sections.section_label IS 'セクション名。hook/body/cta等の自由タグ';
+COMMENT ON COLUMN content_sections.script IS '実際に使用されたスクリプト。LLMが調整した最終版';
+```
+
+### 2.3 publications — 投稿記録
 
 コンテンツの実際の投稿記録を管理する。1つのコンテンツが複数プラットフォームに投稿される可能性があるため、content テーブルから分離する。投稿スケジューラーグラフが書き込み、計測ジョブグラフが `measure_after` を参照して計測タイミングを判定する。
 
@@ -900,15 +942,72 @@ CREATE TABLE metrics (
         -- Instagram: Insights APIから取得
         -- 他プラットフォーム: NULL or 推定値
 
+    -- プラットフォーム固有メトリクス
+    platform_data   JSONB,
+        -- プラットフォーム別の詳細メトリクス (02-architecture.md 3.6節参照)
+        --
+        -- [YouTube の場合]
+        -- {
+        --   "estimated_minutes_watched": 1250.5,
+        --   "average_view_duration": 12.3,
+        --   "average_view_percentage": 78.5,
+        --   "audience_watch_ratio": [1.0, 0.95, 0.88, ...],  -- 秒単位の視聴維持率カーブ
+        --   "impressions": 45000,
+        --   "impression_click_through_rate": 0.045,
+        --   "traffic_source_type": {"SUGGESTED": 60, "SEARCH": 25, "EXTERNAL": 15},
+        --   "subscribers_gained": 12,
+        --   "subscribers_lost": 2,
+        --   "demographics": {"age_group": {"18-24": 35, "25-34": 40}, "gender": {"male": 45, "female": 55}},
+        --   "estimated_revenue": 0.85
+        -- }
+        --
+        -- [Instagram の場合]
+        -- {
+        --   "avg_watch_time_ms": 4800,
+        --   "completion_rate": 0.65,
+        --   "forward_taps": 120,
+        --   "backward_taps": 45,
+        --   "drop_off": 350,
+        --   "skip_rate": 0.22,
+        --   "repost_count": 8,
+        --   "crossposted_views": 500,
+        --   "facebook_views": 200
+        -- }
+        --
+        -- [TikTok の場合]
+        -- { } -- TikTok APIでは基本指標のみ (views, likes, comments, shares)
+        --
+        -- [X の場合]
+        -- {
+        --   "url_link_clicks": 45,
+        --   "user_profile_clicks": 120,
+        --   "video_view_count": 8500,
+        --   "quote_count": 5,
+        --   "bookmark_count": 30
+        -- }
+
+    -- 計測回次
+    measurement_point VARCHAR(10),
+        -- 48h: 投稿後48時間の計測
+        -- 7d: 投稿後7日の計測
+        -- 30d: 投稿後30日の計測
+        -- 1つのpublicationに対して最大3回計測する
+
     -- 生データ
-    raw_data        JSONB
+    raw_data        JSONB,
         -- プラットフォームAPIから取得した生レスポンス
         -- デバッグ・将来の再分析用に全データを保持
         -- 構造はプラットフォームごとに異なる
+
+    -- 制約
+    CONSTRAINT chk_metrics_measurement_point
+        CHECK (measurement_point IS NULL OR measurement_point IN ('48h', '7d', '30d'))
 );
 
-COMMENT ON TABLE metrics IS '投稿パフォーマンスの時系列記録。1投稿に対して複数回計測可能';
+COMMENT ON TABLE metrics IS '投稿パフォーマンスの時系列記録。1投稿に対して最大3回計測 (48h, 7d, 30d)';
 COMMENT ON COLUMN metrics.completion_rate IS '完視聴率。Shorts/Reelsの最重要KPI';
+COMMENT ON COLUMN metrics.platform_data IS 'プラットフォーム固有の詳細メトリクス (視聴維持率カーブ, トラフィックソース等)';
+COMMENT ON COLUMN metrics.measurement_point IS '計測回次。48h/7d/30dの最大3回';
 COMMENT ON COLUMN metrics.raw_data IS 'プラットフォームAPIの生レスポンス。再分析・デバッグ用';
 ```
 
@@ -1240,12 +1339,14 @@ CREATE TABLE task_queue (
         -- [produce の場合]
         -- {
         --   "content_id": "CNT_202603_0001",
-        --   "account_id": "ACC_0013",
         --   "character_id": "CHR_0001",
-        --   "hook_component_id": "SCN_0042",
-        --   "body_component_id": "SCN_0043",
-        --   "cta_component_id": "SCN_0044",
         --   "script_language": "jp",
+        --   "recipe_id": "RCP_0001",
+        --   "sections": [
+        --     {"order": 1, "label": "hook", "component_id": "SCN_0042"},
+        --     {"order": 2, "label": "body", "component_id": "SCN_0043"},
+        --     {"order": 3, "label": "cta", "component_id": "SCN_0044"}
+        --   ],
         --   "dry_run": false
         -- }
         --
@@ -2685,12 +2786,10 @@ CREATE TRIGGER trg_production_recipes_updated_at
 | From テーブル | From カラム | To テーブル | To カラム | 関係 | 説明 |
 |---|---|---|---|---|---|
 | accounts | character_id | characters | character_id | N:1 | 複数アカウントが1キャラクターを共有 |
-| content | account_id | accounts | account_id | N:1 | 1アカウントに複数コンテンツ |
 | content | hypothesis_id | hypotheses | id | N:1 | 1仮説に基づく複数コンテンツ |
 | content | character_id | characters | character_id | N:1 | コンテンツに使用するキャラクター |
-| content | hook_component_id | components | component_id | N:1 | Hookセクションのコンポーネント |
-| content | body_component_id | components | component_id | N:1 | Bodyセクションのコンポーネント |
-| content | cta_component_id | components | component_id | N:1 | CTAセクションのコンポーネント |
+| content_sections | content_id | content | content_id | N:1 | コンテンツのセクション構成 |
+| content_sections | component_id | components | component_id | N:1 | セクションで使用するコンポーネント |
 | publications | content_id | content | content_id | N:1 | 1コンテンツの複数プラットフォーム投稿 |
 | publications | account_id | accounts | account_id | N:1 | 投稿先アカウント |
 | metrics | publication_id | publications | id | N:1 | 1投稿の複数回計測 |
@@ -2732,11 +2831,11 @@ CREATE TRIGGER trg_production_recipes_updated_at
                                                 │
 3. 投稿スケジューラーグラフ                       │
    task_queue (INSERT, type='publish') ←─────────┘
-   publications (INSERT) → content (UPDATE, status='posted')
+   publications (INSERT, status='scheduled' → 'posted')
                                                 │
 4. 計測ジョブグラフ                              │
    task_queue (INSERT, type='measure') ←─────────┘
-   metrics (INSERT) → content (UPDATE, status='measured')
+   metrics (INSERT) → publications (UPDATE, status='measured')
                                                 │
 5. 戦略サイクルグラフ (次サイクル)                │
    analyses (INSERT) ←──────────────────────────┘
@@ -2777,10 +2876,12 @@ CREATE TRIGGER trg_production_recipes_updated_at
 | v4.0 production カラム | v5.0 content カラム | 変換 |
 |---|---|---|
 | content_id | content_id | そのまま |
-| account_id | account_id | そのまま |
-| status | status | 値のマッピング (queued → planned 等) |
+| account_id | publications.account_id | contentではなくpublicationsに移行 |
+| status | status | 値のマッピング (queued → planned 等)。scheduled/posted/measured → publications.status |
 | planned_date | planned_post_date | DATE型に変換 |
-| hook_scenario_id | hook_component_id | ID体系の変換 |
+| hook_scenario_id | content_sections (section_order=1) | content_sectionsテーブルにINSERT |
+| body_scenario_id | content_sections (section_order=2) | content_sectionsテーブルにINSERT |
+| cta_scenario_id | content_sections (section_order=3) | content_sectionsテーブルにINSERT |
 | script_language | script_language | そのまま |
 | video_drive_id | video_drive_id | そのまま |
 | file_link | video_drive_url | そのまま |
@@ -2795,13 +2896,21 @@ MCP Serverが構築する主要なクエリパターンを示す。エージェ�
 
 ```sql
 -- MCPツール: get_pending_tasks
-SELECT c.content_id, c.account_id, c.script_language,
-       c.hook_component_id, c.body_component_id, c.cta_component_id,
-       ch.character_id, ch.voice_id, ch.image_drive_id
+SELECT c.content_id, c.script_language,
+       ch.character_id, ch.voice_id, ch.image_drive_id,
+       json_agg(json_build_object(
+         'section_order', cs.section_order,
+         'section_label', cs.section_label,
+         'component_id', cs.component_id,
+         'script', cs.script
+       ) ORDER BY cs.section_order) AS sections
 FROM content c
 JOIN characters ch ON c.character_id = ch.character_id
+LEFT JOIN content_sections cs ON c.content_id = cs.content_id
 WHERE c.status = 'planned'
   AND c.planned_post_date <= CURRENT_DATE + INTERVAL '3 days'
+GROUP BY c.content_id, c.script_language,
+         ch.character_id, ch.voice_id, ch.image_drive_id
 ORDER BY c.planned_post_date ASC
 LIMIT 5;
 ```

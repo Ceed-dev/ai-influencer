@@ -1384,6 +1384,22 @@ node scripts/generate-digest.js --force               # 既存ファイル上書
 - テキスト短縮: "レシピに基づく" → "レシピ準拠の", "リサーチャー" → "リサーチ" 等
 - ランキングテーブル列幅再配分、プロンプト提案UIのテキスト折り返し
 
+### 2026-02-17: v5.0仕様書レビュー — 5項目修正 (02/03/04)
+
+ユーザーによる `02-architecture.md` レビューで5つの修正リクエストを実施。関連する `03-database-schema.md`、`04-agent-design.md` も整合性を取りながら一括修正。
+
+**修正内容**:
+1. **リンク修正** (`01-tech-stack.md`): 相対リンク → GitHub完全URL+アンカー
+2. **柔軟なセクション構成**: Hook/Body/CTA固定3セクション → 動的Nセクション。`content_sections` ジャンクションテーブル新設、`components.subtype` を自由タグ化
+3. **並列マルチ動画制作**: `MAX_CONCURRENT_PRODUCTIONS` 設定で同時N本制作対応
+4. **プラットフォーム別メトリクス充実**: YouTube/IG/TikTok/X の実APIから取得可能な全指標を `platform_data` JSONB + `measurement_point` (48h/7d/30d) で管理
+5. **マルチプラットフォーム投稿 (1:N:M)**: 2層ステータスモデル — `content.status` (planned→producing→ready→analyzed) + `publications.status` (scheduled→posted→measured)
+
+**変更ファイル** (3ファイル, +512/-230行):
+- `02-architecture.md`: セクション構成の動的化、2層ステータスモデル、コンテンツライフサイクル書き直し
+- `03-database-schema.md`: content_sectionsテーブル追加、content.account_id削除、FK一覧・移行マッピング・SQLクエリ更新
+- `04-agent-design.md`: plan_contentツール引数・ContentPlan型・実行例・データフロー図を全更新
+
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID
 - `.gsheets_token.json` - OAuth token for Sheets/Drive API
