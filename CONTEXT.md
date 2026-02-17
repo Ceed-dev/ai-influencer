@@ -1410,6 +1410,12 @@ node scripts/generate-digest.js --force               # 既存ファイル上書
 - `02-architecture.md`: 制作パイプラインフローチャートからセクション構成決定をプランナー側に、比較表の責務記述修正
 - `03-database-schema.md`: content_sectionsテーブル説明の作成者をプランナーに修正
 
+### 2026-02-17: v5.0仕様書レビュー — publications.status CHECK制約修正
+
+`publications`テーブルのCHECK制約に`measured`が欠落していた不整合を修正。
+- CHECK制約: `('scheduled', 'posted', 'failed')` → `('scheduled', 'posted', 'measured', 'failed')`
+- statusコメントに`measured: 計測完了`の説明を追加
+
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID
 - `.gsheets_token.json` - OAuth token for Sheets/Drive API

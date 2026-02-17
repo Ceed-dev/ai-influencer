@@ -664,6 +664,7 @@ CREATE TABLE publications (
     status          VARCHAR(20) NOT NULL DEFAULT 'scheduled',
         -- scheduled: 投稿予定
         -- posted: 投稿完了
+        -- measured: 計測完了 (最終計測回の完了後)
         -- failed: 投稿失敗 (API エラー, アカウントBAN等)
 
     -- 追加情報
@@ -686,7 +687,7 @@ CREATE TABLE publications (
     CONSTRAINT chk_publications_platform
         CHECK (platform IN ('youtube', 'tiktok', 'instagram', 'x')),
     CONSTRAINT chk_publications_status
-        CHECK (status IN ('scheduled', 'posted', 'failed'))
+        CHECK (status IN ('scheduled', 'posted', 'measured', 'failed'))
 );
 
 COMMENT ON TABLE publications IS '投稿記録。1コンテンツが複数プラットフォームに投稿される可能性に対応';
