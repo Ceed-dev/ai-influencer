@@ -4,13 +4,13 @@
 >
 > **データベース**: PostgreSQL 16+ with pgvector extension
 >
-> **テーブル数**: 15テーブル (Entity 3 / Production 2 / Intelligence 5 / Operations 5)
+> **テーブル数**: 20テーブル (Entity 3 / Production 2 / Intelligence 5 / Operations 5 / Observability 5)
 >
 > **関連ドキュメント**: [02-architecture.md](02-architecture.md) (データ基盤層の設計思想), [01-tech-stack.md](01-tech-stack.md) (pgvector・ORM選定)
 
 ## 概要
 
-v5.0のPostgreSQLスキーマは、AI-Influencerシステムの全構造化データを一元管理する。v4.0で5つのGoogle Spreadsheet + 33列productionタブに散在していたデータを、リレーショナルDBの正規化された15テーブルに集約する。
+v5.0のPostgreSQLスキーマは、AI-Influencerシステムの全構造化データを一元管理する。v4.0で5つのGoogle Spreadsheet + 33列productionタブに散在していたデータを、リレーショナルDBの正規化された20テーブルに集約する。
 
 ### テーブルカテゴリ
 
@@ -20,6 +20,7 @@ v5.0のPostgreSQLスキーマは、AI-Influencerシステムの全構造化デ�
 | **Production** | 2 | コンテンツ制作から投稿までのライフサイクル | content, publications |
 | **Intelligence** | 5 | 仮説駆動サイクルの知的資産 | hypotheses, market_intel, metrics, analyses, learnings |
 | **Operations** | 5 | システム運用・タスク管理 | cycles, human_directives, task_queue, algorithm_performance |
+| **Observability** | 5 | エージェントの運用可視化・自己学習・デバッグ | agent_prompt_versions, agent_thought_logs, agent_reflections, agent_individual_learnings, agent_communications |
 
 ### ER図
 
@@ -89,6 +90,45 @@ v5.0のPostgreSQLスキーマは、AI-Influencerシステムの全構造化デ�
                 │ status        │   │ prediction_error     │
                 │ priority      │   │ improvement_rate     │
                 └───────────────┘   └──────────────────────┘
+
+                ┌─────────────────────┐   ┌──────────────────────┐
+                │agent_prompt_versions│   │  agent_thought_logs  │
+                │                     │   │                      │
+                │ agent_type          │   │ agent_type           │
+                │ version             │   │ cycle_id ────────────┼──► cycles
+                │ prompt_content      │   │ graph_name           │
+                │ active              │   │ node_name            │
+                │ performance_before  │   │ reasoning            │
+                │ performance_after   │   │ decision             │
+                └─────────────────────┘   └──────────────────────┘
+
+                ┌─────────────────────┐   ┌────────────────────────────┐
+                │ agent_reflections   │   │agent_individual_learnings  │
+                │                     │   │                            │
+                │ agent_type          │   │ agent_type                 │
+                │ cycle_id ───────────┼─► │ category                   │
+                │ task_description    │   │ content                    │
+                │ self_score          │   │ confidence                 │
+                │ what_went_well      │   │ success_rate (generated)   │
+                │ what_to_improve     │   │ source_reflection_id ──────┼──► agent_reflections
+                │ next_actions        │   │ embedding (vector)         │
+                └──────────┬──────────┘   └────────────────────────────┘
+                           │
+                           │ cycle_id
+                           ▼
+                       cycles
+
+                ┌─────────────────────────────┐
+                │   agent_communications      │
+                │                             │
+                │ agent_type                  │
+                │ message_type                │
+                │ priority                    │
+                │ content                     │
+                │ human_response              │
+                │ status                      │
+                │ cycle_id ───────────────────┼──► cycles
+                └─────────────────────────────┘
 ```
 
 ## 初期セットアップ
@@ -1311,11 +1351,461 @@ COMMENT ON COLUMN algorithm_performance.hypothesis_accuracy IS '仮説的中率�
 COMMENT ON COLUMN algorithm_performance.improvement_rate IS '前期比改善率。正=改善、負=悪化';
 ```
 
-## 5. インデックス定義
+## 5. Observability Tables (運用・可視化テーブル)
+
+エージェントの内部動作を可視化し、プロンプト改善やデバッグを支援するテーブル群。人間がエージェントの思考プロセスを理解し、プロンプト変更の効果を定量的に評価するための基盤。
+
+### 5.1 agent_prompt_versions — エージェントプロンプト履歴
+
+エージェントのプロンプトファイルの変更履歴を追跡する。プロンプト変更前後のパフォーマンスを比較し、「どの変更が効果的だったか」を定量的に評価する。
+
+```sql
+CREATE TABLE agent_prompt_versions (
+    -- 主キー
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        -- UUIDで一意に識別
+
+    -- エージェント情報
+    agent_type      TEXT NOT NULL,
+        -- strategist: 戦略エージェント（サイクル全体の方針決定）
+        -- researcher: リサーチャーエージェント（市場情報収集）
+        -- analyst: アナリストエージェント（仮説生成・検証・分析）
+        -- planner: プランナーエージェント（コンテンツ計画・スケジューリング）
+    version         INTEGER NOT NULL,
+        -- エージェントタイプごとの自動採番バージョン
+        -- 例: strategist v1, strategist v2, ...
+        -- アプリケーション層で MAX(version) + 1 を計算して設定
+
+    -- プロンプト内容
+    prompt_content  TEXT NOT NULL,
+        -- プロンプトの全文テキスト
+        -- 変更履歴を完全に保持するため、差分ではなく全文を保存
+    change_summary  TEXT,
+        -- 人間が記述する変更内容の要約
+        -- 例: "仮説生成時に過去の類似仮説を5件→10件参照するよう変更"
+        -- NULLの場合: 初回バージョン or 変更内容未記述
+
+    -- 変更者
+    changed_by      TEXT NOT NULL DEFAULT 'human',
+        -- human: 人間がダッシュボードから変更
+        -- system: システムが自動最適化で変更（将来の拡張用）
+
+    -- パフォーマンス比較
+    performance_before JSONB,
+        -- この変更前のメトリクスのスナップショット
+        -- 構造例:
+        -- {
+        --   "hypothesis_accuracy": 0.52,
+        --   "avg_engagement_rate": 0.038,
+        --   "cycles_measured": 10,
+        --   "snapshot_date": "2026-03-01"
+        -- }
+        -- NULLの場合: 初回バージョン（比較対象なし）
+    performance_after JSONB,
+        -- この変更後のメトリクスのスナップショット（後から更新）
+        -- 同構造。一定期間経過後にアナリストが計測して更新
+        -- NULLの場合: まだ計測されていない
+
+    -- 有効フラグ
+    active          BOOLEAN NOT NULL DEFAULT true,
+        -- 現在有効なバージョンかどうか
+        -- agent_typeごとに1つだけ active=true
+        -- 新バージョン作成時に旧バージョンを active=false に更新
+
+    -- タイムスタンプ
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE agent_prompt_versions IS 'エージェントプロンプトの変更履歴。変更前後のパフォーマンス比較を可能にする';
+COMMENT ON COLUMN agent_prompt_versions.agent_type IS 'strategist/researcher/analyst/planner';
+COMMENT ON COLUMN agent_prompt_versions.active IS 'agent_typeごとに1つだけtrue。新バージョン作成時に旧版をfalseに更新';
+COMMENT ON COLUMN agent_prompt_versions.performance_after IS '変更後のメトリクス。一定期間後にアナリストが計測して更新';
+```
+
+### 5.2 agent_thought_logs — エージェント思考ログ
+
+各エージェントの推論プロセスを記録する。LangGraphのどのグラフ・どのノードで、何を入力として受け取り、どう考え、何を決定し、何を出力したかを完全に追跡する。人間がエージェントの意思決定を検証し、問題のあるノードを特定するために使用する。
+
+```sql
+CREATE TABLE agent_thought_logs (
+    -- 主キー
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        -- UUIDで一意に識別
+
+    -- エージェント情報
+    agent_type      TEXT NOT NULL,
+        -- strategist / researcher / analyst / planner
+        -- どのエージェントがこの思考を実行したか
+
+    -- サイクル紐付け
+    cycle_id        INTEGER REFERENCES cycles(id),
+        -- この思考が属するサイクル
+        -- NULLの場合: サイクル外の処理（計測ジョブ等）
+
+    -- LangGraph位置情報
+    graph_name      TEXT NOT NULL,
+        -- この思考が属するLangGraphグラフ名
+        -- 例: "strategy_cycle", "production_pipeline",
+        --      "posting_scheduler", "measurement_job"
+    node_name       TEXT NOT NULL,
+        -- グラフ内のノード名
+        -- 例: "collect_market_data", "generate_hypotheses",
+        --      "create_content_plan", "review_and_approve"
+        -- デバッグ時にどのステップで問題が起きたかを特定する
+
+    -- 入力・推論・決定・出力
+    input_summary   JSONB,
+        -- このノードが受け取ったデータの要約
+        -- 構造例:
+        -- {
+        --   "market_intel_count": 15,
+        --   "active_hypotheses": 8,
+        --   "pending_directives": 2,
+        --   "accounts_in_scope": ["ACC_0013", "ACC_0015"]
+        -- }
+    reasoning       TEXT NOT NULL,
+        -- エージェントの推論プロセス（思考の全文）
+        -- 例: "過去7日のbeautyニッチのengagement_rateが0.052と高水準。
+        --       一方でtechニッチは0.031と低迷。beautyに投稿リソースを集中すべき。
+        --       ただし、techの低迷はサンプル数不足(n=3)の可能性もあるため、
+        --       最低限の投稿(週2回)は維持して追加データを収集する。"
+    decision        TEXT NOT NULL,
+        -- エージェントが下した決定の要約
+        -- 例: "beautyニッチの投稿頻度を日3回→日4回に増加。
+        --       techニッチは日2回を維持。新仮説H-055を生成。"
+    output_summary  JSONB,
+        -- このノードが出力したデータの要約
+        -- 構造例:
+        -- {
+        --   "contents_planned": 12,
+        --   "hypotheses_generated": 2,
+        --   "directives_applied": 1,
+        --   "next_node": "review_and_approve"
+        -- }
+
+    -- ツール使用状況
+    tools_used      TEXT[],
+        -- このステップで呼び出したMCPツールの一覧
+        -- 例: {'search_similar_hypotheses', 'get_performance_summary',
+        --       'get_market_intel'}
+        -- デバッグ時にどのツールが使われたかを追跡
+
+    -- LLM情報
+    llm_model       TEXT,
+        -- 使用したLLMモデル
+        -- 'opus': Claude Opus（高精度が必要なノード用）
+        -- 'sonnet': Claude Sonnet（コスト効率重視のノード用）
+    token_usage     JSONB,
+        -- トークン使用量とコスト
+        -- 構造例:
+        -- {
+        --   "input_tokens": 15000,
+        --   "output_tokens": 2500,
+        --   "cost_usd": 0.085
+        -- }
+        -- コスト最適化の分析に使用
+
+    -- パフォーマンス
+    duration_ms     INTEGER,
+        -- このノードの処理時間（ミリ秒）
+        -- ボトルネックの特定に使用
+        -- 例: 3500 (= 3.5秒)
+
+    -- タイムスタンプ
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE agent_thought_logs IS 'エージェントの推論プロセスを完全記録。デバッグ・プロンプト改善の根拠';
+COMMENT ON COLUMN agent_thought_logs.graph_name IS 'LangGraphのグラフ名。strategy_cycle/production_pipeline等';
+COMMENT ON COLUMN agent_thought_logs.node_name IS 'グラフ内のノード名。問題ステップの特定に使用';
+COMMENT ON COLUMN agent_thought_logs.reasoning IS 'エージェントの思考全文。人間がレビューして改善点を発見';
+COMMENT ON COLUMN agent_thought_logs.token_usage IS 'トークン使用量・コスト。コスト最適化の分析に使用';
+```
+
+### 5.3 agent_reflections — エージェント個別振り返り
+
+各エージェントがタスク・サイクル完了時に実行する自己評価を記録する。会社の社員が振り返りを行うように、各エージェントが自分のパフォーマンスを評価し、改善点を特定する。戦略サイクルグラフの終了フェーズで各エージェントが自動的に振り返りを生成し、次サイクルの冒頭でこの記録を参照して行動を改善する。
+
+```sql
+CREATE TABLE agent_reflections (
+    -- 主キー
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        -- UUIDで一意に識別
+
+    -- エージェント情報
+    agent_type      TEXT NOT NULL,
+        -- strategist: 戦略エージェント（サイクル全体の方針決定）
+        -- researcher: リサーチャーエージェント（市場情報収集）
+        -- analyst: アナリストエージェント（仮説生成・検証・分析）
+        -- planner: プランナーエージェント（コンテンツ計画・スケジューリング）
+
+    -- サイクル紐付け
+    cycle_id        INTEGER REFERENCES cycles(id),
+        -- この振り返りが属するサイクル
+        -- サイクル完了時に各エージェントが1件ずつ生成
+        -- NULLの場合: サイクル外のタスク（例: 計測ジョブ完了後の振り返り）
+
+    -- タスク情報
+    task_description TEXT NOT NULL,
+        -- エージェントがこのサイクルで担当したタスクの概要
+        -- 例: "サイクル#42の市場データ収集。beautyニッチのトレンド15件、
+        --       競合投稿8件、オーディエンスシグナル3件を収集"
+
+    -- 自己評価
+    self_score      INTEGER NOT NULL CHECK (self_score BETWEEN 1 AND 10),
+        -- 1-10の自己評価スコア
+        -- 1-3: 不十分（重大な見落としや失敗があった）
+        -- 4-5: 改善の余地あり（基本的なタスクは完了したが質に課題）
+        -- 6-7: 良好（期待通りのアウトプット）
+        -- 8-9: 優秀（期待以上の成果）
+        -- 10: 卓越（画期的な発見や大幅な改善を達成）
+    score_reasoning TEXT NOT NULL,
+        -- スコアの根拠（なぜこのスコアにしたか）
+        -- 例: "収集したトレンド15件中、実際にコンテンツに活用されたのは3件(20%)。
+        --       関連性の高い情報を選別する精度が低かった。
+        --       ただし、glass skinトレンドの早期発見はengagement向上に貢献した。"
+
+    -- 振り返り詳細
+    what_went_well  TEXT[],
+        -- 良かった点のリスト
+        -- 例: {'glass skinトレンドを競合より2日早く検出',
+        --       'オーディエンスのセンチメント分析の精度が向上'}
+    what_to_improve TEXT[],
+        -- 改善すべき点のリスト
+        -- 例: {'トレンド情報の関連性フィルタリングが甘い',
+        --       '競合分析の深さが不足（表面的な数値比較のみ）'}
+    next_actions    TEXT[],
+        -- 次サイクルでの具体的アクション
+        -- 例: {'トレンド収集時にrelevance_score 0.6以上のみ報告する',
+        --       '競合分析にフック手法の分類を追加する'}
+
+    -- メトリクススナップショット
+    metrics_snapshot JSONB,
+        -- 振り返り時点での関連メトリクス
+        -- 構造例:
+        -- {
+        --   "hypotheses_generated": 3,
+        --   "hypotheses_accuracy": 0.67,
+        --   "intel_collected": 26,
+        --   "intel_used_rate": 0.20,
+        --   "avg_engagement_rate": 0.042,
+        --   "cycle_duration_hours": 24.5
+        -- }
+
+    -- 反映状況
+    applied_in_next_cycle BOOLEAN DEFAULT false,
+        -- この振り返りの内容が次サイクルで実際に反映されたか
+        -- 次サイクルのエージェントが冒頭で前回の振り返りを読み込み、
+        -- next_actionsを実行した場合にtrueに更新
+        -- ダッシュボードで「振り返りの活用率」を追跡するための指標
+
+    -- タイムスタンプ
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE agent_reflections IS 'エージェントの自己評価記録。サイクル終了時に各エージェントが生成し、次サイクルで参照';
+COMMENT ON COLUMN agent_reflections.agent_type IS 'strategist/researcher/analyst/planner';
+COMMENT ON COLUMN agent_reflections.self_score IS '1-10の自己評価。8以上で優秀、4以下で要改善';
+COMMENT ON COLUMN agent_reflections.applied_in_next_cycle IS '次サイクルで振り返りが活用されたか。活用率の追跡指標';
+```
+
+### 5.4 agent_individual_learnings — エージェント個別学習メモリ
+
+各エージェントの個人的なノートブック。会社の社員が自分専用のメモに業務で学んだことを記録するように、各エージェントが自身の経験から得た知見を蓄積する。learningsテーブル（システム全体の共有知見）とは異なり、各エージェント固有の実践的なテクニック・パターン・失敗事例を保持する。pgvectorのembeddingにより、タスク実行時に関連する過去の学びを自動検索できる。
+
+```sql
+CREATE TABLE agent_individual_learnings (
+    -- 主キー
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        -- UUIDで一意に識別
+
+    -- エージェント情報
+    agent_type      TEXT NOT NULL,
+        -- この学びを所有するエージェント
+        -- strategist / researcher / analyst / planner
+        -- 各エージェントは自分の学びのみを参照する（他エージェントの学びは見えない）
+
+    -- カテゴリ
+    category        TEXT NOT NULL,
+        -- data_source: データソースに関する学び
+        --   例: "TikTok Creative Centerのトレンドデータは24時間遅延がある"
+        -- technique: 実践テクニック
+        --   例: "仮説生成時にpgvectorで類似度0.85以上の既存仮説があれば重複を避ける"
+        -- pattern: 発見したパターン
+        --   例: "beautyニッチでは月曜のengagementが他曜日より15%低い傾向"
+        -- mistake: 失敗から学んだこと
+        --   例: "サンプル数3件で仮説をconfirmedにしたが、追加データで覆った"
+        -- insight: その他の気づき
+        --   例: "人間のhypothesis指示は表面的な記述が多いので、背景を推測して補完すべき"
+
+    -- 学びの内容
+    content         TEXT NOT NULL,
+        -- 学んだ内容の本文
+        -- 具体的で再利用可能な形式で記述
+        -- 良い例: "relevance_score 0.6未満のトレンド情報はコンテンツ計画に採用されない。
+        --          収集時に0.6以上にフィルタリングすることで効率が3倍になった"
+        -- 悪い例: "フィルタリングは大事" (曖昧で再利用不能)
+    context         TEXT,
+        -- この学びが得られた状況の説明
+        -- 例: "サイクル#38でbeautyニッチのトレンド収集時。
+        --       30件収集して報告したが、プランナーが使ったのは4件だけだった"
+        -- NULLの場合: 文脈が不明 or 一般的な知識
+
+    -- 信頼度・有効性
+    confidence      FLOAT NOT NULL DEFAULT 0.5 CHECK (confidence BETWEEN 0.0 AND 1.0),
+        -- この学びへの確信度 0.0〜1.0
+        -- 初期値0.5、適用して成功するたびに上昇、失敗するたびに下降
+        -- 0.8以上: 高確信（積極的に適用）
+        -- 0.3未満: 低確信（再検証が必要）
+    times_applied   INTEGER NOT NULL DEFAULT 0,
+        -- この学びが参照・適用された回数
+        -- エージェントがタスク実行時にこの学びを使った場合にインクリメント
+    times_successful INTEGER NOT NULL DEFAULT 0,
+        -- 適用して良い結果につながった回数
+        -- 例: この学びを適用したサイクルのself_scoreが7以上だった場合にインクリメント
+    success_rate    FLOAT GENERATED ALWAYS AS (
+        CASE WHEN times_applied > 0 THEN times_successful::FLOAT / times_applied ELSE 0.0 END
+    ) STORED,
+        -- 自動計算される成功率
+        -- times_applied > 0 の場合: times_successful / times_applied
+        -- times_applied = 0 の場合: 0.0
+        -- ダッシュボードで「効果的な学び」をソートする際に使用
+
+    -- 有効フラグ
+    is_active       BOOLEAN NOT NULL DEFAULT true,
+        -- この学びがまだ有効かどうか
+        -- false: 学びが古くなった、または誤りだと判明した場合
+        -- confidenceが0.2未満に下がった場合に自動的にfalseに更新する運用を想定
+
+    -- 生成元
+    source_reflection_id UUID REFERENCES agent_reflections(id),
+        -- この学びを生成した振り返りのID
+        -- agent_reflectionsのnext_actionsから抽出された学びの場合に設定
+        -- NULLの場合: タスク実行中に直接発見された学び
+
+    -- ベクトル検索
+    embedding       vector(1536),
+        -- 学び内容 (content) のベクトル埋め込み
+        -- text-embedding-3-small (OpenAI) or Voyage-3 (Anthropic) で生成
+        -- 用途: タスク実行時に関連する過去の学びを検索
+        -- クエリ例: WHERE agent_type = $1 AND is_active = true
+        --           ORDER BY embedding <=> $2 LIMIT 5
+
+    -- タイムスタンプ
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_applied_at TIMESTAMPTZ,
+        -- この学びが最後に参照・適用された日時
+        -- エージェントがタスク実行時にこの学びを使った場合に更新
+        -- NULLの場合: まだ一度も適用されていない
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE agent_individual_learnings IS 'エージェント個別の学習メモリ。各エージェント固有の経験知を蓄積';
+COMMENT ON COLUMN agent_individual_learnings.agent_type IS 'この学びを所有するエージェント。各エージェントは自分の学びのみ参照';
+COMMENT ON COLUMN agent_individual_learnings.category IS 'data_source/technique/pattern/mistake/insight';
+COMMENT ON COLUMN agent_individual_learnings.success_rate IS '自動計算。times_successful / times_applied。効果的な学びのソート用';
+COMMENT ON COLUMN agent_individual_learnings.embedding IS '関連する学びの検索用。agent_type + is_activeでフィルタ後にベクトル検索';
+```
+
+### 5.5 agent_communications — エージェント→人間コミュニケーション
+
+エージェントから人間への逆方向コミュニケーションを記録する。human_directivesが「人間→エージェント」であるのに対し、このテーブルは「エージェント→人間」の発信を管理する。エージェントが困っていること、提案、質問、状況報告を人間に伝え、ダッシュボードで確認・返信できるようにする。
+
+```sql
+CREATE TABLE agent_communications (
+    -- 主キー
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        -- UUIDで一意に識別
+
+    -- エージェント情報
+    agent_type      TEXT NOT NULL,
+        -- strategist / researcher / analyst / planner
+        -- どのエージェントがこのメッセージを発信したか
+
+    -- メッセージ種別
+    message_type    TEXT NOT NULL CHECK (message_type IN (
+        'struggle', 'proposal', 'question', 'status_report'
+    )),
+        -- struggle: エージェントが困っていること
+        --   例: "beautyニッチのトレンド収集でrelevance_score 0.6以上のデータが
+        --        過去3サイクル連続で5件未満。データソースの追加を検討してほしい"
+        --
+        -- proposal: エージェントからの提案
+        --   例: "petニッチの仮説的中率が過去10サイクルで0.75。
+        --        petニッチのアカウント数を3→5に増やすことを提案します"
+        --
+        -- question: エージェントからの質問
+        --   例: "human_directive #15で'techは停止'と指示がありましたが、
+        --        既にplanedのtechコンテンツ3件はキャンセルすべきですか？"
+        --
+        -- status_report: 定期的な状況報告
+        --   例: "サイクル#42完了。仮説的中率0.68(前回比+0.05)。
+        --        beauty強化施策が奏功し、engagement_rate 0.055達成"
+
+    -- 優先度
+    priority        TEXT NOT NULL DEFAULT 'normal' CHECK (priority IN (
+        'low', 'normal', 'high', 'urgent'
+    )),
+        -- low: 余裕がある時に確認してほしい（status_report等）
+        -- normal: 通常の優先度
+        -- high: 早めの対応が望ましい（proposal等）
+        -- urgent: 即座に対応が必要（struggle + 自動処理が停止している場合等）
+
+    -- メッセージ内容
+    content         TEXT NOT NULL,
+        -- メッセージの本文（自由記述）
+
+    -- コンテキストデータ
+    context         JSONB,
+        -- メッセージの背景となるデータ・メトリクス
+        -- 構造例 (proposal):
+        -- {
+        --   "niche": "pet",
+        --   "hypothesis_accuracy_10cycles": 0.75,
+        --   "avg_engagement_rate": 0.058,
+        --   "current_account_count": 3,
+        --   "proposed_account_count": 5,
+        --   "estimated_additional_cost_monthly_usd": 35.00
+        -- }
+
+    -- 人間の返信
+    human_response  TEXT,
+        -- 人間がダッシュボードから入力した返信
+        -- NULLの場合: まだ返信されていない
+        -- 例: "了解。ACC_0040とACC_0041をpetニッチで追加する。来週から稼働させて"
+    human_responded_at TIMESTAMPTZ,
+        -- 人間が返信した日時
+        -- NULLの場合: 未返信
+
+    -- ステータス
+    status          TEXT NOT NULL DEFAULT 'unread' CHECK (status IN (
+        'unread', 'read', 'responded', 'archived'
+    )),
+        -- unread: 未読。ダッシュボードで通知バッジ表示
+        -- read: 人間が閲覧済み。まだ返信なし
+        -- responded: 人間が返信済み。エージェントが次サイクルで参照可能
+        -- archived: 処理完了。アーカイブ済み
+
+    -- サイクル紐付け
+    cycle_id        INTEGER REFERENCES cycles(id),
+        -- このメッセージが属するサイクル
+        -- NULLの場合: サイクル外のメッセージ
+
+    -- タイムスタンプ
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE agent_communications IS 'エージェント→人間の逆方向コミュニケーション。human_directivesの対になるテーブル';
+COMMENT ON COLUMN agent_communications.message_type IS 'struggle/proposal/question/status_report';
+COMMENT ON COLUMN agent_communications.priority IS 'urgentはダッシュボードで即座に通知。lowは余裕がある時に確認';
+COMMENT ON COLUMN agent_communications.human_response IS '人間の返信。エージェントが次サイクルで参照';
+```
+
+## 6. インデックス定義
 
 パフォーマンスを確保するためのインデックス。主にステータスフィルタリング、時系列クエリ、JSONB検索、ベクトル検索に対応する。
 
-### 5.1 Entity Tables のインデックス
+### 6.1 Entity Tables のインデックス
 
 ```sql
 -- accounts
@@ -1349,7 +1839,7 @@ CREATE INDEX idx_components_tags ON components USING GIN(tags);
     -- タグ配列の包含検索: WHERE tags @> ARRAY['skincare']
 ```
 
-### 5.2 Production Tables のインデックス
+### 6.2 Production Tables のインデックス
 
 ```sql
 -- content
@@ -1389,7 +1879,7 @@ CREATE INDEX idx_publications_status_measure ON publications(status, measure_aft
     -- 複合: 計測対象の検出クエリ最適化
 ```
 
-### 5.3 Intelligence Tables のインデックス
+### 6.3 Intelligence Tables のインデックス
 
 ```sql
 -- hypotheses
@@ -1481,7 +1971,7 @@ CREATE INDEX idx_learnings_embedding ON learnings
     -- 類似知見の自動発見・クラスタリング
 ```
 
-### 5.4 Operations Tables のインデックス
+### 6.4 Operations Tables のインデックス
 
 ```sql
 -- cycles
@@ -1534,7 +2024,71 @@ CREATE INDEX idx_algorithm_perf_period_measured ON algorithm_performance(period,
     -- 複合: "weeklyの精度推移" 等
 ```
 
-## 6. updated_at 自動更新トリガー
+### 6.5 Observability Tables のインデックス
+
+```sql
+-- agent_prompt_versions
+CREATE INDEX idx_prompt_versions_agent_active ON agent_prompt_versions(agent_type, active);
+    -- 現在有効なバージョンの取得: WHERE agent_type = $1 AND active = true
+CREATE INDEX idx_prompt_versions_agent_version ON agent_prompt_versions(agent_type, version);
+    -- エージェントタイプ別のバージョン履歴取得
+CREATE INDEX idx_prompt_versions_created_at ON agent_prompt_versions(created_at);
+    -- 時系列ソート
+
+-- agent_thought_logs
+CREATE INDEX idx_thought_logs_agent_created ON agent_thought_logs(agent_type, created_at);
+    -- エージェント別の思考ログを時系列で取得
+CREATE INDEX idx_thought_logs_cycle ON agent_thought_logs(cycle_id);
+    -- サイクル別の全エージェント思考ログ
+CREATE INDEX idx_thought_logs_graph_node ON agent_thought_logs(graph_name, node_name);
+    -- グラフ・ノード別の思考ログ（特定ノードのデバッグ用）
+CREATE INDEX idx_thought_logs_created_at ON agent_thought_logs(created_at);
+    -- 時系列ソート
+CREATE INDEX idx_thought_logs_tools_used ON agent_thought_logs USING GIN(tools_used);
+    -- 使用ツール別の逆引き検索
+CREATE INDEX idx_thought_logs_token_usage ON agent_thought_logs USING GIN(token_usage);
+    -- トークン使用量・コストのJSONB検索
+
+-- agent_reflections
+CREATE INDEX idx_reflections_agent_created ON agent_reflections(agent_type, created_at);
+    -- エージェント別の振り返りを時系列で取得
+    -- 次サイクル開始時に最新の振り返りを参照: WHERE agent_type = $1 ORDER BY created_at DESC LIMIT 1
+CREATE INDEX idx_reflections_cycle ON agent_reflections(cycle_id);
+    -- サイクル別の全エージェント振り返り一覧
+CREATE INDEX idx_reflections_self_score ON agent_reflections(self_score);
+    -- スコア別のフィルタ（低スコアの振り返りを重点レビュー）
+
+-- agent_individual_learnings
+CREATE INDEX idx_individual_learnings_agent_active ON agent_individual_learnings(agent_type, is_active);
+    -- エージェント別のアクティブな学び一覧
+    -- タスク実行時に WHERE agent_type = $1 AND is_active = true で検索
+CREATE INDEX idx_individual_learnings_agent_category ON agent_individual_learnings(agent_type, category);
+    -- エージェント別・カテゴリ別のフィルタ
+    -- 例: "researcherのmistakeカテゴリの学び" を取得
+CREATE INDEX idx_individual_learnings_source_reflection ON agent_individual_learnings(source_reflection_id);
+    -- 振り返りから生成された学びの逆引き
+
+-- agent_individual_learnings ベクトルインデックス (HNSW推奨)
+CREATE INDEX idx_individual_learnings_embedding ON agent_individual_learnings
+    USING hnsw (embedding vector_cosine_ops)
+    WITH (m = 16, ef_construction = 64);
+    -- HNSW (Hierarchical Navigable Small World) インデックス
+    -- タスク実行時に関連する過去の学びを高速検索
+    -- クエリ例: WHERE agent_type = $1 AND is_active = true
+    --           ORDER BY embedding <=> $2 LIMIT 5
+
+-- agent_communications
+CREATE INDEX idx_communications_status_created ON agent_communications(status, created_at);
+    -- 未読メッセージの取得: WHERE status = 'unread' ORDER BY created_at DESC
+    -- ダッシュボードの通知バッジ表示に使用
+CREATE INDEX idx_communications_agent_type ON agent_communications(agent_type, message_type);
+    -- エージェント別・種別別のフィルタ
+    -- 例: "researcherのstruggle一覧" を取得
+CREATE INDEX idx_communications_priority_status ON agent_communications(priority, status);
+    -- 優先度とステータスの複合: "urgentかつunreadのメッセージ" を最優先で表示
+```
+
+## 7. updated_at 自動更新トリガー
 
 `updated_at` カラムを持つテーブルに対して、レコード更新時に自動的に現在時刻を設定するトリガーを定義する。
 
@@ -1572,11 +2126,15 @@ CREATE TRIGGER trg_hypotheses_updated_at
 CREATE TRIGGER trg_learnings_updated_at
     BEFORE UPDATE ON learnings
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER trg_agent_individual_learnings_updated_at
+    BEFORE UPDATE ON agent_individual_learnings
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 ```
 
-## 7. テーブル間リレーション詳細
+## 8. テーブル間リレーション詳細
 
-### 7.1 外部キー一覧
+### 8.1 外部キー一覧
 
 | From テーブル | From カラム | To テーブル | To カラム | 関係 | 説明 |
 |---|---|---|---|---|---|
@@ -1592,8 +2150,12 @@ CREATE TRIGGER trg_learnings_updated_at
 | metrics | publication_id | publications | id | N:1 | 1投稿の複数回計測 |
 | hypotheses | cycle_id | cycles | id | N:1 | サイクルに属する仮説 |
 | analyses | cycle_id | cycles | id | N:1 | サイクルに属する分析 |
+| agent_thought_logs | cycle_id | cycles | id | N:1 | サイクルに属する思考ログ |
+| agent_reflections | cycle_id | cycles | id | N:1 | サイクルに属する振り返り |
+| agent_individual_learnings | source_reflection_id | agent_reflections | id | N:1 | 学びの生成元となった振り返り |
+| agent_communications | cycle_id | cycles | id | N:1 | サイクルに属するメッセージ |
 
-### 7.2 データフロー上の間接参照
+### 8.2 データフロー上の間接参照
 
 外部キーでは表現されないが、アプリケーションレベルで重要な参照関係。
 
@@ -1603,10 +2165,11 @@ CREATE TRIGGER trg_learnings_updated_at
 | learnings | source_analyses (INTEGER[]) | analyses | id | 知見の根拠となった分析群 |
 | human_directives | target_accounts (VARCHAR[]) | accounts | account_id | 指示の対象アカウント群 |
 | hypotheses | target_accounts (VARCHAR[]) | accounts | account_id | 仮説の検証対象アカウント群 |
+| agent_thought_logs | tools_used (TEXT[]) | - | - | MCPツール名の配列。外部テーブルなし |
 
 これらは配列型で格納されるため、外部キー制約は設定しない。アプリケーション層（MCP Server）でバリデーションを行う。
 
-### 7.3 コンテンツのライフサイクルとテーブル遷移
+### 8.3 コンテンツのライフサイクルとテーブル遷移
 
 ```
 1. 戦略サイクルグラフ
@@ -1630,11 +2193,17 @@ CREATE TRIGGER trg_learnings_updated_at
    hypotheses (UPDATE, verdict判定)
    content (UPDATE, status='analyzed')
    algorithm_performance (INSERT)
+
+※ 全ステップで agent_thought_logs (INSERT) が記録される（横断的）
+※ プロンプト変更時に agent_prompt_versions (INSERT) が記録される
+※ サイクル終了時に agent_reflections (INSERT) が各エージェントから生成される
+※ 振り返りから agent_individual_learnings (INSERT or UPDATE) が蓄積される
+※ エージェントが人間に伝えたい内容がある場合 agent_communications (INSERT) が生成される
 ```
 
-## 8. v4.0からのデータ移行マッピング
+## 9. v4.0からのデータ移行マッピング
 
-### 8.1 Spreadsheet → PostgreSQL マッピング
+### 9.1 Spreadsheet → PostgreSQL マッピング
 
 | v4.0 データソース | v5.0 テーブル | 移行方法 |
 |---|---|---|
@@ -1645,7 +2214,7 @@ CREATE TRIGGER trg_learnings_updated_at
 | Audio Inventory | components (type='audio') | drive_file_idを移行 |
 | Master Spreadsheet production タブ | content | 33カラムを正規化して移行 |
 
-### 8.2 カラムマッピング例 (production タブ → content)
+### 9.2 カラムマッピング例 (production タブ → content)
 
 | v4.0 production カラム | v5.0 content カラム | 変換 |
 |---|---|---|
@@ -1660,11 +2229,11 @@ CREATE TRIGGER trg_learnings_updated_at
 | drive_folder_id | drive_folder_id | そのまま |
 | error | error_message | そのまま |
 
-## 9. 想定クエリパターン
+## 10. 想定クエリパターン
 
 MCP Serverが構築する主要なクエリパターンを示す。エージェントはこれらのクエリをMCPツール名で呼び出し、SQLを直接書くことはない。
 
-### 9.1 制作パイプライングラフ: タスク取得
+### 10.1 制作パイプライングラフ: タスク取得
 
 ```sql
 -- MCPツール: get_pending_tasks
@@ -1679,7 +2248,7 @@ ORDER BY c.planned_post_date ASC
 LIMIT 5;
 ```
 
-### 9.2 計測ジョブグラフ: 計測対象検出
+### 10.2 計測ジョブグラフ: 計測対象検出
 
 ```sql
 -- MCPツール: get_posts_needing_measurement
@@ -1698,7 +2267,7 @@ WHERE p.status = 'posted'
 ORDER BY p.measure_after ASC;
 ```
 
-### 9.3 アナリスト: 類似仮説検索 (pgvector)
+### 10.3 アナリスト: 類似仮説検索 (pgvector)
 
 ```sql
 -- MCPツール: search_similar_hypotheses
@@ -1711,7 +2280,7 @@ ORDER BY embedding <=> $1
 LIMIT 10;
 ```
 
-### 9.4 プランナー: アカウント別パフォーマンスサマリー
+### 10.4 プランナー: アカウント別パフォーマンスサマリー
 
 ```sql
 -- MCPツール: get_performance_summary
@@ -1729,7 +2298,7 @@ WHERE a.account_id = $1
 GROUP BY a.account_id, a.platform, a.niche;
 ```
 
-### 9.5 ダッシュボード: アルゴリズム精度推移
+### 10.5 ダッシュボード: アルゴリズム精度推移
 
 ```sql
 -- ORM (Prisma/Drizzle) で直接発行

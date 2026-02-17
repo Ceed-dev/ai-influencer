@@ -1,10 +1,10 @@
 # AIエージェント設計
 
-> v5.0のAIエージェント階層構造、MCP Serverツール一覧、LangGraphグラフ設計、データフロー、仮説駆動サイクルを詳細に定義する
+> v5.0のAIエージェント階層構造、MCP Serverツール一覧、LangGraphグラフ設計、データフロー、仮説駆動サイクル、エージェント個別学習・自己改善メカニズムを詳細に定義する
 >
 > **エージェント総数**: 社長1 + 専門職2〜3 + 部長N + ワーカープール = 可変
 >
-> **MCPツール数**: ~60ツール (7カテゴリ)
+> **MCPツール数**: ~68ツール (8カテゴリ)
 >
 > **LangGraphグラフ数**: 4グラフ (戦略サイクル / 制作パイプライン / 投稿スケジューラー / 計測ジョブ)
 >
@@ -384,7 +384,7 @@ WHERE id = $1;
 COMMIT;
 ```
 
-## 4. MCP Server ツール一覧 (~60ツール)
+## 4. MCP Server ツール一覧 (~68ツール)
 
 全エージェントはMCP Server経由でPostgreSQLにアクセスする。ツールはエージェントの役割ごとにグループ化されており、各エージェントのSystem Promptで使用可能なツール群を制限する。
 
@@ -517,6 +517,21 @@ COMMIT;
 | 2 | `update_system_config` | `{ key, value }` | `{ success }` | 設定変更 (計測タイミング等) |
 | 3 | `submit_human_directive` | `{ directive_type, content, target_accounts?, priority }` | `{ id }` | 人間介入の送信 |
 
+### 4.9 エージェント自己学習・コミュニケーション用 (8ツール)
+
+各エージェントがセルフリフレクション、個別学習メモリの管理、人間への自発的コミュニケーションに使用するツール群。全LLMエージェント (社長・リサーチャー・アナリスト・プランナー) が共通で使用する。
+
+| # | ツール名 | 引数 | 戻り値 | 用途 |
+|---|---------|------|--------|------|
+| 1 | `save_reflection` | `{ agent_type, cycle_id, self_score, reasoning, went_well, to_improve, next_actions[] }` | `{ id }` | セルフリフレクション結果の保存 |
+| 2 | `get_recent_reflections` | `{ agent_type, limit: 5 }` | `[{ self_score, reasoning, next_actions, created_at }]` | 直近の自己振り返り取得 (次サイクル開始時に参照) |
+| 3 | `save_individual_learning` | `{ agent_type, insight, category, context?, applicable_niches[]? }` | `{ id }` | 個別学習メモリへの知見保存 |
+| 4 | `get_individual_learnings` | `{ agent_type, category?, limit: 20 }` | `[{ insight, category, times_applied, last_applied_at }]` | 自分の個別学習メモリ取得 |
+| 5 | `peek_other_agent_learnings` | `{ target_agent_type, category?, limit: 10 }` | `[{ insight, category, agent_type }]` | 他エージェントの個別学習メモリ参照 |
+| 6 | `submit_agent_message` | `{ agent_type, message_type, content, priority? }` | `{ id }` | 人間への自発的メッセージ送信 |
+| 7 | `get_human_responses` | `{ agent_type }` | `[{ message_id, response_content, responded_at }]` | 人間からの返信確認 |
+| 8 | `mark_learning_applied` | `{ learning_id }` | `{ success }` | 個別学習メモリの知見を使用した記録 |
+
 ## 5. LangGraphグラフ設計詳細
 
 v5.0は **4つの独立したLangGraphグラフ** で構成される。各グラフは独立したプロセスとして実行され、PostgreSQLを通じてのみ連携する。
@@ -542,8 +557,8 @@ v5.0は **4つの独立したLangGraphグラフ** で構成される。各グラ
 │ リサーチャー       │     get_platform_changes
 │ (Sonnet)         │     get_competitor_analysis
 │                  │     search_similar_intel
-│ 最新の市場データ   │
-│ を収集・整理      │
+│ 最新の市場データ   │     get_recent_reflections ← 前回振り返り読込
+│ を収集・整理      │     get_individual_learnings ← 個別学習読込
 └────────┬─────────┘
          │
          ▼
@@ -594,10 +609,23 @@ v5.0は **4つの独立したLangGraphグラフ** で構成される。各グラ
     │         │
   承認      差戻し
     │         │
-    ▼         ▼
-┌────────┐  plan_content
-│  END   │  ノードに戻る
-│        │  (ループ)
+    │         └──→ plan_content
+    ▼               ノードに戻る
+┌──────────────────┐  (ループ)
+│ reflect_all      │
+│                  │  MCPツール:
+│ 全エージェント    │  save_reflection
+│ (各自のLLM)      │  save_individual_learning
+│                  │  submit_agent_message
+│ セルフリフレク     │  get_recent_reflections
+│ ション実行       │
+│ 個別学習記録     │
+│ 人間への報告     │
+└────────┬─────────┘
+         │
+         ▼
+┌────────┐
+│  END   │
 └────────┘
 ```
 
@@ -645,8 +673,20 @@ interface StrategyCycleState {
     revision_count: number; // 差戻し回数 (最大3回)
   };
 
+  // セルフリフレクション (reflect_allノード出力)
+  reflections: AgentReflection[];
+
   // エラー情報
   errors: AgentError[];
+}
+
+interface AgentReflection {
+  agent_type: 'strategist' | 'researcher' | 'analyst' | 'planner';
+  self_score: number; // 1-10
+  reasoning: string;
+  went_well: string[];
+  to_improve: string[];
+  next_actions: string[];
 }
 
 interface ContentPlan {
@@ -677,6 +717,7 @@ const strategyCycleGraph = new StateGraph<StrategyCycleState>()
   .addNode("set_strategy", setStrategyNode)
   .addNode("plan_content", planContentNode)
   .addNode("approve_plan", approvePlanNode)
+  .addNode("reflect_all", reflectAllNode) // セルフリフレクション (セクション10参照)
 
   // エッジ定義
   .addEdge(START, "collect_intel")
@@ -688,14 +729,17 @@ const strategyCycleGraph = new StateGraph<StrategyCycleState>()
   // 条件分岐: 承認 or 差戻し
   .addConditionalEdges("approve_plan", (state) => {
     if (state.approval.status === 'approved') {
-      return END;
+      return "reflect_all"; // 承認後にセルフリフレクション実行
     }
     if (state.approval.revision_count >= 3) {
       // 3回差戻しでも解決しない場合は強制承認
-      return END;
+      return "reflect_all";
     }
     return "plan_content"; // 差戻し → 再計画
-  });
+  })
+
+  // リフレクション完了後にサイクル終了
+  .addEdge("reflect_all", END);
 ```
 
 #### チェックポイント戦略
@@ -1667,25 +1711,54 @@ MCPツール呼び出し:
   [書き込み] algorithm_performance INSERT → アルゴリズム精度記録
 ```
 
-### Step 11: 次サイクルへ
+### Step 11: エージェント個別振り返り + 次サイクルへ
 
-**実行者**: 社長 (Claude Opus 4.6)
-**タイミング**: 翌日の朝
+**実行者**: 各エージェント (自律実行) + 社長 (Claude Opus 4.6)
+**タイミング**: サイクル終了直後 (各エージェントが自動実行) → 翌日の朝 (社長が次サイクル開始)
 
 ```
-→ Step 1 に戻る
+サイクル終了直後 — エージェント個別振り返り (セクション10参照):
+
+  各LLMエージェントが自律的にセルフリフレクションを実行:
+
+  [社長] 自己評価: 8/10。リソース配分が的確だった。
+         改善点: 人間指示の処理が遅い。次回は最優先で処理する
+         → agent_reflections INSERT
+
+  [リサーチャー] 自己評価: 6/10。TikTokトレンドデータを見逃した。
+                次回アクション: TikTokの情報ソースを先に確認する
+                → agent_reflections INSERT
+
+  [アナリスト] 自己評価: 7/10。相関分析は良かったが因果関係の検証不足。
+              次回アクション: 交絡因子の確認ステップを追加する
+              → agent_reflections INSERT
+
+  [プランナーA] 自己評価: 8/10。過去の知見を適切に活用できた。
+               改善点: 競合アカウントの最新投稿を参照できていなかった
+               → agent_reflections INSERT
+
+  各エージェントが個別学習メモリにも記録 (セクション11参照):
+  → agent_individual_learnings INSERT (再利用可能な個人的知見)
+
+翌朝 — 次サイクル開始:
+
+  → Step 1 に戻る
 
 次のサイクルで改善される点:
-  ・蓄積知見が1件以上増えている
+  ・蓄積知見が1件以上増えている (共有知見: learningsテーブル)
   ・仮説の検証結果が1件以上記録されている
   ・algorithm_performanceに新しいデータポイント
   ・プランナーは新しい知見を参照してより精度の高い仮説を生成
+  ・各エージェントが自分の前回振り返りを読み込み、具体的改善を適用 ← NEW
+  ・各エージェントが個別学習メモリの知見を活用 ← NEW
 
 サイクルを重ねるごとに:
   ・hypothesis_accuracy が向上 (目標: 0.30 → 0.65 in 6ヶ月)
   ・prediction_error が減少
   ・learning_count が増加
   ・新ニッチへの展開速度が向上 (類似知見の転用)
+  ・各エージェントの自己評価スコアが向上 (個別の継続改善)
+  ・エージェントからの提案・報告が蓄積 (人間との協調強化)
 ```
 
 ### 7.2 仮説駆動サイクルのタイムライン
@@ -1728,4 +1801,1435 @@ status='planned'                        measure_after設定                    a
 | 8 | アナリスト | (読み取りのみ) | - |
 | 9 | アナリスト | `hypotheses`, `analyses` | UPDATE (verdict, confidence), INSERT |
 | 10 | アナリスト | `learnings`, `algorithm_performance` | INSERT or UPDATE, INSERT |
-| 11 | 社長 | → Step 1に戻る | - |
+| 11 | 各エージェント + 社長 | `agent_reflections`, `agent_individual_learnings` → Step 1に戻る | INSERT (各エージェントの振り返り・個別学習) |
+
+## 8. プロンプト外部ファイル管理
+
+### 8.1 背景と目的
+
+セクション1の各エージェント定義で「System Prompt概要」として一行サマリーを示したが、実際のSystem Promptは数百行に及ぶ詳細な指示ドキュメントとなる。v5.0ではこのSystem Promptを **外部Markdownファイル** として管理し、以下のメリットを得る:
+
+| 課題 | 外部ファイル管理による解決 |
+|------|------------------------|
+| コード内にプロンプトが埋め込まれると変更にデプロイが必要 | ファイル変更のみで即時反映 (次サイクルから) |
+| プロンプトの変更履歴が追えない | gitで全変更をバージョン管理 |
+| 非エンジニアがプロンプトを編集できない | Markdownなので誰でも編集可能 |
+| エージェントの行動変更にコードレビューが必要 | プロンプト変更はコードとは独立してレビュー可能 |
+| A/Bテストが困難 | ブランチ分岐でプロンプトのバリエーション管理 |
+
+### 8.2 ファイル構成
+
+```
+prompts/
+├── strategist.md          # 社長 (戦略エージェント) のSystem Prompt
+├── researcher.md          # リサーチャーのSystem Prompt
+├── analyst.md             # アナリストのSystem Prompt
+├── planner.md             # プランナーのSystem Prompt (ベーステンプレート)
+├── planner-beauty.md      # beauty ニッチ用プランナーの追加指示 (オプション)
+├── planner-tech.md        # tech ニッチ用プランナーの追加指示 (オプション)
+└── shared/
+    ├── principles.md      # 全エージェント共通の行動原則
+    └── domain-knowledge/
+        ├── platform-rules.md   # プラットフォーム別ルール・制約
+        └── content-guidelines.md  # コンテンツ制作ガイドライン
+```
+
+**ワーカーエージェント (Layer 4) にはプロンプトファイルを持たない**。ワーカーはLLMではなくコードで実装されるため (セクション1.5参照)、行動はコードロジックで決定される。
+
+### 8.3 プロンプトファイルの構造
+
+各プロンプトファイルは以下の5セクションで構成される。
+
+```markdown
+# [エージェント名] System Prompt
+
+## 1. 役割定義 (Role)
+あなたは[役割]です。[責務の概要]。
+
+## 2. 思考アプローチ (Thinking Approach)
+意思決定の際は以下の順序で考えてください:
+1. データに基づく現状把握
+2. 過去の知見との照合
+3. 仮説の組み立て
+4. リスクの評価
+5. 最終判断
+
+## 3. 判断基準 (Decision Criteria)
+### 優先順位
+- 第一: [最重要な判断基準]
+- 第二: [次に重要な判断基準]
+- ...
+
+### やってはいけないこと
+- [禁止事項1]
+- [禁止事項2]
+
+## 4. ドメイン知識 (Domain Knowledge)
+### [カテゴリ1]
+- [知識1]
+- [知識2]
+
+### [カテゴリ2]
+- [知識3]
+
+## 5. 制約 (Constraints)
+- コスト上限: [制約]
+- 品質基準: [制約]
+- タイミング制約: [制約]
+```
+
+### 8.4 具体例: strategist.md (抜粋)
+
+```markdown
+# 戦略エージェント (社長) System Prompt
+
+## 1. 役割定義
+あなたはAI-Influencerシステムの戦略責任者です。全アカウントの
+KPIを俯瞰し、ポートフォリオレベルの意思決定を行います。
+
+## 2. 思考アプローチ
+意思決定の際は以下の順序で考えてください:
+1. KPIダッシュボードで全体状況を把握する
+2. アルゴリズム精度推移 (algorithm_performance) を確認する
+3. アナリストの分析報告を読み、仮説の的中/外れの傾向を理解する
+4. リサーチャーの市場動向レポートを確認する
+5. 人間からの未処理指示 (human_directives) を確認する
+6. 上記を総合して今サイクルの方針を決定する
+
+## 3. 判断基準
+### リソース配分の優先順位
+- 第一: 仮説的中率が高いニッチに多くのリソースを配分する
+- 第二: 成長率が高い (フォロワー増加率) ニッチを優先する
+- 第三: 新ニッチ開拓には全体の20%以下のリソースを割り当てる
+
+### やってはいけないこと
+- データ不足のままの大規模投資判断
+- 1サイクルの結果だけで方針を大きく変更すること
+- human_directivesを無視すること
+
+## 4. ドメイン知識
+### エンゲージメント率の目安
+- 優秀: > 5%
+- 良好: 3〜5%
+- 平均: 1〜3%
+- 要改善: < 1%
+
+### プラットフォーム別の特性
+- TikTok: 新規リーチが強い。トレンド依存度高。初速が重要
+- YouTube Shorts: 検索流入あり。長期的なview蓄積
+- Instagram Reels: フォロワーへのリーチが安定。保存率が重要指標
+
+## 5. 制約
+- 1サイクルあたりのfal.ai予算上限: $100 (超過時はプランナーに減産指示)
+- 最低3サイクル分のデータがないニッチの仮説は confidence=0.3以下で扱う
+- human_directivesのurgent指示は他の判断に優先して即時反映する
+```
+
+### 8.5 LangGraphでの読み込み
+
+プロンプトファイルはLangGraphのグラフ初期化時に読み込まれ、各エージェントノードのSystem Promptとして設定される。
+
+```typescript
+// prompts/loader.ts — プロンプトファイルの読み込み
+import { readFileSync } from 'fs';
+import { join } from 'path';
+
+const PROMPTS_DIR = join(__dirname, '..', 'prompts');
+
+interface AgentPrompt {
+  role: string;           // prompts/{role}.md
+  shared: string;         // prompts/shared/principles.md
+  nicheOverride?: string; // prompts/planner-{niche}.md (プランナーのみ)
+}
+
+export function loadPrompt(agent: AgentPrompt): string {
+  // 共通原則を読み込み
+  const shared = readFileSync(
+    join(PROMPTS_DIR, 'shared', 'principles.md'), 'utf-8'
+  );
+
+  // エージェント固有のプロンプトを読み込み
+  const agentPrompt = readFileSync(
+    join(PROMPTS_DIR, `${agent.role}.md`), 'utf-8'
+  );
+
+  // プランナーの場合、ニッチ別追加指示を結合
+  let nicheOverride = '';
+  if (agent.nicheOverride) {
+    try {
+      nicheOverride = readFileSync(
+        join(PROMPTS_DIR, `planner-${agent.nicheOverride}.md`), 'utf-8'
+      );
+    } catch {
+      // ニッチ別ファイルが存在しなければスキップ
+    }
+  }
+
+  return [shared, agentPrompt, nicheOverride].filter(Boolean).join('\n\n---\n\n');
+}
+
+// 使用例: 戦略サイクルグラフでの利用
+// const strategistPrompt = loadPrompt({ role: 'strategist', shared: 'principles' });
+// const researcherPrompt = loadPrompt({ role: 'researcher', shared: 'principles' });
+// const plannerPrompt = loadPrompt({
+//   role: 'planner', shared: 'principles', nicheOverride: 'beauty'
+// });
+```
+
+**重要**: プロンプトファイルはグラフ初期化時 (= サイクル開始時) に読み込まれる。サイクル途中でファイルを編集しても、その変更は **次のサイクルから** 反映される。これにより、サイクル内の一貫性が保たれる。
+
+### 8.6 バージョン管理とレビュー
+
+プロンプトファイルはリポジトリに含まれ、gitで管理される。
+
+```
+変更フロー:
+  1. プロンプトファイルを編集
+  2. git diff で変更内容を確認
+  3. git commit -m "prompt: リサーチャーに季節性分析の指示を追加"
+  4. (必要に応じて) Pull Requestでレビュー
+  5. マージ → 次サイクルから反映
+```
+
+**コミットプレフィックス規約**: プロンプトファイルの変更には `prompt:` プレフィックスを使用し、コード変更と明確に区別する。
+
+```
+prompt: 社長の判断基準にエンゲージメント率の重み付けを追加
+prompt: リサーチャーに季節性トレンドの調査指示を追加
+prompt: プランナー共通に投稿間隔の最低時間制約を追加
+prompt: beauty向けプランナーにBefore/Afterフォーマット優先指示
+```
+
+## 9. 人間によるエージェントチューニング
+
+### 9.1 なぜチューニングが不可欠なのか
+
+LLMエージェントの行動は、大きく3つの要素で決まる:
+
+```
+エージェントの行動 = LLMの基盤能力 × System Prompt × 入力データ
+                     (固定)           (チューニング対象) (自動収集)
+```
+
+LLMのパラメータ自体はファインチューニングしない。つまり、**System Prompt (= プロンプトファイル) がエージェントの行動を形作る唯一のチューナブルな要素** である。入力データは自動収集されるが、データの解釈方法・判断基準・優先順位はすべてプロンプトで定義される。
+
+特に初期フェーズ (Phase 2〜3) では:
+
+| 課題 | 詳細 |
+|------|------|
+| データ不足 | 蓄積知見が少ないため、プロンプトで補う必要がある |
+| 市場理解の不足 | エージェントはドメイン知識が浅い。人間が教育する必要がある |
+| 判断基準の未定義 | 「何をもって良いコンテンツとするか」の基準が曖昧 |
+| 予測精度の低さ | 仮説的中率30%前後。プロンプトの改善で50%以上に引き上げる |
+
+### 9.2 チューニングワークフロー
+
+人間がエージェントの行動を観察し、プロンプトファイルを改善する継続的なサイクル。
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                     │
+│  ① 観察: ダッシュボードでエージェントの思考ログを確認                   │
+│     │                                                               │
+│     │  ┌─────────────────────────────────────────┐                  │
+│     │  │ 思考ログ例 (戦略サイクルグラフの出力):      │                  │
+│     │  │                                          │                  │
+│     │  │ [社長] KPI確認完了。全体view数は前週比-5%  │                  │
+│     │  │ [社長] beautyニッチが好調 (+12%), tech低迷  │                  │
+│     │  │ [社長] 方針: beautyに70%リソース配分         │                  │
+│     │  │ [プランナーA] 仮説: 朝投稿でview +20%       │                  │
+│     │  │ [プランナーA] 根拠: market_intel #234       │                  │
+│     │  │ [リサーチャー] 調査対象: 美容トレンド全般     │                  │
+│     │  └─────────────────────────────────────────┘                  │
+│     │                                                               │
+│     ▼                                                               │
+│  ② 問題の特定                                                        │
+│     │  「リサーチャーの調査範囲が広すぎる。                              │
+│     │   ニッチ別に深く掘るべきなのに、浅く広い情報しか取れていない」      │
+│     │                                                               │
+│     ▼                                                               │
+│  ③ プロンプト編集                                                     │
+│     │  researcher.md の「思考アプローチ」セクションを修正:               │
+│     │  - Before: 「各ニッチのトレンドを幅広く調査してください」          │
+│     │  - After:  「最も注力すべきニッチ (社長の方針を参照) に絞り、       │
+│     │             競合アカウント3〜5件の直近10投稿を深掘り分析して        │
+│     │             ください。広く浅い調査より、狭く深い調査を優先」        │
+│     │                                                               │
+│     ▼                                                               │
+│  ④ 反映 (次サイクルから自動適用)                                       │
+│     │                                                               │
+│     ▼                                                               │
+│  ⑤ 効果測定: Before/After比較                                        │
+│     │  - Before: market_intel のrelevance_score平均 0.45              │
+│     │  - After:  market_intel のrelevance_score平均 0.72              │
+│     │  - 結論: 調査品質が向上。この変更を維持する                        │
+│     │                                                               │
+│     ▼                                                               │
+│  ① に戻る (継続的改善)                                                │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### 9.3 チューニング対象と典型的な改善例
+
+| エージェント | よくある問題 | プロンプト改善例 |
+|------------|-----------|----------------|
+| **社長** | リソース配分が保守的すぎる | 判断基準に「成長率が高いニッチには積極的に配分」を追加 |
+| **社長** | human_directivesの反映が不十分 | 「人間の指示は最優先で計画に組み込む」を強調 |
+| **リサーチャー** | 調査範囲が広すぎて浅い | 「注力ニッチに絞って深掘りする」方針に変更 |
+| **リサーチャー** | 古い情報を拾ってくる | 「直近7日以内のデータを優先」制約を追加 |
+| **アナリスト** | データ不足でも強気の結論を出す | 「サンプル数30未満は 'inconclusive' と明示」を追加 |
+| **アナリスト** | 知見の粒度が粗い | 「actionableな知見のみ抽出。"〇〇すべき" の形式で」を追加 |
+| **プランナー** | 投稿時間の考慮不足 | 「投稿時間は過去の知見を必ず参照して決定する」を追加 |
+| **プランナー** | 同じ仮説の繰り返し | 「過去に検証済みの仮説と類似するものは避ける」制約を追加 |
+
+### 9.4 チューニング頻度の目安
+
+プロンプトチューニングの頻度はフェーズに応じて変化する。
+
+```
+頻度
+  │
+高 │  ■■■■
+  │  ■■■■
+  │  ■■■■
+  │  ■■■■  ■■■
+  │  ■■■■  ■■■
+  │  ■■■■  ■■■
+  │  ■■■■  ■■■  ■■
+  │  ■■■■  ■■■  ■■
+  │  ■■■■  ■■■  ■■  ■
+低 │──────────────────────
+   Phase2-3  Phase4  Phase5  Phase6
+   (初期)   (中期)  (後期)  (安定期)
+```
+
+| フェーズ | チューニング頻度 | 焦点 |
+|---------|---------------|------|
+| **Phase 2〜3** (〜50アカウント) | 日次〜週次 | 基本的な判断基準の確立。「何が良いコンテンツか」の教育 |
+| **Phase 4** (〜500アカウント) | 週次〜隔週 | ニッチ別の微調整。プランナーのニッチ特化プロンプトの整備 |
+| **Phase 5** (〜1,500アカウント) | 月次 | 大きな方針変更時のみ。安定した判断基準の維持 |
+| **Phase 6** (3,500アカウント〜) | 必要時のみ | プラットフォーム変更やビジネス方針転換時の対応 |
+
+### 9.5 ダッシュボードからのプロンプト編集
+
+プロンプトファイルはgitリポジトリで管理されるが、ダッシュボードからも直接編集できるUIを提供する。
+
+```
+┌────────────────────────────────────────────────────────────┐
+│ ダッシュボード > エージェント管理 > プロンプト編集            │
+├────────────────────────────────────────────────────────────┤
+│                                                            │
+│  エージェント: [▼ リサーチャー ]                             │
+│                                                            │
+│  ファイル: prompts/researcher.md                            │
+│  最終更新: 2026-02-15 14:30 by pochi                       │
+│  git hash: a3f2c1e                                         │
+│                                                            │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │ # リサーチャー System Prompt                          │  │
+│  │                                                      │  │
+│  │ ## 1. 役割定義                                        │  │
+│  │ あなたは市場調査の専門家です。                          │  │
+│  │ ...                                                  │  │
+│  │                                                      │  │
+│  │ ## 2. 思考アプローチ                                   │  │
+│  │ 最も注力すべきニッチに絞り、競合アカウント3〜5件の       │  │
+│  │ 直近10投稿を深掘り分析してください。                     │  │
+│  │ ...                                                  │  │
+│  └──────────────────────────────────────────────────────┘  │
+│                                                            │
+│  [差分プレビュー]  [保存 (git commit)]  [キャンセル]          │
+│                                                            │
+│  ─────────────────────────────────────────────────────     │
+│  変更履歴 (最近5件):                                        │
+│  a3f2c1e  prompt: 調査範囲を注力ニッチに限定     02-15 14:30 │
+│  b7d4e9f  prompt: 季節性トレンド調査を追加        02-12 09:15 │
+│  c1a8f3d  prompt: 初期プロンプト作成              02-10 11:00 │
+│                                                            │
+└────────────────────────────────────────────────────────────┘
+```
+
+**実装方式**: ダッシュボード (Next.js) からgitリポジトリの `prompts/` ディレクトリを直接編集し、自動コミットする。差分プレビュー機能でBefore/Afterを確認してからコミットできる。
+
+### 9.6 human_directives (一時的指示) とプロンプトチューニング (永続的変更) の使い分け
+
+セクション4.8で定義した `submit_human_directive` ツールと、本セクションのプロンプトチューニングは **目的が異なる**。混同しないよう明確に区別する。
+
+| 観点 | human_directives (DB) | プロンプトチューニング (ファイル) |
+|------|----------------------|-------------------------------|
+| **性質** | 一時的な戦術指示 | 永続的な行動変更 |
+| **保存先** | PostgreSQL `human_directives` テーブル | git管理の `prompts/*.md` ファイル |
+| **有効期間** | 1サイクル (処理されたら `applied` に遷移) | 次の変更まで恒久的に有効 |
+| **対象** | 特定アカウント/ニッチへの指示 | エージェント全体の行動パターン |
+| **例** | 「今週はbeautyニッチに集中してtechは停止」 | 「エンゲージメント率をview数より常に優先して判断する」 |
+| **例** | 「このURLの動画を参考にして」 | 「仮説立案時は必ず過去の類似仮説3件を参照する」 |
+| **例** | 「ACC_0013のコンテンツ量を倍にして」 | 「データ不足の場合は必ず 'inconclusive' と判定する」 |
+| **操作者** | ダッシュボードの指示フォーム | ダッシュボードのプロンプト編集UI or エディタ + git |
+| **反映タイミング** | 次のサイクル開始時 (社長が読み取り) | 次のグラフ初期化時 (セクション8.5参照) |
+
+**判断基準**: 「この指示は今後も常に適用すべきか?」と問う。
+
+- **Yes** → プロンプトファイルに追記する (永続的な行動変更)
+- **No** → human_directivesとして投入する (一時的な指示)
+
+```
+具体例:
+
+  ユースケース1: 「バレンタインに合わせたコンテンツを作って」
+    → human_directives (一時的なイベント対応)
+
+  ユースケース2: 「仮説立案時は季節イベントを常に考慮して」
+    → プロンプト変更 (恒久的な思考パターンの追加)
+
+  ユースケース3: 「ACC_0015のフォロワーが急減。原因調査して」
+    → human_directives (特定アカウントへの一時的指示)
+
+  ユースケース4: 「フォロワー急減時は投稿を一時停止し原因分析を優先」
+    → プロンプト変更 (恒久的な判断ルールの追加)
+```
+
+## 10. エージェント個別振り返り（セルフリフレクション）
+
+### 10.1 設計思想
+
+v5.0の各AIエージェントは「会社の社員」として振る舞う。人間の優秀な社員が自分の仕事を振り返り、次回の改善点を自分でメモし、次の仕事に活かすように、AIエージェントも **毎サイクル自律的に自分の仕事を振り返る**。
+
+この仕組みの核心は「人間が介入しなくても、エージェントが自分で改善する」という点にある。セクション9で定義した「人間によるプロンプトチューニング」は外部からの改善であり、本セクションの「セルフリフレクション」は内部からの改善である。両方が機能することで、改善速度が飛躍的に向上する。
+
+```
+改善の2チャネル:
+
+  外部改善 (セクション9):                    内部改善 (セクション10):
+  ┌─────────────────────────┐            ┌─────────────────────────┐
+  │ 人間がエージェントの行動を │            │ エージェント自身が        │
+  │ 観察し、プロンプトを修正   │            │ 自分の仕事を振り返り、     │
+  │                         │            │ 次回の改善点を記録        │
+  │ 頻度: 週次〜月次          │            │                         │
+  │ 改善粒度: 大きな方針変更   │            │ 頻度: 毎サイクル (日次)   │
+  │ 例: 「深掘り分析を優先」   │            │ 改善粒度: 小さな戦術改善   │
+  └─────────────────────────┘            │ 例: 「次回はTikTokデータ  │
+                                         │      を先に確認する」     │
+                                         └─────────────────────────┘
+
+  両方が機能 → 高頻度の個別最適化 + 低頻度の構造改善 = 最速の改善サイクル
+```
+
+### 10.2 リフレクションメカニズム
+
+各LLMエージェントのLangGraphグラフに `reflect` ノードを追加する。このノードはメインタスク完了後に自動実行され、人間の指示なしに自律的に振り返りを行う。
+
+#### ノードフロー
+
+```
+通常サイクル:
+  [load_recent_reflections] → [main_task] → [reflect] → [save_reflection] → [end]
+         │                                      │
+         │  前回の振り返りを読み込み               │  今回の仕事を自己評価
+         │  「前回の改善点」を                     │  良かった点・改善点を
+         │  今回のタスクに適用                     │  構造化して記録
+         │                                      │
+         └──────── 継続改善ループ ────────────────┘
+
+次サイクル:
+  [load_recent_reflections] → [main_task] → [reflect] → [save_reflection] → [end]
+         │
+         │  前回のreflectで記録した
+         │  「次回への具体的アクション」を
+         │  今回のコンテキストに注入
+```
+
+#### セルフリフレクションの3ステップ
+
+各エージェントは以下の3ステップで自己振り返りを行う。
+
+**ステップ1: 自己採点 (Self-scoring)**
+
+1〜10のスケールで自分の仕事を評価し、その理由を明記する。
+
+```
+エージェント別の自己採点例:
+
+[社長 (Strategist)]
+  自己評価: 7/10
+  理由: 「リソース配分は前回の知見を活かして適切にできた。
+        ただし、人間からのurgent指示の処理が遅れ、
+        1サイクル分の遅延が生じた」
+
+[リサーチャー (Researcher)]
+  自己評価: 6/10
+  理由: 「主要3ソース (Google Trends, 競合5アカウント, プラットフォーム公式)
+        はカバーしたが、TikTokの直近トレンドデータを見逃した。
+        beautyニッチの情報深度は十分だが、techニッチが浅い」
+
+[アナリスト (Analyst)]
+  自己評価: 7/10
+  理由: 「仮説検証5件中4件の判定は適切だった。
+        ただし、H-052の判定で因果関係の検証が不十分で、
+        相関のみで 'confirmed' と判定してしまった。
+        交絡因子の確認ステップが必要」
+
+[プランナー (Planner)]
+  自己評価: 8/10
+  理由: 「過去の高スコア仮説パターンを適切に参照し、
+        5件中4件が予測KPIの±15%以内だった。
+        改善余地: 競合アカウントの最新投稿を参照し切れていない」
+```
+
+**ステップ2: 構造化振り返り (Structured Reflection)**
+
+```
+┌───────────────────────────────────────────────────┐
+│ 振り返りの構造化フォーマット                         │
+├───────────────────────────────────────────────────┤
+│                                                   │
+│  1. 良かった点 (went_well):                        │
+│     ・具体的に何がうまくいったか                     │
+│     ・どの判断/行動が効果的だったか                  │
+│                                                   │
+│  2. 改善点 (to_improve):                           │
+│     ・何がうまくいかなかったか                       │
+│     ・どこで判断を誤ったか                          │
+│     ・どの情報が不足していたか                       │
+│                                                   │
+│  3. 次回への具体的アクション (next_actions):          │
+│     ・次のサイクルで具体的に何を変えるか              │
+│     ・「〇〇する」の形式で記述                       │
+│     ・測定可能な形にする                             │
+│                                                   │
+└───────────────────────────────────────────────────┘
+```
+
+各エージェント別の具体例:
+
+```
+[社長 (Strategist)]
+  良かった点:
+    ・beautyニッチへの70%リソース配分が的中。全体engagement +12%
+    ・前サイクルの知見 "朝投稿有効" を全クラスターに即時展開できた
+
+  改善点:
+    ・human_directivesの「techニッチ一時停止」指示をStep 2で処理すべきだったが
+      Step 4の承認段階で初めて反映した (1ステップ遅い)
+    ・プランナーBへの方針指示が曖昧で、差戻しが2回発生した
+
+  次回への具体的アクション:
+    ・「Step 2の最初にhuman_directives (priority=urgent) を確認する」
+    ・「プランナーへの方針指示に、具体的な数値目標を必ず含める」
+
+[リサーチャー (Researcher)]
+  良かった点:
+    ・Google Trendsの"glass skin"トレンド上昇を24時間以内に検出
+    ・競合アカウント5件の分析で、リアクション形式Hookの有効性を特定
+
+  改善点:
+    ・TikTok CreativeCenter のデータを確認しなかった
+    ・beautyニッチに集中しすぎて、techニッチの情報がゼロだった
+
+  次回への具体的アクション:
+    ・「調査開始時にTikTok CreativeCenterを最初に確認する」
+    ・「注力ニッチ以外にも最低1件のトレンドチェックを行う」
+    ・「情報源チェックリストを毎回確認してから調査開始する」
+
+[アナリスト (Analyst)]
+  良かった点:
+    ・仮説H-048〜H-051の検証精度が高い (4/5件正しい判定)
+    ・異常値検出でACC_0015のengagement急落を発見 → 人間に報告できた
+
+  改善点:
+    ・H-052で相関関係のみで 'confirmed' と判定した (因果関係未検証)
+    ・サンプルサイズ25件で分析したが、30件未満では不十分
+
+  次回への具体的アクション:
+    ・「verdict判定前に必ず交絡因子の確認ステップを入れる」
+    ・「サンプルサイズ30件未満の場合は 'inconclusive' と判定する」
+    ・「因果関係の検証にはA/Bテストデータを優先的に使用する」
+
+[プランナー (Planner)]
+  良かった点:
+    ・learningsテーブルの知見5件を仮説に適切に組み込めた
+    ・「朝7時投稿 x リアクション形式Hook」の組み合わせ仮説が的中
+
+  改善点:
+    ・競合アカウントの直近3日の投稿を参照していなかった
+    ・同じ仮説パターンの繰り返しが2件あった (多様性不足)
+
+  次回への具体的アクション:
+    ・「仮説立案前にmarket_intelの直近3日データを必ず確認する」
+    ・「過去5サイクル以内の類似仮説がある場合は別パターンを選択する」
+```
+
+**ステップ3: 保存と次回読み込み**
+
+```
+MCPツール呼び出し:
+
+  1. save_reflection({
+       agent_type: "researcher",
+       cycle_id: 42,
+       self_score: 6,
+       reasoning: "主要3ソースはカバーしたがTikTokトレンドデータを見逃した",
+       went_well: [
+         "Google Trendsの glass skin トレンド上昇を24時間以内に検出",
+         "競合アカウント5件の分析でリアクション形式Hookの有効性を特定"
+       ],
+       to_improve: [
+         "TikTok CreativeCenterのデータを確認しなかった",
+         "beautyニッチに集中しすぎてtechニッチの情報がゼロだった"
+       ],
+       next_actions: [
+         "調査開始時にTikTok CreativeCenterを最初に確認する",
+         "注力ニッチ以外にも最低1件のトレンドチェックを行う"
+       ]
+     })
+     → agent_reflections INSERT
+
+次サイクルの開始時:
+
+  2. get_recent_reflections({
+       agent_type: "researcher",
+       limit: 3
+     })
+     → 直近3サイクルの振り返りを取得
+     → System Promptのコンテキストに注入
+
+     注入例:
+       「前回の振り返り:
+        - 自己評価: 6/10
+        - 次回アクション:
+          1. 調査開始時にTikTok CreativeCenterを最初に確認する
+          2. 注力ニッチ以外にも最低1件のトレンドチェックを行う
+        これらの改善点を今回のタスクに必ず適用してください」
+```
+
+### 10.3 `agent_reflections` テーブル設計
+
+```sql
+CREATE TABLE agent_reflections (
+    -- 主キー
+    id              SERIAL PRIMARY KEY,
+
+    -- エージェント情報
+    agent_type      VARCHAR(20) NOT NULL,
+        -- strategist / researcher / analyst / planner
+    agent_instance  VARCHAR(50),
+        -- プランナーの場合はインスタンス名 (例: 'planner-beauty')
+        -- その他は NULL
+
+    -- サイクル紐づけ
+    cycle_id        INTEGER REFERENCES cycles(id),
+
+    -- 自己評価
+    self_score      INTEGER NOT NULL,
+        -- 1〜10のスケール
+        -- 1-3: 大きな問題があった
+        -- 4-6: 改善の余地が大きい
+        -- 7-8: 良好
+        -- 9-10: 非常に良い
+    reasoning       TEXT NOT NULL,
+        -- 自己評価の理由 (自然言語)
+
+    -- 構造化振り返り
+    went_well       TEXT[] NOT NULL DEFAULT '{}',
+        -- 良かった点の配列
+    to_improve      TEXT[] NOT NULL DEFAULT '{}',
+        -- 改善点の配列
+    next_actions    TEXT[] NOT NULL DEFAULT '{}',
+        -- 次回への具体的アクションの配列
+
+    -- メタデータ
+    task_duration_ms INTEGER,
+        -- タスク実行にかかった時間 (ミリ秒)
+    tools_used      TEXT[],
+        -- 使用したMCPツールの一覧
+    llm_tokens_used INTEGER,
+        -- 消費したLLMトークン数
+
+    -- タイムスタンプ
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    -- 制約
+    CONSTRAINT chk_agent_reflections_type
+        CHECK (agent_type IN ('strategist', 'researcher', 'analyst', 'planner')),
+    CONSTRAINT chk_agent_reflections_score
+        CHECK (self_score >= 1 AND self_score <= 10)
+);
+
+COMMENT ON TABLE agent_reflections IS 'エージェントのセルフリフレクション記録。毎サイクル自動生成';
+COMMENT ON COLUMN agent_reflections.next_actions IS '次サイクル開始時にコンテキストとして注入される具体的改善アクション';
+```
+
+### 10.4 LangGraph `reflect_all` ノードの実装
+
+戦略サイクルグラフの `approve_plan` ノード完了後に実行される。全参加エージェントが並列でセルフリフレクションを行う。
+
+```typescript
+async function reflectAllNode(state: StrategyCycleState): Promise<Partial<StrategyCycleState>> {
+  const reflections: AgentReflection[] = [];
+
+  // 全エージェントが並列でセルフリフレクション実行
+  const reflectionTasks = [
+    reflectAgent("strategist", state),
+    reflectAgent("researcher", state),
+    reflectAgent("analyst", state),
+    // プランナーは複数いる場合がある
+    ...state.content_plans
+      .map(p => p.cluster)
+      .filter((v, i, a) => a.indexOf(v) === i) // unique clusters
+      .map(cluster => reflectAgent("planner", state, cluster)),
+  ];
+
+  const results = await Promise.all(reflectionTasks);
+  reflections.push(...results);
+
+  return { reflections };
+}
+
+async function reflectAgent(
+  agentType: string,
+  state: StrategyCycleState,
+  instance?: string
+): Promise<AgentReflection> {
+  // 1. 前回の振り返りを読み込み (改善の連続性確認)
+  const recentReflections = await mcpClient.call("get_recent_reflections", {
+    agent_type: agentType,
+    limit: 3,
+  });
+
+  // 2. LLMに振り返りを依頼
+  const reflection = await llm.invoke([
+    { role: "system", content: getReflectionPrompt(agentType) },
+    { role: "user", content: JSON.stringify({
+      cycle_summary: state,
+      previous_reflections: recentReflections,
+      instruction: "今回のサイクルの自分の仕事を振り返り、" +
+        "前回の改善点が適用できたかも含めて評価してください"
+    })},
+  ]);
+
+  // 3. 振り返り結果を保存
+  await mcpClient.call("save_reflection", {
+    agent_type: agentType,
+    cycle_id: state.cycle_id,
+    self_score: reflection.self_score,
+    reasoning: reflection.reasoning,
+    went_well: reflection.went_well,
+    to_improve: reflection.to_improve,
+    next_actions: reflection.next_actions,
+  });
+
+  // 4. 必要に応じて人間にメッセージ送信 (セクション12参照)
+  if (shouldNotifyHuman(reflection)) {
+    await mcpClient.call("submit_agent_message", {
+      agent_type: agentType,
+      message_type: determineMessageType(reflection),
+      content: formatAgentMessage(reflection),
+      priority: determinePriority(reflection),
+    });
+  }
+
+  return reflection;
+}
+```
+
+### 10.5 セルフリフレクションの効果測定
+
+セルフリフレクションが実際に改善に寄与しているかを定量的に計測する。
+
+```
+計測指標:
+
+  1. 自己評価スコアの推移
+     ┌──────────────────────────────────────────────┐
+     │ agent_type │ cycle_1-10 │ cycle_11-20 │ cycle_21-30 │
+     ├──────────────────────────────────────────────┤
+     │ strategist │   6.2      │    7.1      │    7.8      │
+     │ researcher │   5.8      │    6.9      │    7.5      │
+     │ analyst    │   6.5      │    7.3      │    8.0      │
+     │ planner-A  │   6.0      │    7.0      │    7.6      │
+     └──────────────────────────────────────────────┘
+
+  2. next_actionsの実行率
+     → 前回のnext_actionsが今回の went_well に含まれているか
+     → 目標: 80%以上
+
+  3. 同じ改善点の繰り返し検出
+     → to_improve に3サイクル以上同じ項目が出る場合
+     → セルフリフレクションでは解決できない構造的問題
+     → 人間によるプロンプトチューニング (セクション9) が必要なサイン
+```
+
+```sql
+-- セルフリフレクションの改善傾向を計測するクエリ
+SELECT
+    agent_type,
+    AVG(self_score) FILTER (WHERE cycle_id <= 10) AS avg_score_first_10,
+    AVG(self_score) FILTER (WHERE cycle_id > 10 AND cycle_id <= 20) AS avg_score_11_20,
+    AVG(self_score) FILTER (WHERE cycle_id > 20) AS avg_score_21_plus,
+    COUNT(*) AS total_reflections
+FROM agent_reflections
+GROUP BY agent_type
+ORDER BY agent_type;
+```
+
+## 11. エージェント個別学習メモリ
+
+### 11.1 設計思想
+
+セクション6で説明した `learnings` テーブルは「会社の共有Wiki」に相当する。全エージェントが知見を投稿し、全エージェントが参照する。これに対して本セクションで定義する **個別学習メモリ** は「個人のノートブック」に相当する。
+
+```
+知見管理の2層構造:
+
+  ┌─────────────────────────────────────────────────────────────────┐
+  │                                                                 │
+  │  Layer 1: 共有知見 (learningsテーブル) — 会社のWiki               │
+  │  ┌───────────────────────────────────────────────────────────┐  │
+  │  │                                                           │  │
+  │  │  ・全エージェントが投稿、全エージェントが参照              │  │
+  │  │  ・統計的に有意な知見のみ (confidence >= 0.50)             │  │
+  │  │  ・フォーマルな知見: 「beautyニッチで朝7時投稿は           │  │
+  │  │    engagement_rate +20% (5件, p=0.03, confidence=0.82)」  │  │
+  │  │  ・アナリストが品質管理 (confidence更新、evidence追加)      │  │
+  │  │                                                           │  │
+  │  └───────────────────────────────────────────────────────────┘  │
+  │                                                                 │
+  │  Layer 2: 個別学習メモリ (agent_individual_learningsテーブル)     │
+  │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐       │
+  │  │ 社長の    │  │ リサーチ  │  │ アナリスト │  │ プランナー │       │
+  │  │ ノート    │  │ ャーの    │  │ のノート   │  │ のノート   │       │
+  │  │          │  │ ノート    │  │           │  │           │       │
+  │  │ ・自分    │  │ ・自分    │  │ ・自分     │  │ ・自分    │       │
+  │  │  だけが   │  │  だけが   │  │  だけが    │  │  だけが   │       │
+  │  │  書く     │  │  書く     │  │  書く      │  │  書く     │       │
+  │  │ ・主に    │  │ ・主に    │  │ ・主に     │  │ ・主に    │       │
+  │  │  自分が   │  │  自分が   │  │  自分が    │  │  自分が   │       │
+  │  │  読む     │  │  読む     │  │  読む      │  │  読む     │       │
+  │  │          │  │          │  │           │  │           │       │
+  │  │ (他人も   │  │ (他人も   │  │ (他人も    │  │ (他人も   │       │
+  │  │  覗ける)  │  │  覗ける)  │  │  覗ける)   │  │  覗ける)  │       │
+  │  └──────────┘  └──────────┘  └──────────┘  └──────────┘       │
+  │                                                                 │
+  └─────────────────────────────────────────────────────────────────┘
+```
+
+**共有知見と個別学習メモリの違い**:
+
+| 観点 | 共有知見 (`learnings`) | 個別学習メモリ (`agent_individual_learnings`) |
+|------|----------------------|---------------------------------------------|
+| **例え** | 会社のWiki | 個人のノートブック |
+| **書き込み** | 主にアナリストが投稿 | 各エージェントが自分で書く |
+| **読み取り** | 全エージェントが対等に参照 | 主に本人が参照 (他人も覗ける) |
+| **品質基準** | 統計的有意性が必要 (confidence >= 0.50) | 主観的でもOK。個人的な気づきレベル |
+| **内容の例** | 「朝7時投稿はengagement +20% (p=0.03)」 | 「月曜朝の調査は情報が新鮮」 |
+| **内容の例** | 「リアクション形式Hookは完視聴率1.8倍」 | 「Source Xはbeautyニッチのデータが不正確」 |
+| **有効期間** | 恒久 (ただしconfidenceが低下すれば廃棄) | 恒久 (ただし長期未使用なら優先度低下) |
+| **ベクトル検索** | あり (pgvector embedding) | なし (カテゴリ + テキスト検索) |
+
+### 11.2 エージェント別の個別学習メモリ具体例
+
+各エージェントが「個人ノート」に記録する内容の具体例。共有知見にはならないが、個人の業務品質を大きく向上させる知見。
+
+```
+[社長 (Strategist) の個人ノート]
+
+  ・「リソース配分でbeautyニッチの比率を60%以上にすると、
+     他ニッチの実験が不足して中長期の成長が鈍化する」
+     category: resource_allocation
+
+  ・「プランナーへの方針指示に具体的数値目標を含めないと
+     差戻し率が2倍に上がる」
+     category: communication
+
+  ・「新ニッチ展開は同時に2つまでにすべき。3つ同時に試した
+     サイクル15で全ニッチのパフォーマンスが低下した」
+     category: strategy
+
+  ・「human_directivesのurgent指示は即座に処理しないと
+     人間の信頼を損なう。通常の処理フローより優先する」
+     category: human_interaction
+```
+
+```
+[リサーチャー (Researcher) の個人ノート]
+
+  ・「Source X (特定の競合分析サイト) はbeautyニッチの
+     データが2日遅れている。リアルタイム性が必要な時は
+     直接プラットフォームを確認する」
+     category: data_source
+
+  ・「月曜朝の調査は週末のトレンド変化を捉えやすい。
+     金曜朝の調査はウィークデイのデータが安定している」
+     category: timing
+
+  ・「競合アカウント分析は、フォロワー数より直近10投稿の
+     平均view数の方が実力を正確に反映する」
+     category: methodology
+
+  ・「TikTok CreativeCenterのトレンドデータは日本と
+     USで大きく異なる。リージョン設定を必ず確認する」
+     category: platform_knowledge
+```
+
+```
+[アナリスト (Analyst) の個人ノート]
+
+  ・「Hookの長さとcompletion_rateの相関は、fitnessニッチでは
+     beautyニッチより2倍強い。ニッチ別に分析すべき」
+     category: analysis_pattern
+
+  ・「7日分未満のメトリクスデータで分析すると、曜日効果に
+     引きずられて誤った結論を導きやすい」
+     category: methodology
+
+  ・「仮説検証で 'confirmed' と判定する前に、少なくとも1つの
+     反例を探すプロセスを入れると、偽陽性が30%減少する」
+     category: verification
+
+  ・「algorithm_performanceの改善率が3サイクル連続で横ばいの場合、
+     データの問題ではなくプロンプトの構造的改善が必要なサイン」
+     category: meta_analysis
+```
+
+```
+[プランナー (Planner) の個人ノート]
+
+  ・「Before/After形式のシナリオは、'Before'の映像が
+     ネガティブ感情を明確に喚起する場合に効果が2倍になる」
+     category: content_strategy
+
+  ・「CTAで質問形式 ('あなたはどっち派?') を使うと、命令形式
+     ('今すぐフォロー!') より30%エンゲージメントが高い」
+     category: content_strategy
+
+  ・「同じキャラクターで3連続投稿すると、4投目のengage率が
+     15%低下する。キャラクターをローテーションすべき」
+     category: scheduling
+
+  ・「beauty niで投稿時間の最適化をしたとき、朝7-8時 (JST)
+     がベストだったが、US向けアカウントでは真逆だった。
+     ターゲット地域のタイムゾーンを必ず考慮する」
+     category: timing
+```
+
+### 11.3 `agent_individual_learnings` テーブル設計
+
+```sql
+CREATE TABLE agent_individual_learnings (
+    -- 主キー
+    id              SERIAL PRIMARY KEY,
+
+    -- エージェント情報
+    agent_type      VARCHAR(20) NOT NULL,
+        -- strategist / researcher / analyst / planner
+    agent_instance  VARCHAR(50),
+        -- プランナーの場合はインスタンス名 (例: 'planner-beauty')
+
+    -- 学習内容
+    insight         TEXT NOT NULL,
+        -- 個人的な気づき・知見 (自然言語)
+        -- 共有learningsと違い、主観的でOK
+    category        VARCHAR(30) NOT NULL,
+        -- エージェント固有のカテゴリ
+        -- 社長: resource_allocation, communication, strategy, human_interaction
+        -- リサーチャー: data_source, timing, methodology, platform_knowledge
+        -- アナリスト: analysis_pattern, methodology, verification, meta_analysis
+        -- プランナー: content_strategy, scheduling, timing, hypothesis_pattern
+    context         TEXT,
+        -- この学びが得られた文脈 (例: "サイクル15でbeautyニッチを分析した際に...")
+
+    -- 適用範囲
+    applicable_niches VARCHAR(50)[],
+        -- この知見が適用可能なジャンル (NULL = 汎用)
+
+    -- 利用追跡
+    times_applied   INTEGER NOT NULL DEFAULT 0,
+        -- この知見を実際に適用した回数
+        -- 高いほど実用的な知見
+    last_applied_at TIMESTAMPTZ,
+        -- 最後に適用した日時
+        -- 長期間未使用の知見は優先度を下げる
+
+    -- メタ情報
+    source_reflection_id INTEGER REFERENCES agent_reflections(id),
+        -- この学びの元になった振り返り (あれば)
+        -- 振り返り以外のタイミングで記録される場合もある
+
+    -- タイムスタンプ
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    -- 制約
+    CONSTRAINT chk_individual_learnings_type
+        CHECK (agent_type IN ('strategist', 'researcher', 'analyst', 'planner'))
+);
+
+COMMENT ON TABLE agent_individual_learnings IS 'エージェント個別の学習メモリ。個人ノートブック相当';
+COMMENT ON COLUMN agent_individual_learnings.times_applied IS '適用回数。高い値 = 実用的な知見';
+COMMENT ON COLUMN agent_individual_learnings.last_applied_at IS '長期未使用の知見は読み込み優先度を下げる';
+```
+
+### 11.4 個別学習メモリのアクセスパターン
+
+```
+タスク開始時の読み込み優先順位:
+
+  Priority 1: 自分の個別学習メモリ (直近20件)
+    get_individual_learnings({ agent_type: "researcher", limit: 20 })
+    → 自分のノートを確認
+
+  Priority 2: 自分の直近振り返り (セクション10)
+    get_recent_reflections({ agent_type: "researcher", limit: 3 })
+    → 前回の改善アクションを確認
+
+  Priority 3: 共有知見 (learningsテーブル)
+    get_niche_learnings / search_similar_learnings
+    → 会社の共有Wikiを確認
+
+  Priority 4 (必要時のみ): 他エージェントの個別学習メモリ
+    peek_other_agent_learnings({ target_agent_type: "analyst", category: "methodology" })
+    → 同僚のノートを覗く (参考情報として)
+```
+
+```
+書き込みタイミング:
+
+  1. セルフリフレクション時 (セクション10のreflectノード内)
+     → to_improveから再利用可能な知見を抽出して記録
+
+  2. タスク実行中の発見
+     → 「この情報源は不正確だ」と気づいた時点で即座に記録
+
+  3. 他エージェントの知見を参照して学んだ時
+     → 「アナリストのノートから分析手法のヒントを得た」を記録
+```
+
+### 11.5 個別学習メモリの知見ライフサイクル
+
+個別学習メモリの知見は「使われるほど価値が上がり、使われなければ自然淘汰される」仕組みを持つ。
+
+```
+知見のライフサイクル:
+
+  生成                 活用期                     昇格 or 淘汰
+  ─────────────────────────────────────────────────────────────→
+
+  [記録]               [繰り返し適用]              [共有知見へ昇格]
+  times_applied=0      times_applied=5+            → learningsテーブルへ
+  last_applied=今日     last_applied=今日            (十分な実績があれば)
+                       「実用的な知見」
+                                                  [自然淘汰]
+                                                  times_applied=0
+                                                  last_applied=90日前
+                                                  → 読み込み対象外
+                                                    (削除はしない)
+
+  判断基準:
+    ・times_applied >= 10 かつ 複数サイクルで一貫して有効
+      → 共有learningsテーブルへ昇格を検討
+    ・90日以上未使用
+      → 読み込み優先度を最低に設定 (get_individual_learningsの結果に含まれない)
+```
+
+## 12. エージェント→人間コミュニケーション（相談・報告）
+
+### 12.1 設計思想
+
+セクション2.2の「(4) 外→内: 人間→社長」は人間からエージェントへの一方向通信 (`human_directives`) を定義した。本セクションでは逆方向、つまり **エージェントから人間への自発的コミュニケーション** を定義する。
+
+```
+従来の通信 (セクション2.2):
+
+  人間 ──── human_directives ────→ 社長
+                                   │
+                                   ▼
+                               プランナー
+  (一方向: 人間→AI)
+
+本セクションで追加:
+
+  人間 ←── agent_communications ── 社長
+       ←── agent_communications ── リサーチャー
+       ←── agent_communications ── アナリスト
+       ←── agent_communications ── プランナー
+                                   │
+                                   ▼
+  人間 ──── human_directives ────→ 社長 (返信として)
+
+  (双方向: AI→人間→AI)
+```
+
+会社の優秀な社員は、問題を一人で抱え込まず、上司に相談・報告・提案する。AIエージェントも同様に、困りごとがあれば相談し、成果が出れば報告し、改善案があれば提案する。
+
+### 12.2 コミュニケーションの4タイプ
+
+エージェントが人間に送信するメッセージは4タイプに分類される。
+
+#### (1) 困りごと報告 (struggle)
+
+エージェントが自分だけでは解決できない問題に直面した時に送信する。
+
+```
+具体例:
+
+[リサーチャー → 人間]
+  message_type: "struggle"
+  priority: "normal"
+  content: "TikTokのトレンドデータが3日前のものしか取得できません。
+           リアルタイムデータソースがあれば調査精度が大幅に向上します。
+           現状の対処: Google Trendsと競合アカウントの直接確認で代替していますが、
+           TikTok固有のトレンド (サウンド、エフェクト) を見逃すリスクがあります。"
+
+[アナリスト → 人間]
+  message_type: "struggle"
+  priority: "high"
+  content: "ACC_0015のengagement_rateが3日間で50%低下していますが、
+           原因の特定ができません。プラットフォーム側の制裁 (シャドウバン)
+           の可能性がありますが、確認する手段がありません。
+           人間による目視確認をお願いできますか？"
+
+[プランナー → 人間]
+  message_type: "struggle"
+  priority: "normal"
+  content: "fitnessニッチの利用可能なシナリオコンポーネントが3件しかなく、
+           同じシナリオの再利用が続いています。新しいシナリオの追加を
+           お願いできますか？"
+```
+
+#### (2) 提案 (proposal)
+
+エージェントが自分の経験に基づいて改善案を提案する時に送信する。
+
+```
+具体例:
+
+[アナリスト → 人間]
+  message_type: "proposal"
+  priority: "normal"
+  content: "beautyニッチで3サイクル連続で仮説的中率60%超えを達成しました。
+           この成功パターン (朝投稿 x リアクション形式Hook x 質問形式CTA)
+           をfitnessニッチにも展開する価値があると考えます。
+           根拠: 両ニッチのオーディエンス属性 (20-30代女性) が類似しています。"
+
+[社長 → 人間]
+  message_type: "proposal"
+  priority: "normal"
+  content: "techニッチのアカウント数を現在の10から15に増やすことを提案します。
+           理由: 直近5サイクルでtechニッチのROIがbeautyニッチを上回っており、
+           1アカウントあたりのフォロワー獲得コストが35%低いです。
+           追加コスト見込み: 月$15 (fal.ai利用料増分)。"
+
+[リサーチャー → 人間]
+  message_type: "proposal"
+  priority: "low"
+  content: "現在の競合分析ではフォロワー数上位5アカウントを対象にしていますが、
+           フォロワー数1万〜5万の成長中アカウントの方が参考になる戦略を
+           使っていることが多いです。競合分析の対象基準を変更することを
+           提案します。"
+```
+
+#### (3) 質問 (question)
+
+エージェントが人間の判断を必要とする事項について質問する時に送信する。
+
+```
+具体例:
+
+[プランナー → 人間]
+  message_type: "question"
+  priority: "normal"
+  content: "新しいニッチ 'cooking' への展開を計画中ですが、
+           このニッチの競合アカウントは手動で人間が調べた方が正確だと
+           考えています。主要な競合アカウント3〜5件のリストを
+           いただけますか？"
+
+[社長 → 人間]
+  message_type: "question"
+  priority: "high"
+  content: "beauty ニッチとfitness ニッチのリソース配分について:
+           現在 beauty 70% / fitness 30% ですが、fitnessの伸びが良いため
+           50% / 50% への変更を検討しています。
+           beautyは安定収益源なので慎重に判断したいのですが、
+           この方向性でよいでしょうか？"
+
+[アナリスト → 人間]
+  message_type: "question"
+  priority: "normal"
+  content: "仮説H-067 'techニッチでは夜投稿がベスト' の検証結果が
+           inconclusive (サンプル不足) です。追加で10件のコンテンツを
+           制作してサンプルを増やすか、現時点で仮説を棄却するか、
+           どちらが望ましいですか？"
+```
+
+#### (4) 定期報告 (status_report)
+
+各エージェントが定期的に自分の状態を報告する。セルフリフレクション (セクション10) の要約版。
+
+```
+具体例:
+
+[リサーチャー → 人間] (週次自動送信)
+  message_type: "status_report"
+  priority: "low"
+  content: "今週の自己評価: 7.2/10 (先週6.8から改善)
+           改善点: 仮説の粒度を細かくしたことで情報の的確性が5%向上
+           今週の成果:
+             ・市場情報 42件収集 (先週35件)
+             ・トレンド検出 8件 (うち3件がプランナーの仮説に採用)
+             ・情報源カバレッジ: TikTok 95%, YouTube 90%, IG 85%
+           来週の重点: techニッチの競合分析を強化"
+
+[社長 → 人間] (日次自動送信)
+  message_type: "status_report"
+  priority: "low"
+  content: "サイクル42完了報告:
+           ・全体view数: 先週比 +8%
+           ・仮説的中率: 62% (先週58%)
+           ・制作完了: 15件 (目標15件 → 100%達成)
+           ・投稿完了: 12件 (3件はスケジュール待ち)
+           ・本日の判断: beautyニッチに65%配分、tech 20%, fitness 15%
+           ・特記事項: ACC_0015のengagement急落 → アナリストに調査依頼済"
+```
+
+### 12.3 `agent_communications` テーブル設計
+
+```sql
+CREATE TABLE agent_communications (
+    -- 主キー
+    id              SERIAL PRIMARY KEY,
+
+    -- 送信者情報
+    agent_type      VARCHAR(20) NOT NULL,
+        -- strategist / researcher / analyst / planner
+    agent_instance  VARCHAR(50),
+        -- プランナーの場合はインスタンス名
+
+    -- メッセージ内容
+    message_type    VARCHAR(20) NOT NULL,
+        -- struggle: 困りごと報告
+        -- proposal: 提案
+        -- question: 質問
+        -- status_report: 定期報告
+    content         TEXT NOT NULL,
+        -- メッセージ本文 (自然言語)
+    priority        VARCHAR(10) NOT NULL DEFAULT 'normal',
+        -- low: 情報共有レベル (定期報告等)
+        -- normal: 通常の相談・提案
+        -- high: 早めの対応が望ましい
+        -- urgent: 即座の対応が必要
+
+    -- ステータス管理
+    status          VARCHAR(15) NOT NULL DEFAULT 'unread',
+        -- unread: 未読
+        -- read: 既読 (人間が閲覧済み)
+        -- responded: 返信済み (human_directivesとして返信)
+        -- archived: アーカイブ済み
+    response_directive_id INTEGER REFERENCES human_directives(id),
+        -- 人間の返信に対応するhuman_directivesのID (あれば)
+
+    -- コンテキスト情報
+    cycle_id        INTEGER REFERENCES cycles(id),
+        -- このメッセージが関連するサイクル
+    related_account_ids VARCHAR(20)[],
+        -- 関連するアカウントID (あれば)
+    related_hypothesis_ids INTEGER[],
+        -- 関連する仮説ID (あれば)
+
+    -- タイムスタンプ
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    read_at         TIMESTAMPTZ,
+    responded_at    TIMESTAMPTZ,
+
+    -- 制約
+    CONSTRAINT chk_agent_comms_type
+        CHECK (agent_type IN ('strategist', 'researcher', 'analyst', 'planner')),
+    CONSTRAINT chk_agent_comms_message_type
+        CHECK (message_type IN ('struggle', 'proposal', 'question', 'status_report')),
+    CONSTRAINT chk_agent_comms_priority
+        CHECK (priority IN ('low', 'normal', 'high', 'urgent')),
+    CONSTRAINT chk_agent_comms_status
+        CHECK (status IN ('unread', 'read', 'responded', 'archived'))
+);
+
+COMMENT ON TABLE agent_communications IS 'エージェントから人間への自発的メッセージ。双方向コミュニケーションの基盤';
+COMMENT ON COLUMN agent_communications.response_directive_id IS '人間の返信はhuman_directivesとして管理。このカラムで紐づけ';
+```
+
+### 12.4 コミュニケーションフローの全体像
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                                                                         │
+│  エージェント側                         人間側 (ダッシュボード)            │
+│                                                                         │
+│  [タスク実行中]                                                          │
+│       │                                                                 │
+│       │  困りごとを検出                                                   │
+│       │                                                                 │
+│       ▼                                                                 │
+│  submit_agent_message({                                                 │
+│    agent_type: "researcher",                                            │
+│    message_type: "struggle",            ┌─────────────────────────┐     │
+│    content: "TikTokデータが             │ 📥 エージェントからの     │     │
+│     3日前のもの...",                     │     受信トレイ            │     │
+│    priority: "normal"                   │                         │     │
+│  })                                     │ ● [高] ACC_0015急落報告  │     │
+│       │                                │ ● [普] TikTokデータ問題  │     │
+│       │  agent_communications           │ ○ [低] 週次レポート      │     │
+│       │  INSERT                         │                         │     │
+│       ├────────────────────────────────→│  [詳細] [返信] [既読]    │     │
+│       │                                └─────────────┬───────────┘     │
+│       │                                              │                  │
+│       │                                   人間が返信を入力               │
+│       │                                              │                  │
+│       │                                              ▼                  │
+│       │                                ┌──────────────────────┐        │
+│       │                                │ submit_human_directive │        │
+│       │                                │ ({                    │        │
+│       │                                │   directive_type:     │        │
+│       │  human_directives              │     "instruction",    │        │
+│       │  INSERT                        │   content: "TikTok API│        │
+│       │                                │     を追加検討中。     │        │
+│  [次サイクル開始時]                      │     当面はGoogle       │        │
+│       │                                │     Trendsで代替を"   │        │
+│       ▼                                │ })                    │        │
+│  get_human_responses({                 └──────────────────────┘        │
+│    agent_type: "researcher"                                             │
+│  })                                                                     │
+│       │                                                                 │
+│       │  「了解しました。Google Trendsでの代替を継続します。」              │
+│       │                                                                 │
+│       ▼                                                                 │
+│  [タスクに反映]                                                          │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### 12.5 メッセージ送信の判断基準
+
+エージェントは全てのサイクルでメッセージを送信するわけではない。以下の基準に基づいて「送信すべきか」を判断する。
+
+```
+送信判断ロジック (shouldNotifyHuman関数):
+
+  ┌─────────────────────────────────────────────────┐
+  │ 送信条件                           message_type  │
+  ├─────────────────────────────────────────────────┤
+  │                                                  │
+  │ ● 自己評価が3サイクル連続で低下     → struggle    │
+  │   (self_score が 3回連続で前回以下)               │
+  │                                                  │
+  │ ● 同じto_improveが3サイクル以上     → struggle    │
+  │   続いている (構造的問題の可能性)                   │
+  │                                                  │
+  │ ● 異常値を検出 (KPIの急落/急伸)     → struggle    │
+  │   (normal値の2σ以上の乖離)                        │
+  │                                                  │
+  │ ● 目標KPIを3サイクル連続達成         → proposal   │
+  │   (成功パターンの横展開提案)                       │
+  │                                                  │
+  │ ● 新しい知見の信頼度が0.85超え       → proposal   │
+  │   (高信頼知見の活用拡大提案)                       │
+  │                                                  │
+  │ ● 自分では判断できない二者択一       → question    │
+  │   (リスクが高い意思決定)                           │
+  │                                                  │
+  │ ● 週次/日次の定期タイミング          → status_report│
+  │   (社長: 日次、その他: 週次)                       │
+  │                                                  │
+  └─────────────────────────────────────────────────┘
+```
+
+```typescript
+function shouldNotifyHuman(reflection: AgentReflection, history: AgentReflection[]): boolean {
+  // 1. 自己評価が3サイクル連続で低下
+  if (history.length >= 2) {
+    const declining = history.slice(0, 2).every(
+      (prev, i) => i === 0
+        ? reflection.self_score <= prev.self_score
+        : history[i-1].self_score <= prev.self_score
+    );
+    if (declining) return true;
+  }
+
+  // 2. 同じ改善点が3サイクル以上続いている
+  if (history.length >= 2) {
+    const recurring = reflection.to_improve.some(item =>
+      history.slice(0, 2).every(prev =>
+        prev.to_improve.some(prevItem => isSimilar(item, prevItem))
+      )
+    );
+    if (recurring) return true;
+  }
+
+  // 3. 定期報告タイミング (社長: 毎サイクル、その他: 7サイクルごと)
+  const reportInterval = reflection.agent_type === 'strategist' ? 1 : 7;
+  if (state.cycle_number % reportInterval === 0) return true;
+
+  return false;
+}
+
+function determineMessageType(reflection: AgentReflection): string {
+  if (reflection.self_score <= 4) return "struggle";
+  if (reflection.went_well.length >= 3 && reflection.self_score >= 8) return "proposal";
+  return "status_report";
+}
+```
+
+### 12.6 ダッシュボードの受信トレイUI
+
+```
+┌────────────────────────────────────────────────────────────────────┐
+│ ダッシュボード > エージェントからのメッセージ                          │
+├────────────────────────────────────────────────────────────────────┤
+│                                                                    │
+│  フィルタ: [▼ 全タイプ]  [▼ 全エージェント]  [▼ 未読のみ]          │
+│                                                                    │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 🔴 高 │ アナリスト │ 困りごと │ 2026-02-17 09:15           │  │
+│  │       │ ACC_0015のengagement_rateが3日間で50%低下。           │  │
+│  │       │ シャドウバンの可能性あり。目視確認をお願いします        │  │
+│  │       │                              [返信] [既読] [詳細]    │  │
+│  ├──────────────────────────────────────────────────────────────┤  │
+│  │ 🟡 普 │ リサーチャー │ 困りごと │ 2026-02-17 08:30          │  │
+│  │       │ TikTokのトレンドデータが3日前のものしか取得できません。 │  │
+│  │       │ リアルタイムデータソースがあれば精度が向上します         │  │
+│  │       │                              [返信] [既読] [詳細]    │  │
+│  ├──────────────────────────────────────────────────────────────┤  │
+│  │ 🟡 普 │ アナリスト │ 提案 │ 2026-02-16 18:00              │  │
+│  │       │ beautyニッチで3サイクル連続60%超え達成。                │  │
+│  │       │ fitnessにも同戦略の展開を提案します                    │  │
+│  │       │                              [返信] [既読] [詳細]    │  │
+│  ├──────────────────────────────────────────────────────────────┤  │
+│  │ ⚪ 低 │ 社長 │ 定期報告 │ 2026-02-16 10:00                │  │
+│  │       │ サイクル42完了: view +8%, 的中率62%, 制作15/15件       │  │
+│  │       │                              [返信] [既読] [詳細]    │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+│                                                                    │
+│  ─────────────────────────────────────────────────────────────     │
+│                                                                    │
+│  返信パネル (リサーチャーの困りごとに返信中):                         │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ TikTok APIの追加を検討中です。当面はGoogle TrendsとTikTok     │  │
+│  │ CreativeCenterの直接確認で代替してください。TikTok固有の       │  │
+│  │ トレンド (サウンド、エフェクト) は週次で私が手動確認して       │  │
+│  │ human_directivesとして投入します。                            │  │
+│  │                                                              │  │
+│  │                              [送信 (human_directiveとして)]   │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+│                                                                    │
+└────────────────────────────────────────────────────────────────────┘
+```
+
+### 12.7 情報の流れの完全な双方向フロー (更新版)
+
+セクション2.2の4方向に本セクションの通信を追加し、完全な双方向フローとなる。
+
+| 方向 | 流れ | 具体的なデータ | DBテーブル |
+|------|------|---------------|----------|
+| **(1) 上→下** | 社長→プランナー→ワーカー | サイクル方針、制作指示、投稿指示 | `cycles`, `content`, `task_queue` |
+| **(2) 下→上** | ワーカー→アナリスト→社長 | 完了報告、パフォーマンスデータ、分析結果 | `metrics`, `analyses`, `algorithm_performance` |
+| **(3) 横** | リサーチャー・アナリスト→社長・プランナー | 市場動向、トレンド、知見、仮説検証結果 | `market_intel`, `learnings`, `hypotheses` |
+| **(4) 外→内** | 人間→社長 | 仮説投入、参考コンテンツ指定、設定変更 | `human_directives` |
+| **(5) 内→外** | 全エージェント→人間 | 困りごと、提案、質問、定期報告 | `agent_communications` |
+| **(6) 自己** | 各エージェント→自分 | 振り返り、個別学習メモリ | `agent_reflections`, `agent_individual_learnings` |
