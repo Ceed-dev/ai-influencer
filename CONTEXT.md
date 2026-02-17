@@ -1280,7 +1280,7 @@ Instagram variations:
 - `scripts/generate-digest.js`: CLIエントリポイント (単日/バックフィル/dry-run)
 - `.github/workflows/daily-digest.yml`: 毎日00:30 JST自動実行 + 手動dispatch
 - `digests/YYYY/MM/YYYY-MM-DD.md`: 日次要約出力ディレクトリ (git tracked)
-- `tests/digest.test.js`: 26テスト
+- `tests/digest.test.js`: 33テスト
 
 **技術スタック**:
 - Slack API (`@slack/web-api`): メッセージ取得・スレッド取得・ユーザー名解決
@@ -1295,6 +1295,7 @@ Instagram variations:
 - 150K文字超の会話: 分割→個別要約→統合要約
 - バックフィルモード: `--from 2026-02-01 --to 2026-02-16` で範囲一括生成
 - 会話ログは `<details>` 折りたたみ (GitHub上で読みやすく、全文検索可能)
+- シークレット自動マスク: APIキー (xAI, OpenAI, Slack, GitHub, AWS, Google, fal) + 汎用 Secret Key/API Key パターン検出 → `[REDACTED:種別]` に置換
 
 **Slack App**: `AI-Influencer Digest Bot` (Ceed Inc. workspace)
 - Scopes: `channels:history`, `channels:read`, `groups:history`, `groups:read`, `users:read`

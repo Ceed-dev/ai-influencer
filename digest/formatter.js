@@ -157,7 +157,7 @@ function composeMarkdown(dateStr, summary, rawFormatted, stats, channelName) {
     '</details>',
   ].join('\n');
 
-  const raw = [frontmatter, '', header, '', '## サマリー', '', summary, '', '---', '', statsSection, '', logSection, ''].join('\n');
+  const raw = [frontmatter, '', header, '', '## サマリー', '', summary, '', statsSection, '', logSection, ''].join('\n');
   return redactSecrets(raw);
 }
 
@@ -218,8 +218,6 @@ function formatConversationLog(messages, threadReplies, users, channelId, contin
     }
 
     lines.push('');
-    lines.push('---');
-    lines.push('');
   }
 
   // Continued threads from previous days
@@ -241,8 +239,6 @@ function formatConversationLog(messages, threadReplies, users, channelId, contin
         const rName = users.get(r.user) || r.user || 'unknown';
         lines.push(`> ${rTime} - ${rName}: ${r.text || ''}`);
       }
-      lines.push('');
-      lines.push('---');
       lines.push('');
     }
   }
