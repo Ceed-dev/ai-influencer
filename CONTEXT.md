@@ -1453,6 +1453,37 @@ node scripts/generate-digest.js --force               # 既存ファイル上書
 - `04-agent-design.md`: LangGraphグラフにhuman_approvalノード追加、ダッシュボードAPIに承認ツール2本追加(計5本)、State型更新、エラーハンドリング追加
 - `06-development-roadmap.md`: Phase 4にREQUIRE_HUMAN_APPROVAL=true記載、Phase 5に自動承認移行記載、マイルストーンチェックリスト更新
 
+### 2026-02-17: v5.0仕様書 — データキュレーター + 学習監督 + 差戻しFB + 目次
+
+**1. データキュレーターAgent追加** (4ファイル):
+- 新Agent: リサーチャーや人間から受け取った生データを構造化してcomponentsテーブルに自動保存
+- v4.0では人間が手動作成していたシナリオ・モーション・音声等を全自動化
+- componentsに`curated_by`, `curation_confidence`, `review_status`カラム追加
+- task_queueにtype='curate'追加
+- ダッシュボードにキュレーション結果レビューパネル追加
+- MCP 9ツール追加 (6本Agent用 + 3本ダッシュボード用)
+
+**2. 学習方法の人間監督** (3ファイル):
+- ダッシュボードに「学習方法レビュー」パネル追加（各Agentのreflection・学習パターン可視化）
+- `learning_guidance` directive_type追加 — 人間が「この学習方法を改善して」と指導可能
+- 初期は人間が週次レビュー → 安定期は月次+アラートのみ → 成熟期は自律学習
+
+**3. 差戻しフィードバック強化** (3ファイル):
+- `rejection_category`カラム追加: `plan_revision`/`data_insufficient`/`hypothesis_weak`
+- カテゴリに応じた戻り先分岐: プランナー/リサーチャー/アナリスト
+- プランナーはstate.approval.feedbackを明示的に参照して同じ問題を回避
+- 人間もダッシュボードで差戻し理由+カテゴリを入力可能
+
+**4. 目次追加** (10ファイル):
+- README.md: 01-09ファイルへのリンク+概要テーブル
+- 01-06: ファイル内セクション目次追加
+- 07-09: 既に目次あり（変更なし）
+
+**5. タイムアウト仕様変更**:
+- 人間承認の24時間自動承認を削除 → キューに蓄積、人間が確認可能な時に承認
+
+**変更ファイル** (7ファイル, +711/-61行)
+
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID
 - `.gsheets_token.json` - OAuth token for Sheets/Drive API

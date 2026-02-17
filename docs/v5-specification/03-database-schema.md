@@ -8,6 +8,65 @@
 >
 > **関連ドキュメント**: [02-architecture.md](02-architecture.md) (データ基盤層の設計思想), [01-tech-stack.md](01-tech-stack.md) (pgvector・ORM選定)
 
+## 目次
+
+- [概要](#概要)
+  - [テーブルカテゴリ](#テーブルカテゴリ)
+  - [ER図](#er図)
+- [初期セットアップ](#初期セットアップ)
+- [1. Entity Tables (エンティティテーブル)](#1-entity-tables-エンティティテーブル)
+  - [1.1 accounts — アカウント管理](#11-accounts--アカウント管理)
+  - [1.2 characters — キャラクター管理](#12-characters--キャラクター管理)
+  - [1.3 components — コンポーネント管理](#13-components--コンポーネント管理)
+- [2. Production Tables (制作テーブル)](#2-production-tables-制作テーブル)
+  - [2.1 content — コンテンツ管理](#21-content--コンテンツ管理)
+  - [2.2 content_sections — セクション構成](#22-content_sections--セクション構成)
+  - [2.3 publications — 投稿記録](#23-publications--投稿記録)
+- [3. Intelligence Tables (インテリジェンステーブル)](#3-intelligence-tables-インテリジェンステーブル)
+  - [3.1 hypotheses — 仮説管理](#31-hypotheses--仮説管理)
+  - [3.2 market_intel — 市場情報統合](#32-market_intel--市場情報統合)
+  - [3.3 metrics — パフォーマンス計測値](#33-metrics--パフォーマンス計測値)
+  - [3.4 analyses — 分析結果](#34-analyses--分析結果)
+  - [3.5 learnings — 蓄積知見](#35-learnings--蓄積知見)
+- [4. Operations Tables (運用テーブル)](#4-operations-tables-運用テーブル)
+  - [4.1 cycles — サイクル管理](#41-cycles--サイクル管理)
+  - [4.2 human_directives — 人間の指示](#42-human_directives--人間の指示)
+  - [4.3 task_queue — タスクキュー](#43-task_queue--タスクキュー)
+  - [4.4 algorithm_performance — アルゴリズム精度追跡](#44-algorithm_performance--アルゴリズム精度追跡)
+- [5. Observability Tables (運用・可視化テーブル)](#5-observability-tables-運用可視化テーブル)
+  - [5.1 agent_prompt_versions — エージェントプロンプト履歴](#51-agent_prompt_versions--エージェントプロンプト履歴)
+  - [5.2 agent_thought_logs — エージェント思考ログ](#52-agent_thought_logs--エージェント思考ログ)
+  - [5.3 agent_reflections — エージェント個別振り返り](#53-agent_reflections--エージェント個別振り返り)
+  - [5.4 agent_individual_learnings — エージェント個別学習メモリ](#54-agent_individual_learnings--エージェント個別学習メモリ)
+  - [5.5 agent_communications — エージェント→人間コミュニケーション](#55-agent_communications--エージェント人間コミュニケーション)
+- [6. Tool Management Tables (ツール管理テーブル)](#6-tool-management-tables-ツール管理テーブル)
+  - [6.1 tool_catalog — ツールカタログ](#61-tool_catalog--ツールカタログ)
+  - [6.2 tool_experiences — ツール使用経験](#62-tool_experiences--ツール使用経験)
+  - [6.3 tool_external_sources — ツール外部情報源](#63-tool_external_sources--ツール外部情報源)
+  - [6.4 production_recipes — 制作レシピ](#64-production_recipes--制作レシピ)
+  - [6.5 prompt_suggestions — プロンプト改善提案](#65-prompt_suggestions--プロンプト改善提案)
+- [7. インデックス定義](#7-インデックス定義)
+  - [7.1 Entity Tables のインデックス](#71-entity-tables-のインデックス)
+  - [7.2 Production Tables のインデックス](#72-production-tables-のインデックス)
+  - [7.3 Intelligence Tables のインデックス](#73-intelligence-tables-のインデックス)
+  - [7.4 Operations Tables のインデックス](#74-operations-tables-のインデックス)
+  - [7.5 Observability Tables のインデックス](#75-observability-tables-のインデックス)
+  - [7.6 Tool Management Tables のインデックス](#76-tool-management-tables-のインデックス)
+- [8. updated_at 自動更新トリガー](#8-updated_at-自動更新トリガー)
+- [9. テーブル間リレーション詳細](#9-テーブル間リレーション詳細)
+  - [9.1 外部キー一覧](#91-外部キー一覧)
+  - [9.2 データフロー上の間接参照](#92-データフロー上の間接参照)
+  - [9.3 コンテンツのライフサイクルとテーブル遷移](#93-コンテンツのライフサイクルとテーブル遷移)
+- [10. v4.0からのデータ移行マッピング](#10-v40からのデータ移行マッピング)
+  - [10.1 Spreadsheet → PostgreSQL マッピング](#101-spreadsheet--postgresql-マッピング)
+  - [10.2 カラムマッピング例 (production タブ → content)](#102-カラムマッピング例-production-タブ--content)
+- [11. 想定クエリパターン](#11-想定クエリパターン)
+  - [11.1 制作パイプライングラフ: タスク取得](#111-制作パイプライングラフ-タスク取得)
+  - [11.2 計測ジョブグラフ: 計測対象検出](#112-計測ジョブグラフ-計測対象検出)
+  - [11.3 アナリスト: 類似仮説検索 (pgvector)](#113-アナリスト-類似仮説検索-pgvector)
+  - [11.4 プランナー: アカウント別パフォーマンスサマリー](#114-プランナー-アカウント別パフォーマンスサマリー)
+  - [11.5 ダッシュボード: アルゴリズム精度推移](#115-ダッシュボード-アルゴリズム精度推移)
+
 ## 概要
 
 v5.0のPostgreSQLスキーマは、AI-Influencerシステムの全構造化データを一元管理する。v4.0で5つのGoogle Spreadsheet + 33列productionタブに散在していたデータを、リレーショナルDBの正規化された25テーブルに集約する。
@@ -430,6 +489,19 @@ CREATE TABLE components (
         -- 使用回数。制作パイプラインが制作完了時にインクリメント
         -- プランナーが「使い古されたシナリオ」を避ける判断材料
 
+    -- キュレーション管理
+    curated_by      VARCHAR(20) NOT NULL DEFAULT 'human',
+        -- auto: データキュレーターが自動生成
+        -- human: 人間が手動作成
+    curation_confidence DECIMAL(3,2),
+        -- キュレーターの自信度 (0.00〜1.00)
+        -- curated_by='auto' の場合のみ設定
+        -- 閾値以上なら自動承認、未満なら人間レビュー要
+    review_status   VARCHAR(20) NOT NULL DEFAULT 'auto_approved',
+        -- auto_approved: 自動承認済み (人間作成 or 高自信度の自動生成)
+        -- pending_review: 人間レビュー待ち (低自信度の自動生成)
+        -- human_approved: 人間がレビューして承認済み
+
     -- タイムスタンプ
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -438,12 +510,21 @@ CREATE TABLE components (
     CONSTRAINT chk_components_type
         CHECK (type IN ('scenario', 'motion', 'audio', 'image')),
     -- subtype は自由タグのため CHECK 制約なし (任意の文字列を許可)
+    CONSTRAINT chk_components_curated_by
+        CHECK (curated_by IN ('auto', 'human')),
+    CONSTRAINT chk_components_review_status
+        CHECK (review_status IN ('auto_approved', 'pending_review', 'human_approved')),
+    CONSTRAINT chk_components_curation_confidence
+        CHECK (curation_confidence IS NULL OR (curation_confidence >= 0.00 AND curation_confidence <= 1.00))
 );
 
 COMMENT ON TABLE components IS 'シナリオ・モーション・オーディオ・画像の統合コンポーネント管理';
 COMMENT ON COLUMN components.data IS '種別(type)に応じた構造化データ。scenarioならscript_en/jp等';
 COMMENT ON COLUMN components.score IS 'アナリストが算出するパフォーマンススコア (0-100)';
 COMMENT ON COLUMN components.tags IS '自由タグ配列。GINインデックスで高速検索';
+COMMENT ON COLUMN components.curated_by IS 'auto=データキュレーター自動生成, human=人間手動作成';
+COMMENT ON COLUMN components.curation_confidence IS 'データキュレーターの自信度 (0.00-1.00)。auto時のみ';
+COMMENT ON COLUMN components.review_status IS 'キュレーション結果のレビュー状態。pending_reviewは人間確認待ち';
 ```
 
 ## 2. Production Tables (制作テーブル)
@@ -548,6 +629,11 @@ CREATE TABLE content (
     approved_by         VARCHAR(100),           -- 承認者 (NULL = 未承認 or 自動承認)
     approved_at         TIMESTAMPTZ,            -- 承認日時
     approval_feedback   TEXT,                   -- 差戻時のフィードバック
+    rejection_category  VARCHAR(30),            -- 差戻しカテゴリ (戻り先を決定)
+        -- plan_revision: 計画修正 → プランナーに戻る (デフォルト)
+        -- data_insufficient: データ不足 → リサーチャーに戻る
+        -- hypothesis_weak: 仮説が弱い → アナリストに戻る
+        -- AI (Opus) も人間も差戻し時にカテゴリを指定可能
 
     -- エラー情報
     error_message   TEXT,
@@ -566,13 +652,18 @@ CREATE TABLE content (
             'error', 'cancelled'
         )),
     CONSTRAINT chk_content_script_language
-        CHECK (script_language IS NULL OR script_language IN ('en', 'jp'))
+        CHECK (script_language IS NULL OR script_language IN ('en', 'jp')),
+    CONSTRAINT chk_content_rejection_category
+        CHECK (rejection_category IS NULL OR rejection_category IN (
+            'plan_revision', 'data_insufficient', 'hypothesis_weak'
+        ))
 );
 
 COMMENT ON TABLE content IS 'コンテンツのライフサイクル管理。4つのLangGraphグラフ間の間接連携ポイント';
 COMMENT ON COLUMN content.status IS 'pending_approval→planned→producing→ready→analyzed の制作ステータス遷移。pending_approvalはREQUIRE_HUMAN_APPROVAL=true時のみ使用。投稿以降はpublicationsテーブルで管理';
 COMMENT ON COLUMN content.hypothesis_id IS '仮説駆動サイクルの根拠。NULLは人間の直接指示';
 COMMENT ON COLUMN content.production_metadata IS 'fal.ai request ID, 処理時間, ファイルサイズ等';
+COMMENT ON COLUMN content.rejection_category IS '差戻しカテゴリ。plan_revision=プランナーへ, data_insufficient=リサーチャーへ, hypothesis_weak=アナリストへ。AI・人間両方が設定可能';
 ```
 
 ### 2.2 content_sections — セクション構成
@@ -1274,6 +1365,11 @@ CREATE TABLE human_directives (
         -- instruction: 一般的な指示
         --   人間がシステムの挙動を調整
         --   content例: "今週はbeautyニッチに集中して、techは停止"
+        --
+        -- learning_guidance: 学習方法の指導
+        --   人間がエージェントの「学習方法そのもの」を軌道修正
+        --   content例: "サンプル数3で仮説確認しているが最低10必要。n<10はinconclusive必須"
+        --   → 各エージェントがget_learning_directivesで読み取り、リフレクション方法に反映
 
     -- 指示内容
     content         TEXT NOT NULL,
@@ -1314,7 +1410,7 @@ CREATE TABLE human_directives (
 
     -- 制約
     CONSTRAINT chk_directives_type
-        CHECK (directive_type IN ('hypothesis', 'reference_content', 'instruction')),
+        CHECK (directive_type IN ('hypothesis', 'reference_content', 'instruction', 'learning_guidance')),
     CONSTRAINT chk_directives_status
         CHECK (status IN ('pending', 'acknowledged', 'applied', 'expired')),
     CONSTRAINT chk_directives_priority
@@ -1322,7 +1418,7 @@ CREATE TABLE human_directives (
 );
 
 COMMENT ON TABLE human_directives IS 'ダッシュボードからの人間の指示。戦略エージェントがサイクル開始時に読み取り';
-COMMENT ON COLUMN human_directives.directive_type IS 'hypothesis/reference_content/instruction';
+COMMENT ON COLUMN human_directives.directive_type IS 'hypothesis/reference_content/instruction/learning_guidance。learning_guidanceは各エージェントがget_learning_directivesで読み取り';
 COMMENT ON COLUMN human_directives.priority IS 'urgentは進行中サイクルに割り込み';
 ```
 
@@ -1340,6 +1436,7 @@ CREATE TABLE task_queue (
         -- produce: 動画制作タスク (制作パイプライングラフが処理)
         -- publish: 投稿タスク (投稿スケジューラーグラフが処理)
         -- measure: 計測タスク (計測ジョブグラフが処理)
+        -- curate: データキュレーションタスク (データキュレーターが処理)
     payload         JSONB NOT NULL,
         -- タスク固有のデータ
         --
@@ -1373,6 +1470,17 @@ CREATE TABLE task_queue (
         --   "platform": "youtube",
         --   "platform_post_id": "dQw4w9WgXcQ",
         --   "measurement_type": "48h"
+        -- }
+        --
+        -- [curate の場合]
+        -- {
+        --   "source": "researcher" | "human" | "analyst",
+        --   "data_type": "trending_topic" | "competitor_post" | "reference_content" | "improvement",
+        --   "raw_data": { ... },
+        --   "target_component_type": "scenario" | "motion" | "audio" | "image" | null,
+        --   "source_url": "https://...",
+        --   "source_file_id": "1abc...",
+        --   "description": "トレンドのglass skinに基づくシナリオ素案"
         -- }
 
     -- ステータス管理
@@ -1410,12 +1518,12 @@ CREATE TABLE task_queue (
 
     -- 制約
     CONSTRAINT chk_task_type
-        CHECK (task_type IN ('produce', 'publish', 'measure')),
+        CHECK (task_type IN ('produce', 'publish', 'measure', 'curate')),
     CONSTRAINT chk_task_status
         CHECK (status IN ('queued', 'processing', 'completed', 'failed'))
 );
 
-COMMENT ON TABLE task_queue IS '制作・投稿・計測のタスクキュー。各LangGraphグラフがポーリングで取得';
+COMMENT ON TABLE task_queue IS '制作・投稿・計測・キュレーションのタスクキュー。各LangGraphグラフがポーリングで取得';
 COMMENT ON COLUMN task_queue.priority IS '大きいほど高優先。ORDER BY priority DESC, created_at ASC';
 COMMENT ON COLUMN task_queue.max_retries IS 'デフォルト3。retry_count >= max_retries で failed確定';
 ```
@@ -2415,6 +2523,10 @@ CREATE INDEX idx_components_score ON components(score DESC NULLS LAST);
     -- スコア順でのソート（高スコアを優先取得）
 CREATE INDEX idx_components_tags ON components USING GIN(tags);
     -- タグ配列の包含検索: WHERE tags @> ARRAY['skincare']
+CREATE INDEX idx_components_review_status ON components(review_status);
+    -- pending_review のコンポーネント一覧 (ダッシュボードキュレーションレビュー用)
+CREATE INDEX idx_components_curated_by ON components(curated_by);
+    -- auto/human でフィルタ
 ```
 
 ### 7.2 Production Tables のインデックス

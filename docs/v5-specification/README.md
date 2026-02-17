@@ -27,19 +27,19 @@ v5.0は、AI-Influencerシステムを**完全AIエージェント駆動**に刷
 - **品質重視** — 量産ではなく、アルゴリズムの精度向上による質の改善
 - **人間介入も可能** — ダッシュボードから仮説・参考コンテンツを差し込める
 
-## ドキュメント構成
+## 仕様書一覧
 
-| ファイル | 内容 |
-|---------|------|
-| [01-tech-stack.md](01-tech-stack.md) | 技術スタック一覧（全サービス・ライブラリ・インフラ） |
-| [02-architecture.md](02-architecture.md) | システムアーキテクチャ（データ基盤・エージェント・MCP・ダッシュボード） |
-| [03-database-schema.md](03-database-schema.md) | PostgreSQLスキーマ完全定義（全テーブル・カラム・リレーション） |
-| [04-agent-design.md](04-agent-design.md) | AIエージェント設計（階層構造・MCPツール・LangGraphグラフ・データフロー） |
-| [05-cost-analysis.md](05-cost-analysis.md) | 運用コスト分析（月額・コンテンツ単価・スケール別試算） |
-| [06-development-roadmap.md](06-development-roadmap.md) | 開発ロードマップ（週単位スケジュール・マイルストーン・依存関係） |
-| [07-kpi-analysis.md](07-kpi-analysis.md) | KPI達成可能性分析 v3（v5仕様での再評価） |
-| [08-algorithm-analysis.md](08-algorithm-analysis.md) | アルゴリズム精度分析（仮説的中率予測・成長曲線・改善戦略） |
-| [09-risks-and-bottlenecks.md](09-risks-and-bottlenecks.md) | リスク・ボトルネック分析（Biz観点・Dev観点・緩和策） |
+| # | ファイル | 内容 |
+|---|---------|------|
+| 01 | [技術スタック一覧](01-tech-stack.md) | 使用する全サービス・ライブラリ・インフラ |
+| 02 | [システムアーキテクチャ](02-architecture.md) | 4層アーキテクチャ、データ基盤層、AIエージェント層、MCP Server、ダッシュボード |
+| 03 | [PostgreSQLスキーマ完全定義](03-database-schema.md) | 全テーブル・カラム・リレーション・インデックス（pgvector含む） |
+| 04 | [AIエージェント設計](04-agent-design.md) | 階層構造、MCPツール一覧、LangGraphグラフ設計、仮説駆動サイクル |
+| 05 | [運用コスト分析](05-cost-analysis.md) | コンテンツ単価、AIエージェント運用コスト、スケール別月間総コスト |
+| 06 | [開発ロードマップ](06-development-roadmap.md) | 週単位スケジュール、マイルストーン、依存関係、リスクバッファ |
+| 07 | [KPI達成可能性分析 v3](07-kpi-analysis.md) | v5.0仕様での再評価（2026年2月〜6月 + 長期展望） |
+| 08 | [アルゴリズム精度分析](08-algorithm-analysis.md) | 仮説的中率予測、成長曲線、改善戦略 |
+| 09 | [リスク・ボトルネック分析](09-risks-and-bottlenecks.md) | ビジネス・技術・プラットフォーム・運用リスクと緩和策 |
 
 ## アーキテクチャ概要図
 
