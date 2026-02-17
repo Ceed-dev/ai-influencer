@@ -1318,6 +1318,22 @@ node scripts/generate-digest.js --dry-run             # stdout出力のみ
 node scripts/generate-digest.js --force               # 既存ファイル上書き
 ```
 
+### 2026-02-17: 会議録ダイジェスト機能
+
+**目的**: 定例会議の書き起こしテキストを構造化された要約ファイルとしてリポジトリに保存。Slack日報と同じ `digests/` ディレクトリに格納。
+
+**ワークフロー**:
+1. 会議をTurboScribeで文字起こし (テキストファイル出力)
+2. ユーザーがClaude Codeに書き起こしファイルを渡す
+3. Claude Codeが要約を生成し `digests/YYYY/MM/YYYY-MM-DD-meeting.md` に保存
+4. コミット＆プッシュ
+
+**ファイル命名規則**: `YYYY-MM-DD-meeting.md` (Slack日報の `YYYY-MM-DD.md` と区別)
+
+**出力フォーマット**: Slack日報と同一構造 — YAML frontmatter (`type: meeting`, `participants`, `source`) + サマリー (議題/決定事項/アクションアイテム/重要な議論/メモ) + 折りたたみ全文ログ
+
+**初回作成**: `2026-02-16-meeting.md` — AI KOL Founder会議 (pochi, バタン, ゆいさん)
+
 ### 2026-02-17: v5.0仕様 — ファイル別レビュー & 8項目の大規模修正 (Session 2)
 
 **背景**: 前セッションでv5.0仕様の初回レビュー＋エージェント学習メカニズム追加を実施。本セッションではファイル別レビューを継続し、ユーザーのフィードバックに基づく8項目の仕様修正を実施。
