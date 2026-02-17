@@ -452,7 +452,7 @@ COMMENT ON COLUMN components.tags IS '自由タグ配列。GINインデックス
 
 ### 2.1 content — コンテンツ管理
 
-コンテンツの制作ライフサイクルを管理する中核テーブル。制作ステータス (`planned` → `producing` → `ready` → `analyzed`) を追跡し、LangGraphグラフ間の間接連携ポイントとなる。投稿以降のライフサイクル (`scheduled` → `posted` → `measured`) は `publications` テーブルで管理する（1コンテンツ→N投稿の1:Nモデル）。
+コンテンツの制作ライフサイクルを管理する中核テーブル。制作ステータス (`pending_approval` → `planned` → `producing` → `ready` → `analyzed`) を追跡し、LangGraphグラフ間の間接連携ポイントとなる。`REQUIRE_HUMAN_APPROVAL=true` 時はAI承認後に `pending_approval` で人間の承認を待ち、`false` 時は直接 `planned` に遷移する。投稿以降のライフサイクル (`scheduled` → `posted` → `measured`) は `publications` テーブルで管理する（1コンテンツ→N投稿の1:Nモデル）。
 
 v4.0の production タブ (33カラム) からの移行先。
 
@@ -472,7 +472,8 @@ CREATE TABLE content (
 
     -- ステータス管理 (制作ライフサイクルのみ)
     status          VARCHAR(20) NOT NULL DEFAULT 'planned',
-        -- planned:    戦略サイクルが計画承認済み。制作待ち
+        -- pending_approval: AI承認済み、人間の承認待ち (REQUIRE_HUMAN_APPROVAL=true時のみ)
+        -- planned:    人間 or AI が計画承認済み。制作待ち
         -- producing:  制作パイプラインが動画生成中
         -- ready:      動画完成。投稿待ちプール内
         --             ※ readyの後はpublicationsテーブルで各投稿先を管理
@@ -543,6 +544,11 @@ CREATE TABLE content (
         --   "dry_run": false
         -- }
 
+    -- 人間承認
+    approved_by         VARCHAR(100),           -- 承認者 (NULL = 未承認 or 自動承認)
+    approved_at         TIMESTAMPTZ,            -- 承認日時
+    approval_feedback   TEXT,                   -- 差戻時のフィードバック
+
     -- エラー情報
     error_message   TEXT,
         -- エラー発生時の詳細メッセージ
@@ -556,7 +562,7 @@ CREATE TABLE content (
     -- 制約
     CONSTRAINT chk_content_status
         CHECK (status IN (
-            'planned', 'producing', 'ready', 'analyzed',
+            'pending_approval', 'planned', 'producing', 'ready', 'analyzed',
             'error', 'cancelled'
         )),
     CONSTRAINT chk_content_script_language
@@ -564,7 +570,7 @@ CREATE TABLE content (
 );
 
 COMMENT ON TABLE content IS 'コンテンツのライフサイクル管理。4つのLangGraphグラフ間の間接連携ポイント';
-COMMENT ON COLUMN content.status IS 'planned→producing→ready→analyzed の制作ステータス遷移。投稿以降はpublicationsテーブルで管理';
+COMMENT ON COLUMN content.status IS 'pending_approval→planned→producing→ready→analyzed の制作ステータス遷移。pending_approvalはREQUIRE_HUMAN_APPROVAL=true時のみ使用。投稿以降はpublicationsテーブルで管理';
 COMMENT ON COLUMN content.hypothesis_id IS '仮説駆動サイクルの根拠。NULLは人間の直接指示';
 COMMENT ON COLUMN content.production_metadata IS 'fal.ai request ID, 処理時間, ファイルサイズ等';
 ```
@@ -2824,7 +2830,14 @@ CREATE TRIGGER trg_production_recipes_updated_at
 
 ```
 1. 戦略サイクルグラフ
-   cycles (INSERT) → hypotheses (INSERT) → content (INSERT, status='planned')
+   cycles (INSERT) → hypotheses (INSERT) → content (INSERT, status='pending_approval' or 'planned')
+     ※ REQUIRE_HUMAN_APPROVAL=true → status='pending_approval' (人間の承認待ち)
+     ※ REQUIRE_HUMAN_APPROVAL=false → status='planned' (直接制作待ち)
+                                                │
+1.5 人間承認 (REQUIRE_HUMAN_APPROVAL=true時のみ) │
+   Dashboard上で人間がレビュー                    │
+   → 承認: content (UPDATE, status='planned', approved_by, approved_at)
+   → 差戻: content (UPDATE, approval_feedback) ※ステータスはpending_approvalのまま
                                                 │
 2. 制作パイプライングラフ                         │
    task_queue (INSERT, type='produce') ←─────────┘
@@ -2878,7 +2891,7 @@ CREATE TRIGGER trg_production_recipes_updated_at
 |---|---|---|
 | content_id | content_id | そのまま |
 | account_id | publications.account_id | contentではなくpublicationsに移行 |
-| status | status | 値のマッピング (queued → planned 等)。scheduled/posted/measured → publications.status |
+| status | status | 値のマッピング (queued → planned 等)。scheduled/posted/measured → publications.status。v4.0にpending_approval相当なし (全コンテンツは直接planned扱い) |
 | planned_date | planned_post_date | DATE型に変換 |
 | hook_scenario_id | content_sections (section_order=1) | content_sectionsテーブルにINSERT |
 | body_scenario_id | content_sections (section_order=2) | content_sectionsテーブルにINSERT |

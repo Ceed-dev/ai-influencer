@@ -547,7 +547,7 @@ COMMIT;
 | 5 | `plan_content` | `{ hypothesis_id, character_id, script_language, sections: [{ component_id, section_label }] }` | `{ content_id }` | コンテンツ計画の作成 |
 | 6 | `schedule_content` | `{ content_id, planned_post_date }` | `{ success }` | 投稿スケジュール設定 |
 | 7 | `get_niche_learnings` | `{ niche, min_confidence: 0.5, limit: 10 }` | `[{ insight, confidence, category }]` | ニッチ関連の知見取得 |
-| 8 | `get_content_pool_status` | `{ cluster }` | `{ content: { planned, producing, ready, analyzed }, publications: { scheduled, posted, measured } }` | コンテンツプールの状況 |
+| 8 | `get_content_pool_status` | `{ cluster }` | `{ content: { pending_approval, planned, producing, ready, analyzed }, publications: { scheduled, posted, measured } }` | コンテンツプールの状況 |
 | 9 | `request_production` | `{ content_id, priority: 0 }` | `{ task_id }` | 制作タスクの発行 (task_queueにINSERT) |
 
 ### 4.5 ツールスペシャリスト用 (5ツール)
@@ -608,7 +608,7 @@ AIツール知識の管理・検索・制作レシピ設計のためのツール
 | 6 | `collect_account_metrics` | `{ account_id }` | `{ follower_count, follower_delta }` | アカウント全体メトリクス |
 | 7 | `report_measurement_complete` | `{ task_id, publication_id, metrics_data }` | `{ success }` | 計測完了報告 |
 
-### 4.9 ダッシュボード用 (3ツール)
+### 4.9 ダッシュボード用 (5ツール)
 
 人間がダッシュボードから操作する際に使用するツール群。ダッシュボードはLLMではないため、これらはREST API (Next.js API Routes) として実装し、内部でMCPツールと同等のロジックを呼び出す。
 
@@ -617,6 +617,8 @@ AIツール知識の管理・検索・制作レシピ設計のためのツール
 | 1 | `get_dashboard_summary` | `{}` | `{ kpi, algorithm_accuracy, active_cycles, pending_tasks }` | ダッシュボード用サマリー |
 | 2 | `update_system_config` | `{ key, value }` | `{ success }` | 設定変更 (計測タイミング等) |
 | 3 | `submit_human_directive` | `{ directive_type, content, target_accounts?, priority }` | `{ id }` | 人間介入の送信 |
+| 4 | `get_pending_approvals` | `{}` | `[{ content_id, hypothesis, plan_summary, cost_estimate, created_at }]` | 承認待ちコンテンツ計画一覧 |
+| 5 | `approve_or_reject_plan` | `{ content_id, decision: "approve" \| "reject", feedback? }` | `{ success }` | コンテンツ計画の人間承認/差戻 |
 
 ### 4.10 エージェント自己学習・コミュニケーション用 (8ツール)
 
@@ -789,6 +791,17 @@ interface StrategyCycleState {
     revision_count: number; // 差戻し回数 (最大3回)
   };
 
+  // 人間承認結果 (human_approvalノード出力)
+  human_approval: {
+    status: 'approved' | 'rejected';
+    feedback?: string; // 差戻し時のフィードバック
+  };
+
+  // システム設定
+  config: {
+    REQUIRE_HUMAN_APPROVAL: boolean; // true=初期フェーズ (人間承認必須)
+  };
+
   // セルフリフレクション (reflect_allノード出力)
   reflections: AgentReflection[];
 
@@ -839,6 +852,20 @@ interface ResourceAllocation {
 #### エッジ定義
 
 ```typescript
+// 人間承認ノード
+// content.status = 'pending_approval' に設定し、
+// ダッシュボードからの承認を待機する (interrupt)
+const humanApprovalNode = async (state) => {
+  // LangGraphのinterrupt機能で人間の応答を待つ
+  // ダッシュボードから approve/reject + feedback が送られる
+  const decision = await interrupt({
+    type: "human_approval",
+    content_ids: state.planned_content_ids,
+    summary: state.plan_summary
+  });
+  return { human_approval: decision };
+};
+
 const strategyCycleGraph = new StateGraph<StrategyCycleState>()
   .addNode("collect_intel", collectIntelNode)
   .addNode("analyze_cycle", analyzeCycleNode)
@@ -846,6 +873,7 @@ const strategyCycleGraph = new StateGraph<StrategyCycleState>()
   .addNode("plan_content", planContentNode)
   .addNode("select_tools", selectToolsNode) // ツールスペシャリストによる制作レシピ設計
   .addNode("approve_plan", approvePlanNode)
+  .addNode("human_approval", humanApprovalNode) // 人間承認ノード
   .addNode("reflect_all", reflectAllNode) // セルフリフレクション (セクション10参照)
 
   // エッジ定義
@@ -859,13 +887,24 @@ const strategyCycleGraph = new StateGraph<StrategyCycleState>()
   // 条件分岐: 承認 or 差戻し
   .addConditionalEdges("approve_plan", (state) => {
     if (state.approval.status === 'approved') {
-      return "reflect_all"; // 承認後にセルフリフレクション実行
+      if (state.config.REQUIRE_HUMAN_APPROVAL) {
+        return "human_approval"; // 人間承認ステップへ
+      }
+      return "reflect_all"; // 人間承認不要 → 直接リフレクション
     }
     if (state.approval.revision_count >= 3) {
       // 3回差戻しでも解決しない場合は強制承認
       return "reflect_all";
     }
     return "plan_content"; // 差戻し → 再計画
+  })
+
+  // 人間承認の結果で分岐
+  .addConditionalEdges("human_approval", (state) => {
+    if (state.human_approval.status === 'approved') {
+      return "reflect_all";
+    }
+    return "plan_content"; // 人間差戻し → 再計画 (フィードバック付き)
   })
 
   // リフレクション完了後にサイクル終了
@@ -896,6 +935,7 @@ const app = strategyCycleGraph.compile({ checkpointer });
 | 市場データ取得失敗 | collect_intel | 前回データで続行 (stale data警告付き) |
 | 仮説生成失敗 | plan_content | 既存仮説の再利用で代替 |
 | 承認ループ (3回超) | approve_plan | 強制承認 + 人間通知 |
+| 人間承認タイムアウト | human_approval | 24時間未応答で自動承認 + 通知 |
 
 ### 5.2 グラフ2: 制作パイプライングラフ (Production Pipeline Graph)
 
@@ -1270,14 +1310,15 @@ interface CollectedMetrics {
                     戦略サイクル
                     グラフ (日次)
                         │
-                        │ content INSERT (status='planned')
+                        │ content INSERT (status='pending_approval' or 'planned')
                         │ task_queue INSERT (type='produce')
                         ▼
             ┌───────────────────────┐
             │    PostgreSQL          │
             │                       │
             │  content.status:      │
-            │  planned → producing  │──→ 制作パイプライン
+            │  pending_approval     │
+            │  → planned → producing│──→ 制作パイプライン
             │  → ready              │    グラフ (連続)
             │  → analyzed           │
             │                       │

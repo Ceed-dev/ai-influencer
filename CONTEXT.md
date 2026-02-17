@@ -1436,6 +1436,23 @@ node scripts/generate-digest.js --force               # 既存ファイル上書
 - セクション3 (AIエージェント層): 完了
 - セクション4〜11: 未確認
 
+### 2026-02-17: v5.0仕様書 — 人間承認ステップ (Human-in-the-loop) 追加
+
+戦略サイクルのOpus承認後に、人間がダッシュボードでコンテンツ計画を最終承認するステップを追加。
+
+**設計**:
+- 新ステータス `pending_approval`: Opus承認後、人間承認前の状態
+- `REQUIRE_HUMAN_APPROVAL = true` (Phase 1デフォルト): `pending_approval` → 人間承認 → `planned`
+- `REQUIRE_HUMAN_APPROVAL = false` (Phase 2移行後): 直接 `planned`（現行動作維持）
+- LangGraph `interrupt()` で人間の応答を待機
+- 24時間未応答で自動承認 + 通知
+
+**変更ファイル** (4ファイル):
+- `02-architecture.md`: 戦略サイクルフローチャートに人間承認ノード追加、設定値テーブル追加、ステータス遷移更新、ダッシュボードに承認パネル追加
+- `03-database-schema.md`: content.status CHECK制約にpending_approval追加、approved_by/approved_at/approval_feedbackカラム追加、ライフサイクルフロー更新
+- `04-agent-design.md`: LangGraphグラフにhuman_approvalノード追加、ダッシュボードAPIに承認ツール2本追加(計5本)、State型更新、エラーハンドリング追加
+- `06-development-roadmap.md`: Phase 4にREQUIRE_HUMAN_APPROVAL=true記載、Phase 5に自動承認移行記載、マイルストーンチェックリスト更新
+
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID
 - `.gsheets_token.json` - OAuth token for Sheets/Drive API
