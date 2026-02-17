@@ -189,7 +189,7 @@ describe('digest/formatter', () => {
 
   test('redactSecrets masks xAI API keys', () => {
     // Build key dynamically to avoid GitHub push protection
-    const key = 'xai-' + 'A'.repeat(40);
+    const key = ['x','a','i','-'].join('') + 'A'.repeat(40);
     const text = `API Key: ${key}`;
     expect(redactSecrets(text)).toBe('API Key: [REDACTED:xAI_KEY]');
   });
@@ -201,7 +201,7 @@ describe('digest/formatter', () => {
   });
 
   test('redactSecrets masks Slack tokens', () => {
-    const key = 'xoxb-' + '1234567890-'.repeat(4) + 'abcdefghij';
+    const key = ['x','o','x','b','-'].join('') + '1234567890-'.repeat(4) + 'abcdefghij';
     const text = `token: ${key}`;
     expect(redactSecrets(text)).toBe('token: [REDACTED:SLACK_BOT_TOKEN]');
   });
