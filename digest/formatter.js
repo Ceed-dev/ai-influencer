@@ -23,6 +23,9 @@ const SECRET_PATTERNS = [
   [/ya29\.[A-Za-z0-9_-]{50,}/g, '[REDACTED:GOOGLE_OAUTH_TOKEN]'],
   [/AKIA[A-Z0-9]{16}/g, '[REDACTED:AWS_ACCESS_KEY]'],
   [/fal-[A-Za-z0-9_-]{20,}/g, '[REDACTED:FAL_KEY]'],
+  // Generic "Secret Key: <long-string>" pattern (e.g. TikTok, custom services)
+  [/(?<=Secret Key:\s*)[A-Za-z0-9_-]{30,}/g, '[REDACTED:SECRET_KEY]'],
+  [/(?<=API Key:\s*)[A-Za-z0-9_-]{30,}/g, '[REDACTED:API_KEY]'],
 ];
 
 /**
