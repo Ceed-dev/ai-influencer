@@ -53,18 +53,18 @@ v5.0は、AI-Influencerシステムを**完全AIエージェント駆動**に刷
 +------------------------------v------------------------------+
 |              LangGraph.js v1.0 (Orchestration)              |
 |                                                             |
-|  Strategy    Research     Analyst      Planner x N          |
-|  Agent       Agent        Agent        Agent                |
-|  (Opus)      (Sonnet)     (Sonnet)     (Sonnet)             |
+|  Strategy  Research  Analyst  Tool Spec  Planner x N        |
+|  Agent     Agent     Agent    Agent      Agent              |
+|  (Opus)    (Sonnet)  (Sonnet) (Sonnet)   (Sonnet)           |
 |                                                             |
 |                        MCP Protocol                         |
 |                              |                              |
 |              Custom MCP Server (Node.js)                    |
-|           Business Logic + Queries (~60 tools)              |
+|           Business Logic + Queries (~73 tools)              |
 |                              |                              |
-|  Production       Posting          Measurement              |
-|  Worker           Worker           Worker                   |
-|  (fal.ai)         (Platforms)      (Platform APIs)          |
+|  Video    Text     Posting        Measurement               |
+|  Worker   Worker   Worker         Worker                    |
+|  (fal.ai) (LLM)    (Platforms)    (Platform APIs)           |
 +------------------------------+------------------------------+
                                |
 +------------------------------v------------------------------+
@@ -89,4 +89,6 @@ v5.0は、AI-Influencerシステムを**完全AIエージェント駆動**に刷
 | エージェント構造 | 4層階層型 | 戦略は集約、実行は分散。スケール時はプランナー増設のみ |
 | ダッシュボード | Next.js + Shadcn/ui | 操作可能なUI必要。Node.js/TSスタック統一 |
 | 外部AI記憶サービス | 不採用 (pgvectorで代替) | ドメイン知識が構造化済み。依存を増やさない |
-| 制作API (fal.ai等) | MCP化しない (直接API) | ワーカーはLLMではなくコード。既存v4.0パイプラインを再利用 |
+| 制作API | ツールスペシャリストが選択、ワーカーが実行 | ツール特性を学習し最適な組み合わせを推奨。実行はワーカーが担当 |
+| コンテナ化 | Docker + docker-compose | 環境再現性、クラウド移植性、段階的導入 |
+| ツール選択 | ツールスペシャリストAgent | ツールのクセ・特性を学習し最適な組み合わせを推奨 |

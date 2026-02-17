@@ -4,13 +4,13 @@
 >
 > **データベース**: PostgreSQL 16+ with pgvector extension
 >
-> **テーブル数**: 20テーブル (Entity 3 / Production 2 / Intelligence 5 / Operations 5 / Observability 5)
+> **テーブル数**: 25テーブル (Entity 3 / Production 2 / Intelligence 5 / Operations 5 / Observability 5 / Tool Management 5)
 >
 > **関連ドキュメント**: [02-architecture.md](02-architecture.md) (データ基盤層の設計思想), [01-tech-stack.md](01-tech-stack.md) (pgvector・ORM選定)
 
 ## 概要
 
-v5.0のPostgreSQLスキーマは、AI-Influencerシステムの全構造化データを一元管理する。v4.0で5つのGoogle Spreadsheet + 33列productionタブに散在していたデータを、リレーショナルDBの正規化された20テーブルに集約する。
+v5.0のPostgreSQLスキーマは、AI-Influencerシステムの全構造化データを一元管理する。v4.0で5つのGoogle Spreadsheet + 33列productionタブに散在していたデータを、リレーショナルDBの正規化された25テーブルに集約する。
 
 ### テーブルカテゴリ
 
@@ -21,6 +21,7 @@ v5.0のPostgreSQLスキーマは、AI-Influencerシステムの全構造化デ�
 | **Intelligence** | 5 | 仮説駆動サイクルの知的資産 | hypotheses, market_intel, metrics, analyses, learnings |
 | **Operations** | 5 | システム運用・タスク管理 | cycles, human_directives, task_queue, algorithm_performance |
 | **Observability** | 5 | エージェントの運用可視化・自己学習・デバッグ | agent_prompt_versions, agent_thought_logs, agent_reflections, agent_individual_learnings, agent_communications |
+| **Tool Management** | 5 | AIツールの知識管理・制作レシピ・プロンプト改善 | tool_catalog, tool_experiences, tool_external_sources, production_recipes, prompt_suggestions |
 
 ### ER図
 
@@ -129,6 +130,40 @@ v5.0のPostgreSQLスキーマは、AI-Influencerシステムの全構造化デ�
                 │ status                      │
                 │ cycle_id ───────────────────┼──► cycles
                 └─────────────────────────────┘
+
+                ┌─────────────────────┐   ┌──────────────────────┐
+                │   tool_catalog      │   │  tool_experiences    │
+                │                     │   │                      │
+                │ tool_name           │◄──│ tool_id ─────────────┤
+                │ tool_type           │   │ content_id ──────────┼──► content
+                │ provider            │   │ agent_id             │
+                │ cost_per_use        │   │ quality_score        │
+                │ strengths (JSONB)   │   │ success              │
+                │ quirks (JSONB)      │   │ content_type         │
+                │ is_active           │   └──────────────────────┘
+                └──────────┬──────────┘
+                           │
+                           │ tool_id (nullable)
+                           │
+                ┌──────────▼──────────┐   ┌──────────────────────┐
+                │tool_external_sources│   │ production_recipes   │
+                │                     │   │                      │
+                │ source_type         │   │ recipe_name          │
+                │ source_url          │   │ content_format       │
+                │ content_summary     │   │ target_platform      │
+                │ key_insights (JSONB)│   │ steps (JSONB)        │
+                │ embedding (vector)  │   │ avg_quality_score    │
+                └─────────────────────┘   │ success_rate         │
+                                          │ is_default           │
+                ┌─────────────────────┐   └──────────────────────┘
+                │ prompt_suggestions  │
+                │                     │
+                │ agent_type          │
+                │ trigger_type        │
+                │ suggestion          │
+                │ confidence          │
+                │ status              │
+                └─────────────────────┘
 ```
 
 ## 初期セットアップ
@@ -1801,11 +1836,446 @@ COMMENT ON COLUMN agent_communications.priority IS 'urgentはダッシュボー�
 COMMENT ON COLUMN agent_communications.human_response IS '人間の返信。エージェントが次サイクルで参照';
 ```
 
-## 6. インデックス定義
+## 6. Tool Management Tables (ツール管理テーブル)
+
+AIツールの知識管理、使用経験の蓄積、外部情報源の追跡、制作レシピの最適化、プロンプト改善提案を管理するテーブル群。Tool Specialistエージェントが中心となって運用し、制作パイプラインのツール選定・パラメータ最適化を支援する。
+
+### 6.1 tool_catalog — ツールカタログ
+
+AIツール（動画生成・TTS・リップシンク・画像生成等）のマスターデータを管理する。各ツールの特性・コスト・得意不得意を構造化して保持し、制作レシピの選定根拠となる。
+
+```sql
+CREATE TABLE tool_catalog (
+    -- 主キー
+    id              SERIAL PRIMARY KEY,
+
+    -- ツール基本情報
+    tool_name       VARCHAR(100) NOT NULL,
+        -- ツール名 (バージョン含む)
+        -- 例: 'kling_v2.6', 'runway_gen3', 'sora', 'fish_audio_tts'
+        -- バージョンアップ時は新レコードを作成し、旧バージョンを is_active=false に
+    tool_type       VARCHAR(50) NOT NULL,
+        -- ツールの機能カテゴリ
+        -- video_generation: 動画生成 (Kling, Runway, Sora等)
+        -- tts: テキスト読み上げ (Fish Audio等)
+        -- lipsync: リップシンク (fal.ai lipsync等)
+        -- image_generation: 画像生成 (Flux, DALL-E等)
+        -- music_generation: 音楽生成
+        -- video_editing: 動画編集
+    provider        VARCHAR(100),
+        -- サービスプロバイダー
+        -- 例: 'fal.ai', 'runway', 'openai', 'fish_audio'
+    api_endpoint    TEXT,
+        -- APIエンドポイントURL
+        -- 例: 'https://queue.fal.run/fal-ai/kling-video/v2.6/image-to-video'
+
+    -- コスト情報
+    cost_per_use    DECIMAL(10,4),
+        -- 1回あたりの概算コスト (USD)
+        -- 例: 0.10 (Kling 1回 $0.10)
+        -- 実際のコストはパラメータにより変動するため概算値
+
+    -- ツール特性 (JSONB)
+    strengths       JSONB,
+        -- ツールの得意な点
+        -- 例: ["natural_human_motion", "high_resolution", "fast_processing"]
+    weaknesses      JSONB,
+        -- ツールの苦手な点
+        -- 例: ["slow_generation", "expensive", "limited_styles"]
+    quirks          JSONB,
+        -- ツール固有のクセ・注意点
+        -- 例: {
+        --   "asian_faces": "natural",
+        --   "western_faces": "sometimes_unnatural",
+        --   "max_duration_seconds": 10,
+        --   "no_prompt_param": true,
+        --   "no_keep_original_sound": true
+        -- }
+        -- v4.0の経験: Klingはprompt空文字やkeep_original_soundで422エラー
+
+    -- フォーマット情報
+    supported_formats JSONB,
+        -- 入出力フォーマット
+        -- 例: {
+        --   "input": ["image/png", "image/jpeg"],
+        --   "output": ["video/mp4"],
+        --   "max_input_size_mb": 10
+        -- }
+    max_resolution  VARCHAR(20),
+        -- 最大対応解像度
+        -- 例: '3850x3850' (Klingの制限)
+        -- 例: '1920x1080'
+
+    -- ステータス
+    is_active       BOOLEAN DEFAULT true,
+        -- このツールが現在利用可能か
+        -- falseの場合: 非推奨、サービス停止、バージョン更新済み等
+
+    -- 外部情報
+    external_docs_url TEXT,
+        -- 公式ドキュメントのURL
+        -- 例: 'https://fal.ai/models/fal-ai/kling-video'
+    last_knowledge_update TIMESTAMPTZ,
+        -- ツール情報が最後に更新された日時
+        -- Tool Specialistが外部ソースから情報更新した際にセット
+
+    -- タイムスタンプ
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE tool_catalog IS 'AIツールのマスターデータ。特性・コスト・クセを管理し、レシピ選定の根拠';
+COMMENT ON COLUMN tool_catalog.tool_name IS 'バージョン付きツール名。バージョンアップ時は新レコード作成';
+COMMENT ON COLUMN tool_catalog.quirks IS 'ツール固有のクセ。v4.0の422エラー知見等を構造化';
+COMMENT ON COLUMN tool_catalog.cost_per_use IS '1回あたりの概算コスト(USD)。パラメータにより変動';
+```
+
+### 6.2 tool_experiences — ツール使用経験
+
+各ツール使用の結果を記録する。品質スコア・処理時間・コスト・成功/失敗を蓄積し、Tool Specialistが最適なツール選定・パラメータ調整を行うための実績データとなる。
+
+```sql
+CREATE TABLE tool_experiences (
+    -- 主キー
+    id              SERIAL PRIMARY KEY,
+
+    -- 紐付け
+    tool_id         INTEGER NOT NULL REFERENCES tool_catalog(id),
+        -- 使用したツール
+    content_id      INTEGER REFERENCES content(id),
+        -- 使用されたコンテンツ (NULLの場合: テスト実行等)
+
+    -- エージェント情報
+    agent_id        VARCHAR(50) NOT NULL,
+        -- このツール使用を推奨・実行したエージェント
+        -- 例: 'tool_specialist', 'production_worker'
+    recipe_used     JSONB,
+        -- 使用したツール組み合わせ（レシピ全体）
+        -- 例: {
+        --   "recipe_id": 5,
+        --   "steps": [
+        --     {"tool": "kling_v2.6", "role": "video_gen"},
+        --     {"tool": "fish_audio_tts", "role": "tts"},
+        --     {"tool": "fal_lipsync", "role": "lipsync"}
+        --   ]
+        -- }
+
+    -- 使用パラメータ
+    input_params    JSONB,
+        -- ツール呼び出し時の実パラメータ
+        -- 例: {
+        --   "image_url": "https://fal.storage/...",
+        --   "duration": "5",
+        --   "aspect_ratio": "9:16"
+        -- }
+
+    -- 品質評価
+    quality_score   DECIMAL(3,2),
+        -- 品質スコア 0.00〜1.00
+        -- 0.80以上: 高品質（そのまま使用可能）
+        -- 0.50〜0.79: 中品質（軽微な問題あり）
+        -- 0.50未満: 低品質（再生成が必要）
+        -- NULLの場合: 未評価
+    quality_notes   TEXT,
+        -- 品質に関する補足メモ
+        -- 例: "口の動きが自然。ただし右目の瞬きがやや不自然"
+
+    -- パフォーマンス指標
+    processing_time_ms INTEGER,
+        -- 処理時間（ミリ秒）
+        -- 例: 180000 (= 3分)
+    cost_actual     DECIMAL(10,4),
+        -- 実際に発生したコスト (USD)
+        -- tool_catalog.cost_per_useとの乖離を追跡
+
+    -- 成功/失敗
+    success         BOOLEAN NOT NULL,
+        -- ツール呼び出しが成功したか
+        -- false: API エラー、タイムアウト、品質不合格等
+    failure_reason  TEXT,
+        -- 失敗時の原因
+        -- 例: 'fal.ai 403 Forbidden (残高不足)'
+        -- 例: 'fal.ai 422 Unprocessable (prompt空文字)'
+
+    -- コンテンツ分類
+    content_type    VARCHAR(50),
+        -- 生成対象のコンテンツ特性
+        -- 例: 'asian_female_beauty', 'western_male_tech', 'pet_cute'
+        -- ツールの得意・不得意をcontent_type別に分析するために使用
+
+    -- タイムスタンプ
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE tool_experiences IS 'ツール使用の結果記録。品質・コスト・成功率をcontent_type別に蓄積';
+COMMENT ON COLUMN tool_experiences.quality_score IS '0.00-1.00。0.80以上で高品質、0.50未満で要再生成';
+COMMENT ON COLUMN tool_experiences.content_type IS 'コンテンツ特性。ツールの得意不得意をタイプ別に分析';
+COMMENT ON COLUMN tool_experiences.recipe_used IS '使用したツール組み合わせ全体。production_recipesとの対応追跡';
+```
+
+### 6.3 tool_external_sources — ツール外部情報源
+
+ツールに関する外部情報（X投稿、公式ドキュメント、プレスリリース、ブログ記事等）を収集・管理する。Tool Specialistエージェントが情報収集し、ツールカタログの更新や新ツール発見に活用する。pgvectorのembeddingにより類似情報の自動発見が可能。
+
+```sql
+CREATE TABLE tool_external_sources (
+    -- 主キー
+    id              SERIAL PRIMARY KEY,
+
+    -- ソース情報
+    source_type     VARCHAR(50) NOT NULL,
+        -- ソースの種類
+        -- x_post: X（旧Twitter）の投稿
+        -- official_doc: 公式ドキュメント
+        -- press_release: プレスリリース
+        -- blog: ブログ記事
+        -- reddit: Reddit投稿
+        -- changelog: チェンジログ・リリースノート
+    source_url      TEXT NOT NULL,
+        -- ソースのURL
+        -- 例: 'https://x.com/kling_ai/status/...'
+    source_account  VARCHAR(200),
+        -- ソースのアカウント名等
+        -- 例: '@kling_ai', 'Runway ML Official Blog'
+
+    -- ツール紐付け
+    tool_id         INTEGER REFERENCES tool_catalog(id),
+        -- 関連するツール (NULLable)
+        -- NULLの場合: 特定ツールに紐付かない一般的なAIツール情報
+        -- 例: "AIによる動画生成の市場動向" → tool_id NULL
+
+    -- 情報内容
+    content_summary TEXT NOT NULL,
+        -- 情報の要約
+        -- 例: "Kling v2.7リリース。新機能: 最大30秒動画生成、
+        --       3Dカメラコントロール改善、処理速度2倍"
+    key_insights    JSONB,
+        -- 抽出されたキーインサイトの配列
+        -- 例: [
+        --   "最大動画長が10秒→30秒に拡張",
+        --   "3Dカメラコントロールの精度が向上",
+        --   "処理速度が従来比2倍"
+        -- ]
+
+    -- ベクトル検索
+    embedding       vector(1536),
+        -- content_summaryのベクトル埋め込み
+        -- 用途: 類似情報の自動発見、重複情報の排除
+
+    -- 評価
+    relevance_score DECIMAL(3,2),
+        -- 情報の関連性スコア 0.00〜1.00
+        -- Tool Specialistが情報の重要度を評価
+
+    -- タイムスタンプ
+    fetched_at      TIMESTAMPTZ NOT NULL,
+        -- 情報が取得された日時
+    processed_at    TIMESTAMPTZ,
+        -- 情報がTool Specialistにより処理された日時
+        -- NULLの場合: まだ処理されていない
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE tool_external_sources IS 'ツール関連の外部情報源。X投稿・公式ドキュメント・ブログ等を収集';
+COMMENT ON COLUMN tool_external_sources.source_type IS 'x_post/official_doc/press_release/blog/reddit/changelog';
+COMMENT ON COLUMN tool_external_sources.tool_id IS 'NULLable。特定ツールに紐付かない一般情報の場合はNULL';
+COMMENT ON COLUMN tool_external_sources.embedding IS '類似情報の自動発見・重複排除用。1536次元';
+```
+
+### 6.4 production_recipes — 制作レシピ
+
+コンテンツ制作に使用するツールの組み合わせパターンを管理する。v4.0のパイプライン（Kling + Fish Audio TTS + fal lipsync の固定組み合わせ）をデフォルトレシピとして保持しつつ、新しいツールの組み合わせを柔軟に定義・評価できる。
+
+```sql
+CREATE TABLE production_recipes (
+    -- 主キー
+    id              SERIAL PRIMARY KEY,
+
+    -- レシピ基本情報
+    recipe_name     VARCHAR(200) NOT NULL,
+        -- レシピ名
+        -- 例: 'asian_beauty_short', 'tech_explainer', 'pet_reaction'
+        -- 用途・対象が分かりやすい名前をつける
+    content_format  VARCHAR(50) NOT NULL,
+        -- コンテンツフォーマット
+        -- video_short: ショート動画 (60秒以内)
+        -- video_long: ロング動画 (60秒超)
+        -- text_post: テキスト投稿
+        -- image_post: 画像投稿
+    target_platform VARCHAR(50),
+        -- 主な対象プラットフォーム
+        -- youtube / tiktok / instagram / x / NULL (全プラットフォーム共通)
+
+    -- レシピ定義 (JSONB)
+    steps           JSONB NOT NULL,
+        -- 制作ステップの配列。各ステップにツール・パラメータ・順序を定義
+        -- 構造例:
+        -- [
+        --   {
+        --     "order": 1,
+        --     "step_name": "video_generation",
+        --     "tool_id": 1,
+        --     "tool_name": "kling_v2.6",
+        --     "params": {
+        --       "duration": "5",
+        --       "aspect_ratio": "9:16"
+        --     },
+        --     "parallel_group": "section"
+        --   },
+        --   {
+        --     "order": 2,
+        --     "step_name": "tts",
+        --     "tool_id": 3,
+        --     "tool_name": "fish_audio_tts",
+        --     "params": {
+        --       "format": "mp3"
+        --     },
+        --     "parallel_group": "section"
+        --   },
+        --   {
+        --     "order": 3,
+        --     "step_name": "lipsync",
+        --     "tool_id": 5,
+        --     "tool_name": "fal_lipsync",
+        --     "params": {},
+        --     "depends_on": [1, 2]
+        --   }
+        -- ]
+
+    -- 推奨条件
+    recommended_for JSONB,
+        -- このレシピが推奨される条件
+        -- 例: {
+        --   "niche": "beauty",
+        --   "character_ethnicity": "asian",
+        --   "content_style": "talking_head",
+        --   "budget_per_content_usd_max": 0.50
+        -- }
+
+    -- パフォーマンス実績
+    avg_quality_score DECIMAL(3,2),
+        -- 過去使用時の平均品質スコア (0.00〜1.00)
+        -- tool_experiences.quality_score の平均値
+        -- 定期的にTool Specialistが集計・更新
+    times_used      INTEGER DEFAULT 0,
+        -- このレシピの使用回数
+    success_rate    DECIMAL(3,2),
+        -- 成功率 (0.00〜1.00)
+        -- tool_experiences.success の成功率
+
+    -- メタデータ
+    created_by      VARCHAR(50),
+        -- レシピ作成者
+        -- 'tool_specialist': Tool Specialistエージェントが自動生成
+        -- 'human': 人間が手動作成
+    is_default      BOOLEAN DEFAULT false,
+        -- デフォルトレシピかどうか
+        -- true: v4.0パイプラインの組み合わせ（Kling + Fish Audio + fal lipsync）
+        -- content_format + target_platform ごとに1つだけ is_default=true
+    is_active       BOOLEAN DEFAULT true,
+        -- このレシピが現在利用可能か
+        -- falseの場合: 非推奨、テスト中、廃止等
+
+    -- タイムスタンプ
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE production_recipes IS 'ツール組み合わせパターン。v4.0パイプラインをデフォルトレシピとして保持';
+COMMENT ON COLUMN production_recipes.steps IS '制作ステップ配列。各ステップにtool_id, params, orderを定義';
+COMMENT ON COLUMN production_recipes.is_default IS 'v4.0パイプライン=デフォルト。content_format+target_platformごとに1つ';
+COMMENT ON COLUMN production_recipes.recommended_for IS '推奨条件。niche, character_ethnicity, budget等で絞り込み';
+```
+
+### 6.5 prompt_suggestions — プロンプト改善提案
+
+システムがエージェントのプロンプト改善を自動提案するためのテーブル。パフォーマンス低下、繰り返し発生する問題、成長の停滞等のトリガーを検知し、具体的な改善案を生成する。人間がダッシュボードで確認し、採用/却下を判断する。
+
+```sql
+CREATE TABLE prompt_suggestions (
+    -- 主キー
+    id              SERIAL PRIMARY KEY,
+
+    -- 対象エージェント
+    agent_type      VARCHAR(50) NOT NULL,
+        -- 改善提案の対象エージェント
+        -- strategist / researcher / analyst / planner / tool_specialist
+
+    -- トリガー情報
+    trigger_type    VARCHAR(50) NOT NULL,
+        -- 提案を生成したトリガーの種類
+        -- score_decline: パフォーマンススコアの低下
+        --   例: 仮説的中率が過去5サイクルで0.65→0.45に低下
+        -- repeated_issue: 同じ問題の繰り返し発生
+        --   例: 同じ失敗パターンが3回以上連続
+        -- performance_plateau: パフォーマンスの停滞
+        --   例: engagement_rateが10サイクル連続で横ばい
+        -- new_capability: 新機能・新ツールの活用提案
+        --   例: 新ツール追加に伴うプロンプト拡張
+        -- human_feedback: 人間のフィードバックに基づく提案
+    trigger_details JSONB NOT NULL,
+        -- トリガーの詳細データ
+        -- 構造例 (score_decline):
+        -- {
+        --   "metric": "hypothesis_accuracy",
+        --   "value_before": 0.65,
+        --   "value_after": 0.45,
+        --   "period_cycles": 5,
+        --   "affected_categories": ["timing", "niche"]
+        -- }
+
+    -- 改善提案
+    suggestion      TEXT NOT NULL,
+        -- 改善提案の内容
+        -- 例: "仮説生成時に、過去の棄却済み仮説との類似度チェックを追加してください。
+        --       類似度0.8以上の棄却済み仮説がある場合、同じアプローチの仮説生成を
+        --       回避するか、異なる検証条件を設定するよう指示を追加してください。"
+    target_prompt_section VARCHAR(100),
+        -- プロンプト内の改善対象セクション
+        -- 例: 'thinking_approach', 'decision_criteria', 'output_format',
+        --      'tool_selection', 'quality_evaluation'
+        -- NULLの場合: プロンプト全体に関わる提案
+
+    -- 確信度
+    confidence      DECIMAL(3,2),
+        -- 提案の確信度 0.00〜1.00
+        -- 0.80以上: 高確信（データに基づく明確な改善点）
+        -- 0.50〜0.79: 中確信（改善が期待されるが確実ではない）
+        -- 0.50未満: 低確信（試験的な提案）
+
+    -- ステータス
+    status          VARCHAR(20) DEFAULT 'pending',
+        -- pending: 人間のレビュー待ち
+        -- accepted: 人間が採用。プロンプトに反映予定 or 反映済み
+        -- rejected: 人間が却下
+        -- expired: 有効期限切れ（長期間pendingのまま放置）
+    human_feedback  TEXT,
+        -- 人間がダッシュボードから入力したフィードバック
+        -- 採用時: "良い提案。次のプロンプト更新で反映する"
+        -- 却下時: "この変更は意図的。現状維持"
+
+    -- タイムスタンプ
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    resolved_at     TIMESTAMPTZ,
+        -- 人間がaccepted/rejected/expiredにした日時
+        -- NULLの場合: まだpending
+
+    -- 制約
+    CONSTRAINT chk_prompt_suggestions_status
+        CHECK (status IN ('pending', 'accepted', 'rejected', 'expired'))
+);
+
+COMMENT ON TABLE prompt_suggestions IS 'プロンプト改善の自動提案。トリガー検知→提案生成→人間レビューのフロー';
+COMMENT ON COLUMN prompt_suggestions.trigger_type IS 'score_decline/repeated_issue/performance_plateau/new_capability/human_feedback';
+COMMENT ON COLUMN prompt_suggestions.confidence IS '提案の確信度。0.80以上でデータに基づく明確な改善点';
+COMMENT ON COLUMN prompt_suggestions.status IS 'pending→accepted/rejected/expired。人間がダッシュボードで判断';
+```
+
+## 7. インデックス定義
 
 パフォーマンスを確保するためのインデックス。主にステータスフィルタリング、時系列クエリ、JSONB検索、ベクトル検索に対応する。
 
-### 6.1 Entity Tables のインデックス
+### 7.1 Entity Tables のインデックス
 
 ```sql
 -- accounts
@@ -1839,7 +2309,7 @@ CREATE INDEX idx_components_tags ON components USING GIN(tags);
     -- タグ配列の包含検索: WHERE tags @> ARRAY['skincare']
 ```
 
-### 6.2 Production Tables のインデックス
+### 7.2 Production Tables のインデックス
 
 ```sql
 -- content
@@ -1879,7 +2349,7 @@ CREATE INDEX idx_publications_status_measure ON publications(status, measure_aft
     -- 複合: 計測対象の検出クエリ最適化
 ```
 
-### 6.3 Intelligence Tables のインデックス
+### 7.3 Intelligence Tables のインデックス
 
 ```sql
 -- hypotheses
@@ -1971,7 +2441,7 @@ CREATE INDEX idx_learnings_embedding ON learnings
     -- 類似知見の自動発見・クラスタリング
 ```
 
-### 6.4 Operations Tables のインデックス
+### 7.4 Operations Tables のインデックス
 
 ```sql
 -- cycles
@@ -2024,7 +2494,7 @@ CREATE INDEX idx_algorithm_perf_period_measured ON algorithm_performance(period,
     -- 複合: "weeklyの精度推移" 等
 ```
 
-### 6.5 Observability Tables のインデックス
+### 7.5 Observability Tables のインデックス
 
 ```sql
 -- agent_prompt_versions
@@ -2088,7 +2558,75 @@ CREATE INDEX idx_communications_priority_status ON agent_communications(priority
     -- 優先度とステータスの複合: "urgentかつunreadのメッセージ" を最優先で表示
 ```
 
-## 7. updated_at 自動更新トリガー
+### 7.6 Tool Management Tables のインデックス
+
+```sql
+-- tool_catalog
+CREATE INDEX idx_tool_catalog_type ON tool_catalog(tool_type);
+    -- ツールタイプ別フィルタ: video_generation/tts/lipsync等
+CREATE INDEX idx_tool_catalog_provider ON tool_catalog(provider);
+    -- プロバイダー別フィルタ
+CREATE INDEX idx_tool_catalog_active ON tool_catalog(is_active);
+    -- アクティブなツール一覧の取得
+CREATE INDEX idx_tool_catalog_type_active ON tool_catalog(tool_type, is_active);
+    -- 複合: "アクティブな動画生成ツール" 等
+CREATE INDEX idx_tool_catalog_strengths ON tool_catalog USING GIN(strengths);
+    -- JSONB内の強み検索
+CREATE INDEX idx_tool_catalog_quirks ON tool_catalog USING GIN(quirks);
+    -- JSONB内のクセ・注意点検索
+
+-- tool_experiences
+CREATE INDEX idx_tool_experiences_tool ON tool_experiences(tool_id);
+    -- ツール別の使用実績一覧
+CREATE INDEX idx_tool_experiences_content ON tool_experiences(content_id);
+    -- コンテンツ別の使用ツール一覧
+CREATE INDEX idx_tool_experiences_content_type_quality ON tool_experiences(content_type, quality_score);
+    -- 複合: コンテンツタイプ別の品質分析
+    -- 例: "asian_female_beautyでの品質スコア分布" を取得
+CREATE INDEX idx_tool_experiences_success ON tool_experiences(success);
+    -- 成功/失敗フィルタ
+CREATE INDEX idx_tool_experiences_created_at ON tool_experiences(created_at);
+    -- 時系列ソート
+
+-- tool_external_sources
+CREATE INDEX idx_tool_external_sources_type ON tool_external_sources(source_type);
+    -- ソースタイプ別フィルタ
+CREATE INDEX idx_tool_external_sources_tool ON tool_external_sources(tool_id);
+    -- ツール別の外部情報一覧
+CREATE INDEX idx_tool_external_sources_fetched ON tool_external_sources(fetched_at);
+    -- 取得日時順ソート
+
+-- tool_external_sources ベクトルインデックス (HNSW推奨)
+CREATE INDEX idx_tool_external_sources_embedding ON tool_external_sources
+    USING hnsw (embedding vector_cosine_ops)
+    WITH (m = 16, ef_construction = 64);
+    -- HNSW (Hierarchical Navigable Small World) インデックス
+    -- 類似情報の自動発見・重複排除に使用
+
+-- production_recipes
+CREATE INDEX idx_recipes_format_platform ON production_recipes(content_format, target_platform);
+    -- 複合: "video_short + youtube向けレシピ" 等
+CREATE INDEX idx_recipes_active ON production_recipes(is_active);
+    -- アクティブなレシピ一覧
+CREATE INDEX idx_recipes_default ON production_recipes(is_default, content_format);
+    -- デフォルトレシピの取得
+CREATE INDEX idx_recipes_quality ON production_recipes(avg_quality_score DESC NULLS LAST);
+    -- 品質順ソート（高品質レシピを優先取得）
+CREATE INDEX idx_recipes_recommended ON production_recipes USING GIN(recommended_for);
+    -- 推奨条件でのJSONB検索
+
+-- prompt_suggestions
+CREATE INDEX idx_prompt_suggestions_agent_status ON prompt_suggestions(agent_type, status);
+    -- エージェント別の提案一覧: WHERE agent_type = $1 AND status = 'pending'
+CREATE INDEX idx_prompt_suggestions_status ON prompt_suggestions(status);
+    -- ステータスフィルタ: pending/accepted/rejected/expired
+CREATE INDEX idx_prompt_suggestions_trigger ON prompt_suggestions(trigger_type);
+    -- トリガータイプ別フィルタ
+CREATE INDEX idx_prompt_suggestions_created_at ON prompt_suggestions(created_at);
+    -- 時系列ソート
+```
+
+## 8. updated_at 自動更新トリガー
 
 `updated_at` カラムを持つテーブルに対して、レコード更新時に自動的に現在時刻を設定するトリガーを定義する。
 
@@ -2130,11 +2668,19 @@ CREATE TRIGGER trg_learnings_updated_at
 CREATE TRIGGER trg_agent_individual_learnings_updated_at
     BEFORE UPDATE ON agent_individual_learnings
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER trg_tool_catalog_updated_at
+    BEFORE UPDATE ON tool_catalog
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER trg_production_recipes_updated_at
+    BEFORE UPDATE ON production_recipes
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 ```
 
-## 8. テーブル間リレーション詳細
+## 9. テーブル間リレーション詳細
 
-### 8.1 外部キー一覧
+### 9.1 外部キー一覧
 
 | From テーブル | From カラム | To テーブル | To カラム | 関係 | 説明 |
 |---|---|---|---|---|---|
@@ -2154,8 +2700,11 @@ CREATE TRIGGER trg_agent_individual_learnings_updated_at
 | agent_reflections | cycle_id | cycles | id | N:1 | サイクルに属する振り返り |
 | agent_individual_learnings | source_reflection_id | agent_reflections | id | N:1 | 学びの生成元となった振り返り |
 | agent_communications | cycle_id | cycles | id | N:1 | サイクルに属するメッセージ |
+| tool_experiences | tool_id | tool_catalog | id | N:1 | 使用したツール |
+| tool_experiences | content_id | content | id | N:1 | 使用されたコンテンツ |
+| tool_external_sources | tool_id | tool_catalog | id | N:1 | 関連するツール (NULLable) |
 
-### 8.2 データフロー上の間接参照
+### 9.2 データフロー上の間接参照
 
 外部キーでは表現されないが、アプリケーションレベルで重要な参照関係。
 
@@ -2166,10 +2715,12 @@ CREATE TRIGGER trg_agent_individual_learnings_updated_at
 | human_directives | target_accounts (VARCHAR[]) | accounts | account_id | 指示の対象アカウント群 |
 | hypotheses | target_accounts (VARCHAR[]) | accounts | account_id | 仮説の検証対象アカウント群 |
 | agent_thought_logs | tools_used (TEXT[]) | - | - | MCPツール名の配列。外部テーブルなし |
+| production_recipes | steps (JSONB, tool_id) | tool_catalog | id | レシピの各ステップで使用するツール |
+| tool_experiences | recipe_used (JSONB, recipe_id) | production_recipes | id | 使用したレシピの参照 |
 
 これらは配列型で格納されるため、外部キー制約は設定しない。アプリケーション層（MCP Server）でバリデーションを行う。
 
-### 8.3 コンテンツのライフサイクルとテーブル遷移
+### 9.3 コンテンツのライフサイクルとテーブル遷移
 
 ```
 1. 戦略サイクルグラフ
@@ -2199,11 +2750,18 @@ CREATE TRIGGER trg_agent_individual_learnings_updated_at
 ※ サイクル終了時に agent_reflections (INSERT) が各エージェントから生成される
 ※ 振り返りから agent_individual_learnings (INSERT or UPDATE) が蓄積される
 ※ エージェントが人間に伝えたい内容がある場合 agent_communications (INSERT) が生成される
+
+6. ツール管理サイクル（横断的）
+   tool_external_sources (INSERT) ← Tool Specialistが外部情報を収集
+   tool_catalog (INSERT or UPDATE) ← 新ツール登録・既存ツール情報更新
+   production_recipes (INSERT or UPDATE) ← レシピの作成・最適化
+   tool_experiences (INSERT) ← 制作パイプライン実行時にツール使用結果を記録
+   prompt_suggestions (INSERT) ← パフォーマンス分析に基づくプロンプト改善提案
 ```
 
-## 9. v4.0からのデータ移行マッピング
+## 10. v4.0からのデータ移行マッピング
 
-### 9.1 Spreadsheet → PostgreSQL マッピング
+### 10.1 Spreadsheet → PostgreSQL マッピング
 
 | v4.0 データソース | v5.0 テーブル | 移行方法 |
 |---|---|---|
@@ -2214,7 +2772,7 @@ CREATE TRIGGER trg_agent_individual_learnings_updated_at
 | Audio Inventory | components (type='audio') | drive_file_idを移行 |
 | Master Spreadsheet production タブ | content | 33カラムを正規化して移行 |
 
-### 9.2 カラムマッピング例 (production タブ → content)
+### 10.2 カラムマッピング例 (production タブ → content)
 
 | v4.0 production カラム | v5.0 content カラム | 変換 |
 |---|---|---|
@@ -2229,11 +2787,11 @@ CREATE TRIGGER trg_agent_individual_learnings_updated_at
 | drive_folder_id | drive_folder_id | そのまま |
 | error | error_message | そのまま |
 
-## 10. 想定クエリパターン
+## 11. 想定クエリパターン
 
 MCP Serverが構築する主要なクエリパターンを示す。エージェントはこれらのクエリをMCPツール名で呼び出し、SQLを直接書くことはない。
 
-### 10.1 制作パイプライングラフ: タスク取得
+### 11.1 制作パイプライングラフ: タスク取得
 
 ```sql
 -- MCPツール: get_pending_tasks
@@ -2248,7 +2806,7 @@ ORDER BY c.planned_post_date ASC
 LIMIT 5;
 ```
 
-### 10.2 計測ジョブグラフ: 計測対象検出
+### 11.2 計測ジョブグラフ: 計測対象検出
 
 ```sql
 -- MCPツール: get_posts_needing_measurement
@@ -2267,7 +2825,7 @@ WHERE p.status = 'posted'
 ORDER BY p.measure_after ASC;
 ```
 
-### 10.3 アナリスト: 類似仮説検索 (pgvector)
+### 11.3 アナリスト: 類似仮説検索 (pgvector)
 
 ```sql
 -- MCPツール: search_similar_hypotheses
@@ -2280,7 +2838,7 @@ ORDER BY embedding <=> $1
 LIMIT 10;
 ```
 
-### 10.4 プランナー: アカウント別パフォーマンスサマリー
+### 11.4 プランナー: アカウント別パフォーマンスサマリー
 
 ```sql
 -- MCPツール: get_performance_summary
@@ -2298,7 +2856,7 @@ WHERE a.account_id = $1
 GROUP BY a.account_id, a.platform, a.niche;
 ```
 
-### 10.5 ダッシュボード: アルゴリズム精度推移
+### 11.5 ダッシュボード: アルゴリズム精度推移
 
 ```sql
 -- ORM (Prisma/Drizzle) で直接発行

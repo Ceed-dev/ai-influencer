@@ -11,6 +11,8 @@
 | ベクトル拡張 | pgvector | 類似仮説・知見・トレンドのベクトル検索 | PostgreSQL拡張として追加 |
 | ファイルストレージ | Google Drive (Shared Drive) | 動画・画像・音声ファイル保存 | 既存構造を継続 |
 | プロセス管理 | PM2 | Node.jsプロセスの常駐管理・自動再起動 | 既存設定を拡張 |
+| コンテナ化 | Docker + docker-compose | コンテナ化基盤 | 段階的導入（Phase 1からPostgreSQLを開始） |
+| 環境分離 | docker-compose.dev.yml / docker-compose.prod.yml | 開発/本番環境の分離 | 設定・シークレット・ポートを環境別に管理 |
 | GCP Project | `video-analytics-hub` | GCE, Cloud API等 | 既存 |
 
 ## AIエージェント層
@@ -20,7 +22,8 @@
 | オーケストレーション | LangGraph.js | v1.0 GA | エージェントのグラフ定義・ステート管理・チェックポイント |
 | LLM (戦略・分析) | Claude Opus 4.6 | via Anthropic API | 戦略エージェント・アナリストの高度な推論 |
 | LLM (計画・実行) | Claude Sonnet 4.5 | via Anthropic API | プランナー・リサーチャー・ワーカーのコスト効率実行 |
-| AI-DB接続 | MCP Server (自作) | Node.js | エージェントがPostgreSQLにアクセスするインターフェース (~60ツール) |
+| ツールスペシャリスト | Claude Sonnet 4.5 | via Anthropic API | AIツール特性の学習・最適ツール選択の推奨 |
+| AI-DB接続 | MCP Server (自作) | Node.js | エージェントがPostgreSQLにアクセスするインターフェース (~73ツール) |
 | MCP Adapters | langchain-mcp-adapters | npm | LangGraphからMCPサーバーを呼び出すアダプター |
 
 ### フレームワーク選定の比較結果
@@ -48,7 +51,9 @@
 6. MCP対応 (langchain-mcp-adapters)
 7. 本番実績 (Uber, LinkedIn, Klarna)
 
-## コンテンツ生成層 (既存v4.0パイプラインを再利用)
+## コンテンツ生成層
+
+### 動画制作 — デフォルトレシピ（v4.0互換）
 
 | コンポーネント | サービス | 用途 | コスト |
 |---|---|---|---|
@@ -59,7 +64,28 @@
 | 画像リサイズ | Sharp (Node.js) | Kling制限(3850px)対応 | 無料 |
 | ファイルアップロード | fal.storage | 一時ファイルホスティング | fal.aiに含む |
 
-**MCP化しない理由**: 制作ワーカーはLLMではなくコード。既存のNode.jsパイプラインが直接APIを叩く方が効率的。
+制作ワーカー自体はLLMなし（実行のみ）だが、使用するツールと手順はツールスペシャリストAgentが決定。v4.0パイプラインはデフォルトレシピとして継続利用。
+
+### 代替ツール候補
+
+ツールスペシャリストが経験に基づき、品質・コスト・速度を考慮して最適なツールを選択する。
+
+| カテゴリ | ツール | 特徴 |
+|---|---|---|
+| 動画生成 | Runway Gen-3 | 高品質、スタイル制御に強い |
+| 動画生成 | Sora (OpenAI) | 長尺・物理シミュレーションに強い |
+| 動画生成 | Pika | 高速・低コスト、短尺向き |
+| TTS | ElevenLabs | 多言語・感情表現に強い |
+| リップシンク | Hedra | キャラクターアニメーション特化 |
+
+### テキストコンテンツ制作
+
+X投稿などのテキストコンテンツ生成。
+
+| コンポーネント | 技術 | 用途 |
+|---|---|---|
+| テキスト生成 | Claude Sonnet (LangGraph内で実行) | キャラ設定 + シナリオ → 投稿文生成 |
+| フロー | キャラ設定読み込み → シナリオ適用 → 投稿文生成 → レビュー | テキストワーカーが実行 |
 
 ## ダッシュボード
 
@@ -89,6 +115,7 @@
 | dotenv | 環境変数管理 |
 | PM2 | プロセス管理・ログ管理 |
 | clasp | GASデプロイ (レガシー、段階的廃止) |
+| Docker + docker-compose | コンテナ化・環境統一 |
 | Git + GitHub | バージョン管理 |
 
 ## 埋め込みモデル (pgvector用)

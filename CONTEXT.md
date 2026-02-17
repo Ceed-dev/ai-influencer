@@ -1317,6 +1317,38 @@ node scripts/generate-digest.js --dry-run             # stdout出力のみ
 node scripts/generate-digest.js --force               # 既存ファイル上書き
 ```
 
+### 2026-02-17: v5.0仕様 — ファイル別レビュー & 8項目の大規模修正 (Session 2)
+
+**背景**: 前セッションでv5.0仕様の初回レビュー＋エージェント学習メカニズム追加を実施。本セッションではファイル別レビューを継続し、ユーザーのフィードバックに基づく8項目の仕様修正を実施。
+
+**README.md アーキテクチャ図修正**:
+- 日本語全角文字によるMonospaceフォントの幅ずれを修正
+- 全英語・全ASCII（`+`, `-`, `|`）に変更、全行63文字で統一
+
+**01-tech-stack.md レビュー**: ユーザーと内容確認後、以下のフィードバックを受領:
+1. エージェントとの会話・学習状況の確認場所
+2. コンテンツ制作の柔軟性（ツールエージェント構想）
+3. MDファイルチューニングの仕様確認
+4. 本番環境サーバーの確認
+5. Docker化の分析
+
+**8項目の全仕様修正** (6エージェント並行、8ファイル、+2,416行):
+
+| # | 項目 | 主な変更ファイル |
+|---|------|----------------|
+| 1 | ツールスペシャリストAgent新設 (Layer 2) | 04-agent, 02-arch, README |
+| 2 | 制作ワーカー2分類 (動画/テキスト) | 04-agent, 02-arch, README |
+| 3 | 制作フローのエージェント駆動化 (レシピベース) | 04-agent, 02-arch, 01-tech |
+| 4 | ツール知識学習メカニズム | 04-agent (Sec.13) |
+| 5 | プロンプト自動提案メカニズム | 04-agent (Sec.14), 02-arch |
+| 6 | WF完成後の知見移植プロセス | 04-agent (Sec.15) |
+| 7 | 開発/本番環境分離設計 | 02-arch (Sec.10) |
+| 8 | Docker化 Phase 1から段階導入 | 02-arch (Sec.11), 01-tech, 06-roadmap, 09-risks |
+
+**新DBテーブル (5)**: tool_catalog, tool_experiences, tool_external_sources, production_recipes, prompt_suggestions → テーブル総数 20→25
+
+**整合性修正**: Operations テーブル数の誤記修正 (4→5)、MCPツール数を~73に全ファイル統一
+
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID
 - `.gsheets_token.json` - OAuth token for Sheets/Drive API

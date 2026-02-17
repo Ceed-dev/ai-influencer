@@ -2,9 +2,9 @@
 
 > v5.0のAIエージェント階層構造、MCP Serverツール一覧、LangGraphグラフ設計、データフロー、仮説駆動サイクル、エージェント個別学習・自己改善メカニズムを詳細に定義する
 >
-> **エージェント総数**: 社長1 + 専門職2〜3 + 部長N + ワーカープール = 可変
+> **エージェント総数**: 社長1 + 専門職3〜4 + 部長N + ワーカープール = 可変
 >
-> **MCPツール数**: ~68ツール (8カテゴリ)
+> **MCPツール数**: ~73ツール (9カテゴリ)
 >
 > **LangGraphグラフ数**: 4グラフ (戦略サイクル / 制作パイプライン / 投稿スケジューラー / 計測ジョブ)
 >
@@ -25,7 +25,7 @@ v5.0のエージェントは **4層階層型** で構成される。上位層が
 │  └───────────────────────────────────────────────────────────────────┘  │
 │           │ 方針指示                  ▲ 分析報告・市場動向                │
 │           ▼                          │                                  │
-│  Layer 2: 専門職エージェント × 2〜3体                                    │
+│  Layer 2: 専門職エージェント × 3〜4体                                    │
 │  ┌─────────────────────────┐  ┌─────────────────────────┐            │
 │  │  リサーチャー (Researcher) │  │  アナリスト (Analyst)     │            │
 │  │  Claude Sonnet 4.5       │  │  Claude Sonnet 4.5       │            │
@@ -33,8 +33,16 @@ v5.0のエージェントは **4層階層型** で構成される。上位層が
 │  │  トリガー: 数時間ごと     │  │  仮説検証・知見蓄積       │            │
 │  │  × 1〜数体              │  │  トリガー: 計測完了後     │            │
 │  └─────────────────────────┘  │  × 1体                  │            │
-│           │ 判断材料                  └─────────────────────────┘        │
-│           ▼                          │ 判断材料                         │
+│                                └─────────────────────────┘            │
+│  ┌─────────────────────────────────────────────────────────────────┐  │
+│  │  ツールスペシャリスト (Tool Specialist)                            │  │
+│  │  Claude Sonnet 4.5                                                │  │
+│  │  AIツール特性把握 / 最適ツール組み合わせ提案 / 制作レシピ設計        │  │
+│  │  トリガー: 制作計画策定時 + 定期知識更新                            │  │
+│  │  × 1体                                                           │  │
+│  └─────────────────────────────────────────────────────────────────┘  │
+│           │ 判断材料・ツール推奨          │ 判断材料                      │
+│           ▼                             │                               │
 │  Layer 3: プランナーエージェント (部長) × N体                             │
 │  ┌───────────────────────────────────────────────────────────────────┐  │
 │  │  Claude Sonnet 4.5                                                │  │
@@ -46,13 +54,15 @@ v5.0のエージェントは **4層階層型** で構成される。上位層が
 │           │ 制作指示・投稿指示                ▲ 完了報告                  │
 │           ▼                                 │                          │
 │  Layer 4: ワーカーエージェント (作業員) — ステートレス・プール              │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐                │
-│  │ 制作ワーカー   │  │ 投稿ワーカー   │  │ 計測ワーカー   │                │
-│  │ (コード)      │  │ (コード)      │  │ (コード)      │                │
-│  │ 動画生成      │  │ 各プラット     │  │ メトリクス     │                │
-│  │ v4.0 PL活用   │  │ フォームへ投稿 │  │ 収集          │                │
-│  │ 負荷で増減    │  │ 負荷で増減    │  │ 負荷で増減    │                │
-│  └──────────────┘  └──────────────┘  └──────────────┘                │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐│
+│  │ 動画制作      │  │ テキスト制作   │  │ 投稿ワーカー   │  │ 計測ワーカー  ││
+│  │ ワーカー      │  │ ワーカー      │  │ (コード)      │  │ (コード)     ││
+│  │ (コード)      │  │ (コード)      │  │ 各プラット     │  │ メトリクス    ││
+│  │ 動画生成      │  │ X投稿文生成   │  │ フォームへ投稿 │  │ 収集         ││
+│  │ ツールSP推奨  │  │ キャラ設定    │  │ 負荷で増減    │  │ 負荷で増減   ││
+│  │ に従う       │  │ +シナリオ活用 │  │              │  │             ││
+│  │ 負荷で増減    │  │ 負荷で増減    │  │              │  │             ││
+│  └──────────────┘  └──────────────┘  └──────────────┘  └──────────────┘│
 │                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
@@ -134,7 +144,48 @@ v5.0のエージェントは **4層階層型** で構成される。上位層が
 | `anomaly_detection` | 計測データ到着時 | 異常値 (急落/急伸) の検出 | analyses |
 | `trend_analysis` | 随時 | 中長期トレンドの分析 | analyses + learnings |
 
-### 1.4 Layer 3: 部長 — プランナーエージェント (Planner) x N体
+### 1.4 Layer 2: 専門職 — ツールスペシャリスト (Tool Specialist) x 1体
+
+各AIツール（Kling, Runway, Sora, Pika, Fish Audio, ElevenLabs, Sync Lipsync, Hedra等）の特性・クセ・得意不得意を知識として保持する「ツールの専門家」。「こういうアウトプットを作りたい」という要求に対して最適なツール組み合わせと使い方（制作レシピ）を提案する。
+
+| 項目 | 詳細 |
+|------|------|
+| **LLM** | Claude Sonnet 4.5 |
+| **体数** | 1体 |
+| **トリガー** | 制作計画策定時（プランナーからの制作レシピ要求）+ 定期知識更新（日次） |
+| **入力** | コンテンツ要件（ニッチ、キャラクター特性、目標品質）、ツール経験データベース、外部情報（X投稿、公式ドキュメント、プレスリリース） |
+| **出力** | 制作レシピ（使用ツール組み合わせ + パラメータ推奨 + 注意点）、ツール知識更新 |
+| **System Prompt概要** | 「あなたはAI動画/音声/画像生成ツールの専門家です。各ツールの特性・制約・得意分野を熟知しています。コンテンツ要件に基づき最適なツール組み合わせ（制作レシピ）を提案してください。」 |
+| **プロンプトファイル** | `prompts/tool-specialist.md` — 人間が経験則をチューニング可能 |
+
+**Sonnet 4.5を使用する理由**:
+- ツール知識の検索・照合は推論よりも知識参照が主体。Opusレベルの推論は不要
+- 制作計画時に毎回呼ばれるため、コスト効率が重要
+- 知識ベースは外部MDファイルとDBで管理するため、LLM自体の能力よりコンテキスト活用が重要
+
+**具体的な責務**:
+
+1. **制作レシピの設計**: コンテンツ要件に応じた最適なツール組み合わせを提案
+   - 例: 「アジア人キャラ + beauty = Kling動画生成 + Fish Audio TTS + Sync Lipsync」
+   - 例: 「西洋人キャラ + tech = Runway動画生成 + ElevenLabs TTS + Hedra Lipsync」
+2. **ツール知識の維持**: 各ツールの最新情報を定期的に収集・更新
+3. **経験の蓄積**: 制作結果の品質評価→どのツール組み合わせが良かったかを記録
+4. **代替ツール提案**: 特定ツールがダウン/制限時に代替ツールを即座に推奨
+5. **パラメータ最適化**: ツールごとの最適パラメータ（解像度、モデルバージョン等）を知見として保持
+
+**個別学習メモリのカテゴリ**:
+- `tool_characteristics`: ツール固有の特性・クセ（例: 「Klingはアジア人の顔が自然」）
+- `tool_combination`: ツール組み合わせの相性（例: 「Fish Audio + Sync Lipsyncは口パク精度が高い」）
+- `tool_failure_pattern`: ツール固有の失敗パターン（例: 「Kling 3850px超は422エラー」）
+- `tool_update`: ツールのアップデート情報（例: 「Kling v2.0でモーション精度向上」）
+
+**外部情報の定期収集**:
+- AIツール関連のX投稿（開発者・パワーユーザーのアカウント）
+- 各ツール公式ドキュメントの変更検知
+- プレスリリース・ブログ記事のスキャン
+- リサーチャーと連携し、ツール関連の市場情報を共有
+
+### 1.5 Layer 3: 部長 — プランナーエージェント (Planner) x N体
 
 ニッチ/クラスター別に20〜50アカウントを担当し、具体的なコンテンツ計画を策定する「中間管理職」。v5.0のスケーラビリティの鍵を握るエージェント。
 
@@ -173,21 +224,53 @@ v5.0のエージェントは **4層階層型** で構成される。上位層が
 4. **コンポーネント選択**: 利用可能なシナリオ・モーションの中から最適なものを選択
 5. **スケジュール設定**: `planned_post_date` を設定し、投稿タイミングを決定
 
-### 1.5 Layer 4: 作業員 — ワーカーエージェント (ステートレス・プール)
+### 1.6 Layer 4: 作業員 — ワーカーエージェント (ステートレス・プール)
 
 指示通りに実行する「手足」。LLMではなくコードで実装され、判断を行わない。タスクキューからタスクを取得し、処理し、結果を報告する。
 
 | ワーカー種別 | 実装方式 | 役割 | スケール |
 |------------|---------|------|---------|
-| **制作ワーカー** | Node.js (v4.0パイプライン) | 動画/コンテンツ生成 | 同時制作数に応じて (fal.aiの同時実行上限に依存) |
+| **動画制作ワーカー** | Node.js | YouTube/TikTok/Instagram向け動画生成。ツールスペシャリストが設計した制作レシピに従い、動画生成→TTS→リップシンク→結合を実行。使用ツールはレシピで指定される（デフォルト: v4.0パイプライン = Kling + Fish Audio + Sync Lipsync） | 同時制作数に応じて (API同時実行上限に依存) |
+| **テキスト制作ワーカー** | Node.js | X向けテキスト投稿コンテンツの生成。プランナーのシナリオ + キャラクター設定から投稿文を生成 | 投稿量に応じて |
 | **投稿ワーカー** | Node.js (投稿アダプター) | プラットフォーム別に投稿実行 | 投稿量に応じて |
 | **計測ワーカー** | Node.js (計測コード) | 投稿48h後にメトリクス収集 | 計測対象数に応じて |
 
 **ワーカーの共通特性**:
 - **ステートレス**: 状態を持たない。タスクキューからタスクを取得し、完了したら結果を書き戻す
 - **冪等**: 同じタスクを複数回実行しても副作用がない
-- **考えない**: LLMを使わない。入力→処理→出力のパイプライン
+- **考えない**: LLMを使わない。入力→処理→出力のパイプライン。ただし実行するツールと手順はツールスペシャリストが決定
 - **スケーラブル**: 負荷に応じてワーカー数を増減
+
+**動画制作ワーカーのツール選択**:
+
+動画制作ワーカーは固定パイプライン（Kling→Fish Audio→Sync Lipsync→ffmpeg）ではなく、ツールスペシャリストが設計した **制作レシピ** に従ってツールを切り替える。
+
+```
+制作レシピの例:
+
+  レシピ1 (デフォルト — v4.0互換):
+    動画生成: Kling
+    TTS: Fish Audio
+    Lipsync: Sync Lipsync (fal.ai)
+    結合: ffmpeg
+    適用: アジア人キャラ全般
+
+  レシピ2:
+    動画生成: Runway Gen-3
+    TTS: ElevenLabs
+    Lipsync: Hedra
+    結合: ffmpeg
+    適用: 西洋人キャラ、リアリスティック表現
+
+  レシピ3:
+    動画生成: Pika
+    TTS: Fish Audio
+    Lipsync: Sync Lipsync (fal.ai)
+    結合: ffmpeg
+    適用: スタイライズド表現、アート系コンテンツ
+```
+
+v4.0パイプラインは「デフォルトレシピ」として残り、ツールスペシャリストが明示的に別のレシピを指定しない限りこのレシピが適用される。
 
 ## 2. エージェント間の情報の流れ
 
@@ -204,17 +287,19 @@ v5.0のエージェントは **4層階層型** で構成される。上位層が
               方針指示 │              │             │分析報告
                        │     (3)横方向│             │
                        │     判断材料 │             │
-          ┌────────────▼───┐    ┌────▼────────────▼──┐
-          │ プランナー (部長) │◄───│ 専門職             │
-          │ Sonnet x N     │(3) │ リサーチャー Sonnet │
-          │                │    │ アナリスト   Sonnet │
-          └───────┬────────┘    └────────────────────┘
-             (1)下向き│                  ▲(2)上向き
-             制作指示 │                  │完了報告
+          ┌────────────▼───┐    ┌────▼────────────▼──────────┐
+          │ プランナー (部長) │◄───│ 専門職                      │
+          │ Sonnet x N     │(3) │ リサーチャー       Sonnet   │
+          │                │    │ アナリスト         Sonnet   │
+          │                │    │ ツールスペシャリスト Sonnet   │
+          └───────┬────────┘    └──────────────┬─────────────┘
+             (1)下向き│                  ▲(2)上向き│ツール推奨
+             制作指示 │                  │完了報告  ▼
                      │                  │
           ┌──────────▼──────────────────┴──┐
           │ ワーカー (作業員) — コード       │
-          │ 制作 / 投稿 / 計測              │
+          │ 動画制作 / テキスト制作 /       │
+          │ 投稿 / 計測                    │
           └────────────────────────────────┘
                          │
                          ▼
@@ -227,9 +312,9 @@ v5.0のエージェントは **4層階層型** で構成される。上位層が
 
 | 方向 | 流れ | 具体的なデータ | DBテーブル |
 |------|------|---------------|----------|
-| **(1) 上→下** | 社長→プランナー→ワーカー | サイクル方針、制作指示、投稿指示 | `cycles`, `content`, `task_queue` |
+| **(1) 上→下** | 社長→プランナー→ツールSP→ワーカー | サイクル方針、制作指示、制作レシピ、投稿指示 | `cycles`, `content`, `task_queue` |
 | **(2) 下→上** | ワーカー→アナリスト→社長 | 完了報告、パフォーマンスデータ、分析結果 | `metrics`, `analyses`, `algorithm_performance` |
-| **(3) 横** | リサーチャー・アナリスト→社長・プランナー | 市場動向、トレンド、知見、仮説検証結果 | `market_intel`, `learnings`, `hypotheses` |
+| **(3) 横** | リサーチャー・アナリスト・ツールSP→社長・プランナー・ワーカー | 市場動向、トレンド、知見、仮説検証結果、制作レシピ | `market_intel`, `learnings`, `hypotheses`, `tool_knowledge` |
 | **(4) 外→内** | 人間→社長 | 仮説投入、参考コンテンツ指定、設定変更 | `human_directives` |
 
 ### 2.3 具体的な情報フローの例
@@ -303,6 +388,11 @@ v5.0のエージェントは **4層階層型** で構成される。上位層が
 │    └──← アナリスト (Sonnet)                          │
 │           「前サイクルの分析報告: 仮説的中率62%、       │
 │            朝投稿テスト群のengagement +35%」           │
+│                                                      │
+│    ┌──← ツールスペシャリスト (Sonnet)                  │
+│           「本日の制作にはKling + Fish Audio + Sync     │
+│            Lipsyncのデフォルトレシピを推奨。             │
+│            西洋人キャラはRunway + Hedraを推奨」         │
 │                                                      │
 │  通信媒体: DBのステータス変更 + MCPツール経由のデータ     │
 │  頻度: 低い (サイクル単位 = 日次)                      │
@@ -384,7 +474,7 @@ WHERE id = $1;
 COMMIT;
 ```
 
-## 4. MCP Server ツール一覧 (~68ツール)
+## 4. MCP Server ツール一覧 (~73ツール)
 
 全エージェントはMCP Server経由でPostgreSQLにアクセスする。ツールはエージェントの役割ごとにグループ化されており、各エージェントのSystem Promptで使用可能なツール群を制限する。
 
@@ -461,9 +551,21 @@ COMMIT;
 | 8 | `get_content_pool_status` | `{ cluster }` | `{ planned, producing, ready, scheduled, posted }` | コンテンツプールの状況 |
 | 9 | `request_production` | `{ content_id, priority: 0 }` | `{ task_id }` | 制作タスクの発行 (task_queueにINSERT) |
 
-### 4.5 制作ワーカー用 (12ツール)
+### 4.5 ツールスペシャリスト用 (5ツール)
 
-動画制作パイプラインの各段階で使用するツール群。v4.0パイプラインのNode.js関数をMCPツールとしてラップ。
+AIツール知識の管理・検索・制作レシピ設計のためのツール群。
+
+| # | ツール名 | 引数 | 戻り値 | 用途 |
+|---|---------|------|--------|------|
+| 1 | `get_tool_knowledge` | `{ tool_name?, category?: "video_gen" \| "tts" \| "lipsync" \| "image_gen" }` | `[{ tool_name, capabilities, limitations, best_for, parameters, updated_at }]` | ツール特性知識の取得 |
+| 2 | `save_tool_experience` | `{ tool_combination: string[], content_id, quality_score: number, notes, character_type?, niche? }` | `{ id }` | ツール使用経験の記録（制作結果の品質評価付き） |
+| 3 | `search_similar_tool_usage` | `{ requirements: { character_type?, niche?, content_type?, quality_priority? }, limit: 5 }` | `[{ tool_combination, avg_quality_score, usage_count, notes }]` | 類似要件でのツール使用実績検索 |
+| 4 | `get_tool_recommendations` | `{ content_requirements: { character_id, niche, platform, quality_target } }` | `{ recipe: { video_gen, tts, lipsync, concat }, rationale, confidence, alternatives[] }` | コンテンツ要件に対する最適ツール組み合わせ（制作レシピ）の推奨 |
+| 5 | `update_tool_knowledge_from_external` | `{ tool_name, update_type: "capability" \| "pricing" \| "api_change" \| "bug", description, source_url? }` | `{ id }` | 外部情報からのツール知識更新 |
+
+### 4.6 制作ワーカー用 (12ツール)
+
+動画制作パイプラインの各段階で使用するツール群。v4.0パイプラインのNode.js関数をMCPツールとしてラップ。ツールスペシャリストが設計した制作レシピに基づき、使用するツールを切り替える。
 
 | # | ツール名 | 引数 | 戻り値 | 用途 |
 |---|---------|------|--------|------|
@@ -480,7 +582,7 @@ COMMIT;
 | 11 | `run_quality_check` | `{ content_id, video_url }` | `{ passed, checks: [...] }` | 品質チェック実行 |
 | 12 | `report_production_complete` | `{ task_id, content_id, drive_folder_id, video_drive_id }` | `{ success }` | 制作完了報告 |
 
-### 4.6 投稿ワーカー用 (6ツール)
+### 4.7 投稿ワーカー用 (6ツール)
 
 プラットフォーム別の投稿実行ツール群。
 
@@ -493,7 +595,7 @@ COMMIT;
 | 5 | `publish_to_x` | `{ content_id, text, video_drive_id }` | `{ platform_post_id, post_url }` | X/Twitter投稿 |
 | 6 | `report_publish_result` | `{ task_id, content_id, platform_post_id, post_url, posted_at }` | `{ success }` | 投稿結果報告 |
 
-### 4.7 計測ワーカー用 (7ツール)
+### 4.8 計測ワーカー用 (7ツール)
 
 プラットフォーム別のメトリクス収集ツール群。
 
@@ -507,7 +609,7 @@ COMMIT;
 | 6 | `collect_account_metrics` | `{ account_id }` | `{ follower_count, follower_delta }` | アカウント全体メトリクス |
 | 7 | `report_measurement_complete` | `{ task_id, publication_id, metrics_data }` | `{ success }` | 計測完了報告 |
 
-### 4.8 ダッシュボード用 (3ツール)
+### 4.9 ダッシュボード用 (3ツール)
 
 人間がダッシュボードから操作する際に使用するツール群。ダッシュボードはLLMではないため、これらはREST API (Next.js API Routes) として実装し、内部でMCPツールと同等のロジックを呼び出す。
 
@@ -517,7 +619,7 @@ COMMIT;
 | 2 | `update_system_config` | `{ key, value }` | `{ success }` | 設定変更 (計測タイミング等) |
 | 3 | `submit_human_directive` | `{ directive_type, content, target_accounts?, priority }` | `{ id }` | 人間介入の送信 |
 
-### 4.9 エージェント自己学習・コミュニケーション用 (8ツール)
+### 4.10 エージェント自己学習・コミュニケーション用 (8ツール)
 
 各エージェントがセルフリフレクション、個別学習メモリの管理、人間への自発的コミュニケーションに使用するツール群。全LLMエージェント (社長・リサーチャー・アナリスト・プランナー) が共通で使用する。
 
@@ -597,6 +699,18 @@ v5.0は **4つの独立したLangGraphグラフ** で構成される。各グラ
          │
          ▼
 ┌──────────────────┐     MCPツール:
+│ select_tools      │     get_tool_knowledge
+│                  │     search_similar_tool_usage
+│ ツールスペシャ    │     get_tool_recommendations
+│ リスト (Sonnet)  │     save_tool_experience
+│                  │     get_individual_learnings
+│ 制作レシピ設計    │     update_tool_knowledge_from_external
+│ 各コンテンツに    │
+│ 最適ツール割当    │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐     MCPツール:
 │ approve_plan      │     get_portfolio_kpi_summary (再確認)
 │                  │     get_active_hypotheses
 │ 社長 (Opus)      │     get_content_pool_status
@@ -666,6 +780,9 @@ interface StrategyCycleState {
   // コンテンツ計画 (plan_contentノード出力)
   content_plans: ContentPlan[];
 
+  // 制作レシピ (select_toolsノード出力)
+  tool_recipes: ToolRecipe[];
+
   // 承認結果 (approve_planノード出力)
   approval: {
     status: 'approved' | 'rejected';
@@ -681,7 +798,7 @@ interface StrategyCycleState {
 }
 
 interface AgentReflection {
-  agent_type: 'strategist' | 'researcher' | 'analyst' | 'planner';
+  agent_type: 'strategist' | 'researcher' | 'analyst' | 'tool_specialist' | 'planner';
   self_score: number; // 1-10
   reasoning: string;
   went_well: string[];
@@ -701,6 +818,16 @@ interface ContentPlan {
   planned_post_date: string; // YYYY-MM-DD
 }
 
+interface ToolRecipe {
+  content_id: string;
+  video_gen: string;        // 'kling' | 'runway' | 'pika' | 'sora'
+  tts: string;              // 'fish_audio' | 'elevenlabs'
+  lipsync: string;          // 'sync_lipsync' | 'hedra'
+  concat: string;           // 'ffmpeg' (現時点で固定)
+  rationale: string;        // ツールスペシャリストの選定理由
+  parameters?: Record<string, unknown>; // ツール固有のパラメータ推奨
+}
+
 interface ResourceAllocation {
   cluster: string;
   content_count: number;
@@ -716,6 +843,7 @@ const strategyCycleGraph = new StateGraph<StrategyCycleState>()
   .addNode("analyze_cycle", analyzeCycleNode)
   .addNode("set_strategy", setStrategyNode)
   .addNode("plan_content", planContentNode)
+  .addNode("select_tools", selectToolsNode) // ツールスペシャリストによる制作レシピ設計
   .addNode("approve_plan", approvePlanNode)
   .addNode("reflect_all", reflectAllNode) // セルフリフレクション (セクション10参照)
 
@@ -724,7 +852,8 @@ const strategyCycleGraph = new StateGraph<StrategyCycleState>()
   .addEdge("collect_intel", "analyze_cycle")
   .addEdge("analyze_cycle", "set_strategy")
   .addEdge("set_strategy", "plan_content")
-  .addEdge("plan_content", "approve_plan")
+  .addEdge("plan_content", "select_tools")
+  .addEdge("select_tools", "approve_plan")
 
   // 条件分岐: 承認 or 差戻し
   .addConditionalEdges("approve_plan", (state) => {
@@ -770,8 +899,8 @@ const app = strategyCycleGraph.compile({ checkpointer });
 ### 5.2 グラフ2: 制作パイプライングラフ (Production Pipeline Graph)
 
 **実行頻度**: 連続 (30秒ポーリング)
-**参加エージェント**: 制作ワーカー (コード、LLMなし)
-**目的**: `planned` ステータスのコンテンツを検出し、v4.0パイプラインで動画を生成する
+**参加エージェント**: 動画制作ワーカー (コード、LLMなし)
+**目的**: `planned` ステータスのコンテンツを検出し、ツールスペシャリストが設計した制作レシピ（デフォルト: v4.0パイプライン）で動画を生成する
 
 #### ノード定義
 
@@ -808,7 +937,8 @@ const app = strategyCycleGraph.compile({ checkpointer });
 ┌──────────────────────────────────────────────────────┐
 │ generate_video                                        │
 │                                                      │
-│ v4.0パイプライン (orchestrator.js) を直接呼び出し       │
+│ 制作レシピに基づきツールを選択して実行                   │
+│ (デフォルト: v4.0パイプライン orchestrator.js)           │
 │                                                      │
 │  ┌──────────────────────────────────────────────┐    │
 │  │ Promise.all (3セクション並列)                  │    │
@@ -816,11 +946,14 @@ const app = strategyCycleGraph.compile({ checkpointer });
 │  │  ┌────────────┐ ┌────────────┐ ┌────────────┐│    │
 │  │  │   Hook     │ │   Body     │ │   CTA      ││    │
 │  │  │            │ │            │ │            ││    │
-│  │  │ Kling ─┐   │ │ Kling ─┐   │ │ Kling ─┐   ││    │
-│  │  │ TTS ───┤   │ │ TTS ───┤   │ │ TTS ───┤   ││    │
-│  │  │        ▼   │ │        ▼   │ │        ▼   ││    │
-│  │  │ Lipsync    │ │ Lipsync    │ │ Lipsync    ││    │
+│  │  │ [動画Gen]┐ │ │ [動画Gen]┐ │ │ [動画Gen]┐ ││    │
+│  │  │ [TTS] ──┤ │ │ [TTS] ──┤ │ │ [TTS] ──┤ ││    │
+│  │  │         ▼ │ │         ▼ │ │         ▼ ││    │
+│  │  │ [Lipsync]  │ │ [Lipsync]  │ │ [Lipsync]  ││    │
 │  │  └────────────┘ └────────────┘ └────────────┘│    │
+│  │  ※ [ツール名] はレシピで指定:                   │    │
+│  │    デフォルト: Kling / Fish Audio / Sync Lipsync│    │
+│  │    代替例: Runway / ElevenLabs / Hedra          │    │
 │  └──────────────────────────────────────────────┘    │
 │                       │                              │
 │                       ▼                              │
@@ -1328,10 +1461,11 @@ v5.0の全動作を支配する「仮説駆動サイクル」の各ステップ�
 ┌───────────────────────────────────────────────────────────────────────┐
 │                      仮説駆動サイクル (1日1回)                          │
 │                                                                       │
-│  [Step 1] ──→ [Step 2] ──→ [Step 3] ──→ [Step 4] ──→ [Step 5]      │
-│  戦略Agent     戦略Agent     プランナー     プランナー     制作ワーカー   │
-│  データ確認    方針決定      仮説立案      コンテンツ計画  コンテンツ生成 │
-│                                                              │        │
+│  [Step 1] → [Step 2] → [Step 3] → [Step 4] → [Step 4.5] → [Step 5]  │
+│  戦略Agent   戦略Agent   プランナー   プランナー   ツールSP      制作ワーカー │
+│  データ確認  方針決定    仮説立案    コンテンツ   ツール選択    コンテンツ生成│
+│                                     計画        レシピ設計              │
+│                                                                │       │
 │  [Step 11] ←── [Step 10] ←── [Step 9] ←── [Step 8] ←── [Step 7] ←── [Step 6]
 │  次サイクルへ   知見抽出      検証実行      アナリスト      計測ワーカー   投稿ワーカー
 │                                            分析開始       メトリクス収集 投稿実行
@@ -1472,9 +1606,61 @@ MCPツール呼び出し:
   [書き込み] task_queue INSERT → 制作タスク発行
 ```
 
+### Step 4.5: ツールスペシャリスト — ツール選択・制作レシピ設計
+
+**実行者**: ツールスペシャリスト (Claude Sonnet 4.5)
+**タイミング**: Step 4でコンテンツ計画が作成された直後
+
+```
+MCPツール呼び出し:
+  1. get_tool_knowledge({ category: "video_gen" })
+     → 利用可能な動画生成ツールの特性一覧
+
+  2. search_similar_tool_usage({
+       requirements: {
+         character_type: "asian_female",
+         niche: "beauty",
+         content_type: "short_video",
+         quality_priority: "face_natural"
+       },
+       limit: 5
+     })
+     → 類似要件での過去のツール使用実績
+
+  3. get_tool_recommendations({
+       content_requirements: {
+         character_id: "CHR_0001",
+         niche: "beauty",
+         platform: "youtube",
+         quality_target: 0.8
+       }
+     })
+     → {
+          recipe: {
+            video_gen: "kling",
+            tts: "fish_audio",
+            lipsync: "sync_lipsync",
+            concat: "ffmpeg"
+          },
+          rationale: "アジア人キャラ + beautyニッチではKlingの顔生成が最も自然。
+                      Fish Audio + Sync Lipsyncの組み合わせは口パク精度が高い。
+                      過去の成功率: 92% (25件中23件で品質基準クリア)",
+          confidence: 0.92,
+          alternatives: [
+            { video_gen: "runway", rationale: "Klingダウン時の代替" }
+          ]
+        }
+
+データフロー:
+  [読み取り] tool_knowledge → ツール特性
+  [読み取り] tool_experiences → 過去の使用実績
+  [読み取り] agent_individual_learnings → ツールSPの個人ノート
+  [書き込み] content UPDATE → recipe (制作レシピ) 設定
+```
+
 ### Step 5: 制作ワーカー — コンテンツ生成
 
-**実行者**: 制作ワーカー (Node.jsコード、LLMなし)
+**実行者**: 動画制作ワーカー (Node.jsコード、LLMなし)
 **タイミング**: タスクキューに制作タスクが入った時点 (30秒ポーリング)
 
 ```
@@ -1491,7 +1677,8 @@ MCPツール呼び出し:
   4. update_content_status({ content_id: "CNT_202603_0001", status: "producing" })
      → content UPDATE
 
-  --- v4.0パイプライン実行 (orchestrator.js) ---
+  --- 制作レシピに基づきパイプライン実行 ---
+  --- (デフォルト: v4.0 orchestrator.js) ---
   --- 12分程度 ---
 
   5. upload_to_drive({ file_url, folder_id, filename: "final.mp4" })
@@ -1733,6 +1920,10 @@ MCPツール呼び出し:
               次回アクション: 交絡因子の確認ステップを追加する
               → agent_reflections INSERT
 
+  [ツールSP] 自己評価: 7/10。デフォルトレシピは安定。
+             改善点: 西洋人キャラでRunwayの代わりにKlingを推奨してしまった
+             → agent_reflections INSERT
+
   [プランナーA] 自己評価: 8/10。過去の知見を適切に活用できた。
                改善点: 競合アカウントの最新投稿を参照できていなかった
                → agent_reflections INSERT
@@ -1768,14 +1959,15 @@ MCPツール呼び出し:
 
 Day 0 (朝)          Day 0 (昼)        Day 2 (朝)         Day 4 (朝)         Day 5 (朝)
 │                    │                  │                  │                  │
-│ Step 1-4:          │ Step 5:          │ Step 6:          │ Step 7:          │ Step 8-11:
-│ データ確認          │ 制作ワーカー       │ 投稿ワーカー       │ 計測ワーカー       │ アナリスト
+│ Step 1-4.5:        │ Step 5:          │ Step 6:          │ Step 7:          │ Step 8-11:
+│ データ確認          │ 動画制作ワーカー   │ 投稿ワーカー       │ 計測ワーカー       │ アナリスト
 │ 方針決定           │ 動画生成          │ 投稿実行          │ メトリクス収集     │ 分析・検証
 │ 仮説立案           │ (~12分/件)        │                  │                  │ 知見抽出
-│ コンテンツ計画       │                  │                  │                  │
+│ コンテンツ計画       │ レシピに従い      │                  │                  │
+│ ツール選択          │ ツール実行        │                  │                  │
 │                    │                  │                  │                  │
-│ 所要: ~30分         │ 所要: ~2時間      │ 所要: ~5分        │ 所要: ~10分       │ 所要: ~15分
-│ (LLM処理)          │ (fal.ai待ち)      │ (API呼び出し)     │ (API呼び出し)     │ (LLM処理)
+│ 所要: ~35分         │ 所要: ~2時間      │ 所要: ~5分        │ 所要: ~10分       │ 所要: ~15分
+│ (LLM処理)          │ (API待ち)         │ (API呼び出し)     │ (API呼び出し)     │ (LLM処理)
 │                    │                  │                  │                  │
 ▼                    ▼                  ▼                  ▼                  ▼
 cycles INSERT        content UPDATE     publications       metrics INSERT     hypotheses UPDATE
@@ -1795,7 +1987,8 @@ status='planned'                        measure_after設定                    a
 | 2 | 社長 | `cycles` | INSERT (status='planning') |
 | 3 | プランナー | `hypotheses` | INSERT (verdict='pending', predicted_kpis) |
 | 4 | プランナー | `content`, `task_queue` | INSERT (status='planned'), INSERT (type='produce') |
-| 5 | 制作ワーカー | `content` | UPDATE (planned→producing→ready) |
+| 4.5 | ツールスペシャリスト | `content` | UPDATE (recipe設定) |
+| 5 | 動画制作ワーカー | `content` | UPDATE (planned→producing→ready) |
 | 6 | 投稿ワーカー | `publications`, `content`, `task_queue` | INSERT, UPDATE (status='posted'), INSERT (type='measure') |
 | 7 | 計測ワーカー | `metrics`, `content`, `accounts` | INSERT, UPDATE (status='measured'), UPDATE (follower_count) |
 | 8 | アナリスト | (読み取りのみ) | - |
@@ -1824,6 +2017,7 @@ prompts/
 ├── strategist.md          # 社長 (戦略エージェント) のSystem Prompt
 ├── researcher.md          # リサーチャーのSystem Prompt
 ├── analyst.md             # アナリストのSystem Prompt
+├── tool-specialist.md     # ツールスペシャリストのSystem Prompt (人間が経験則をチューニング)
 ├── planner.md             # プランナーのSystem Prompt (ベーステンプレート)
 ├── planner-beauty.md      # beauty ニッチ用プランナーの追加指示 (オプション)
 ├── planner-tech.md        # tech ニッチ用プランナーの追加指示 (オプション)
@@ -1834,7 +2028,7 @@ prompts/
         └── content-guidelines.md  # コンテンツ制作ガイドライン
 ```
 
-**ワーカーエージェント (Layer 4) にはプロンプトファイルを持たない**。ワーカーはLLMではなくコードで実装されるため (セクション1.5参照)、行動はコードロジックで決定される。
+**ワーカーエージェント (Layer 4) にはプロンプトファイルを持たない**。ワーカーはLLMではなくコードで実装されるため (セクション1.6参照)、行動はコードロジックで決定される。
 
 ### 8.3 プロンプトファイルの構造
 
@@ -2154,7 +2348,7 @@ LLMのパラメータ自体はファインチューニングしない。つま�
 
 ### 9.6 human_directives (一時的指示) とプロンプトチューニング (永続的変更) の使い分け
 
-セクション4.8で定義した `submit_human_directive` ツールと、本セクションのプロンプトチューニングは **目的が異なる**。混同しないよう明確に区別する。
+セクション4.9で定義した `submit_human_directive` ツールと、本セクションのプロンプトチューニングは **目的が異なる**。混同しないよう明確に区別する。
 
 | 観点 | human_directives (DB) | プロンプトチューニング (ファイル) |
 |------|----------------------|-------------------------------|
@@ -2450,7 +2644,7 @@ CREATE TABLE agent_reflections (
 
     -- 制約
     CONSTRAINT chk_agent_reflections_type
-        CHECK (agent_type IN ('strategist', 'researcher', 'analyst', 'planner')),
+        CHECK (agent_type IN ('strategist', 'researcher', 'analyst', 'tool_specialist', 'planner')),
     CONSTRAINT chk_agent_reflections_score
         CHECK (self_score >= 1 AND self_score <= 10)
 );
@@ -2472,6 +2666,7 @@ async function reflectAllNode(state: StrategyCycleState): Promise<Partial<Strate
     reflectAgent("strategist", state),
     reflectAgent("researcher", state),
     reflectAgent("analyst", state),
+    reflectAgent("tool_specialist", state),
     // プランナーは複数いる場合がある
     ...state.content_plans
       .map(p => p.cluster)
@@ -2557,6 +2752,7 @@ async function reflectAgent(
      → to_improve に3サイクル以上同じ項目が出る場合
      → セルフリフレクションでは解決できない構造的問題
      → 人間によるプロンプトチューニング (セクション9) が必要なサイン
+     → セクション14のプロンプト変更自動提案メカニズムがアラートを発火
 ```
 
 ```sql
@@ -2692,6 +2888,26 @@ ORDER BY agent_type;
 ```
 
 ```
+[ツールスペシャリスト (Tool Specialist) の個人ノート]
+
+  ・「Klingでアジア人の顔を生成する場合、character_orientationを
+     'front'にすると品質が最も安定する。'side'だと不自然になることが30%ある」
+     category: tool_characteristics
+
+  ・「Fish Audio + Sync Lipsync の組み合わせは日本語の口パク精度が
+     ElevenLabs + Hedra より15%高い (サンプル20件での比較)」
+     category: tool_combination
+
+  ・「Kling v2.0アップデート後、3850px超の画像が422エラーになる
+     バグが修正されたが、4000px超では依然としてエラー」
+     category: tool_failure_pattern
+
+  ・「Runway Gen-3はプロンプトなしでimage-to-video生成すると
+     動きが小さすぎる。'gentle movement'程度の最小プロンプトを推奨」
+     category: tool_characteristics
+```
+
+```
 [プランナー (Planner) の個人ノート]
 
   ・「Before/After形式のシナリオは、'Before'の映像が
@@ -2734,6 +2950,7 @@ CREATE TABLE agent_individual_learnings (
         -- 社長: resource_allocation, communication, strategy, human_interaction
         -- リサーチャー: data_source, timing, methodology, platform_knowledge
         -- アナリスト: analysis_pattern, methodology, verification, meta_analysis
+        -- ツールSP: tool_characteristics, tool_combination, tool_failure_pattern, tool_update
         -- プランナー: content_strategy, scheduling, timing, hypothesis_pattern
     context         TEXT,
         -- この学びが得られた文脈 (例: "サイクル15でbeautyニッチを分析した際に...")
@@ -2761,7 +2978,7 @@ CREATE TABLE agent_individual_learnings (
 
     -- 制約
     CONSTRAINT chk_individual_learnings_type
-        CHECK (agent_type IN ('strategist', 'researcher', 'analyst', 'planner'))
+        CHECK (agent_type IN ('strategist', 'researcher', 'analyst', 'tool_specialist', 'planner'))
 );
 
 COMMENT ON TABLE agent_individual_learnings IS 'エージェント個別の学習メモリ。個人ノートブック相当';
@@ -3042,7 +3259,7 @@ CREATE TABLE agent_communications (
 
     -- 制約
     CONSTRAINT chk_agent_comms_type
-        CHECK (agent_type IN ('strategist', 'researcher', 'analyst', 'planner')),
+        CHECK (agent_type IN ('strategist', 'researcher', 'analyst', 'tool_specialist', 'planner')),
     CONSTRAINT chk_agent_comms_message_type
         CHECK (message_type IN ('struggle', 'proposal', 'question', 'status_report')),
     CONSTRAINT chk_agent_comms_priority
@@ -3227,9 +3444,640 @@ function determineMessageType(reflection: AgentReflection): string {
 
 | 方向 | 流れ | 具体的なデータ | DBテーブル |
 |------|------|---------------|----------|
-| **(1) 上→下** | 社長→プランナー→ワーカー | サイクル方針、制作指示、投稿指示 | `cycles`, `content`, `task_queue` |
+| **(1) 上→下** | 社長→プランナー→ツールSP→ワーカー | サイクル方針、制作指示、制作レシピ、投稿指示 | `cycles`, `content`, `task_queue` |
 | **(2) 下→上** | ワーカー→アナリスト→社長 | 完了報告、パフォーマンスデータ、分析結果 | `metrics`, `analyses`, `algorithm_performance` |
-| **(3) 横** | リサーチャー・アナリスト→社長・プランナー | 市場動向、トレンド、知見、仮説検証結果 | `market_intel`, `learnings`, `hypotheses` |
+| **(3) 横** | リサーチャー・アナリスト・ツールSP→社長・プランナー・ワーカー | 市場動向、トレンド、知見、仮説検証結果、制作レシピ | `market_intel`, `learnings`, `hypotheses`, `tool_knowledge` |
 | **(4) 外→内** | 人間→社長 | 仮説投入、参考コンテンツ指定、設定変更 | `human_directives` |
 | **(5) 内→外** | 全エージェント→人間 | 困りごと、提案、質問、定期報告 | `agent_communications` |
 | **(6) 自己** | 各エージェント→自分 | 振り返り、個別学習メモリ | `agent_reflections`, `agent_individual_learnings` |
+
+## 13. ツール知識学習メカニズム
+
+### 13.1 設計思想
+
+ツールスペシャリストは「AIツールの百科事典 + 実践経験ノート」として機能する。単なる静的な知識ではなく、実際の制作結果からのフィードバック、外部情報の定期収集、人間による経験則の教育を組み合わせた **継続学習サイクル** を回す。
+
+```
+ツール知識の3つの情報源:
+
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │                                                                     │
+  │  情報源1: 外部情報の定期収集                                         │
+  │  ┌───────────────────────────────────────────────────────────┐      │
+  │  │  ・AIツール関連のXアカウント投稿 (開発者、パワーユーザー)    │      │
+  │  │  ・各ツール公式ドキュメントの変更                           │      │
+  │  │  ・プレスリリース、ブログ記事                               │      │
+  │  │  ・リサーチャーからのツール関連市場情報                      │      │
+  │  │                                                           │      │
+  │  │  頻度: 日次 (リサーチャーと連携)                            │      │
+  │  │  保存先: tool_knowledge テーブル + MCPツール経由             │      │
+  │  └───────────────────────────────────────────────────────────┘      │
+  │                                                                     │
+  │  情報源2: 制作経験の蓄積                                             │
+  │  ┌───────────────────────────────────────────────────────────┐      │
+  │  │  ・制作結果の品質評価 (品質スコア + 人間フィードバック)       │      │
+  │  │  ・どのツール組み合わせが良かったか / 悪かったか             │      │
+  │  │  ・失敗パターンの記録 (エラー内容、回避策)                   │      │
+  │  │                                                           │      │
+  │  │  頻度: 制作完了ごと                                        │      │
+  │  │  保存先: tool_experiences テーブル + 個別学習メモリ          │      │
+  │  └───────────────────────────────────────────────────────────┘      │
+  │                                                                     │
+  │  情報源3: 人間による経験則の教育                                      │
+  │  ┌───────────────────────────────────────────────────────────┐      │
+  │  │  ・prompts/tool-specialist.md への経験則追記                │      │
+  │  │    例: 「アジア人の顔はKlingが自然、西洋人はRunwayが自然」  │      │
+  │  │    例: 「Fish Audio + Sync Lipsyncは日本語の口パク精度が高い」│     │
+  │  │  ・手動Claude作業で得た知見のMDファイル化                    │      │
+  │  │                                                           │      │
+  │  │  頻度: 必要時 (人間判断)                                   │      │
+  │  │  保存先: prompts/tool-specialist.md (git管理)              │      │
+  │  └───────────────────────────────────────────────────────────┘      │
+  │                                                                     │
+  └─────────────────────────────────────────────────────────────────────┘
+```
+
+### 13.2 学習サイクルの詳細
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│                    ツールスペシャリスト 学習サイクル                         │
+│                                                                          │
+│  [Phase 1] 情報収集 ─→ [Phase 2] 制作レシピ設計 ─→ [Phase 3] 結果評価    │
+│       │                     │                           │                │
+│       │                     │                           │                │
+│       ▼                     ▼                           ▼                │
+│  外部情報スキャン        最適ツール選択            品質スコア記録          │
+│  (リサーチャー連携)       レシピ生成               成功/失敗パターン       │
+│       │                     │                    記録                    │
+│       │                     │                           │                │
+│       └─────────────────────┴───────────────────────────┘                │
+│                              │                                           │
+│                              ▼                                           │
+│                    [Phase 4] 知識更新                                     │
+│                    ・ツール知識DB更新                                      │
+│                    ・個別学習メモリ更新                                    │
+│                    ・推奨マトリックス更新                                  │
+│                                                                          │
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+**Phase 1: 情報収集** (リサーチャーと連携)
+
+```
+情報収集の対象と方法:
+
+  1. X投稿のスキャン
+     対象: AIツール開発者・パワーユーザーのXアカウント
+     方法: リサーチャーが市場調査の一環として収集 → ツールSPに共有
+     保存: market_intel (intel_type='tool_update') + tool_knowledge
+
+  2. 公式ドキュメントの変更検知
+     対象: Kling, Runway, Sora, Pika, Fish Audio, ElevenLabs, fal.ai 各ドキュメント
+     方法: WebFetchで定期的にドキュメントページをスキャン
+     検知: API仕様変更、新機能、価格変更、制限変更
+
+  3. プレスリリース・ブログ記事
+     対象: 各ツールの公式ブログ、AI関連ニュースサイト
+     方法: WebSearchで「[ツール名] update」「[ツール名] new feature」等を検索
+     頻度: 日次
+```
+
+**Phase 2: 制作レシピ設計** (戦略サイクル内)
+
+```
+レシピ設計のロジック:
+
+  入力:
+    ・コンテンツ要件 (キャラクター、ニッチ、プラットフォーム、品質目標)
+    ・ツール知識DB (各ツールの得意/不得意/制約)
+    ・過去の制作経験 (類似要件での成功実績)
+    ・人間の経験則 (prompts/tool-specialist.md)
+
+  処理:
+    1. 要件からキーファクターを抽出
+       (例: 人種、表情の重要度、動きの種類、音声言語)
+    2. キーファクターに基づきツール知識DBを検索
+    3. 過去の類似制作経験を参照 (search_similar_tool_usage)
+    4. 最適な組み合わせをスコアリングして選択
+    5. 代替レシピも1〜2件生成 (フォールバック用)
+
+  出力:
+    ・制作レシピ (ToolRecipe型)
+    ・選定理由 (rationale)
+    ・信頼度 (confidence)
+    ・代替レシピ (alternatives)
+```
+
+**Phase 3: 結果評価**
+
+```
+制作完了後の品質評価フロー:
+
+  制作ワーカー完了
+    │
+    ▼
+  品質チェック (自動)
+    ・ファイルサイズ検証
+    ・黒フレーム検出
+    ・音声同期チェック
+    │
+    ▼
+  save_tool_experience({
+    tool_combination: ["kling", "fish_audio", "sync_lipsync"],
+    content_id: "CNT_202603_0001",
+    quality_score: 0.85,
+    notes: "口パク精度は高いが、横顔の生成がやや不自然",
+    character_type: "asian_female",
+    niche: "beauty"
+  })
+    │
+    ▼
+  ツールスペシャリストの個別学習メモリに記録
+    → 次回の類似要件で参照
+```
+
+### 13.3 ツール知識の構造化: ツール × コンテンツタイプ × 特性マトリックス
+
+ツールスペシャリストは以下のマトリックスを内部的に維持し、レシピ設計の根拠とする。
+
+```
+ツール推奨マトリックス (概念モデル):
+
+                  │ アジア人 │ 西洋人  │ 動き大  │ 動き小  │ 日本語  │ 英語
+  ────────────────┼─────────┼────────┼────────┼────────┼────────┼────────
+  Kling           │  ★★★   │  ★★    │  ★★    │  ★★★  │  -     │  -
+  Runway Gen-3    │  ★★    │  ★★★  │  ★★★  │  ★★    │  -     │  -
+  Pika            │  ★★    │  ★★    │  ★★    │  ★★★  │  -     │  -
+  ────────────────┼─────────┼────────┼────────┼────────┼────────┼────────
+  Fish Audio      │  -      │  -     │  -     │  -     │  ★★★  │  ★★
+  ElevenLabs      │  -      │  -     │  -     │  -     │  ★★    │  ★★★
+  ────────────────┼─────────┼────────┼────────┼────────┼────────┼────────
+  Sync Lipsync    │  ★★★   │  ★★   │  ★★    │  ★★★  │  ★★★  │  ★★
+  Hedra           │  ★★    │  ★★★  │  ★★★  │  ★★    │  ★★    │  ★★★
+
+  ★★★ = 最適  ★★ = 良好  ★ = 使用可能  - = 該当なし
+```
+
+このマトリックスは初期値を `prompts/tool-specialist.md` で人間が設定し、制作経験の蓄積に応じて自動的に精度が向上する。
+
+### 13.4 `tool_knowledge` テーブル設計
+
+```sql
+CREATE TABLE tool_knowledge (
+    -- 主キー
+    id              SERIAL PRIMARY KEY,
+
+    -- ツール情報
+    tool_name       VARCHAR(50) NOT NULL,
+        -- 'kling', 'runway', 'pika', 'sora', 'fish_audio', 'elevenlabs',
+        -- 'sync_lipsync', 'hedra' 等
+    category        VARCHAR(20) NOT NULL,
+        -- 'video_gen', 'tts', 'lipsync', 'image_gen'
+    version         VARCHAR(20),
+        -- ツールのバージョン (例: 'v2.0', 'gen-3')
+
+    -- 特性情報
+    capabilities    JSONB NOT NULL DEFAULT '{}',
+        -- { max_resolution: "3850x3850", max_duration_sec: 10, ... }
+    limitations     JSONB NOT NULL DEFAULT '{}',
+        -- { no_prompt_param: true, asian_face_quality: "high", ... }
+    best_for        TEXT[],
+        -- ["asian_face", "slow_motion", "beauty_content"]
+    avoid_for       TEXT[],
+        -- ["fast_action", "multiple_characters"]
+    pricing         JSONB,
+        -- { per_generation: 0.05, monthly_plan: 99 }
+
+    -- 更新情報
+    update_type     VARCHAR(20),
+        -- 'capability', 'pricing', 'api_change', 'bug', 'new_feature'
+    source_url      TEXT,
+        -- 情報源URL
+    last_verified   TIMESTAMPTZ,
+        -- 最後に情報が検証された日時
+
+    -- タイムスタンプ
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE tool_experiences (
+    -- 主キー
+    id              SERIAL PRIMARY KEY,
+
+    -- 使用記録
+    tool_combination TEXT[] NOT NULL,
+        -- ['kling', 'fish_audio', 'sync_lipsync']
+    content_id      VARCHAR(20) REFERENCES content(content_id),
+    quality_score   NUMERIC(3,2) NOT NULL,
+        -- 0.00〜1.00 の品質スコア
+    notes           TEXT,
+        -- 特記事項 (自然言語)
+
+    -- コンテキスト
+    character_type  VARCHAR(50),
+        -- 'asian_female', 'western_male', etc.
+    niche           VARCHAR(50),
+    platform        VARCHAR(20),
+
+    -- タイムスタンプ
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE tool_knowledge IS 'AIツールの特性・制約・得意分野の知識ベース';
+COMMENT ON TABLE tool_experiences IS 'ツール組み合わせの使用実績と品質評価記録';
+```
+
+## 14. プロンプト変更の自動提案メカニズム
+
+### 14.1 設計思想
+
+セクション9で定義した「人間によるプロンプトチューニング」は、人間が能動的にエージェントの行動を観察して改善する仕組みである。しかし、人間が常にダッシュボードを監視し続けることは現実的ではない。
+
+本セクションでは、**システムが自動的に「プロンプト改善が必要」と判断し、人間にアラートを出す** メカニズムを定義する。
+
+### 14.2 アラートトリガー条件
+
+```
+プロンプト改善が必要と判断される2つの条件:
+
+  条件1: self_scoreが3サイクル連続で低下
+  ──────────────────────────────────────
+    cycle N:   self_score = 7
+    cycle N+1: self_score = 6
+    cycle N+2: self_score = 5  ← ここでアラート発火
+
+    判定ロジック:
+      score[N] > score[N+1] > score[N+2]
+      → 3サイクル連続で低下 = 構造的な問題の可能性
+
+  条件2: 同じto_improveが3回以上繰り返される
+  ──────────────────────────────────────
+    cycle N:   to_improve = ["TikTokデータを確認していない"]
+    cycle N+3: to_improve = ["TikTokのトレンドを見逃した"]
+    cycle N+7: to_improve = ["TikTok情報の収集が不足"]  ← ここでアラート発火
+
+    判定ロジック:
+      to_improveの意味的類似度が閾値以上 (isSimilar関数)
+      かつ3回以上出現
+      → セルフリフレクションでは解決できない構造的問題
+      → プロンプトレベルの修正が必要
+```
+
+### 14.3 thought_logs分析による改善セクション提案
+
+アラート発火時、システムはエージェントのthought_logs（思考ログ）を分析し、プロンプトのどのセクションを改善すべきかを特定する。
+
+```
+thought_logs分析のフロー:
+
+  1. 直近10サイクル分のthought_logsを取得
+
+  2. to_improveの繰り返しパターンを分類:
+     ・判断基準の問題 → 「3. 判断基準 (Decision Criteria)」セクション
+     ・情報収集の問題 → 「2. 思考アプローチ (Thinking Approach)」セクション
+     ・ドメイン知識の問題 → 「4. ドメイン知識 (Domain Knowledge)」セクション
+     ・制約違反の問題 → 「5. 制約 (Constraints)」セクション
+     ・役割理解の問題 → 「1. 役割定義 (Role)」セクション
+
+  3. 改善提案を生成:
+     ・問題のカテゴリ
+     ・影響を受けているプロンプトセクション
+     ・具体的な改善案 (可能であれば)
+     ・改善の優先度
+```
+
+### 14.4 ダッシュボードの「推奨改善」セクション
+
+```
+┌────────────────────────────────────────────────────────────────────┐
+│ ダッシュボード > エージェント管理 > 推奨改善                           │
+├────────────────────────────────────────────────────────────────────┤
+│                                                                    │
+│  ⚠ プロンプト改善が推奨されるエージェント: 2件                       │
+│                                                                    │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 🔴 リサーチャー — self_score 3サイクル連続低下                │  │
+│  │                                                              │  │
+│  │ スコア推移: 7 → 6 → 5 (サイクル40〜42)                       │  │
+│  │                                                              │  │
+│  │ 繰り返し出現する改善点:                                       │  │
+│  │   ・「TikTokのトレンドデータを見逃している」(4回出現)          │  │
+│  │   ・「調査範囲が広すぎて深掘りできていない」(3回出現)          │  │
+│  │                                                              │  │
+│  │ 推奨改善セクション:                                           │  │
+│  │   ・「2. 思考アプローチ」— 情報源の優先順位を明確化           │  │
+│  │   ・「5. 制約」— TikTok調査を必須タスクとして追加             │  │
+│  │                                                              │  │
+│  │ 具体的な改善案:                                               │  │
+│  │   思考アプローチに以下を追加:                                  │  │
+│  │   「調査開始時に必ず以下の順序で情報源を確認:                   │  │
+│  │     1. TikTok CreativeCenter (注力ニッチのトレンド)            │  │
+│  │     2. Google Trends (横断的なトレンド)                        │  │
+│  │     3. 競合アカウント直接確認 (最新投稿)」                     │  │
+│  │                                                              │  │
+│  │                    [プロンプト編集画面を開く] [既読にする]      │  │
+│  ├──────────────────────────────────────────────────────────────┤  │
+│  │ 🟡 プランナーA — 同じto_improveが3回以上繰り返し              │  │
+│  │                                                              │  │
+│  │ 繰り返し出現する改善点:                                       │  │
+│  │   ・「競合アカウントの最新投稿を参照できていない」(3回出現)     │  │
+│  │                                                              │  │
+│  │ 推奨改善セクション:                                           │  │
+│  │   ・「2. 思考アプローチ」— 仮説立案前の情報確認手順を追加     │  │
+│  │                                                              │  │
+│  │                    [プロンプト編集画面を開く] [既読にする]      │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+│                                                                    │
+└────────────────────────────────────────────────────────────────────┘
+```
+
+### 14.5 実装: プロンプト改善チェッカー
+
+```typescript
+interface PromptImprovementAlert {
+  agent_type: string;
+  agent_instance?: string;
+  trigger: 'score_decline' | 'recurring_issue';
+  severity: 'warning' | 'critical';
+  details: {
+    score_history?: number[];
+    recurring_items?: { text: string; count: number }[];
+  };
+  suggested_sections: string[];
+  suggested_changes?: string;
+  created_at: string;
+}
+
+async function checkPromptImprovementNeeded(
+  agentType: string,
+  recentReflections: AgentReflection[]
+): Promise<PromptImprovementAlert | null> {
+  // 条件1: self_scoreが3サイクル連続で低下
+  if (recentReflections.length >= 3) {
+    const scores = recentReflections.slice(0, 3).map(r => r.self_score);
+    if (scores[0] < scores[1] && scores[1] < scores[2]) {
+      return {
+        agent_type: agentType,
+        trigger: 'score_decline',
+        severity: 'critical',
+        details: { score_history: scores.reverse() },
+        suggested_sections: await analyzeSuggestedSections(agentType, recentReflections),
+        suggested_changes: await generateSuggestedChanges(agentType, recentReflections),
+        created_at: new Date().toISOString(),
+      };
+    }
+  }
+
+  // 条件2: 同じto_improveが3回以上繰り返される
+  const allImprovements = recentReflections.flatMap(r => r.to_improve);
+  const clusters = clusterSimilarTexts(allImprovements);
+  const recurring = clusters.filter(c => c.count >= 3);
+
+  if (recurring.length > 0) {
+    return {
+      agent_type: agentType,
+      trigger: 'recurring_issue',
+      severity: 'warning',
+      details: { recurring_items: recurring },
+      suggested_sections: await analyzeSuggestedSections(agentType, recentReflections),
+      suggested_changes: await generateSuggestedChanges(agentType, recentReflections),
+      created_at: new Date().toISOString(),
+    };
+  }
+
+  return null;
+}
+```
+
+## 15. WF完成後の知見移植プロセス
+
+### 15.1 背景
+
+v5.0のエージェントシステムが完成するまでの間（Phase 2〜3）、コンテンツ制作や市場調査は「手動Claude」（人間がClaudeを直接操作）で行う。この手動作業で得られる知見は貴重であり、エージェントシステムに確実に移植する必要がある。
+
+本セクションでは「手動Claudeで得た知見 → エージェントへの移植」の具体的プロセスを定義する。
+
+### 15.2 知見移植の6ステップ
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│                    知見移植プロセス (6ステップ)                              │
+│                                                                          │
+│  [Step 1]        [Step 2]        [Step 3]        [Step 4]               │
+│  知見の整理       カテゴリ分け     プロンプト反映   バージョン記録          │
+│       │               │               │               │                │
+│       ▼               ▼               ▼               ▼                │
+│  MDファイル化     カテゴリ分類     対応エージェントの  agent_prompt_       │
+│  knowledge/      ツール特性/     プロンプトMDに      versionsテーブルに  │
+│  manual-insights/ コンテンツ戦略/  反映             変更を記録          │
+│                  プラットフォーム                                        │
+│                  特性/その他                                             │
+│                                                                          │
+│  [Step 5]        [Step 6]                                               │
+│  効果測定        共有知見登録                                              │
+│       │               │                                                 │
+│       ▼               ▼                                                 │
+│  変更前後の       有効な知見を                                             │
+│  パフォーマンス    learningsテーブル                                       │
+│  比較            にも登録                                                 │
+│                  (全エージェント共有)                                      │
+│                                                                          │
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+### 15.3 各ステップの詳細
+
+**Step 1: 知見の整理 — MDファイル化**
+
+手動Claude作業で得た知見を `knowledge/manual-insights/` ディレクトリにMarkdownファイルとして整理する。
+
+```
+knowledge/
+└── manual-insights/
+    ├── tool-characteristics/
+    │   ├── 2026-02-kling-face-generation.md
+    │   ├── 2026-02-fish-audio-japanese-tts.md
+    │   └── 2026-02-sync-lipsync-accuracy.md
+    ├── content-strategy/
+    │   ├── 2026-02-morning-post-effectiveness.md
+    │   ├── 2026-02-reaction-hook-pattern.md
+    │   └── 2026-02-cta-question-format.md
+    ├── platform-characteristics/
+    │   ├── 2026-02-tiktok-algorithm-update.md
+    │   ├── 2026-02-youtube-shorts-discovery.md
+    │   └── 2026-02-instagram-reels-save-rate.md
+    └── other/
+        └── 2026-02-character-rotation-frequency.md
+```
+
+各MDファイルのフォーマット:
+
+```markdown
+# [知見タイトル]
+
+## 発見日
+2026-02-15
+
+## 発見の経緯
+[どのような作業中に発見したか]
+
+## 知見の内容
+[具体的な知見。データがあれば含める]
+
+## 適用範囲
+- ニッチ: [beauty, tech, etc. / 全般]
+- プラットフォーム: [TikTok, YouTube, etc. / 全般]
+- キャラクタータイプ: [asian, western, etc. / 全般]
+
+## 対応エージェント
+[この知見を適用すべきエージェント: 社長 / リサーチャー / アナリスト / ツールSP / プランナー]
+
+## 信頼度
+[高 / 中 / 低] — [根拠]
+```
+
+**Step 2: カテゴリ分け**
+
+知見を以下の4カテゴリに分類する:
+
+| カテゴリ | 内容 | 対応エージェント | 反映先 |
+|---------|------|----------------|--------|
+| **ツール特性** | AIツールの得意/不得意、パラメータ設定のコツ | ツールスペシャリスト | `prompts/tool-specialist.md` |
+| **コンテンツ戦略** | 投稿フォーマット、タイミング、仮説パターン | プランナー、社長 | `prompts/planner.md`, `prompts/strategist.md` |
+| **プラットフォーム特性** | アルゴリズム特性、API制約、トレンド傾向 | リサーチャー、アナリスト | `prompts/researcher.md`, `prompts/analyst.md` |
+| **その他** | 上記に該当しない知見 | 関連エージェント | 該当プロンプトファイル |
+
+**Step 3: プロンプト反映**
+
+対応するエージェントのプロンプトMDファイルに知見を反映する。
+
+```
+反映の具体例:
+
+  知見: 「アジア人の顔はKlingが自然、西洋人はRunwayが自然」
+  カテゴリ: ツール特性
+  対応エージェント: ツールスペシャリスト
+
+  反映先: prompts/tool-specialist.md
+  反映セクション: 「4. ドメイン知識 > ツール別特性」
+
+  追加内容:
+    ### 動画生成ツールのキャラクター適性
+    - Kling: アジア人の顔の生成が最も自然。肌の質感、表情の微細な変化が優秀
+    - Runway Gen-3: 西洋人の顔の生成が自然。特にリアリスティックな表現に強い
+    - Pika: スタイライズド表現に適している。リアリスティック度は低い
+```
+
+**Step 4: バージョン記録**
+
+`agent_prompt_versions` テーブルで変更を記録する。
+
+```sql
+CREATE TABLE agent_prompt_versions (
+    -- 主キー
+    id              SERIAL PRIMARY KEY,
+
+    -- プロンプト情報
+    agent_type      VARCHAR(30) NOT NULL,
+    prompt_file     VARCHAR(100) NOT NULL,
+        -- 'prompts/tool-specialist.md' etc.
+    git_hash        VARCHAR(40) NOT NULL,
+        -- 変更コミットのgitハッシュ
+
+    -- 変更内容
+    change_summary  TEXT NOT NULL,
+        -- 変更の概要 (自然言語)
+    change_section  VARCHAR(50),
+        -- 変更されたセクション名 (例: 'Domain Knowledge > ツール別特性')
+    source_insight_file VARCHAR(200),
+        -- 元となった知見ファイル (例: 'knowledge/manual-insights/tool-characteristics/2026-02-kling-face-generation.md')
+
+    -- 効果測定
+    pre_change_metrics  JSONB,
+        -- 変更前のパフォーマンス指標
+    post_change_metrics JSONB,
+        -- 変更後のパフォーマンス指標 (後から更新)
+    effectiveness       VARCHAR(20),
+        -- 'effective', 'neutral', 'negative', 'pending'
+
+    -- タイムスタンプ
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    measured_at     TIMESTAMPTZ
+);
+
+COMMENT ON TABLE agent_prompt_versions IS 'プロンプトファイルの変更履歴と効果測定記録';
+```
+
+**Step 5: 効果測定**
+
+変更前後のパフォーマンスを比較し、知見の有効性を定量評価する。
+
+```
+効果測定の手順:
+
+  1. 変更前の3サイクル分のパフォーマンスを記録 (pre_change_metrics)
+     例: { avg_quality_score: 0.72, hypothesis_accuracy: 0.45, avg_self_score: 6.5 }
+
+  2. プロンプト変更を適用
+
+  3. 変更後の3サイクル分のパフォーマンスを記録 (post_change_metrics)
+     例: { avg_quality_score: 0.81, hypothesis_accuracy: 0.52, avg_self_score: 7.2 }
+
+  4. 効果判定:
+     ・主要指標が5%以上改善 → effectiveness = 'effective'
+     ・主要指標が変化なし (±5%以内) → effectiveness = 'neutral'
+     ・主要指標が5%以上低下 → effectiveness = 'negative' → ロールバック検討
+```
+
+**Step 6: 共有知見登録**
+
+有効と判定された知見は `learnings` テーブルにも登録し、全エージェントが参照できるようにする。
+
+```
+登録の判断基準:
+  ・effectiveness = 'effective' の知見のみ登録
+  ・初期confidence = 0.60 (手動作業からの知見なので中程度の信頼度から開始)
+  ・サイクルを重ねて検証されればconfidenceが上昇
+
+登録例:
+  extract_learning({
+    insight: "アジア人キャラクターの動画生成にはKlingが最適。
+              顔の自然さ、肌の質感がRunway比で25%高評価
+              (手動制作10件での評価)",
+    category: "tool_selection",
+    confidence: 0.60,
+    source_analyses: [],
+    applicable_niches: ["beauty", "fashion", "lifestyle"]
+  })
+```
+
+### 15.4 知見移植のタイムライン
+
+```
+Phase 2 (手動Claude運用中):
+  ┌─────────────────────────────────────────────────────────────────┐
+  │ 手動作業 → 知見発見 → MDファイル化 → 蓄積                         │
+  │                                                                 │
+  │ 目標: 50件以上の知見を蓄積してからエージェントシステムに移植       │
+  └─────────────────────────────────────────────────────────────────┘
+
+Phase 3 (エージェント開発中):
+  ┌─────────────────────────────────────────────────────────────────┐
+  │ 蓄積した知見を一括移植:                                          │
+  │   1. ツール特性 → prompts/tool-specialist.md                    │
+  │   2. コンテンツ戦略 → prompts/planner.md, strategist.md        │
+  │   3. プラットフォーム特性 → prompts/researcher.md, analyst.md  │
+  │   4. 高信頼知見 → learningsテーブル (初期データ)                 │
+  │                                                                 │
+  │ 効果測定: エージェント稼働後3サイクルで効果判定                    │
+  └─────────────────────────────────────────────────────────────────┘
+
+Phase 4以降 (エージェント運用中):
+  ┌─────────────────────────────────────────────────────────────────┐
+  │ 継続的な知見移植:                                                │
+  │   ・手動作業で新しい知見が得られたら随時移植                      │
+  │   ・エージェント自身の学習 + 人間の知見 = 最速の改善サイクル       │
+  └─────────────────────────────────────────────────────────────────┘
+```
