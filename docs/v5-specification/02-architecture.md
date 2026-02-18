@@ -23,10 +23,13 @@
   - [4.1 自作MCP Server (Node.js)](#41-自作mcp-server-nodejs)
   - [4.2 MCP Serverの設計原則](#42-mcp-serverの設計原則)
   - [4.3 langchain-mcp-adaptersによる接続](#43-langchain-mcp-adaptersによる接続)
-- [5. コンテンツ生成層 (v4.0パイプライン再利用)](#5-コンテンツ生成層-v40パイプライン再利用)
-  - [5.1 既存パイプラインの再利用](#51-既存パイプラインの再利用)
-  - [5.2 MCP化しない理由](#52-mcp化しない理由)
-  - [5.3 変更点サマリ](#53-変更点サマリ)
+- [5. コンテンツ制作層 (動的レシピアーキテクチャ)](#5-コンテンツ制作層-動的レシピアーキテクチャ)
+  - [5.1 content_formatによるワーカー分岐](#51-content_formatによるワーカー分岐)
+  - [5.2 動画制作ワーカー (レシピ駆動・コードのみ)](#52-動画制作ワーカー-レシピ駆動コードのみ)
+  - [5.3 テキスト制作ワーカー (LLM駆動)](#53-テキスト制作ワーカー-llm駆動)
+  - [5.4 制作レシピとツールスペシャリスト](#54-制作レシピとツールスペシャリスト)
+  - [5.5 v4.0パイプラインの位置づけ](#55-v40パイプラインの位置づけ)
+  - [5.6 動画制作をMCP化しない理由](#56-動画制作をmcp化しない理由)
 - [6. ダッシュボード層](#6-ダッシュボード層)
   - [6.1 Next.js + Shadcn/ui](#61-nextjs--shadcnui)
   - [6.2 ダッシュボードの設計方針](#62-ダッシュボードの設計方針)
@@ -1072,11 +1075,197 @@ langchain-mcp-adapters
 PostgreSQL
 ```
 
-## 5. コンテンツ生成層 (v4.0パイプライン再利用)
+## 5. コンテンツ制作層 (動的レシピアーキテクチャ)
 
-### 5.1 既存パイプラインの再利用
+v4.0では「ショート動画」のみを固定パイプラインで制作していた。v5.0では `content_format` によって制作方法を分岐し、**制作レシピ** (`production_recipes`) によってツール組み合わせを動的に切り替えるアーキテクチャに進化する。
 
-v4.0で構築したコンテンツ生成パイプラインをv5.0でもそのまま再利用する。変更点はタスクの発行者とデータソースのみ。
+### 5.1 content_formatによるワーカー分岐
+
+コンテンツの形式 (`content_format`) に応じて、異なるワーカーが制作を担当する。
+
+```
+content テーブル
+  │
+  │ content_format
+  │
+  ├── 'short_video' ───→ 動画制作ワーカー (コードのみ、LLMなし)
+  │                        │
+  │                        │ production_recipes.steps に従い
+  │                        │ ツールを切り替えて実行
+  │                        │
+  │                        ├── デフォルトレシピ: v4.0パイプライン
+  │                        │   (Kling + Fish Audio + Sync Lipsync)
+  │                        └── 代替レシピ: Runway + ElevenLabs + Hedra 等
+  │
+  ├── 'text_post' ─────→ テキスト制作ワーカー (LLM駆動: Sonnet)
+  │                        │
+  │                        │ テキスト生成は「判断」タスク
+  │                        │ キャラクター設定 + シナリオ → 投稿文生成
+  │                        │
+  │                        └── X投稿、キャプション等
+  │
+  └── 'image_post' ────→ 画像制作ワーカー (将来拡張)
+                           │
+                           └── 現時点では未実装。スコープ外
+```
+
+**設計判断: なぜワーカーを分けるか**
+
+| 観点 | 動画制作 | テキスト制作 |
+|------|---------|------------|
+| 処理の性質 | 機械的な変換 (画像+音声→動画) | 判断を伴う生成 (文脈→文章) |
+| LLMの必要性 | 不要 (コードで十分) | 必須 (言語生成は判断タスク) |
+| 実行時間 | 12分以上 (外部API待ち) | 数秒 (LLM応答) |
+| ツール選択 | レシピで事前決定 | 固定 (LLM直接呼び出し) |
+| コスト構造 | API利用料が支配的 | トークンコストが支配的 |
+
+### 5.2 動画制作ワーカー (レシピ駆動・コードのみ)
+
+動画制作ワーカーはLLMを使わず、**制作レシピ** (`production_recipes.steps`) に記載されたツール順序とパラメータに従って機械的に実行する。
+
+```
+制作パイプライングラフ (LangGraph)
+  │
+  │ content_format = 'short_video'
+  │
+  ▼
+┌──────────────────────────────────────────────────────────┐
+│ 動画制作ワーカー (Node.js コード)                          │
+│                                                          │
+│  1. recipe_id から production_recipes.steps を読み込み     │
+│  2. キャラクター画像取得 (Drive → fal.storage)             │
+│  3. content_sections テーブルからセクション構成を取得        │
+│  4. セクション並列処理 (parallel_group でグルーピング)      │
+│                                                          │
+│  ┌──────────────────────────────────────────────────┐    │
+│  │ Promise.all (Nセクション並列)                      │    │
+│  │                                                    │    │
+│  │  ┌────────────┐ ┌────────────┐      ┌────────────┐│    │
+│  │  │ Section 1  │ │ Section 2  │ ...  │ Section N  ││    │
+│  │  │            │ │            │      │            ││    │
+│  │  │ [動画Gen]┐ │ │ [動画Gen]┐ │      │ [動画Gen]┐ ││    │
+│  │  │ [TTS] ──┤ │ │ [TTS] ──┤ │      │ [TTS] ──┤ ││    │
+│  │  │         ▼ │ │         ▼ │      │         ▼ ││    │
+│  │  │ [Lipsync]  │ │ [Lipsync]  │      │ [Lipsync]  ││    │
+│  │  └────────────┘ └────────────┘      └────────────┘│    │
+│  │                                                    │    │
+│  │  ※ [ツール名] はレシピの steps で指定:              │    │
+│  │    step.tool_name → 対応するNode.js関数を呼び出し   │    │
+│  └──────────────────────────────────────────────────┘    │
+│                       │                                  │
+│                       ▼                                  │
+│              ffmpeg concat (H.264 CRF18)                 │
+│              + blackdetect 検証 + 自動トリム              │
+│                       │                                  │
+│                       ▼                                  │
+│              Google Drive 保存                            │
+│              (Productions/YYYY-MM-DD/CNT_YYYYMM_XXXX/)   │
+└──────────────────────────────────────────────────────────┘
+```
+
+**v4.0との違い**:
+- セクション数が固定3 (Hook/Body/CTA) → 動的N件 (`content_sections` テーブルで定義)
+- ツールが固定 (Kling/Fish Audio/Sync Lipsync) → レシピで切り替え可能
+- 並列実行のグルーピングもレシピの `parallel_group` で定義
+
+### 5.3 テキスト制作ワーカー (LLM駆動)
+
+テキスト投稿 (X投稿等) の生成は **LLMによる判断タスク** である。キャラクターの口調・世界観を反映した文章生成にはLLMが必須。
+
+```
+制作パイプライングラフ (LangGraph)
+  │
+  │ content_format = 'text_post'
+  │
+  ▼
+┌──────────────────────────────────────────────────────────┐
+│ テキスト制作ワーカー (Node.js + Claude Sonnet 4.5)        │
+│                                                          │
+│  1. content + content_sections からシナリオを取得          │
+│  2. characters テーブルからキャラクター設定を取得           │
+│  3. LLM呼び出し: シナリオ + キャラ設定 → 投稿文生成        │
+│  4. 生成テキストを content.production_metadata に保存      │
+│  5. status → 'ready'                                     │
+│                                                          │
+│  ※ LLMを使う理由:                                        │
+│    テキスト生成は「入力→変換→出力」ではなく                │
+│    「文脈を理解して適切な表現を選択する」判断タスク          │
+│    キャラの性格・口調・ニッチの文脈をLLMが解釈する必要がある│
+└──────────────────────────────────────────────────────────┘
+```
+
+### 5.4 制作レシピとツールスペシャリスト
+
+動画制作で使用するツールの組み合わせは `production_recipes` テーブルで管理される。ツールスペシャリスト (→ [04-agent-design.md §1.4](04-agent-design.md#14-layer-2-専門職--ツールスペシャリスト-tool-specialist-x-1体)) がコンテンツ要件に基づいて最適なレシピを選択する。
+
+```
+レシピ選択フロー:
+
+  プランナー                      ツールスペシャリスト
+    │                                │
+    │ 制作レシピ要求:                 │
+    │  - content_format: short_video │
+    │  - niche: beauty               │
+    │  - character: アジア人           │
+    │  - platform: youtube           │
+    │                                │
+    └──────────────────────────────→ │
+                                     │ production_recipes テーブルを検索:
+                                     │  1. content_format + target_platform で絞込
+                                     │  2. recommended_for (niche, ethnicity等) でマッチ
+                                     │  3. avg_quality_score + success_rate で順位付け
+                                     │  4. is_active = true のみ
+                                     │
+                                     │ 該当なし or 初回 → is_default = true を使用
+                                     │
+    ┌──────────────────────────────┘
+    │ 選択結果:
+    │  recipe_id: 1
+    │  recipe_name: 'asian_beauty_short'
+    │  steps: [video_gen→TTS→lipsync→concat]
+    ▼
+  content.production_metadata.recipe_id に記録
+```
+
+**レシピの steps JSONB 構造** (→ [03-database-schema.md §6.4](03-database-schema.md#64-production_recipes--制作レシピ)):
+
+```json
+[
+  {
+    "order": 1,
+    "step_name": "video_generation",
+    "tool_name": "kling_v2.6",
+    "params": { "duration": "5", "aspect_ratio": "9:16" },
+    "parallel_group": "section"
+  },
+  {
+    "order": 2,
+    "step_name": "tts",
+    "tool_name": "fish_audio_tts",
+    "params": { "format": "mp3" },
+    "parallel_group": "section"
+  },
+  {
+    "order": 3,
+    "step_name": "lipsync",
+    "tool_name": "fal_lipsync",
+    "params": {},
+    "depends_on": [1, 2]
+  },
+  {
+    "order": 4,
+    "step_name": "concat",
+    "tool_name": "ffmpeg",
+    "params": { "codec": "h264", "crf": 18 }
+  }
+]
+```
+
+`parallel_group` が同じステップはセクション内で並列実行される。`depends_on` で依存関係を宣言し、先行ステップの完了を待つ。
+
+### 5.5 v4.0パイプラインの位置づけ
+
+v4.0で構築した動画生成パイプライン (orchestrator.js) は **デフォルトレシピ** としてそのまま残る。
 
 ```
 v4.0 (現行)                          v5.0 (新)
@@ -1088,55 +1277,42 @@ v4.0 (現行)                          v5.0 (新)
   (inventory-reader.js)                  (MCP Server経由)
   │                                    │
   ▼                                    ▼
-┌──────────────────────────────────────────────────┐
-│  以下は v4.0 / v5.0 で共通 (変更なし)            │
-│                                                  │
-│  orchestrator.js                                 │
-│    │                                              │
-│    ├── キャラクター画像取得 (Drive → fal.storage)  │
-│    │                                              │
-│    ├── 3セクション並列処理 (Promise.all)           │
-│    │   ┌────────────────────────────────────┐     │
-│    │   │ fal.ai Kling v2.6 ──┐  (並列)     │     │
-│    │   │ Fish Audio TTS ─────┤             │     │
-│    │   │                     ▼             │      │
-│    │   │         fal.ai Sync Lipsync       │      │
-│    │   └────────────────────────────────────┘     │
-│    │                                              │
-│    ├── ffmpeg concat (H.264 CRF18)               │
-│    ├── blackdetect 検証 + 自動トリム               │
-│    │                                              │
-│    └── Google Drive 保存                          │
-│        (Productions/YYYY-MM-DD/CNT_YYYYMM_XXXX/) │
-│                                                  │
-└──────────────────────────────────────────────────┘
+パイプライン: 固定                      レシピ選択: ツールスペシャリスト
+  Kling + Fish Audio                     │
+  + Sync Lipsync + ffmpeg                ├→ デフォルトレシピ (= v4.0と同一構成)
+  │                                    │   Kling + Fish Audio
+  │                                    │   + Sync Lipsync + ffmpeg
+  │                                    │
+  │                                    └→ 代替レシピ (ツールSPが設計)
+  │                                        Runway + ElevenLabs + Hedra 等
+  ▼                                    ▼
+出力: Google Drive                      出力: Google Drive (変更なし)
 ```
 
-### 5.2 MCP化しない理由
+| 項目 | v4.0 | v5.0 |
+|------|------|------|
+| タスク発行者 | 人間 (Sheets UIでキューイング) | 戦略サイクルグラフ (LLM) |
+| タスク読み取り元 | Google Sheets (production タブ) | PostgreSQL (content + task_queue) |
+| ジョブ検出方法 | watch-pipeline.js (30秒ポーリング) | 制作パイプライングラフ (LangGraphノード) |
+| 結果記録先 | Google Sheets (production タブ 33カラム) | PostgreSQL (content テーブル) + Drive |
+| コンテンツ形式 | ショート動画のみ | short_video / text_post / image_post |
+| ツール選択 | 固定 (Kling + Fish Audio + Sync Lipsync) | 制作レシピで動的切替 (デフォルトはv4.0と同一) |
+| セクション構成 | 固定3分割 (Hook/Body/CTA) | 動的N件 (content_sections テーブル) |
+| ファイル保存先 | Google Drive | 同じ (変更なし) |
 
-コンテンツ生成パイプラインはMCPツールとして公開 **しない**。
+### 5.6 動画制作をMCP化しない理由
 
-| 観点 | MCP化した場合 | 直接API (現行方式) |
-|---|---|---|
+動画制作パイプラインはMCPツールとして公開 **しない**。テキスト制作ワーカーのLLM呼び出しとは設計が異なる。
+
+| 観点 | MCP化した場合 | 直接コード実行 (採用) |
+|------|-------------|---------------------|
 | 実行主体 | LLMがツールとして呼び出す | Node.jsコードが直接実行 |
-| トークンコスト | fal.aiのレスポンス (数百行) をLLMが読む必要がある | コードが直接処理。LLMは不要 |
+| トークンコスト | fal.aiのレスポンス (数百行) をLLMが読む | コードが直接処理。LLMは不要 |
 | エラー処理 | LLMが判断 (コスト高) | コードで自動リトライ (コスト0) |
 | 処理時間 | LLMの応答待ち分遅延 | 最速 |
 | 適合パターン | 判断を伴うタスク | 機械的な変換タスク |
 
-**結論**: 制作パイプラインは「判断」ではなく「変換」のタスク。画像+音声→動画の生成はLLMの介在なしにコードが最も効率的に処理できる。LangGraphのノードからNode.jsの関数を直接呼び出す。
-
-### 5.3 変更点サマリ
-
-| 項目 | v4.0 | v5.0 |
-|---|---|---|
-| タスク発行者 | 人間 (Sheets UIでキューイング) | 戦略サイクルグラフ (LLM) |
-| タスク読み取り元 | Google Sheets (production タブ) | PostgreSQL (content + task_queue テーブル) |
-| ジョブ検出方法 | watch-pipeline.js (30秒ポーリング) | 制作パイプライングラフ (LangGraphノード) |
-| 結果記録先 | Google Sheets (production タブ 33カラム) | PostgreSQL (content テーブル) + Drive |
-| 動画生成エンジン | fal.ai Kling + Fish Audio + Lipsync | 同じ (変更なし) |
-| 動画結合 | ffmpeg | 同じ (変更なし) |
-| ファイル保存先 | Google Drive | 同じ (変更なし) |
+**結論**: 動画制作は「判断」ではなく「変換」のタスク。画像+音声→動画の生成はLLMの介在なしにコードが最も効率的に処理できる。LangGraphのノードからNode.jsの関数を直接呼び出す。一方、テキスト制作は「判断」を伴うためLLM (Sonnet) を使用する — この使い分けが本アーキテクチャの核心。
 
 ## 6. ダッシュボード層
 

@@ -533,7 +533,7 @@ COMMENT ON COLUMN components.review_status IS 'キュレーション結果のレ
 
 ### 2.1 content — コンテンツ管理
 
-コンテンツの制作ライフサイクルを管理する中核テーブル。制作ステータス (`pending_approval` → `planned` → `producing` → `ready` → `analyzed`) を追跡し、LangGraphグラフ間の間接連携ポイントとなる。`REQUIRE_HUMAN_APPROVAL=true` 時はAI承認後に `pending_approval` で人間の承認を待ち、`false` 時は直接 `planned` に遷移する。投稿以降のライフサイクル (`scheduled` → `posted` → `measured`) は `publications` テーブルで管理する（1コンテンツ→N投稿の1:Nモデル）。
+コンテンツの制作ライフサイクルを管理する中核テーブル。`content_format` でコンテンツ形式 (`short_video` / `text_post` / `image_post`) を区別し、使用するワーカータイプを決定する。`recipe_id` で Tool Specialist が選択した制作レシピ (`production_recipes`) を参照する。制作ステータス (`pending_approval` → `planned` → `producing` → `ready` → `analyzed`) を追跡し、LangGraphグラフ間の間接連携ポイントとなる。`REQUIRE_HUMAN_APPROVAL=true` 時はAI承認後に `pending_approval` で人間の承認を待ち、`false` 時は直接 `planned` に遷移する。投稿以降のライフサイクル (`scheduled` → `posted` → `measured`) は `publications` テーブルで管理する（1コンテンツ→N投稿の1:Nモデル）。
 
 v4.0の production タブ (33カラム) からの移行先。
 
@@ -550,6 +550,20 @@ CREATE TABLE content (
         -- この制作の根拠となった仮説
         -- NULLの場合: 人間が直接指示したコンテンツ（仮説駆動でない）
         -- 戦略サイクルグラフが仮説に基づいてコンテンツ計画を作成する際に設定
+
+    -- コンテンツフォーマット
+    content_format  VARCHAR(20) NOT NULL DEFAULT 'short_video',
+        -- コンテンツの形式。使用するワーカータイプを決定する
+        -- short_video: 短尺動画 (YouTube Shorts, TikTok, IG Reels)
+        -- text_post: テキスト投稿 (X/Twitter)
+        -- image_post: 画像投稿 (将来拡張)
+
+    -- 制作レシピ
+    recipe_id       INTEGER REFERENCES production_recipes(id),
+        -- Tool Specialistが選択した制作レシピ
+        -- content_format='short_video'時: 動画制作のツール組み合わせ (Kling + Fish Audio + lipsync等)
+        -- content_format='text_post'時: NULL (Text WorkerがLLMで直接生成、レシピ不要)
+        -- プランナーがコンテンツ計画作成後、Tool Specialistが設定
 
     -- ステータス管理 (制作ライフサイクルのみ)
     status          VARCHAR(20) NOT NULL DEFAULT 'planned',
@@ -651,6 +665,8 @@ CREATE TABLE content (
             'pending_approval', 'planned', 'producing', 'ready', 'analyzed',
             'error', 'cancelled'
         )),
+    CONSTRAINT chk_content_format
+        CHECK (content_format IN ('short_video', 'text_post', 'image_post')),
     CONSTRAINT chk_content_script_language
         CHECK (script_language IS NULL OR script_language IN ('en', 'jp')),
     CONSTRAINT chk_content_rejection_category
@@ -662,6 +678,8 @@ CREATE TABLE content (
 COMMENT ON TABLE content IS 'コンテンツのライフサイクル管理。4つのLangGraphグラフ間の間接連携ポイント';
 COMMENT ON COLUMN content.status IS 'pending_approval→planned→producing→ready→analyzed の制作ステータス遷移。pending_approvalはREQUIRE_HUMAN_APPROVAL=true時のみ使用。投稿以降はpublicationsテーブルで管理';
 COMMENT ON COLUMN content.hypothesis_id IS '仮説駆動サイクルの根拠。NULLは人間の直接指示';
+COMMENT ON COLUMN content.content_format IS 'コンテンツ形式。short_video/text_post/image_post。使用するワーカータイプを決定';
+COMMENT ON COLUMN content.recipe_id IS 'Tool Specialistが選択した制作レシピ。text_postではNULL可 (LLM直接生成)';
 COMMENT ON COLUMN content.production_metadata IS 'fal.ai request ID, 処理時間, ファイルサイズ等';
 COMMENT ON COLUMN content.rejection_category IS '差戻しカテゴリ。plan_revision=プランナーへ, data_insufficient=リサーチャーへ, hypothesis_weak=アナリストへ。AI・人間両方が設定可能';
 ```
@@ -2313,11 +2331,10 @@ CREATE TABLE production_recipes (
         -- 例: 'asian_beauty_short', 'tech_explainer', 'pet_reaction'
         -- 用途・対象が分かりやすい名前をつける
     content_format  VARCHAR(50) NOT NULL,
-        -- コンテンツフォーマット
-        -- video_short: ショート動画 (60秒以内)
-        -- video_long: ロング動画 (60秒超)
-        -- text_post: テキスト投稿
-        -- image_post: 画像投稿
+        -- コンテンツフォーマット (content.content_format と一致させること)
+        -- short_video: 短尺動画 (YouTube Shorts, TikTok, IG Reels)
+        -- text_post: テキスト投稿 (X/Twitter)
+        -- image_post: 画像投稿 (将来拡張)
     target_platform VARCHAR(50),
         -- 主な対象プラットフォーム
         -- youtube / tiktok / instagram / x / NULL (全プラットフォーム共通)
@@ -2549,6 +2566,12 @@ CREATE INDEX idx_content_character ON content(character_id);
     -- キャラクター別のコンテンツ一覧
 CREATE INDEX idx_content_created_at ON content(created_at);
     -- 時系列でのソート
+CREATE INDEX idx_content_format ON content(content_format);
+    -- フォーマット別のコンテンツ一覧（ワーカータイプ別振り分け）
+CREATE INDEX idx_content_format_status ON content(content_format, status);
+    -- 複合: "short_videoのplanned状態のコンテンツ" 等のワーカー別タスク取得
+CREATE INDEX idx_content_recipe ON content(recipe_id);
+    -- レシピ別のコンテンツ一覧（レシピ効果の分析用）
 CREATE INDEX idx_content_production_metadata ON content USING GIN(production_metadata);
     -- 制作メタデータのJSONB検索
 
@@ -2825,7 +2848,7 @@ CREATE INDEX idx_tool_external_sources_embedding ON tool_external_sources
 
 -- production_recipes
 CREATE INDEX idx_recipes_format_platform ON production_recipes(content_format, target_platform);
-    -- 複合: "video_short + youtube向けレシピ" 等
+    -- 複合: "short_video + youtube向けレシピ" 等
 CREATE INDEX idx_recipes_active ON production_recipes(is_active);
     -- アクティブなレシピ一覧
 CREATE INDEX idx_recipes_default ON production_recipes(is_default, content_format);
@@ -2907,6 +2930,7 @@ CREATE TRIGGER trg_production_recipes_updated_at
 | accounts | character_id | characters | character_id | N:1 | 複数アカウントが1キャラクターを共有 |
 | content | hypothesis_id | hypotheses | id | N:1 | 1仮説に基づく複数コンテンツ |
 | content | character_id | characters | character_id | N:1 | コンテンツに使用するキャラクター |
+| content | recipe_id | production_recipes | id | N:1 | Tool Specialistが選択した制作レシピ |
 | content_sections | content_id | content | content_id | N:1 | コンテンツのセクション構成 |
 | content_sections | component_id | components | component_id | N:1 | セクションで使用するコンポーネント |
 | publications | content_id | content | content_id | N:1 | 1コンテンツの複数プラットフォーム投稿 |
@@ -2953,6 +2977,10 @@ CREATE TRIGGER trg_production_recipes_updated_at
                                                 │
 2. 制作パイプライングラフ                         │
    task_queue (INSERT, type='produce') ←─────────┘
+   content.content_format でワーカーを振り分け:
+     short_video → Video Worker (recipe_idのレシピに従いツール実行)
+     text_post   → Text Worker (LLM直接生成、recipe_id不要)
+     image_post  → Image Worker (将来拡張)
    content (UPDATE, status='producing' → 'ready')
                                                 │
 3. 投稿スケジューラーグラフ                       │
@@ -3002,6 +3030,8 @@ CREATE TRIGGER trg_production_recipes_updated_at
 | v4.0 production カラム | v5.0 content カラム | 変換 |
 |---|---|---|
 | content_id | content_id | そのまま |
+| (なし) | content_format | 全レコードに 'short_video' を設定 (v4.0は動画制作のみ) |
+| (なし) | recipe_id | v4.0デフォルトレシピ (Kling + Fish Audio + fal lipsync) のIDを設定 |
 | account_id | publications.account_id | contentではなくpublicationsに移行 |
 | status | status | 値のマッピング (queued → planned 等)。scheduled/posted/measured → publications.status。v4.0にpending_approval相当なし (全コンテンツは直接planned扱い) |
 | planned_date | planned_post_date | DATE型に変換 |
@@ -3022,7 +3052,9 @@ MCP Serverが構築する主要なクエリパターンを示す。エージェ�
 
 ```sql
 -- MCPツール: get_pending_tasks
-SELECT c.content_id, c.script_language,
+-- content_formatでワーカータイプ別にフィルタ
+SELECT c.content_id, c.content_format, c.script_language,
+       c.recipe_id, pr.recipe_name, pr.steps AS recipe_steps,
        ch.character_id, ch.voice_id, ch.image_drive_id,
        json_agg(json_build_object(
          'section_order', cs.section_order,
@@ -3033,9 +3065,12 @@ SELECT c.content_id, c.script_language,
 FROM content c
 JOIN characters ch ON c.character_id = ch.character_id
 LEFT JOIN content_sections cs ON c.content_id = cs.content_id
+LEFT JOIN production_recipes pr ON c.recipe_id = pr.id
 WHERE c.status = 'planned'
+  AND c.content_format = $1  -- 'short_video' / 'text_post' / 'image_post'
   AND c.planned_post_date <= CURRENT_DATE + INTERVAL '3 days'
-GROUP BY c.content_id, c.script_language,
+GROUP BY c.content_id, c.content_format, c.script_language,
+         c.recipe_id, pr.recipe_name, pr.steps,
          ch.character_id, ch.voice_id, ch.image_drive_id
 ORDER BY c.planned_post_date ASC
 LIMIT 5;

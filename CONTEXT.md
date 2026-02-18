@@ -1510,6 +1510,30 @@ node scripts/generate-digest.js --force               # 既存ファイル上書
 - セクション4 (MCP Server層): 完了
 - セクション5〜9 + 移行ポイント: 未確認
 
+### 2026-02-18: v5.0仕様書レビュー — セクション5 動的レシピ駆動コンテンツ制作
+
+02-architecture.md セクション5「コンテンツ生成層」のレビューで、固定パイプライン（Kling+FishAudio+Lipsync）の「変更なし」記載がv5.0の動的レシピシステムと矛盾していたため、全面改修。
+
+**設計変更の核心**:
+- `content_format` 分類体系の導入: `short_video` / `text_post` / `image_post`
+- 制作レシピ駆動アーキテクチャ: ツールスペシャリストが content_format + キャラクター特性 + ニッチ + プラットフォームに基づき最適レシピを選択
+- Video Worker (コード実行、レシピ駆動) と Text Worker (LLMベース、Sonnet) の明確な分離
+- v4.0パイプラインは「デフォルトレシピ」として位置づけ（唯一の選択肢ではない）
+- 動画スタイル（実写/アニメーション/スタイライズド）はハードコード列挙ではなく、tool_experiencesから学習するパターン
+
+**変更ファイル** (4ファイル, +464/-154行):
+- `02-architecture.md`: セクション5を6サブセクションに全面書き直し（content_format分岐図、動画/テキストワーカー定義、レシピ選択フロー、v4.0→v5.0比較表）
+- `04-agent-design.md`: ツールスペシャリストにcontent_format認識追加、テキストワーカー詳細定義、plan_contentにcontent_format引数追加、制作パイプライングラフにdispatchノード追加
+- `03-database-schema.md`: contentテーブルにcontent_format/recipe_id追加、CHECK制約/FK/インデックス/ライフサイクル図/移行マッピング更新、production_recipesのcontent_format値統一
+- `01-tech-stack.md`: content_format概要テーブル追加、デフォルトレシピ注記、代替ツール使い分け例追加、テキスト制作ワーカー詳細化
+
+**整合性チェック結果** (8項目全パス):
+- content_format列挙値、recipe_id FK、ワーカー種別、ツールスペシャリスト基準、テキストワーカー定義、MCPツール数(99)、TOC、production_recipesテーブル
+
+**レビュー進捗** (02-architecture.md):
+- セクション1〜5: 完了
+- セクション6〜9 + 移行ポイント: 未確認
+
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID
 - `.gsheets_token.json` - OAuth token for Sheets/Drive API

@@ -36,7 +36,7 @@
   - [4.6 制作ワーカー用 (12ツール)](#46-制作ワーカー用-12ツール)
   - [4.7 投稿ワーカー用 (6ツール)](#47-投稿ワーカー用-6ツール)
   - [4.8 計測ワーカー用 (7ツール)](#48-計測ワーカー用-7ツール)
-  - [4.9 ダッシュボード用 (5ツール)](#49-ダッシュボード用-5ツール)
+  - [4.9 ダッシュボード用 (7ツール)](#49-ダッシュボード用-7ツール)
   - [4.10 データキュレーター用 (6ツール)](#410-データキュレーター用-6ツール)
   - [4.11 ダッシュボード キュレーション用 (3ツール)](#411-ダッシュボード-キュレーション用-3ツール)
   - [4.12 エージェント自己学習・コミュニケーション用 (8ツール)](#412-エージェント自己学習コミュニケーション用-8ツール)
@@ -276,6 +276,26 @@ v5.0のエージェントは **4層階層型** で構成される。上位層が
 4. **代替ツール提案**: 特定ツールがダウン/制限時に代替ツールを即座に推奨
 5. **パラメータ最適化**: ツールごとの最適パラメータ（解像度、モデルバージョン等）を知見として保持
 
+**content_formatに基づくレシピ選択**:
+
+`content_format` はレシピ選択の **最上位の分岐条件** である。プランナーが `plan_content` で指定した `content_format` に応じてツールスペシャリストの動作が変わる:
+
+| content_format | ツールスペシャリストの動作 | レシピ |
+|---|---|---|
+| `short_video` | キャラクター特性・ニッチ・プラットフォームに基づき動画制作レシピを選択 | `production_recipes` に保存 |
+| `text_post` | レシピ不要 — テキスト制作ワーカーがLLMで直接生成するため | `recipe_id = NULL` |
+| `image_post` | (将来拡張) 画像生成レシピを選択 | `production_recipes` に保存 |
+
+**動画スタイルの学習パターン** (ハードコードされたenumではなく、`tool_experiences` から学習されるパターン):
+
+| パターン名 | 特徴 | 典型的なツール組み合わせ |
+|---|---|---|
+| 実写風 (live-action) | 実在人物風キャラクター、リアルな表情 | Kling + Fish Audio + Sync Lipsync |
+| アニメーション風 | アニメ/カートゥーン風キャラクター | Pika/アニメーション特化ツール + TTS (リップシンク任意) |
+| スタイライズド | アート系、スタイリッシュな表現 | Runway + ElevenLabs + Hedra |
+
+これらは固定カテゴリではなく、ツールスペシャリストが `tool_experiences` テーブルから成功/失敗パターンを蓄積し、新たなスタイルパターンを自律的に発見・命名できる。
+
 **個別学習メモリのカテゴリ**:
 - `tool_characteristics`: ツール固有の特性・クセ（例: 「Klingはアジア人の顔が自然」）
 - `tool_combination`: ツール組み合わせの相性（例: 「Fish Audio + Sync Lipsyncは口パク精度が高い」）
@@ -372,24 +392,36 @@ v5.0のエージェントは **4層階層型** で構成される。上位層が
 
 ### 1.7 Layer 4: 作業員 — ワーカーエージェント (ステートレス・プール)
 
-指示通りに実行する「手足」。LLMではなくコードで実装され、判断を行わない。タスクキューからタスクを取得し、処理し、結果を報告する。
+指示通りに実行する「手足」。タスクキューからタスクを取得し、処理し、結果を報告する。動画制作ワーカーはコードのみ (LLMなし) で動作するが、テキスト制作ワーカーはLLMベースである (テキスト生成は「判断」が必要なため)。
 
 | ワーカー種別 | 実装方式 | 役割 | スケール |
 |------------|---------|------|---------|
-| **動画制作ワーカー** | Node.js | YouTube/TikTok/Instagram向け動画生成。ツールスペシャリストが設計した制作レシピに従い、動画生成→TTS→リップシンク→結合を実行。使用ツールはレシピで指定される（デフォルト: v4.0パイプライン = Kling + Fish Audio + Sync Lipsync） | 同時制作数に応じて (API同時実行上限に依存) |
-| **テキスト制作ワーカー** | Node.js | X向けテキスト投稿コンテンツの生成。プランナーのシナリオ + キャラクター設定から投稿文を生成 | 投稿量に応じて |
+| **動画制作ワーカー** | Node.js (コードのみ、LLMなし) | YouTube/TikTok/Instagram向け動画生成。ツールスペシャリストが設計した制作レシピに従い、動画生成→TTS→リップシンク→結合を実行。使用ツールはレシピで指定される（デフォルト: v4.0パイプライン = Kling + Fish Audio + Sync Lipsync） | 同時制作数に応じて (API同時実行上限に依存) |
+| **テキスト制作ワーカー** | Node.js + LLM (Sonnet) | X投稿・キャプション等のテキストコンテンツ生成。キャラクター人格 + シナリオテーマ + プラットフォーム制約からLLMが文章を生成 | 投稿量に応じて |
 | **投稿ワーカー** | Node.js (投稿アダプター) | プラットフォーム別に投稿実行 | 投稿量に応じて |
 | **計測ワーカー** | Node.js (計測コード) | 投稿48h後にメトリクス収集 | 計測対象数に応じて |
 
 **ワーカーの共通特性**:
 - **ステートレス**: 状態を持たない。タスクキューからタスクを取得し、完了したら結果を書き戻す
 - **冪等**: 同じタスクを複数回実行しても副作用がない
-- **考えない**: LLMを使わない。入力→処理→出力のパイプライン。ただし実行するツールと手順はツールスペシャリストが決定
 - **スケーラブル**: 負荷に応じてワーカー数を増減
 
-**動画制作ワーカーのツール選択**:
+**動画制作ワーカー (コードのみ・レシピ駆動)**:
 
-動画制作ワーカーは固定パイプライン（Kling→Fish Audio→Sync Lipsync→ffmpeg）ではなく、ツールスペシャリストが設計した **制作レシピ** に従ってツールを切り替える。
+動画制作ワーカーはLLMを使わず、ツールスペシャリストが設計した **制作レシピ** (`production_recipes.steps` JSONB) を機械的に実行する。
+
+```
+実行フロー:
+  1. content.recipe_id → production_recipes テーブルからレシピ取得
+  2. steps[] を順次実行 (parallel_group / depends_on を尊重)
+  3. 各stepは Node.js 関数にマッピング:
+     - Kling API呼出 → start_video_generation
+     - Fish Audio API呼出 → start_tts
+     - fal.ai Lipsync呼出 → start_lipsync
+     - ffmpeg concat → ローカル実行
+  4. ステップ失敗時 → tool_experiences に failure_reason を記録
+     → ツールスペシャリストが次回から代替レシピを推奨可能に
+```
 
 ```
 制作レシピの例:
@@ -417,6 +449,29 @@ v5.0のエージェントは **4層階層型** で構成される。上位層が
 ```
 
 v4.0パイプラインは「デフォルトレシピ」として残り、ツールスペシャリストが明示的に別のレシピを指定しない限りこのレシピが適用される。
+
+**テキスト制作ワーカー (LLMベース)**:
+
+テキスト生成は単なるデータ変換ではなく「判断」を伴うため、LLM (Sonnet) を使用する。動画制作ワーカーとは異なり、制作レシピは不要。
+
+| 項目 | 詳細 |
+|------|------|
+| **LLM** | Claude Sonnet 4.5 |
+| **入力** | `content` レコード + シナリオ `component` + `characters.personality` JSONB (traits, speaking_style, language_preference, emoji_usage, catchphrase) |
+| **処理** | LLMがキャラクターの人格・口調に基づいてテキストを生成。プラットフォーム別フォーマット制約を遵守 |
+| **出力** | 生成テキスト → `content_sections.script` に保存 |
+| **品質管理** | 自己スコアリング (キャラクター一貫性、エンゲージメント予測) |
+
+**プラットフォーム別制約**:
+
+| プラットフォーム | 制約 |
+|---|---|
+| X | 280文字以内、ハッシュタグ慣習 (2〜5個)、スレッド形式対応 |
+| Instagram キャプション | 2,200文字以内、改行活用、ハッシュタグ (10〜20個) |
+| TikTok キャプション | 2,200文字以内、短文推奨、ハッシュタグ (3〜5個) |
+| YouTube タイトル/概要 | タイトル100文字以内、概要5,000文字以内、SEOキーワード |
+
+テキスト制作ワーカーは専用MCPツールを持たず、LLMが直接テキストを生成して `update_content_status` (制作ワーカーMCPツール #10) で結果を書き戻す。
 
 ## 2. エージェント間の情報の流れ
 
@@ -690,7 +745,7 @@ COMMIT;
 | 2 | `get_account_performance` | `{ account_id, period: "7d" }` | `{ avg_views, avg_engagement, top_content, trend }` | アカウント別パフォーマンス |
 | 3 | `get_available_components` | `{ type: "scenario", niche, subtype }` | `[{ component_id, name, score, usage_count, data }]` | 利用可能コンポーネント |
 | 4 | `create_hypothesis` | `{ category, statement, rationale, target_accounts[], predicted_kpis }` | `{ id }` | 仮説の作成 |
-| 5 | `plan_content` | `{ hypothesis_id, character_id, script_language, sections: [{ component_id, section_label }] }` | `{ content_id }` | コンテンツ計画の作成 |
+| 5 | `plan_content` | `{ hypothesis_id, character_id, script_language, content_format: 'short_video' \| 'text_post' \| 'image_post', sections: [{ component_id, section_label }] }` | `{ content_id }` | コンテンツ計画の作成 (content_formatでワーカー振分決定) |
 | 6 | `schedule_content` | `{ content_id, planned_post_date }` | `{ success }` | 投稿スケジュール設定 |
 | 7 | `get_niche_learnings` | `{ niche, min_confidence: 0.5, limit: 10 }` | `[{ insight, confidence, category }]` | ニッチ関連の知見取得 |
 | 8 | `get_content_pool_status` | `{ cluster }` | `{ content: { pending_approval, planned, producing, ready, analyzed }, publications: { scheduled, posted, measured } }` | コンテンツプールの状況 |
@@ -710,7 +765,9 @@ AIツール知識の管理・検索・制作レシピ設計のためのツール
 
 ### 4.6 制作ワーカー用 (12ツール)
 
-動画制作パイプラインの各段階で使用するツール群。v4.0パイプラインのNode.js関数をMCPツールとしてラップ。ツールスペシャリストが設計した制作レシピに基づき、使用するツールを切り替える。
+**動画制作ワーカー用**: 動画制作パイプラインの各段階で使用するツール群。v4.0パイプラインのNode.js関数をMCPツールとしてラップ。ツールスペシャリストが設計した制作レシピに基づき、使用するツールを切り替える。
+
+> **注**: 以下12ツールは全て **動画制作ワーカー** 用である。**テキスト制作ワーカー** はLLMでテキストを直接生成するため専用MCPツールは不要。テキスト制作ワーカーが結果を書き戻す際は `update_content_status` (#10) を使用する。
 
 | # | ツール名 | 引数 | 戻り値 | 用途 |
 |---|---------|------|--------|------|
@@ -1135,8 +1192,8 @@ const app = strategyCycleGraph.compile({ checkpointer });
 ### 5.2 グラフ2: 制作パイプライングラフ (Production Pipeline Graph)
 
 **実行頻度**: 連続 (30秒ポーリング)
-**参加エージェント**: 動画制作ワーカー (コード、LLMなし)
-**目的**: `planned` ステータスのコンテンツを検出し、ツールスペシャリストが設計した制作レシピ（デフォルト: v4.0パイプライン）で動画を生成する
+**参加エージェント**: 動画制作ワーカー (コード、LLMなし) + テキスト制作ワーカー (LLM)
+**目的**: `planned` ステータスのコンテンツを検出し、`content_format` に応じて適切なワーカーにディスパッチする
 
 #### ノード定義
 
@@ -1163,61 +1220,75 @@ const app = strategyCycleGraph.compile({ checkpointer });
     ▼
 ┌──────────────────┐     MCPツール:
 │ fetch_data        │     get_character_info
-│                  │     get_component_data (x3)
+│                  │     get_component_data (xN)
 │ キャラクター情報   │     update_content_status
 │ コンポーネントデータ│       → status='producing'
 │ を取得            │
 └────────┬─────────┘
          │
          ▼
-┌──────────────────────────────────────────────────────┐
-│ generate_video                                        │
-│                                                      │
-│ 制作レシピに基づきツールを選択して実行                   │
-│ (デフォルト: v4.0パイプライン orchestrator.js)           │
-│                                                      │
-│  ┌──────────────────────────────────────────────┐    │
-│  │ Promise.all (3セクション並列)                  │    │
-│  │                                              │    │
-│  │  ┌────────────┐ ┌────────────┐ ┌────────────┐│    │
-│  │  │   Hook     │ │   Body     │ │   CTA      ││    │
-│  │  │            │ │            │ │            ││    │
-│  │  │ [動画Gen]┐ │ │ [動画Gen]┐ │ │ [動画Gen]┐ ││    │
-│  │  │ [TTS] ──┤ │ │ [TTS] ──┤ │ │ [TTS] ──┤ ││    │
-│  │  │         ▼ │ │         ▼ │ │         ▼ ││    │
-│  │  │ [Lipsync]  │ │ [Lipsync]  │ │ [Lipsync]  ││    │
-│  │  └────────────┘ └────────────┘ └────────────┘│    │
-│  │  ※ [ツール名] はレシピで指定:                   │    │
-│  │    デフォルト: Kling / Fish Audio / Sync Lipsync│    │
-│  │    代替例: Runway / ElevenLabs / Hedra          │    │
-│  └──────────────────────────────────────────────┘    │
-│                       │                              │
-│                       ▼                              │
-│              ffmpeg concat + blackdetect              │
-│                       │                              │
-│                       ▼                              │
-│              Google Drive保存                         │
-└────────────────────────┬─────────────────────────────┘
-                         │
-                    ┌────┴────┐
-                  成功      失敗
-                    │         │
-                    ▼         ▼
-┌──────────────────┐  ┌──────────────────┐
-│ quality_check     │  │ handle_error      │
-│                  │  │                  │
-│ ファイルサイズ検証 │  │ error_message記録 │
-│ 黒フレーム検出    │  │ retry_count確認  │
-│ Drive保存確認    │  │                  │
-│                  │  │ リトライ可能 →    │
-│ 合格: ready      │  │   task再キュー    │
-│ 不合格: failed   │  │ 不可 → failed    │
-└────────┬─────────┘  └────────┬─────────┘
-         │                     │
-         └──────┬──────────────┘
-                │
-                ▼
-         poll_tasks に戻る
+┌──────────────────────┐
+│ dispatch              │
+│                      │
+│ content_format で分岐 │
+└────────┬─────────────┘
+         │
+    ┌────┴──────────────────┐
+    │                       │
+  short_video            text_post
+    │                       │
+    ▼                       ▼
+┌─────────────────────────────────────────────┐  ┌──────────────────────────┐
+│ generate_video (動画制作ワーカー)              │  │ generate_text             │
+│                                             │  │ (テキスト制作ワーカー)     │
+│ recipe_id → production_recipes.steps 取得    │  │                          │
+│ レシピに基づきツールを選択して実行              │  │ LLM (Sonnet) による       │
+│                                             │  │ テキスト生成              │
+│  ┌────────────────────────────────────────┐ │  │                          │
+│  │ Promise.all (Nセクション並列)           │ │  │ 入力:                    │
+│  │                                        │ │  │  ・シナリオ component     │
+│  │  ┌────────────┐ ┌────────────┐  ...   │ │  │  ・characters.personality │
+│  │  │ Section 1  │ │ Section 2  │        │ │  │    (traits, speaking_style│
+│  │  │            │ │            │        │ │  │     catchphrase 等)      │
+│  │  │ [動画Gen]┐ │ │ [動画Gen]┐ │        │ │  │  ・プラットフォーム制約   │
+│  │  │ [TTS] ──┤ │ │ [TTS] ──┤ │        │ │  │                          │
+│  │  │         ▼ │ │         ▼ │        │ │  │ 出力:                    │
+│  │  │ [Lipsync]  │ │ [Lipsync]  │        │ │  │  → content_sections.script│
+│  │  └────────────┘ └────────────┘        │ │  │  → 自己スコアリング       │
+│  │  ※ ツール名はレシピで指定               │ │  │    (キャラ一貫性,         │
+│  │  ※ セクション数はcontent_sections で定義│ │  │     エンゲージメント予測)  │
+│  └────────────────────────────────────────┘ │  │                          │
+│                       │                     │  │ MCPツール:               │
+│                       ▼                     │  │  update_content_status   │
+│              ffmpeg concat + blackdetect     │  │  (#10で結果書戻し)       │
+│                       │                     │  └──────────┬───────────────┘
+│                       ▼                     │             │
+│              Google Drive保存                │             │
+└────────────────────────┬────────────────────┘             │
+                         │                                  │
+                         └──────────────┬───────────────────┘
+                                        │
+                                   ┌────┴────┐
+                                 成功      失敗
+                                   │         │
+                                   ▼         ▼
+                   ┌──────────────────┐  ┌──────────────────┐
+                   │ quality_check     │  │ handle_error      │
+                   │                  │  │                  │
+                   │ 動画: ファイルサイズ│  │ error_message記録 │
+                   │   黒フレーム検出  │  │ retry_count確認  │
+                   │   Drive保存確認  │  │                  │
+                   │ テキスト: 文字数  │  │ リトライ可能 →    │
+                   │   キャラ一貫性   │  │   task再キュー    │
+                   │                  │  │ 不可 → failed    │
+                   │ 合格: ready      │  │                  │
+                   │ 不合格: failed   │  │                  │
+                   └────────┬─────────┘  └────────┬─────────┘
+                            │                     │
+                            └──────┬──────────────┘
+                                   │
+                                   ▼
+                            poll_tasks に戻る
 ```
 
 #### ステート構造
@@ -1228,9 +1299,11 @@ interface ProductionPipelineState {
   current_task: {
     task_id: number;
     content_id: string;
+    content_format: 'short_video' | 'text_post' | 'image_post';
     account_id: string;
     character_id: string;
     script_language: 'en' | 'jp';
+    recipe_id: number | null;  // text_postの場合はnull
     components: {
       hook: ComponentData;
       body: ComponentData;
@@ -1248,13 +1321,10 @@ interface ProductionPipelineState {
 
   // 制作進捗
   production: {
-    status: 'idle' | 'fetching' | 'generating' | 'quality_check' | 'error';
-    sections: {
-      hook: SectionResult | null;
-      body: SectionResult | null;
-      cta: SectionResult | null;
-    };
-    final_video_url?: string;
+    status: 'idle' | 'fetching' | 'dispatching' | 'generating' | 'quality_check' | 'error';
+    sections: Record<string, SectionResult | null>;  // 動的セクション (content_sectionsテーブルで定義)
+    generated_text?: string;     // text_postの場合: 生成テキスト
+    final_video_url?: string;    // short_videoの場合: 最終動画URL
     drive_folder_id?: string;
     video_drive_id?: string;
     processing_time_seconds?: number;
@@ -1264,8 +1334,9 @@ interface ProductionPipelineState {
   errors: ProductionError[];
 }
 
+// 動画制作ワーカーのセクション結果
 interface SectionResult {
-  kling_request_id: string;
+  request_id: string;           // 動画生成APIのリクエストID
   video_url: string;
   tts_audio_url: string;
   lipsync_video_url: string;
@@ -1275,20 +1346,23 @@ interface SectionResult {
 
 #### チェックポイント戦略
 
-制作パイプラインは **動画生成に12分以上** かかるため、チェックポイントが重要。
+動画制作は **12分以上** かかるため、チェックポイントが重要。テキスト制作は高速 (数秒) のためチェックポイント不要。
 
 ```
-チェックポイント配置:
+動画制作 (short_video) のチェックポイント配置:
   [1] fetch_data完了後 — キャラ情報・コンポーネント取得済み
-  [2] 各セクション完了後 — Kling/TTS/Lipsync結果を個別保存
+  [2] 各セクション完了後 — 動画Gen/TTS/Lipsync結果を個別保存
   [3] ffmpeg concat完了後 — 最終動画URL
   [4] Drive保存完了後 — Drive file ID
 
 リカバリー:
   プロセス再起動時、最後のチェックポイントから再開
-  例: Body完了後にプロセスが落ちた場合
-      → Hook, Body の結果はチェックポイントに保存済み
-      → CTAのみ再生成してconcat
+  例: Section 2完了後にプロセスが落ちた場合
+      → Section 1, 2 の結果はチェックポイントに保存済み
+      → 残りセクションのみ再生成してconcat
+
+テキスト制作 (text_post):
+  チェックポイント不要 (LLM生成は数秒で完了、失敗時は全体再実行)
 ```
 
 ### 5.3 グラフ3: 投稿スケジューラーグラフ (Publishing Scheduler Graph)
@@ -1822,13 +1896,14 @@ MCPツール呼び出し:
        hypothesis_id: 42,
        character_id: "CHR_0001",
        script_language: "jp",
+       content_format: "short_video",
        sections: [
          { section_order: 1, section_label: "hook", component_id: "SCN_0101" },
          { section_order: 2, section_label: "body", component_id: "SCN_0102" },
          { section_order: 3, section_label: "cta",  component_id: "SCN_0103" }
        ]
      })
-     → content INSERT (status='planned', hypothesis_id=42)
+     → content INSERT (status='planned', hypothesis_id=42, content_format='short_video')
      → content_sections INSERT ×3
 
   3. schedule_content({
@@ -1900,8 +1975,10 @@ MCPツール呼び出し:
 
 ### Step 5: 制作ワーカー — コンテンツ生成
 
-**実行者**: 動画制作ワーカー (Node.jsコード、LLMなし)
+**実行者**: `content_format` に応じてディスパッチ — 動画制作ワーカー (Node.jsコード、LLMなし) / テキスト制作ワーカー (LLM)
 **タイミング**: タスクキューに制作タスクが入った時点 (30秒ポーリング)
+
+以下は `short_video` の場合の例:
 
 ```
 MCPツール呼び出し:
@@ -2198,11 +2275,11 @@ MCPツール呼び出し:
 Day 0 (朝)          Day 0 (昼)        Day 2 (朝)         Day 4 (朝)         Day 5 (朝)
 │                    │                  │                  │                  │
 │ Step 1-4.5:        │ Step 5:          │ Step 6:          │ Step 7:          │ Step 8-11:
-│ データ確認          │ 動画制作ワーカー   │ 投稿ワーカー       │ 計測ワーカー       │ アナリスト
-│ 方針決定           │ 動画生成          │ 投稿実行          │ メトリクス収集     │ 分析・検証
-│ 仮説立案           │ (~12分/件)        │                  │                  │ 知見抽出
-│ コンテンツ計画       │ レシピに従い      │                  │                  │
-│ ツール選択          │ ツール実行        │                  │                  │
+│ データ確認          │ 制作ワーカー       │ 投稿ワーカー       │ 計測ワーカー       │ アナリスト
+│ 方針決定           │ 動画: ~12分/件    │ 投稿実行          │ メトリクス収集     │ 分析・検証
+│ 仮説立案           │ テキスト: ~数秒/件 │                  │                  │ 知見抽出
+│ コンテンツ計画       │ content_formatで  │                  │                  │
+│ ツール選択          │ ワーカー振分      │                  │                  │
 │                    │                  │                  │                  │
 │ 所要: ~35分         │ 所要: ~2時間      │ 所要: ~5分        │ 所要: ~10分       │ 所要: ~15分
 │ (LLM処理)          │ (API待ち)         │ (API呼び出し)     │ (API呼び出し)     │ (LLM処理)
@@ -2227,7 +2304,7 @@ status='planned'                        posted_at記録      status='measured'  
 | 3 | プランナー | `hypotheses` | INSERT (verdict='pending', predicted_kpis) |
 | 4 | プランナー | `content`, `task_queue` | INSERT (status='planned'), INSERT (type='produce') |
 | 4.5 | ツールスペシャリスト | `content` | UPDATE (recipe設定) |
-| 5 | 動画制作ワーカー | `content` | UPDATE (planned→producing→ready) |
+| 5 | 制作ワーカー (動画/テキスト) | `content` | UPDATE (planned→producing→ready) |
 | 6 | 投稿ワーカー | `publications`, `task_queue` | INSERT (status='posted'), INSERT (type='measure') |
 | 7 | 計測ワーカー | `metrics`, `publications`, `accounts` | INSERT, UPDATE (status='measured'), UPDATE (follower_count) |
 | 8 | アナリスト | (読み取りのみ) | - |
