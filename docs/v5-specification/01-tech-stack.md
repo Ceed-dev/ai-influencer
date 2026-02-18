@@ -35,8 +35,8 @@
 | コンポーネント | 技術 | バージョン | 用途 |
 |---|---|---|---|
 | オーケストレーション | LangGraph.js | v1.0 GA | エージェントのグラフ定義・ステート管理・チェックポイント |
-| LLM (戦略・分析) | Claude Opus 4.6 | via Anthropic API | 戦略エージェント・アナリストの高度な推論 |
-| LLM (計画・実行) | Claude Sonnet 4.5 | via Anthropic API | プランナー・リサーチャー・ワーカーのコスト効率実行 |
+| LLM (戦略) | Claude Opus 4.6 | via Anthropic API | 戦略エージェントの高度な推論 |
+| LLM (計画・実行) | Claude Sonnet 4.5 | via Anthropic API | アナリスト・プランナー・リサーチャー・データキュレーター・ワーカーのコスト効率実行 |
 | ツールスペシャリスト | Claude Sonnet 4.5 | via Anthropic API | AIツール特性の学習・最適ツール選択の推奨 |
 | AI-DB接続 | MCP Server (自作) | Node.js | エージェントがPostgreSQLにアクセスするインターフェース (89 MCPツール + 13 REST API) |
 | MCP Adapters | langchain-mcp-adapters | npm | LangGraphからMCPサーバーを呼び出すアダプター |

@@ -1695,6 +1695,31 @@ Phase 2 (commit `3d4a7ac`): CJKピクセル幅補正
 
 **検証結果**: CREATE TABLE 25件確認、全observabilityテーブルのCHECK制約一致、全specファイルで "26テーブル" 残存なし
 
+### 2026-02-18: v5.0仕様書 全ファイル整合性修正 (Session 2)
+
+**目的**: 全9specファイル + READMEの残存問題修正 + 全体整合性検証
+
+**修正内容** (8ファイル、計30+箇所):
+
+1. **02-architecture.md**: DB図テーブル名修正（experiments→analyses, insights→learnings, market_research→market_intel, Operations表を正しい4テーブルに置換）、PostgreSQL GCE→Cloud SQL（3箇所）、pgvectorテーブル名修正
+2. **04-agent-design.md**: agent_type TypeScript型にdata_curator追加、SQLコメント2箇所に全6エージェント記載、tool_knowledge→tool_catalog テーブル名修正（10箇所）
+3. **05-cost-analysis.md**: データキュレーター（+ツールスペシャリスト）を全コスト表に追加（トークン消費、Batch API、モデル内訳等6箇所）
+4. **06-development-roadmap.md**: Phase 4ツール数~65→~89に修正（Phase 3の~74より増加が正しい）
+5. **07-kpi-analysis.md**: Phase期間を06-roadmapに合わせて修正（19週間、5フェーズ全ての期間・日付・月対応を訂正）、Phase 3エージェント一覧修正、知性層→インテリジェンス層統一
+6. **08-algorithm-analysis.md**: agent_performance→algorithm_performance（4箇所）、agent_type enum全6型に拡張、Section 7にツールスペシャリスト・データキュレーターの個別分析追加
+7. **09-risks-and-bottlenecks.md**: PM2→Dockerヘルスチェック（ダッシュボード緩和策）
+8. **01-tech-stack.md**: LLMモデル割当修正（Opus=戦略のみ、Sonnet=アナリスト+プランナー+リサーチャー+データキュレーター）
+
+**検証結果**:
+- `agent_performance`: 全specファイルで0件 ✓
+- `tool_knowledge`（テーブル参照）: 0件（MCP関数名のみ残存=正常） ✓
+- `知性層`: 0件 ✓
+- `26テーブル`: 0件 ✓
+- `market_research`/`insights`（テーブル名）: 0件 ✓
+- PM2（09-risks）: 0件 ✓
+
+**Agent Team構成**: fixer-arch, fixer-04, fixer-08, fixer-cost, fixer-tool, fixer-kpi, fixer-misc + reviewer-1, reviewer-2
+
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID
 - `.gsheets_token.json` - OAuth token for Sheets/Drive API

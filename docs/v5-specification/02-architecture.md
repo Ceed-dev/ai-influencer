@@ -7,7 +7,7 @@
 - [1. 全体アーキテクチャ](#1-全体アーキテクチャ)
   - [層間の通信方向](#層間の通信方向)
 - [2. データ基盤層](#2-データ基盤層)
-  - [2.1 PostgreSQL 16+ (GCE上)](#21-postgresql-16-gce上)
+  - [2.1 PostgreSQL 16+ (Cloud SQL)](#21-postgresql-16-cloud-sql)
   - [2.2 pgvector拡張](#22-pgvector拡張)
   - [2.3 Google Drive (Shared Drive)](#23-google-drive-shared-drive)
   - [2.4 なぜSheetsからPostgreSQLに移行するのか](#24-なぜsheetsからpostgresqlに移行するのか)
@@ -140,7 +140,7 @@ v5.0は **4層構造** で構成される。上位層が方針を決定し、下
 │   Layer 4: Data Stores                                                  │
 │                                                                         │
 │   ┌──────────────────────────┐    ┌──────────────────────────────┐      │
-│   │ PostgreSQL 16+ (GCE)     │    │ Google Drive (Shared Drive)  │      │
+│   │ PostgreSQL 16+ (Cloud SQL)│    │ Google Drive (Shared Drive)  │      │
 │   │                          │    │                              │      │
 │   │ ・全構造化データ         │    │ ・動画ファイル (MP4)         │           │
 │   │ ・pgvector (類似検索)    │    │ ・キャラクター画像 (PNG)     │          │
@@ -183,9 +183,9 @@ v5.0は **4層構造** で構成される。上位層が方針を決定し、下
 
 ## 2. データ基盤層
 
-### 2.1 PostgreSQL 16+ (GCE上)
+### 2.1 PostgreSQL 16+ (Cloud SQL)
 
-全ての構造化データを一元管理するリレーショナルデータベース。GCE上の既存VMにインストールするか、将来的にCloud SQLへ移行する。
+全ての構造化データを一元管理するリレーショナルデータベース。Cloud SQL for PostgreSQLを使用する。
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -200,33 +200,33 @@ v5.0は **4層構造** で構成される。上位層が方針を決定し、下
 │  │  content         コンテンツ (制作ライフサイクル)    │         │
 │  │  content_sections セクション構成 (動的N件)           │       │
 │  │  publications     投稿記録 (1コンテンツ→N投稿)      │        │
-│  │  metrics          パフォーマンス計測値 (時系列)     │         │
 │  └─────────────────────────────────────────────────────┘     │
 │                                                              │
 │  ┌─────────────────────────────────────────────────────┐     │
 │  │ Intelligence Tables                                  │    │
 │  │                                                      │    │
-│  │  hypotheses       仮説 (embedding付き, pgvector)     │     │
-│  │  experiments      実験 (仮説の検証結果)              │       │
-│  │  insights         知見 (学習結果, embedding付き)     │      │
-│  │  market_research  市場調査データ                    │       │
-│  │  trend_signals    トレンドシグナル                  │       │
+│  │  hypotheses       仮説管理 (embedding付き, pgvector) │      │
+│  │  market_intel     市場情報統合 (embedding付き)       │      │
+│  │  metrics          パフォーマンス計測値 (時系列)     │         │
+│  │  analyses         分析結果                         │        │
+│  │  learnings        蓄積知見 (embedding付き)          │       │
 │  └─────────────────────────────────────────────────────┘     │
 │                                                              │
 │  ┌─────────────────────────────────────────────────────┐     │
 │  │ Operational Tables                                   │    │
 │  │                                                      │    │
-│  │  task_queue         制作・投稿・計測のタスクキュー   │         │
-│  │  schedules          投稿スケジュール                │       │
-│  │  agent_thought_logs エージェント実行ログ            │        │
+│  │  cycles              戦略サイクル管理               │        │
+│  │  human_directives    人間指示管理                   │       │
+│  │  task_queue          タスクキュー                   │        │
+│  │  algorithm_performance アルゴリズム精度追跡         │         │
 │  └─────────────────────────────────────────────────────┘     │
 │                                                              │
 │  ┌─────────────────────────────────────────────────────┐     │
 │  │ pgvector Extension                                   │    │
 │  │                                                      │    │
 │  │  hypotheses.embedding   vector(1536)                  │   │
-│  │  insights.embedding     vector(1536)                  │   │
-│  │  market_research.embedding  vector(1536)              │   │
+│  │  market_intel.embedding vector(1536)                  │   │
+│  │  learnings.embedding    vector(1536)                  │   │
 │  │                                                      │    │
 │  │  用途: 類似仮説検索、関連知見の自動発見、            │          │
 │  │        トレンドの類似性比較                         │        │
@@ -242,8 +242,8 @@ v5.0は **4層構造** で構成される。上位層が方針を決定し、下
 | 用途 | テーブル | カラム | 埋め込みモデル | 次元数 |
 |---|---|---|---|---|
 | 類似仮説の検索 | hypotheses | embedding | text-embedding-3-small or Voyage-3 | 1536 |
-| 関連知見の自動発見 | insights | embedding | 同上 | 1536 |
-| 市場調査の類似検索 | market_research | embedding | 同上 | 1536 |
+| 関連知見の自動発見 | learnings | embedding | 同上 | 1536 |
+| 市場調査の類似検索 | market_intel | embedding | 同上 | 1536 |
 
 **検索例**:
 - 新しい仮説を生成する際、過去の類似仮説とその検証結果を自動参照
