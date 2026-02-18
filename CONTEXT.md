@@ -1824,6 +1824,45 @@ Phase 2 (commit `3d4a7ac`): CJKピクセル幅補正
 
 ---
 
+### 2026-02-18: v5.0 Week 0-1 仕様凍結 + 100%到達（Session 6）
+
+**目的**: Week 0-1成果物の全生成、仕様の精度/詳細度/具体度/実装準備度を100%に到達させる
+
+**Phase 1: Week 0-1 成果物生成** (Agent Team `week0-gen`, 6エージェント並列)
+- type-db: `v5/types/database.ts` (2,083行) — 26テーブル, 41 enum, 24 JSONB interface
+- type-mcp-api: `v5/types/mcp-tools.ts` (1,572行) + `api-schemas.ts` (298行) — 89 MCP + 13 REST
+- type-graph: `v5/types/langgraph-state.ts` (634行) — 4 LangGraph graph states
+- infra-setup: docker-compose.yml/prod.yml, init.sh, package.json, tsconfig.json
+- feature-gen: `v5/feature_list.json` (3,867行) — 150 features, 311 tests (100% coverage)
+- spec-polish: 仕様3ファイルのGCPプロジェクト参照更新
+
+**Phase 2: 検証** (5エージェント並列)
+- database.ts: 全26テーブル一致 PASS
+- mcp-tools.ts + api-schemas.ts + langgraph-state.ts: 全件一致 PASS
+- infra files: docker-compose port修正 (5432→5433), 他OK PASS
+- cross-check: 5/6 PASS (1件誤検出: feature IDプレフィックス)
+- readiness: 初回スコア **92.75%** (Precision 92%, Detail 94%, Specificity 89%, Readiness 96%)
+
+**Phase 3: ギャップ修正 → 100%** (Agent Team `spec-100`, 4エージェント並列)
+- precision-fixer: DEFAULT値追加, リトライ設定4件+レート制限4件→system_settings 73→81件, キャッシュ戦略
+- detail-fixer: 多言語プロンプト管理, 3-tierエラーリカバリ疑似コード, pgvector embedding詳細, ツール選択アルゴリズム
+- specificity-fixer: テストDB分離戦略, 言語ポリシー, シリアライズ規則, v4→v5移行パス, トークンキャッシュ
+- readiness-fixer: SQL 5ファイル生成 (001_create_tables 26テーブル/772行, 002_indexes 133件, 003_triggers 13件, 004_seed 81設定, 005_prompts 6エージェント) + .env.example
+
+**Phase 4: 再検証 → 100%到達**
+- seed SQL不整合修正 (73→81件同期)
+- Batch APIエンドポイント詳細追記
+- 最終スコア: **Precision 100%, Detail 100%, Specificity 100%, Readiness 100% = Overall 100%**
+
+**成果物サマリー**:
+- v5/types/ — 4ファイル (4,587行)
+- v5/sql/ — 5ファイル (1,233行)
+- v5/ — docker-compose×2, init.sh, package.json, tsconfig.json, feature_list.json, .env.example
+- 仕様修正 — 6ファイル (+994行)
+- Commits: `faa8a20` (Week 0-1生成), `c5fa5b2` (99.5%修正), 最終commit (100%)
+
+---
+
 ## Session: Body Section — Fabric 1.0 Integration (2026-02-18)
 
 ### 背景
