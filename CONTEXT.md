@@ -1642,6 +1642,35 @@ node scripts/generate-digest.js --force               # 既存ファイル上書
 
 **変更ファイル**: 5ファイル (+169/-79行)
 
+### 2026-02-18: 02-architecture.md 図のアライメント修正
+
+**課題**: 02-architecture.md内の全ASCII art図で、CJK文字（日本語）を含む行の右罫線（│）がズレていた。ユーザーが46枚のスクリーンショットで問題を報告。
+
+**根本原因の発見**: Webブラウザ（GitHub）のモノスペースフォントはCJK文字を約1.7倍幅でレンダリングする（Unicode標準の2.0倍ではない）。これにより、CJK文字が多い行ほど右罫線が左にずれる。
+
+**修正内容（2段階）**:
+
+Phase 1 (commit `12272a7`): Unicode視覚幅の正規化
+- Pythonスクリプト（`/tmp/fix_alignment.py`）でCJK=2カラムとして全行の視覚幅を統一
+- 33コードブロック、985行を修正
+
+Phase 2 (commit `3d4a7ac`): CJKピクセル幅補正
+- Playwrightで実測: ASCII=8.16px, カタカナ=13.91px(1.705x), 漢字=13.59px(1.666x)
+- 行ごとに `round(N_cjk × 0.31)` 個の追加スペースを挿入
+- 734行を追加修正
+- 最大ズレ: 67px（約8文字）→ 8px（約1文字）に改善
+
+**測定結果（ボックス型図表）**:
+- Layer図（79行）: ±1.0文字
+- 通信フロー（14行）: ±1.0文字
+- LangGraph Runtime（45行）: ±0.9文字
+- 戦略サイクル（26行）: ±1.3文字
+- 制作パイプライン（39行）: ±0.8文字
+
+**技術的制約**: CJK幅比率はブラウザ/OS/フォントにより異なるため、完全なズレゼロは不可能。補正値0.31はChromium/Linux測定値。macOS (SF Mono + Hiragino) では若干異なる可能性あり。
+
+**ツール**: `/tmp/check_alignment.py`（分析）, `/tmp/fix_alignment.py`（Phase 1）, `/tmp/fix_alignment_v3_compensate.py`（Phase 2）
+
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID
 - `.gsheets_token.json` - OAuth token for Sheets/Drive API
