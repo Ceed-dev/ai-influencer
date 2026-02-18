@@ -149,10 +149,10 @@ KPI目標
 
 | 日 | 作業内容 | 成果物 |
 |----|---------|--------|
-| 月 | `content` + `publications` テーブル作成 (Production) | Production 2テーブル |
+| 月 | `content` + `content_sections` + `publications` テーブル作成 (Production) | Production 3テーブル |
 | 火 | `hypotheses` + `market_intel` テーブル + HNSWインデックス | Intelligence前半 |
 | 水 | `metrics` + `analyses` + `learnings` テーブル | Intelligence後半 |
-| 木 | `cycles` + `human_directives` + `task_queue` + `algorithm_performance` + `agent_prompt_versions` + `agent_thought_logs` + `agent_reflections` + `agent_individual_learnings` + `agent_communications` | Operations 5テーブル + Observability 5テーブル |
+| 木 | `cycles` + `human_directives` + `task_queue` + `algorithm_performance` + `agent_prompt_versions` + `agent_thought_logs` + `agent_reflections` + `agent_individual_learnings` + `agent_communications` | Operations 4テーブル + Observability 5テーブル |
 | 金 | `tool_catalog` + `tool_experiences` + `tool_external_sources` + `production_recipes` + `prompt_suggestions` テーブル作成 (Tool Management)。全トリガー作成 (`updated_at` 自動更新) + 全インデックス確認 | Tool Management 5テーブル、**25テーブル完成** |
 | 土 | Sheetsデータ → PostgreSQL移行スクリプト作成・実行 | 既存データ移行完了 |
 
@@ -182,9 +182,9 @@ Docker Compose (dev/prod分離)
 │  ┌─────────────────────┐   MCP Server (Node.js)  │
 │  │ 25テーブル            │   ┌─────────────────┐  │
 │  │ Entity 3             │   │ ~33ツール         │  │
-│  │ Production 2         │   │ 基本CRUD          │  │
+│  │ Production 3         │   │ 基本CRUD          │  │
 │  │ Intelligence 5       │◄──│ テスト済み         │  │
-│  │ Operations 5         │   │                  │  │
+│  │ Operations 4         │   │                  │  │
 │  │ Observability 5      │   └─────────────────┘  │
 │  │ Tool Management 5    │                         │
 │  │ 全インデックス         │                         │
@@ -530,7 +530,7 @@ Docker Compose (全コンポーネントコンテナ化)
 - [ ] Docker環境構築完了 (`docker-compose.yml` + `docker-compose.dev.yml` + `docker-compose.prod.yml`)
 - [ ] PostgreSQL 16+ が `pgvector/pgvector:pg16` Dockerコンテナ上で稼働
 - [ ] pgvector拡張が有効
-- [ ] 25テーブル全て作成済み (Entity 3 + Production 2 + Intelligence 5 + Operations 5 + Observability 5 + Tool Management 5)
+- [ ] 25テーブル全て作成済み (Entity 3 + Production 3 + Intelligence 5 + Operations 4 + Observability 5 + Tool Management 5)
 - [ ] Tool Management テーブル作成済み (`tool_catalog`, `tool_experiences`, `tool_external_sources`, `production_recipes`, `prompt_suggestions`)
 - [ ] 全インデックス作成済み
 - [ ] `updated_at`トリガー動作確認

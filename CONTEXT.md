@@ -1671,6 +1671,30 @@ Phase 2 (commit `3d4a7ac`): CJKピクセル幅補正
 
 **ツール**: `/tmp/check_alignment.py`（分析）, `/tmp/fix_alignment.py`（Phase 1）, `/tmp/fix_alignment_v3_compensate.py`（Phase 2）
 
+### 2026-02-18: 03-database-schema.md レビュー + 全specファイル整合性修正
+
+**作業内容**: 03-database-schema.md (3155行) を全文レビューし、9件の問題を発見。Agent Team (researcher-1, researcher-2, fixer, verifier の4エージェント) を動員して修正 + 全specファイルとの整合性確認を実施。
+
+**発見した問題と修正**:
+
+1. **テーブル数不整合**: ヘッダーが「26テーブル」だが実際は25テーブル (Operations = 4, not 5)
+   - 03-database-schema.md: ヘッダー、概要テーブル修正
+   - 02-architecture.md, README.md, 04-agent-design.md, 05-mcp-tools.md, 06-development-roadmap.md: 全て26→25に修正
+
+2. **FK型不整合**: tool_experiences.content_id が `INTEGER REFERENCES content(id)` → `VARCHAR(20) REFERENCES content(content_id)` に統一
+
+3. **agent_type制約不整合**: Observability 5テーブルのうち agent_communications のみ CHECK 制約あり → 残り4テーブルにも同じ CHECK 制約 (6エージェント: strategist, researcher, analyst, planner, tool_specialist, data_curator) を追加
+
+4. **未ドキュメントの値**: human_directives の 'agent_response', agent_communications の 'anomaly_alert' + 'milestone' に説明コメントを追加
+
+5. **型不整合**: prompt_suggestions.agent_type を VARCHAR(50) → TEXT に統一
+
+6. **Section 9.1 FK表**: tool_experiences行の参照先を content(id) → content(content_id) に修正
+
+**修正ファイル**: 03-database-schema.md, 02-architecture.md, README.md, 04-agent-design.md, 05-mcp-tools.md, 06-development-roadmap.md (計6ファイル)
+
+**検証結果**: CREATE TABLE 25件確認、全observabilityテーブルのCHECK制約一致、全specファイルで "26テーブル" 残存なし
+
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID
 - `.gsheets_token.json` - OAuth token for Sheets/Drive API

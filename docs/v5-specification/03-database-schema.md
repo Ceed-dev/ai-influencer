@@ -4,7 +4,7 @@
 >
 > **データベース**: PostgreSQL 16+ with pgvector extension
 >
-> **テーブル数**: 26テーブル (Entity 3 / Production 3 / Intelligence 5 / Operations 5 / Observability 5 / Tool Management 5)
+> **テーブル数**: 25テーブル (Entity 3 / Production 3 / Intelligence 5 / Operations 4 / Observability 5 / Tool Management 5)
 >
 > **関連ドキュメント**: [02-architecture.md](02-architecture.md) (データ基盤層の設計思想), [01-tech-stack.md](01-tech-stack.md) (pgvector・ORM選定)
 
@@ -78,7 +78,7 @@ v5.0のPostgreSQLスキーマは、AI-Influencerシステムの全構造化デ�
 | **Entity** | 3 | システムの基本エンティティ定義 | accounts, characters, components |
 | **Production** | 3 | コンテンツ制作から投稿までのライフサイクル | content, content_sections, publications |
 | **Intelligence** | 5 | 仮説駆動サイクルの知的資産 | hypotheses, market_intel, metrics, analyses, learnings |
-| **Operations** | 5 | システム運用・タスク管理 | cycles, human_directives, task_queue, algorithm_performance |
+| **Operations** | 4 | システム運用・タスク管理 | cycles, human_directives, task_queue, algorithm_performance |
 | **Observability** | 5 | エージェントの運用可視化・自己学習・デバッグ | agent_prompt_versions, agent_thought_logs, agent_reflections, agent_individual_learnings, agent_communications |
 | **Tool Management** | 5 | AIツールの知識管理・制作レシピ・プロンプト改善 | tool_catalog, tool_experiences, tool_external_sources, production_recipes, prompt_suggestions |
 
@@ -1395,6 +1395,10 @@ CREATE TABLE human_directives (
         --   人間がエージェントの「学習方法そのもの」を軌道修正
         --   content例: "サンプル数3で仮説確認しているが最低10必要。n<10はinconclusive必須"
         --   → 各エージェントがget_learning_directivesで読み取り、リフレクション方法に反映
+        --
+        -- agent_response: エージェントからの返信
+        --   エージェントがhuman_directiveに対して返信する場合
+        --   content例: "了解しました。beautyニッチの投稿頻度を日3回→日4回に変更します"
 
     -- 指示内容
     content         TEXT NOT NULL,
@@ -1646,11 +1650,15 @@ CREATE TABLE agent_prompt_versions (
         -- UUIDで一意に識別
 
     -- エージェント情報
-    agent_type      TEXT NOT NULL,
+    agent_type      TEXT NOT NULL CHECK (agent_type IN (
+        'strategist', 'researcher', 'analyst', 'planner', 'tool_specialist', 'data_curator'
+    )),
         -- strategist: 戦略エージェント（サイクル全体の方針決定）
         -- researcher: リサーチャーエージェント（市場情報収集）
         -- analyst: アナリストエージェント（仮説生成・検証・分析）
         -- planner: プランナーエージェント（コンテンツ計画・スケジューリング）
+        -- tool_specialist: ツールスペシャリスト（ツール選定・レシピ管理）
+        -- data_curator: データキュレーター（データ品質・外部情報管理）
     version         INTEGER NOT NULL,
         -- エージェントタイプごとの自動採番バージョン
         -- 例: strategist v1, strategist v2, ...
@@ -1697,7 +1705,7 @@ CREATE TABLE agent_prompt_versions (
 );
 
 COMMENT ON TABLE agent_prompt_versions IS 'エージェントプロンプトの変更履歴。変更前後のパフォーマンス比較を可能にする';
-COMMENT ON COLUMN agent_prompt_versions.agent_type IS 'strategist/researcher/analyst/planner';
+COMMENT ON COLUMN agent_prompt_versions.agent_type IS 'strategist/researcher/analyst/planner/tool_specialist/data_curator';
 COMMENT ON COLUMN agent_prompt_versions.active IS 'agent_typeごとに1つだけtrue。新バージョン作成時に旧版をfalseに更新';
 COMMENT ON COLUMN agent_prompt_versions.performance_after IS '変更後のメトリクス。一定期間後にアナリストが計測して更新';
 ```
@@ -1713,8 +1721,10 @@ CREATE TABLE agent_thought_logs (
         -- UUIDで一意に識別
 
     -- エージェント情報
-    agent_type      TEXT NOT NULL,
-        -- strategist / researcher / analyst / planner
+    agent_type      TEXT NOT NULL CHECK (agent_type IN (
+        'strategist', 'researcher', 'analyst', 'planner', 'tool_specialist', 'data_curator'
+    )),
+        -- strategist / researcher / analyst / planner / tool_specialist / data_curator
         -- どのエージェントがこの思考を実行したか
 
     -- サイクル紐付け
@@ -1813,11 +1823,15 @@ CREATE TABLE agent_reflections (
         -- UUIDで一意に識別
 
     -- エージェント情報
-    agent_type      TEXT NOT NULL,
+    agent_type      TEXT NOT NULL CHECK (agent_type IN (
+        'strategist', 'researcher', 'analyst', 'planner', 'tool_specialist', 'data_curator'
+    )),
         -- strategist: 戦略エージェント（サイクル全体の方針決定）
         -- researcher: リサーチャーエージェント（市場情報収集）
         -- analyst: アナリストエージェント（仮説生成・検証・分析）
         -- planner: プランナーエージェント（コンテンツ計画・スケジューリング）
+        -- tool_specialist: ツールスペシャリスト（ツール選定・レシピ管理）
+        -- data_curator: データキュレーター（データ品質・外部情報管理）
 
     -- サイクル紐付け
     cycle_id        INTEGER REFERENCES cycles(id),
@@ -1884,7 +1898,7 @@ CREATE TABLE agent_reflections (
 );
 
 COMMENT ON TABLE agent_reflections IS 'エージェントの自己評価記録。サイクル終了時に各エージェントが生成し、次サイクルで参照';
-COMMENT ON COLUMN agent_reflections.agent_type IS 'strategist/researcher/analyst/planner';
+COMMENT ON COLUMN agent_reflections.agent_type IS 'strategist/researcher/analyst/planner/tool_specialist/data_curator';
 COMMENT ON COLUMN agent_reflections.self_score IS '1-10の自己評価。8以上で優秀、4以下で要改善';
 COMMENT ON COLUMN agent_reflections.applied_in_next_cycle IS '次サイクルで振り返りが活用されたか。活用率の追跡指標';
 ```
@@ -1900,9 +1914,11 @@ CREATE TABLE agent_individual_learnings (
         -- UUIDで一意に識別
 
     -- エージェント情報
-    agent_type      TEXT NOT NULL,
+    agent_type      TEXT NOT NULL CHECK (agent_type IN (
+        'strategist', 'researcher', 'analyst', 'planner', 'tool_specialist', 'data_curator'
+    )),
         -- この学びを所有するエージェント
-        -- strategist / researcher / analyst / planner
+        -- strategist / researcher / analyst / planner / tool_specialist / data_curator
         -- 各エージェントは自分の学びのみを参照する（他エージェントの学びは見えない）
 
     -- カテゴリ
@@ -2022,6 +2038,12 @@ CREATE TABLE agent_communications (
         -- status_report: 定期的な状況報告
         --   例: "サイクル#42完了。仮説的中率0.68(前回比+0.05)。
         --        beauty強化施策が奏功し、engagement_rate 0.055達成"
+        --
+        -- anomaly_alert: 異常検知のアラート
+        --   例: "ACC_0015のviews急落（前週比-60%）。アルゴリズム変更の可能性"
+        --
+        -- milestone: マイルストーン達成の報告
+        --   例: "仮説的中率が初めて0.60を超えました。目標0.65まであと0.05"
 
     -- 優先度
     priority        TEXT NOT NULL DEFAULT 'normal' CHECK (priority IN (
@@ -2188,7 +2210,7 @@ CREATE TABLE tool_experiences (
     -- 紐付け
     tool_id         INTEGER NOT NULL REFERENCES tool_catalog(id),
         -- 使用したツール
-    content_id      INTEGER REFERENCES content(id),
+    content_id      VARCHAR(20) REFERENCES content(content_id),
         -- 使用されたコンテンツ (NULLの場合: テスト実行等)
 
     -- エージェント情報
@@ -2446,9 +2468,11 @@ CREATE TABLE prompt_suggestions (
     id              SERIAL PRIMARY KEY,
 
     -- 対象エージェント
-    agent_type      VARCHAR(50) NOT NULL,
+    agent_type      TEXT NOT NULL CHECK (agent_type IN (
+        'strategist', 'researcher', 'analyst', 'planner', 'tool_specialist', 'data_curator'
+    )),
         -- 改善提案の対象エージェント
-        -- strategist / researcher / analyst / planner / tool_specialist
+        -- strategist / researcher / analyst / planner / tool_specialist / data_curator
 
     -- トリガー情報
     trigger_type    VARCHAR(50) NOT NULL,
@@ -2959,7 +2983,7 @@ CREATE TRIGGER trg_production_recipes_updated_at
 | agent_individual_learnings | source_reflection_id | agent_reflections | id | N:1 | 学びの生成元となった振り返り |
 | agent_communications | cycle_id | cycles | id | N:1 | サイクルに属するメッセージ |
 | tool_experiences | tool_id | tool_catalog | id | N:1 | 使用したツール |
-| tool_experiences | content_id | content | id | N:1 | 使用されたコンテンツ |
+| tool_experiences | content_id | content | content_id | N:1 | 使用されたコンテンツ (VARCHAR(20)参照) |
 | tool_external_sources | tool_id | tool_catalog | id | N:1 | 関連するツール (NULLable) |
 
 ### 9.2 データフロー上の間接参照
