@@ -20,6 +20,7 @@
   - [3.2 運用準備](#32-運用準備)
 - [4. タイムライン](#4-タイムライン)
 - [5. コスト概算（準備作業）](#5-コスト概算準備作業)
+- [8. v4.0 → v5.0 データ移行](#8-v40--v50-データ移行)
 
 ---
 
@@ -167,3 +168,39 @@ Agent Teamが並列実装を開始する前に、人間（Shungo）が完了し�
 | X Premium × 14アカウント | $112/月 |
 | fal.ai 初期チャージ | $100-500 |
 | **合計（初月）** | **~$363-763** |
+
+---
+
+## 8. v4.0 → v5.0 データ移行
+
+### 移行タイミング
+v5.0が機能的に完成した後、v4.0を停止する前に実施。2週間の並行運用期間を設ける。
+
+### データマッピング
+
+| v4.0 (Sheets) | v5.0 (PostgreSQL) | 備考 |
+|---------------|-------------------|------|
+| production tab (33列) | content + content_sections + publications | 1行 → 3テーブルに正規化 |
+| Accounts Inventory | accounts | platform, status, auth_credentials をマッピング |
+| Characters Inventory | characters | appearance, personality を JSONB に変換 |
+| Scenarios Inventory | components (type='scenario') | script_en, script_jp を component_data JSONB に格納 |
+| Motions Inventory | components (type='motion') | file_link → drive_file_id に変換 |
+
+### 型変換ルール
+
+| v4.0 | v5.0 | 変換 |
+|------|------|------|
+| Sheets timestamp | PostgreSQL TIMESTAMPTZ | `new Date((sheetsDate - 25569) * 86400000).toISOString()` |
+| カンマ区切り文字列 | JSONB 配列 | `value.split(',').map(s => s.trim())` → `JSON.stringify(result)` |
+| key:value ペア | JSONB オブジェクト | カスタムパーサーで変換 |
+| Drive URL | drive_file_id | `extractDriveFileId(url)` (既存ヘルパー) |
+
+### 移行対象外
+- `scenario.json`: 廃止済み (v4.0で既にInventoryに移行済み)
+- Drive上のファイル: 移行不要 (同じフォルダ構造、新DBからdrive_file_idで参照)
+
+### 移行スクリプト
+`v5/scripts/migrate-v4-data.ts` — Week 5 で作成予定
+
+### ロールバック計画
+v4.0のSpreadsheetは移行期間中 **読み取り専用** で保持。問題発生時はv4.0に切り戻し可能。

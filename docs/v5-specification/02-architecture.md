@@ -2907,6 +2907,106 @@ Level 3: task_queue.status → 'failed_permanent'
 - 失敗したタスクに関連する `content`, `account`, `character` を表示
 - 同じエラーが複数タスクで発生している場合はグルーピング表示
 
+### 9.4 LangGraph実装レベルの疑似コード
+
+3段階リカバリーの具体的な実装パターンを以下に示す。
+
+```typescript
+// ===== Tier 1: ノードレベルリトライ =====
+// LangGraphのretryPolicyを使用して各ノード内でAPI呼び出しをリトライ
+
+const graph = new StateGraph(AgentState)
+  .addNode("produce_video", produceVideoNode, {
+    retryPolicy: {
+      maxAttempts: getSystemSetting('MAX_RETRY_ATTEMPTS', 3),
+      delayMs: getSystemSetting('RETRY_DELAY_BASE_MS', 2000),
+      backoffMultiplier: getSystemSetting('RETRY_BACKOFF_MULTIPLIER', 2),
+      // リトライ待機時間 = RETRY_DELAY_BASE_MS * RETRY_BACKOFF_MULTIPLIER^attempt
+      // 1回目: 2000ms, 2回目: 4000ms, 3回目: 8000ms
+      retryOn: (error) => {
+        const status = error.statusCode;
+        // リトライ可能なエラーのみ
+        return [429, 500, 502, 503, 408].includes(status)
+          || ['ECONNRESET', 'ETIMEDOUT'].includes(error.code);
+        // 400, 401, 403, 422 は即座に失敗 → Tier 2へ
+      }
+    }
+  });
+
+// ===== Tier 2: チェックポイントロールバック =====
+// Tier 1の全リトライ失敗後、最後の成功チェックポイントに戻る
+
+async function handleNodeFailure(threadId: string, failedNode: string, error: Error) {
+  // Step 1: 現在のグラフ状態を取得
+  const currentState = await graph.getState({ configurable: { thread_id: threadId } });
+
+  // Step 2: 失敗したノードの前のチェックポイントに戻る
+  const checkpointHistory = await graph.getStateHistory({
+    configurable: { thread_id: threadId }
+  });
+  const lastSuccessful = checkpointHistory.find(
+    cp => cp.metadata.node !== failedNode && cp.metadata.status === 'success'
+  );
+
+  if (lastSuccessful) {
+    // Step 3: チェックポイントから再開し、失敗ノードをスキップ
+    await graph.updateState(
+      { configurable: { thread_id: threadId, checkpoint_id: lastSuccessful.id } },
+      { skipNode: failedNode, errorContext: error.message }
+    );
+
+    // Step 4: error_handlerノードにルーティング
+    // error_handlerはagent_thought_logsに記録し、task_queue.error_messageを更新
+    await mcpClient.call('log_agent_thought', {
+      agent_type: 'system',
+      thought_type: 'error_recovery',
+      content: `Tier 2 recovery: rolled back past ${failedNode}. Error: ${error.message}`
+    });
+    await mcpClient.call('update_task_status', {
+      task_id: currentState.values.taskId,
+      error_message: `Node ${failedNode} failed after ${getSystemSetting('MAX_RETRY_ATTEMPTS', 3)} retries: ${error.message}`
+    });
+
+    return; // Tier 2成功 — グラフは次のノードに進む
+  }
+
+  // Step 5: チェックポイントが存在しない場合 → Tier 3へ
+  await escalateToHuman(threadId, failedNode, error);
+}
+
+// ===== Tier 3: 人間エスカレーション =====
+// Tier 2も失敗した場合、ダッシュボードに通知して人間の判断を待つ
+
+async function escalateToHuman(threadId: string, failedNode: string, error: Error) {
+  // Step 1: human_directivesにエラー解決リクエストを作成
+  await mcpClient.call('submit_human_directive', {
+    directive_type: 'error_resolution',
+    content: JSON.stringify({
+      thread_id: threadId,
+      failed_node: failedNode,
+      error_message: error.message,
+      error_stack: error.stack,
+      recovery_attempts: {
+        tier1_retries: getSystemSetting('MAX_RETRY_ATTEMPTS', 3),
+        tier2_checkpoint_rollback: true,
+        tier2_result: 'no_valid_checkpoint'
+      }
+    }),
+    urgency: 'high'
+  });
+
+  // Step 2: タスクを永続的失敗に設定
+  await mcpClient.call('update_task_status', {
+    task_id: threadId,
+    status: 'failed_permanent',
+    error_message: `All recovery tiers exhausted for node ${failedNode}: ${error.message}`
+  });
+
+  // Step 3: ダッシュボードのエラーパネル (GET /api/errors) に表示される
+  // 人間がダッシュボードから「再試行」or「破棄」を選択
+}
+```
+
 ## 10. コンテンツレビューワークフロー
 
 ### 10.1 レビューフロー概要

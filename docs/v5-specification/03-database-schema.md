@@ -1867,7 +1867,7 @@ CREATE TABLE agent_thought_logs (
         -- }
 
     -- ツール使用状況
-    tools_used      TEXT[],
+    tools_used      TEXT[] DEFAULT '{}',
         -- このステップで呼び出したMCPツールの一覧
         -- 例: {'search_similar_hypotheses', 'get_performance_summary',
         --       'get_market_intel'}
@@ -1878,7 +1878,7 @@ CREATE TABLE agent_thought_logs (
         -- 使用したLLMモデル
         -- 'opus': Claude Opus（高精度が必要なノード用）
         -- 'sonnet': Claude Sonnet（コスト効率重視のノード用）
-    token_usage     JSONB,
+    token_usage     JSONB DEFAULT '{}',
         -- トークン使用量とコスト
         -- 構造例:
         -- {
@@ -1887,12 +1887,14 @@ CREATE TABLE agent_thought_logs (
         --   "cost_usd": 0.085
         -- }
         -- コスト最適化の分析に使用
+        -- DEFAULT '{}': ログ挿入時にトークン情報が未計測でも行を作成可能
 
     -- パフォーマンス
-    duration_ms     INTEGER,
+    duration_ms     INTEGER DEFAULT 0,
         -- このノードの処理時間（ミリ秒）
         -- ボトルネックの特定に使用
         -- 例: 3500 (= 3.5秒)
+        -- DEFAULT 0: 未計測の場合は0（NULLではなく明示的なゼロ）
 
     -- タイムスタンプ
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -2746,9 +2748,33 @@ COMMENT ON COLUMN system_settings.constraints IS '値の制約条件。integer/f
 COMMENT ON COLUMN system_settings.updated_by IS '最終更新者。"system"=初期値, "human"=ダッシュボード, エージェント名=自動調整';
 ```
 
+### 7.1.1 setting_value のシリアライズ規則
+
+`setting_value` カラムは TEXT 型。`data_type` カラムの値に基づいてパース:
+
+| data_type | パース方法 | 例 |
+|-----------|-----------|-----|
+| `string` | そのまま使用 | `"high"` |
+| `integer` | `parseInt(setting_value, 10)` | `"3"` → `3` |
+| `float` | `parseFloat(setting_value)` | `"0.85"` → `0.85` |
+| `boolean` | `setting_value === 'true'` | `"true"` → `true` |
+| `json` | `JSON.parse(setting_value)` | `'["youtube","tiktok"]'` → `["youtube","tiktok"]` |
+| `csv` | `setting_value.split(',').map(s => s.trim())` | `"low, medium, high"` → `["low","medium","high"]` |
+
+**バリデーション**: MCP ツール `update_system_config` が `constraints` JSONB カラムを参照して入力値を検証:
+
+| constraints 例 | 適用 |
+|---------------|------|
+| `{"min": 0, "max": 100}` | integer/float の範囲制限 |
+| `{"enum": ["low", "medium", "high"]}` | 許可値リスト |
+| `{"pattern": "^[a-z_]+$"}` | 正規表現パターン |
+| `{"max_length": 1000}` | 文字列長制限 |
+
+**取得**: 全設定値は MCP ツール `get_system_config(key)` 経由で取得。`data_type` に基づいて自動パースされた値を返す。
+
 ### 7.2 デフォルト設定値（初期INSERT）
 
-システム初期化時にINSERTされるデフォルト設定値。全カテゴリの設定を網羅する（合計73件: production 9, posting 4, review 4, agent 38, measurement 6, cost_control 4, dashboard 3, credentials 5）。
+システム初期化時にINSERTされるデフォルト設定値。全カテゴリの設定を網羅する（合計81件: production 13, posting 8, review 4, agent 38, measurement 6, cost_control 4, dashboard 3, credentials 5）。
 
 ```sql
 -- ========================================
@@ -2813,6 +2839,12 @@ INSERT INTO system_settings (setting_key, setting_value, category, description, 
 ('MAX_CONTENT_REVISION_COUNT', '3', 'production', 'コンテンツの最大差し戻し回数。超過時はcancelledに遷移', '3', 'integer', '{"min": 1, "max": 10}'),
 ('WORKER_THROUGHPUT_PER_HOUR', '5', 'production', 'ワーカー1インスタンスあたりの1時間処理能力目安', '5', 'integer', '{"min": 1, "max": 20}'),
 
+-- Production settings (task_queue リトライポリシー)
+('MAX_TASK_RETRIES', '3', 'production', 'task_queueアイテムの最大リトライ回数。超過時はfailed_permanentに遷移', '3', 'integer', '{"min": 1, "max": 10}'),
+('RETRY_DELAY_BASE_MS', '1000', 'production', 'task_queueリトライ時のベース遅延（ミリ秒）。指数バックオフの基準値', '1000', 'integer', '{"min": 100, "max": 60000}'),
+('RETRY_BACKOFF_MULTIPLIER', '2.0', 'production', 'task_queueリトライ時の指数バックオフ乗数。実際の遅延 = base × multiplier^attempt', '2.0', 'float', '{"min": 1.0, "max": 5.0}'),
+('RETRY_MAX_DELAY_MS', '300000', 'production', 'task_queueリトライ時の最大遅延キャップ（ミリ秒）。300000ms = 5分', '300000', 'integer', '{"min": 10000, "max": 600000}'),
+
 -- Agent settings (追加)
 ('ANOMALY_MIN_DATAPOINTS', '7', 'agent', '異常検知に必要な最小データポイント数。これ未満のメトリクスは異常判定をスキップ', '7', 'integer', '{"min": 3, "max": 30}'),
 ('QUALITY_WEIGHT_COMPLETION', '0.35', 'agent', '品質スコア計算: 完視聴率の重み', '0.35', 'float', '{"min": 0, "max": 1}'),
@@ -2847,6 +2879,12 @@ INSERT INTO system_settings (setting_key, setting_value, category, description, 
 
 -- Posting settings (追加)
 ('PLATFORM_COOLDOWN_HOURS', '24', 'posting', '同一アカウント・同一プラットフォームの投稿間の最小間隔（時間）', '24', 'integer', '{"min": 1, "max": 72}'),
+
+-- Posting settings (プラットフォーム別レート制限)
+('YOUTUBE_DAILY_UPLOAD_LIMIT', '6', 'posting', 'YouTube 1日あたりの最大アップロード数。YouTube Data API: 10,000 units/day ÷ 1,600 units/upload ≈ 6', '6', 'integer', '{"min": 1, "max": 50}'),
+('TIKTOK_DAILY_UPLOAD_LIMIT', '50', 'posting', 'TikTok 1日あたりの最大アップロード数。Content Posting API制限', '50', 'integer', '{"min": 1, "max": 200}'),
+('INSTAGRAM_HOURLY_API_LIMIT', '25', 'posting', 'Instagram 1時間あたりのAPI呼び出し上限。Graph API制限200/hr中の25を投稿に割り当て', '25', 'integer', '{"min": 1, "max": 200}'),
+('X_DAILY_POST_LIMIT', '50', 'posting', 'X(Twitter) 1日あたりの最大投稿数。X API v2制限', '50', 'integer', '{"min": 1, "max": 300}'),
 
 -- Measurement settings (追加)
 ('MEASUREMENT_POLL_INTERVAL_SEC', '300', 'measurement', '計測ジョブのポーリング間隔（秒）', '300', 'integer', '{"min": 60, "max": 900}'),

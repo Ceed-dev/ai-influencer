@@ -305,6 +305,20 @@ main ── 本番ブランチ（直接コミット禁止）
 | 共有ファイル管理 | 共通ファイル（`package.json`, `docker-compose.yml`, `types/`）はリーダーのみが変更 |
 | 型定義変更 | `types/` の変更は「変更申請→リーダー承認→全チーム通知」 |
 
+### テストDB分離戦略
+
+並列開発時のDB競合を防ぐための戦略:
+
+| 項目 | 方針 |
+|------|------|
+| DDLマイグレーション | infra-agentのみ実行。他エージェントはDDL操作禁止 |
+| 共有開発DB | `dev_ai_influencer` (port 5433) を全エージェントで共有 |
+| テスト分離 | 各エージェントのJestテストはトランザクション内で実行し、ROLLBACK |
+| テストパターン | `beforeEach(() => db.query('BEGIN'))`, `afterEach(() => db.query('ROLLBACK'))` |
+| CI用テストDB | `test_ai_influencer` を init.sh が別途作成 |
+| マイグレーションロック | `/tmp/v5-migration.lock` ファイルロックで排他制御。`npm run db:migrate` 実行時に取得 |
+| シード投入 | infra-agentが `004_seed_settings.sql`, `005_seed_prompts.sql` を実行。他エージェントは読み取り専用 |
+
 ### 5.4 日次プロトコル
 
 1. **朝**: リーダーがタスク割り振り確認

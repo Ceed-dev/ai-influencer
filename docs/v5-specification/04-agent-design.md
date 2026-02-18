@@ -694,6 +694,18 @@ WHERE id = $1;
 COMMIT;
 ```
 
+### エラーメッセージ・言語ポリシー
+
+| 対象 | 言語 | 理由 |
+|------|------|------|
+| agent_communications (システム生成) | English | エージェント間通信の標準化 |
+| agent_thought_logs | English | 内部ログ、デバッグ用 |
+| Dashboard UIラベル | Japanese | 運用者向け (Next.js hardcoded, 単一ロケール) |
+| コンテンツスクリプト (script_en/script_jp) | アカウントのターゲット市場に依存 | content.script_language で決定 |
+| human_directives | Japanese | 運用者が入力 (現在のデプロイメント) |
+| ログファイル (stdout/stderr) | English | 標準的なログ管理ツールとの互換性 |
+| ダッシュボードエラー表示 | Japanese (UIラベル) + English (技術詳細) | 運用者が理解しやすい形式 |
+
 ## 4. MCP Server ツール一覧 (102ツール)
 
 全エージェントはMCP Server経由でPostgreSQLにアクセスする。ツールはエージェントの役割ごとにグループ化されており、各エージェントのSystem Promptで使用可能なツール群を制限する。
@@ -1771,6 +1783,79 @@ ORDER BY embedding <=> $1
 LIMIT 20;
 ```
 
+#### pgvectorエンベディングパイプライン詳細
+
+**エンベディングモデル**: `text-embedding-3-small` (OpenAI, 1536次元)
+- コスト: 約$0.02 / 1Mトークン (Claude API コストに対して無視できるレベル)
+- 選定理由: 低コスト + 十分な精度 (MTEB ベンチマーク上位)。Voyage-3 (Anthropic) も候補だが、OpenAIの方がエコシステム成熟
+
+**生成タイミング**: **Pre-insert** (書き込み時に即座に生成)
+- 遅延生成 (lazy) ではなく、INSERTと同時にembeddingを生成・保存
+- これにより検索時にembedding未生成のレコードが存在しない
+- バッチサイズ: 1 (リアルタイム、レコード単位。バッチ処理は不要 — データ到着頻度が低いため)
+
+**embedding生成を行うエージェントとMCPツール**:
+
+| エージェント | MCPツール | 対象テーブル | embeddingソースフィールド |
+|---|---|---|---|
+| Researcher | `save_trending_topic` | `market_intel` | `title + summary` を結合 |
+| Researcher | `save_competitor_post` | `market_intel` | `title + summary` を結合 |
+| Analyst | `extract_learning` | `learnings` | `insight` フィールド |
+| Data Curator | `create_component` | `components` | `metadata->>'description'` + `tags` を結合 |
+| 全LLMエージェント | `save_individual_learning` | `agent_individual_learnings` | `content` フィールド |
+
+**MCP Server内の実装**:
+
+```typescript
+// mcp-server/utils/embedding.ts
+
+import OpenAI from 'openai';
+
+const openai = new OpenAI({ apiKey: getSystemSetting('OPENAI_API_KEY') });
+
+/**
+ * テキストからembeddingベクトルを生成する内部ユーティリティ。
+ * 各MCPツールのINSERT処理内から呼び出される。
+ */
+export async function generateEmbedding(text: string): Promise<number[]> {
+  const response = await openai.embeddings.create({
+    model: 'text-embedding-3-small',
+    input: text.slice(0, 8191),  // モデルのmax token制限に収める
+    dimensions: 1536
+  });
+  return response.data[0].embedding;
+}
+
+// 使用例 (save_trending_topic MCPツール内):
+// const embedding = await generateEmbedding(`${title} ${summary}`);
+// await db.query(
+//   'INSERT INTO market_intel (..., embedding) VALUES (..., $N)',
+//   [...params, JSON.stringify(embedding)]
+// );
+```
+
+**pgvectorインデックス戦略**:
+
+| テーブル | 想定レコード数 (6ヶ月後) | インデックスタイプ | 理由 |
+|---|---|---|---|
+| `learnings` | ~500 | HNSW | 小規模テーブル。HNSWは少量データでも高精度 |
+| `market_intel` | ~5,000 | HNSW | 中規模。IVFFlatは10K未満ではリスト数が少なすぎる |
+| `agent_individual_learnings` | ~2,000 | HNSW | 中規模 |
+| `components` | ~10,000+ | IVFFlat (lists=100) | 大規模化が予想される。IVFFlatの方がINSERT性能が良い |
+
+```sql
+-- HNSWインデックス (小〜中規模テーブル)
+CREATE INDEX idx_learnings_embedding ON learnings
+  USING hnsw (embedding vector_cosine_ops)
+  WITH (m = 16, ef_construction = 64);
+
+-- IVFFlatインデックス (大規模テーブル)
+CREATE INDEX idx_components_embedding ON components
+  USING ivfflat (embedding vector_cosine_ops)
+  WITH (lists = 100);
+-- 注意: IVFFlatはデータ投入後にREINDEXが必要 (初回は1000件以上蓄積してから作成)
+```
+
 ### 6.4 algorithm_performanceテーブルによるメタ計測
 
 **メカニズム**: AI自身の精度をトラッキングし、「学習しているか」を客観的に評価する
@@ -2031,6 +2116,123 @@ MCPツール呼び出し:
   [読み取り] agent_individual_learnings → ツールSPの個人ノート
   [書き込み] content UPDATE → recipe (制作レシピ) 設定
 ```
+
+**ツール選択アルゴリズム (Tool Specialist内部ロジック)**:
+
+ツールスペシャリストが `get_tool_recommendations` MCPツール内で実行する、ツール選定のスコアリングロジック:
+
+```typescript
+// agents/tool-specialist/selection-algorithm.ts
+
+interface ToolCandidate {
+  tool_id: string;
+  success_rate: number;    // 0.0 〜 1.0
+  avg_quality: number;     // 0.0 〜 10.0
+  cost_per_use: number;    // USD
+  last_used_at: Date;
+  supported_formats: string[];
+}
+
+interface ToolScore {
+  tool_id: string;
+  total_score: number;
+  breakdown: {
+    success_component: number;     // 重み: 0.4
+    quality_component: number;     // 重み: 0.3
+    cost_component: number;        // 重み: 0.2
+    recency_component: number;     // 重み: 0.1
+  };
+}
+
+async function selectOptimalTool(
+  contentFormat: 'short_video' | 'text_post' | 'image_post',
+  requirements: ContentRequirements
+): Promise<{ recommendation: ToolScore; alternatives: ToolScore[] }> {
+
+  // Step 1: content_formatに対応するツールを取得
+  const candidates: ToolCandidate[] = await mcpClient.call('get_tool_knowledge', {
+    category: contentFormat === 'short_video' ? 'video_gen' : contentFormat
+  });
+  // → tool_catalog WHERE supported_formats @> ARRAY[contentFormat]
+
+  // Step 2: 各候補ツールのスコアリング
+  const scores: ToolScore[] = [];
+
+  for (const tool of candidates) {
+    // (a) 過去30日間の使用実績を取得
+    const experiences = await mcpClient.call('search_similar_tool_usage', {
+      tool_id: tool.tool_id,
+      date_range_days: 30
+    });
+    // → tool_experiences WHERE tool_name = ? AND created_at > NOW() - INTERVAL '30 days'
+
+    const successRate = experiences.total > 0
+      ? experiences.successful / experiences.total
+      : 0.5;  // データなし = 中立値
+
+    const avgQuality = experiences.total > 0
+      ? experiences.avg_quality_score
+      : 5.0;  // データなし = 中立値 (10点満点)
+
+    // (b) コスト効率 = 1.0 - (cost / max_cost_in_category)
+    const maxCost = Math.max(...candidates.map(c => c.cost_per_use), 0.01);
+    const costEfficiency = 1.0 - (tool.cost_per_use / maxCost);
+
+    // (c) 最近使われたツールにボーナス (7日以内 = 1.0, 30日以上 = 0.0)
+    const daysSinceUse = (Date.now() - tool.last_used_at.getTime()) / (1000 * 60 * 60 * 24);
+    const recencyBonus = Math.max(0, 1.0 - (daysSinceUse / 30));
+
+    // (d) 加重スコア計算
+    const score: ToolScore = {
+      tool_id: tool.tool_id,
+      total_score:
+        (successRate * 0.4) +
+        ((avgQuality / 10) * 0.3) +   // 10点満点を0-1に正規化
+        (costEfficiency * 0.2) +
+        (recencyBonus * 0.1),
+      breakdown: {
+        success_component: successRate * 0.4,
+        quality_component: (avgQuality / 10) * 0.3,
+        cost_component: costEfficiency * 0.2,
+        recency_component: recencyBonus * 0.1
+      }
+    };
+
+    scores.push(score);
+  }
+
+  // Step 3: 外部情報チェック — 直近7日間の破壊的変更を検知
+  for (const score of scores) {
+    const recentUpdates = await mcpClient.call('get_tool_external_updates', {
+      tool_id: score.tool_id,
+      date_range_days: 7
+    });
+    // → tool_external_sources WHERE tool_name = ? AND fetched_at > NOW() - INTERVAL '7 days'
+
+    if (recentUpdates.some(u => u.breaking_change === true)) {
+      score.total_score *= 0.5;  // 破壊的変更検知 → スコア半減
+    }
+  }
+
+  // Step 4: スコア順にソート
+  scores.sort((a, b) => b.total_score - a.total_score);
+
+  // Step 5: トップ推奨 + 代替案を返却
+  // ※ 承認ゲートなし — Tool Specialistが推奨し、Production Workerが即座に実行
+  return {
+    recommendation: scores[0],
+    alternatives: scores.slice(1, 3)  // 上位2件の代替案
+  };
+}
+```
+
+**スコアリング重みの根拠**:
+- 成功率 (0.4): 最重要 — 制作失敗はコスト・時間の無駄直結
+- 品質 (0.3): 次点 — エンゲージメント率に直結
+- コスト効率 (0.2): 3,500アカウント規模ではコスト管理が重要
+- 最近の使用 (0.1): 補助的 — 最近使って成功しているツールは信頼性が高い
+
+**スコアリング重みはソフトコーディング**: `system_settings` テーブルのキー `TOOL_SCORE_WEIGHT_SUCCESS` (デフォルト: 0.4), `TOOL_SCORE_WEIGHT_QUALITY` (デフォルト: 0.3), `TOOL_SCORE_WEIGHT_COST` (デフォルト: 0.2), `TOOL_SCORE_WEIGHT_RECENCY` (デフォルト: 0.1) でダッシュボードから調整可能。
 
 ### Step 5: 制作ワーカー — コンテンツ生成
 
@@ -2542,6 +2744,52 @@ export async function loadPrompt(agent: AgentPrompt): Promise<string> {
 
 **重要**: プロンプトはグラフ初期化時 (= サイクル開始時) にDBから読み込まれる。サイクル途中でダッシュボードからプロンプトを編集しても、その変更は **次のサイクルから** 反映される。これにより、サイクル内の一貫性が保たれる。
 
+### 8.5.1 多言語プロンプト管理
+
+v5.0は日本語 (jp) と英語 (en) の両市場でコンテンツを生成する。エージェントのSystem Promptは **英語をデフォルト** とし、コンテンツ生成時のみ `script_language` に応じて言語を切り替える。
+
+**方式**: 各プロンプトに `{{LANGUAGE}}` テンプレート変数を埋め込み、ランタイムで置換する。
+
+```typescript
+// prompts/loader.ts — 言語対応の追加
+
+export async function loadPrompt(
+  agent: AgentPrompt,
+  scriptLanguage?: 'en' | 'jp'  // サイクル設定から取得
+): Promise<string> {
+  // ... 既存のプロンプト読み込みロジック (8.5参照) ...
+
+  let prompt = [shared.prompt_content, agentPrompt.prompt_content, nicheOverride]
+    .filter(Boolean).join('\n\n---\n\n');
+
+  // テンプレート変数の置換
+  // {{LANGUAGE}} → コンテンツ生成の対象言語
+  // デフォルト: English (エージェント自体の思考言語は常に英語)
+  const targetLanguage = scriptLanguage === 'jp' ? 'Japanese' : 'English';
+  prompt = prompt.replace(/\{\{LANGUAGE\}\}/g, targetLanguage);
+
+  return prompt;
+}
+```
+
+**言語切り替えの適用範囲**:
+
+| エージェント | System Promptの言語 | `{{LANGUAGE}}` 使用箇所 |
+|---|---|---|
+| Strategist | 英語 (固定) | なし — 戦略判断は言語非依存 |
+| Researcher | 英語 (固定) | 検索キーワード生成セクションで `{{LANGUAGE}}` 使用 |
+| Analyst | 英語 (固定) | なし — 分析は言語非依存 |
+| Planner | 英語 (固定) | スクリプト生成指示セクションで `Generate the script in {{LANGUAGE}}` |
+| Tool Specialist | 英語 (固定) | なし — ツール選択は言語非依存 |
+| Data Curator | 英語 (固定) | コンポーネント分類セクションで `{{LANGUAGE}}` 使用 (シナリオの `script_en` / `script_jp` フィールド選択) |
+
+**`script_language` の取得元**: サイクル開始時にStrategistが方針決定の中で `script_language` を設定し、グラフの共有ステートに保持。各ノードはステートから参照する。アカウント定義 (`accounts.default_language`) から継承される。
+
+**プロンプトの言語別バージョン分離は行わない**:
+- `agent_prompt_versions` テーブルに言語別の行を作ると管理コストが倍増する
+- 代わりに `{{LANGUAGE}}` テンプレート変数で動的に切り替える
+- プロンプトの大部分 (役割定義、思考アプローチ、判断基準) は言語非依存であり、言語の影響は出力指示セクションに限定される
+
 ### 8.6 バージョン管理とロールバック
 
 プロンプトは `agent_prompt_versions` テーブルでバージョン管理される。`active = true` のレコードが現在有効なバージョンとなる。
@@ -2563,6 +2811,36 @@ export async function loadPrompt(agent: AgentPrompt): Promise<string> {
 ```
 
 **変更追跡カラム**: 各バージョンには `changed_by` (変更者)、`change_reason` (変更理由)、`performance_snapshot` (変更時点のパフォーマンス指標) が記録される。これにより、どの変更がパフォーマンスに影響したかを後から分析可能。
+
+### 8.7 プロンプトキャッシュ戦略
+
+Anthropic APIのプロンプトキャッシュ機能を活用し、LLM呼び出しコストを削減する。
+
+| 項目 | 仕様 |
+|------|------|
+| **キャッシュスコープ** | エージェント単位。各エージェントのSystem Promptがキャッシュ対象 |
+| **キャッシュTTL** | Anthropic APIが自動管理（5分間のエフェメラルキャッシュ） |
+| **キャッシュ無効化** | `agent_prompt_versions` テーブルに新バージョンがINSERTされた時点で自動的に無効化。新バージョン = 新しいSystem Prompt = キャッシュミス → 次回呼び出しで新しいキャッシュが生成される |
+| **期待コスト削減率** | キャッシュヒット時に入力トークンコスト90%削減（Anthropic公式プロンプトキャッシュ価格） |
+| **実装方式** | `anthropic.messages.create()` に長いSystem Promptを渡す → Anthropic APIが自動的にキャッシュを管理。アプリケーション側での明示的なキャッシュ制御は不要 |
+
+```
+キャッシュの動作フロー:
+
+  1. サイクル開始時にDBからSystem Promptを読み込み (8.5参照)
+  2. anthropic.messages.create({ system: systemPrompt, ... }) を呼び出し
+  3. Anthropic API側で同一System Promptのキャッシュが存在すればヒット (90%コスト削減)
+  4. キャッシュミスの場合は通常料金で処理し、新しいキャッシュを生成
+  5. 同一サイクル内の後続ノードの呼び出しでキャッシュヒット
+
+  プロンプト変更時:
+  1. ダッシュボードからプロンプト編集 → agent_prompt_versions に新行INSERT
+  2. 次サイクルで新しいSystem Promptが読み込まれる
+  3. System Prompt文字列が変わるため、自動的にキャッシュミス
+  4. 新しいキャッシュが生成され、以後のノードで再利用される
+```
+
+**注意**: プロンプトキャッシュは同一System Promptが繰り返し使われる場合に最も効果的。v5.0では1サイクル内で同一エージェントが複数ノードを処理するため、2回目以降の呼び出しでキャッシュヒットが期待できる。
 
 ## 9. 人間によるエージェントチューニング
 
