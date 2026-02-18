@@ -142,7 +142,8 @@ v5.0のPostgreSQLスキーマは、AI-Influencerシステムの全構造化デ�
                 │ confidence    │   │                  │
                 │ embedding     │   │ directive_type   │
                 │ (vector)      │   │ content          │
-                └───────────────┘   │ priority         │
+                └───────────────┘   │ target_agents    │
+                                    │ priority         │
                                     └──────────────────┘
                 ┌───────────────┐
                 │  task_queue   │   ┌──────────────────────┐
@@ -1408,6 +1409,10 @@ CREATE TABLE human_directives (
         -- 指示を適用するジャンル
         -- NULL: 全ジャンルが対象
         -- 例: {'beauty', 'skincare'}
+    target_agents   TEXT[],
+        -- 対象エージェント種別
+        -- NULL: 全エージェントへのブロードキャスト
+        -- 例: {'researcher', 'analyst'}
 
     -- ステータス管理
     status          VARCHAR(20) NOT NULL DEFAULT 'pending',
@@ -1434,7 +1439,7 @@ CREATE TABLE human_directives (
 
     -- 制約
     CONSTRAINT chk_directives_type
-        CHECK (directive_type IN ('hypothesis', 'reference_content', 'instruction', 'learning_guidance')),
+        CHECK (directive_type IN ('hypothesis', 'reference_content', 'instruction', 'learning_guidance', 'agent_response')),
     CONSTRAINT chk_directives_status
         CHECK (status IN ('pending', 'acknowledged', 'applied', 'expired')),
     CONSTRAINT chk_directives_priority
@@ -1442,7 +1447,7 @@ CREATE TABLE human_directives (
 );
 
 COMMENT ON TABLE human_directives IS 'ダッシュボードからの人間の指示。戦略エージェントがサイクル開始時に読み取り';
-COMMENT ON COLUMN human_directives.directive_type IS 'hypothesis/reference_content/instruction/learning_guidance。learning_guidanceは各エージェントがget_learning_directivesで読み取り';
+COMMENT ON COLUMN human_directives.directive_type IS 'hypothesis/reference_content/instruction/learning_guidance/agent_response。learning_guidanceは各エージェントがget_learning_directivesで読み取り';
 COMMENT ON COLUMN human_directives.priority IS 'urgentは進行中サイクルに割り込み';
 ```
 
@@ -1993,13 +1998,14 @@ CREATE TABLE agent_communications (
         -- UUIDで一意に識別
 
     -- エージェント情報
-    agent_type      TEXT NOT NULL,
-        -- strategist / researcher / analyst / planner
+    agent_type      TEXT NOT NULL CHECK (agent_type IN (
+        'strategist', 'researcher', 'analyst', 'tool_specialist', 'planner', 'data_curator'
+    )),
         -- どのエージェントがこのメッセージを発信したか
 
     -- メッセージ種別
     message_type    TEXT NOT NULL CHECK (message_type IN (
-        'struggle', 'proposal', 'question', 'status_report'
+        'struggle', 'proposal', 'question', 'status_report', 'anomaly_alert', 'milestone'
     )),
         -- struggle: エージェントが困っていること
         --   例: "beautyニッチのトレンド収集でrelevance_score 0.6以上のデータが
@@ -2071,7 +2077,7 @@ CREATE TABLE agent_communications (
 );
 
 COMMENT ON TABLE agent_communications IS 'エージェント→人間の逆方向コミュニケーション。human_directivesの対になるテーブル';
-COMMENT ON COLUMN agent_communications.message_type IS 'struggle/proposal/question/status_report';
+COMMENT ON COLUMN agent_communications.message_type IS 'struggle/proposal/question/status_report/anomaly_alert/milestone';
 COMMENT ON COLUMN agent_communications.priority IS 'urgentはダッシュボードで即座に通知。lowは余裕がある時に確認';
 COMMENT ON COLUMN agent_communications.human_response IS '人間の返信。エージェントが次サイクルで参照';
 ```
@@ -2807,6 +2813,8 @@ CREATE INDEX idx_communications_agent_type ON agent_communications(agent_type, m
     -- 例: "researcherのstruggle一覧" を取得
 CREATE INDEX idx_communications_priority_status ON agent_communications(priority, status);
     -- 優先度とステータスの複合: "urgentかつunreadのメッセージ" を最優先で表示
+CREATE INDEX idx_communications_created_at ON agent_communications(created_at);
+    -- 週次ダイジェスト集計用
 ```
 
 ### 7.6 Tool Management Tables のインデックス

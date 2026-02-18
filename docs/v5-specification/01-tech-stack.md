@@ -28,6 +28,7 @@
 | コンテナ化 | Docker + docker-compose | コンテナ化基盤 | 段階的導入（Phase 1からPostgreSQLを開始） |
 | 環境分離 | docker-compose.dev.yml / docker-compose.prod.yml | 開発/本番環境の分離 | 設定・シークレット・ポートを環境別に管理 |
 | GCP Project | `ai-influencer` | GCE, Cloud SQL, Cloud API等 | 新規専用プロジェクト |
+| コネクションプール | pgBouncer | Dashboard + MCP Serverの接続共有 | Phase 5で導入 |
 
 ## AIエージェント層
 
@@ -37,7 +38,7 @@
 | LLM (戦略・分析) | Claude Opus 4.6 | via Anthropic API | 戦略エージェント・アナリストの高度な推論 |
 | LLM (計画・実行) | Claude Sonnet 4.5 | via Anthropic API | プランナー・リサーチャー・ワーカーのコスト効率実行 |
 | ツールスペシャリスト | Claude Sonnet 4.5 | via Anthropic API | AIツール特性の学習・最適ツール選択の推奨 |
-| AI-DB接続 | MCP Server (自作) | Node.js | エージェントがPostgreSQLにアクセスするインターフェース (99ツール) |
+| AI-DB接続 | MCP Server (自作) | Node.js | エージェントがPostgreSQLにアクセスするインターフェース (102ツール) |
 | MCP Adapters | langchain-mcp-adapters | npm | LangGraphからMCPサーバーを呼び出すアダプター |
 
 ### フレームワーク選定の比較結果
@@ -130,7 +131,9 @@ X投稿などのテキストコンテンツ生成。動画制作ワーカー（�
 | フレームワーク | Next.js | React SSR/SSGフレームワーク |
 | UIライブラリ | Shadcn/ui | コンポーネントライブラリ |
 | グラフ描画 | Recharts or Tremor | KPI推移・アルゴリズム精度のグラフ |
+| 認証 | NextAuth.js + Google OAuth | ダッシュボード認証・セッション管理 |
 | DB接続 | Prisma or Drizzle ORM | PostgreSQLへの型安全クエリ |
+| マークダウンエディタ | Monaco Editor or MDXEditor | プロンプト編集UI (6.6) |
 
 ## 投稿・計測プラットフォームAPI
 

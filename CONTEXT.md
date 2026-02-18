@@ -1561,6 +1561,43 @@ node scripts/generate-digest.js --force               # 既存ファイル上書
 
 **変更ファイル**: 4ファイル (+92/-76行)
 
+### 2026-02-18: v5.0仕様書セクション6レビュー + 全仕様書整合性修正 (28+18件)
+
+**セクション6 (ダッシュボード層) レビュー**:
+- 11サブセクション (6.1〜6.11) を通読・解説
+- 監視系: パフォーマンス概要、エージェント活動ログ、コンテンツ成績、学習進捗
+- 介入系: 人間→エージェント指示、プロンプト編集、承認キュー、受信トレイ
+
+**クロスファイル検証 (Agent Team: 3エージェント)**:
+- schema-checker: Section 6 vs 03-database-schema.md
+- agent-checker: Section 6 vs 04-agent-design.md
+- completeness-checker: Section 6 vs 01/06/09 + 仕様完全性
+- **結果**: 28件 (7 CRITICAL / 5 HIGH / 10 MEDIUM / 6 LOW)
+
+**設計判断**:
+- プロンプト保存: DB管理 (`agent_prompt_versions`テーブル) に統一。ファイルシステム `prompts/*.md` + git方式を廃止
+- self_scoreスケール: 1-10 INTEGER に統一 (1-5 decimal混在を解消)
+- MCPツール数: 99→102 (89 MCP + 13 Dashboard REST API, プロンプト管理3ツール追加)
+
+**修正ラウンド1 (Agent Team: 4修正 + 1検証)**:
+1. `02-architecture.md` Section 6: agent_logs→agent_thought_logs (5箇所), プロンプトDB化, self_score 1-10統一 (8箇所), message_type 6種, 全UI mockupに6エージェント追加, その他8件
+2. `03-database-schema.md`: target_agents列追加, agent_response enum追加, message_type 6種, data_curator追加, idx_communications_created_at追加
+3. `04-agent-design.md`: Section 8プロンプトDB管理書き直し, 3新ツール追加, 通信フロー図6エージェント化, tool count 99→102
+4. `01-tech-stack.md`: Monaco Editor/MDXEditor, pgBouncer, NextAuth.js追加, tool count更新
+5. `06-development-roadmap.md`: 6.8/6.9スケジュール追加, 認証詳細化, REQUIRE_HUMAN_APPROVAL, React Query追加
+6. `09-risks-and-bottlenecks.md`: Phase番号修正, ダッシュボードリスク4件追加, tool count更新
+
+**クロスチェック結果**: 26/28 PASS, 2 FAIL, 1 PARTIAL + 新規7件 (N1-N7)
+
+**修正ラウンド2 (3エージェント)**:
+- `02-architecture.md` Section 2/7: agent_logs残存修正, settings除去, self_score decimal→integer, tool count
+- `04-agent-design.md`: prompts/*.md参照→DB参照 18箇所修正
+- `01-tech-stack.md`, `README.md`, `09-risks-and-bottlenecks.md`: tool count 99→102
+
+**未対応 (次回スコープ)**: N7 — Section 2のテーブル名 (experiments→hypotheses, insights→learnings等) は Section 7以降レビュー時に対応
+
+**変更ファイル**: 7ファイル (+273/-221行)
+
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID
 - `.gsheets_token.json` - OAuth token for Sheets/Drive API

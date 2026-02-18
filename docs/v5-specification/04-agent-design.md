@@ -4,7 +4,7 @@
 >
 > **エージェント総数**: 社長1 + 専門職4〜5 + 部長N + ワーカープール = 可変
 >
-> **MCPツール数**: 99ツール (89 MCPツール + 10 Dashboard REST API, 12カテゴリ)
+> **MCPツール数**: 102ツール (89 MCPツール + 13 Dashboard REST API, 12カテゴリ)
 >
 > **LangGraphグラフ数**: 4グラフ (戦略サイクル / 制作パイプライン / 投稿スケジューラー / 計測ジョブ)
 >
@@ -27,7 +27,7 @@
 - [3. エージェント通信パターン](#3-エージェント通信パターン)
   - [3.1 上位層 (社長・部長・専門職): LLM対話](#31-上位層-社長部長専門職-llm対話)
   - [3.2 下位層 (部長→ワーカー): DBタスクキュー](#32-下位層-部長ワーカー-dbタスクキュー)
-- [4. MCP Server ツール一覧 (99ツール)](#4-mcp-server-ツール一覧-99ツール)
+- [4. MCP Server ツール一覧 (102ツール)](#4-mcp-server-ツール一覧-102ツール)
   - [4.1 戦略エージェント用 (10ツール)](#41-戦略エージェント用-10ツール)
   - [4.2 リサーチャー用 (12ツール)](#42-リサーチャー用-12ツール)
   - [4.3 アナリスト用 (14ツール)](#43-アナリスト用-14ツール)
@@ -36,7 +36,7 @@
   - [4.6 制作ワーカー用 (12ツール)](#46-制作ワーカー用-12ツール)
   - [4.7 投稿ワーカー用 (6ツール)](#47-投稿ワーカー用-6ツール)
   - [4.8 計測ワーカー用 (7ツール)](#48-計測ワーカー用-7ツール)
-  - [4.9 ダッシュボード用 (7ツール)](#49-ダッシュボード用-7ツール)
+  - [4.9 ダッシュボード用 (10ツール)](#49-ダッシュボード用-10ツール)
   - [4.10 データキュレーター用 (6ツール)](#410-データキュレーター用-6ツール)
   - [4.11 ダッシュボード キュレーション用 (3ツール)](#411-ダッシュボード-キュレーション用-3ツール)
   - [4.12 エージェント自己学習・コミュニケーション用 (8ツール)](#412-エージェント自己学習コミュニケーション用-8ツール)
@@ -55,13 +55,13 @@
   - [7.1 全体フロー図](#71-全体フロー図)
   - [7.2 仮説駆動サイクルのタイムライン](#72-仮説駆動サイクルのタイムライン)
   - [7.3 データテーブルの遷移サマリー](#73-データテーブルの遷移サマリー)
-- [8. プロンプト外部ファイル管理](#8-プロンプト外部ファイル管理)
+- [8. プロンプトDB管理](#8-プロンプトdb管理)
   - [8.1 背景と目的](#81-背景と目的)
-  - [8.2 ファイル構成](#82-ファイル構成)
-  - [8.3 プロンプトファイルの構造](#83-プロンプトファイルの構造)
-  - [8.4 具体例: strategist.md (抜粋)](#84-具体例-strategistmd-抜粋)
+  - [8.2 プロンプトの論理構成](#82-プロンプトの論理構成)
+  - [8.3 プロンプトの構造](#83-プロンプトの構造)
+  - [8.4 具体例: strategist (抜粋)](#84-具体例-strategist-抜粋)
   - [8.5 LangGraphでの読み込み](#85-langgraphでの読み込み)
-  - [8.6 バージョン管理とレビュー](#86-バージョン管理とレビュー)
+  - [8.6 バージョン管理とロールバック](#86-バージョン管理とロールバック)
 - [9. 人間によるエージェントチューニング](#9-人間によるエージェントチューニング)
   - [9.1 なぜチューニングが不可欠なのか](#91-なぜチューニングが不可欠なのか)
   - [9.2 チューニングワークフロー](#92-チューニングワークフロー)
@@ -259,12 +259,12 @@ v5.0のエージェントは **4層階層型** で構成される。上位層が
 | **入力** | コンテンツ要件（ニッチ、キャラクター特性、目標品質）、ツール経験データベース、外部情報（X投稿、公式ドキュメント、プレスリリース） |
 | **出力** | 制作レシピ（使用ツール組み合わせ + パラメータ推奨 + 注意点）、ツール知識更新 |
 | **System Prompt概要** | 「あなたはAI動画/音声/画像生成ツールの専門家です。各ツールの特性・制約・得意分野を熟知しています。コンテンツ要件に基づき最適なツール組み合わせ（制作レシピ）を提案してください。」 |
-| **プロンプトファイル** | `prompts/tool-specialist.md` — 人間が経験則をチューニング可能 |
+| **プロンプト管理** | `agent_prompt_versions` テーブル (DB管理) — 人間がダッシュボードから経験則をチューニング可能 |
 
 **Sonnet 4.5を使用する理由**:
 - ツール知識の検索・照合は推論よりも知識参照が主体。Opusレベルの推論は不要
 - 制作計画時に毎回呼ばれるため、コスト効率が重要
-- 知識ベースは外部MDファイルとDBで管理するため、LLM自体の能力よりコンテキスト活用が重要
+- 知識ベースはDB (agent_prompt_versions + tool_experiences) で管理するため、LLM自体の能力よりコンテキスト活用が重要
 
 **具体的な責務**:
 
@@ -320,12 +320,12 @@ v5.0のエージェントは **4層階層型** で構成される。上位層が
 | **入力** | リサーチャーが収集した市場データ (トレンド、競合投稿、参考コンテンツ)、人間がダッシュボードから提供する参考動画・参考投稿、アナリストのスコア分析に基づく既存コンポーネント改良指示 |
 | **出力** | `components` テーブルに構造化データとして保存 (type=scenario/motion/audio/image)、品質スコア初期値設定 |
 | **System Prompt概要** | 「あなたはデータキュレーションの専門家です。生の市場データや参考コンテンツを分析し、制作パイプラインで使用できる構造化されたコンポーネント (シナリオ、モーション参照、音声設定、画像素材) に変換してください。既存コンポーネントとの重複を避け、品質スコアの初期値を適切に設定してください。」 |
-| **プロンプトファイル** | `prompts/data-curator.md` — 人間がキュレーション基準をチューニング可能 |
+| **プロンプト管理** | `agent_prompt_versions` テーブル (DB管理) — 人間がダッシュボードからキュレーション基準をチューニング可能 |
 
 **Sonnet 4.5を使用する理由**:
 - データ処理・分類がメインであり、高度な推論は不要
 - 連続実行のため、コスト効率が重要
-- 構造化のルールは外部プロンプトファイルで制御できるため、LLM自体の能力よりコンテキスト活用が重要
+- 構造化のルールはDB管理のプロンプトで制御できるため、LLM自体の能力よりコンテキスト活用が重要
 
 **具体的な責務**:
 
@@ -674,7 +674,7 @@ WHERE id = $1;
 COMMIT;
 ```
 
-## 4. MCP Server ツール一覧 (99ツール)
+## 4. MCP Server ツール一覧 (102ツール)
 
 全エージェントはMCP Server経由でPostgreSQLにアクセスする。ツールはエージェントの役割ごとにグループ化されており、各エージェントのSystem Promptで使用可能なツール群を制限する。
 
@@ -689,7 +689,7 @@ COMMIT;
 | 3 | `get_top_learnings` | `{ limit: 10, min_confidence: 0.7 }` | `[{ insight, confidence, evidence_count, category }]` | 最新の高信頼知見一覧 |
 | 4 | `get_active_hypotheses` | `{ verdict: "pending" }` | `[{ id, statement, category, predicted_kpis, evidence_count }]` | 実行中/検証待ち仮説一覧 |
 | 5 | `get_algorithm_performance` | `{ period: "weekly", limit: 12 }` | `[{ measured_at, hypothesis_accuracy, prediction_error, improvement_rate }]` | アルゴリズム精度推移 |
-| 6 | `get_pending_directives` | `{}` | `[{ id, directive_type, content, priority, created_at }]` | 人間からの未処理指示 |
+| 6 | `get_pending_directives` | `{}` | `[{ id, directive_type, content, priority, created_at }]` | 人間からの未処理指示 (社長専用 — 他エージェントはget_human_responsesを使用) |
 | 7 | `create_cycle` | `{ cycle_number }` | `{ id, cycle_number, status }` | 新サイクル開始 |
 | 8 | `set_cycle_plan` | `{ cycle_id, summary: {...} }` | `{ success }` | サイクルの方針設定 |
 | 9 | `allocate_resources` | `{ cycle_id, allocations: [{ cluster, content_count, budget }] }` | `{ success }` | クラスター間リソース配分 |
@@ -811,7 +811,7 @@ AIツール知識の管理・検索・制作レシピ設計のためのツール
 | 6 | `collect_account_metrics` | `{ account_id }` | `{ follower_count, follower_delta }` | アカウント全体メトリクス |
 | 7 | `report_measurement_complete` | `{ task_id, publication_id, metrics_data }` | `{ success }` | 計測完了報告 |
 
-### 4.9 ダッシュボード用 (7ツール)
+### 4.9 ダッシュボード用 (10ツール)
 
 人間がダッシュボードから操作する際に使用するツール群。ダッシュボードはLLMではないため、これらはREST API (Next.js API Routes) として実装し、内部でMCPツールと同等のロジックを呼び出す。
 
@@ -819,11 +819,14 @@ AIツール知識の管理・検索・制作レシピ設計のためのツール
 |---|---------|------|--------|------|
 | 1 | `get_dashboard_summary` | `{}` | `{ kpi, algorithm_accuracy, active_cycles, pending_tasks }` | ダッシュボード用サマリー |
 | 2 | `update_system_config` | `{ key, value }` | `{ success }` | 設定変更 (計測タイミング等) |
-| 3 | `submit_human_directive` | `{ directive_type, content, target_accounts?, priority }` | `{ id }` | 人間介入の送信 |
+| 3 | `submit_human_directive` | `{ directive_type, content, target_accounts?, target_agents?, priority }` | `{ id }` | 人間介入の送信。target_agents — 対象エージェント種別の配列 (例: ['analyst']). NULLで全体ブロードキャスト |
 | 4 | `get_pending_approvals` | `{}` | `[{ content_id, hypothesis, plan_summary, cost_estimate, created_at }]` | 承認待ちコンテンツ計画一覧 |
 | 5 | `approve_or_reject_plan` | `{ content_id, decision: "approve" \| "reject", feedback?, rejection_category?: "plan_revision" \| "data_insufficient" \| "hypothesis_weak" }` | `{ success }` | コンテンツ計画の人間承認/差戻 (カテゴリ付き) |
 | 6 | `submit_learning_guidance` | `{ target_agent_type, guidance, category }` | `{ id }` | 学習方法の指導送信 |
 | 7 | `get_learning_directives` | `{ agent_type }` | `[{ guidance, category, created_at }]` | 学習方法指導の取得 |
+| 8 | `update_agent_prompt` | `{ agent_type, prompt_content, change_reason }` | `{ version_id }` | agent_prompt_versionsに新バージョンを保存 |
+| 9 | `rollback_agent_prompt` | `{ agent_type, version }` | `{ success }` | 指定バージョンをactive化 |
+| 10 | `update_prompt_suggestion_status` | `{ suggestion_id, status }` | `{ success }` | prompt_suggestionsの状態更新 (accepted/rejected/on_hold) |
 
 ### 4.10 データキュレーター用 (6ツール)
 
@@ -2316,43 +2319,41 @@ status='planned'                        posted_at記録      status='measured'  
 | 10 | アナリスト | `learnings`, `algorithm_performance` | INSERT or UPDATE, INSERT |
 | 11 | 各エージェント + 社長 | `agent_reflections`, `agent_individual_learnings` → Step 1に戻る | INSERT (各エージェントの振り返り・個別学習) |
 
-## 8. プロンプト外部ファイル管理
+## 8. プロンプトDB管理
 
 ### 8.1 背景と目的
 
-セクション1の各エージェント定義で「System Prompt概要」として一行サマリーを示したが、実際のSystem Promptは数百行に及ぶ詳細な指示ドキュメントとなる。v5.0ではこのSystem Promptを **外部Markdownファイル** として管理し、以下のメリットを得る:
+セクション1の各エージェント定義で「System Prompt概要」として一行サマリーを示したが、実際のSystem Promptは数百行に及ぶ詳細な指示ドキュメントとなる。v5.0ではこのSystem Promptを **`agent_prompt_versions` テーブル** で管理し、以下のメリットを得る:
 
-| 課題 | 外部ファイル管理による解決 |
+| 課題 | DB管理による解決 |
 |------|------------------------|
-| コード内にプロンプトが埋め込まれると変更にデプロイが必要 | ファイル変更のみで即時反映 (次サイクルから) |
-| プロンプトの変更履歴が追えない | gitで全変更をバージョン管理 |
-| 非エンジニアがプロンプトを編集できない | Markdownなので誰でも編集可能 |
-| エージェントの行動変更にコードレビューが必要 | プロンプト変更はコードとは独立してレビュー可能 |
-| A/Bテストが困難 | ブランチ分岐でプロンプトのバリエーション管理 |
+| コード内にプロンプトが埋め込まれると変更にデプロイが必要 | DBレコード更新のみで即時反映 (次サイクルから) |
+| プロンプトの変更履歴が追えない | DBの行バージョンで全変更を管理 (`changed_by`, `change_reason` カラム) |
+| 非エンジニアがプロンプトを編集できない | ダッシュボードUIから誰でも編集可能 |
+| エージェントの行動変更にコードレビューが必要 | プロンプト変更はコードとは独立してダッシュボードから管理 |
+| A/Bテストが困難 | DBの `active` フラグでバージョン切り替え。ロールバックも容易 |
 
-### 8.2 ファイル構成
+### 8.2 プロンプトの論理構成
+
+`agent_prompt_versions` テーブルに以下のエージェント種別ごとのプロンプトが保存される:
 
 ```
-prompts/
-├── strategist.md          # 社長 (戦略エージェント) のSystem Prompt
-├── researcher.md          # リサーチャーのSystem Prompt
-├── analyst.md             # アナリストのSystem Prompt
-├── tool-specialist.md     # ツールスペシャリストのSystem Prompt (人間が経験則をチューニング)
-├── planner.md             # プランナーのSystem Prompt (ベーステンプレート)
-├── planner-beauty.md      # beauty ニッチ用プランナーの追加指示 (オプション)
-├── planner-tech.md        # tech ニッチ用プランナーの追加指示 (オプション)
-└── shared/
-    ├── principles.md      # 全エージェント共通の行動原則
-    └── domain-knowledge/
-        ├── platform-rules.md   # プラットフォーム別ルール・制約
-        └── content-guidelines.md  # コンテンツ制作ガイドライン
+agent_type 一覧:
+├── strategist          # 社長 (戦略エージェント) のSystem Prompt
+├── researcher          # リサーチャーのSystem Prompt
+├── analyst             # アナリストのSystem Prompt
+├── tool_specialist     # ツールスペシャリストのSystem Prompt (人間が経験則をチューニング)
+├── planner             # プランナーのSystem Prompt (ベーステンプレート)
+├── planner-beauty      # beauty ニッチ用プランナーの追加指示 (オプション)
+├── planner-tech        # tech ニッチ用プランナーの追加指示 (オプション)
+└── shared-principles   # 全エージェント共通の行動原則
 ```
 
-**ワーカーエージェント (Layer 4) にはプロンプトファイルを持たない**。ワーカーはLLMではなくコードで実装されるため (セクション1.6参照)、行動はコードロジックで決定される。
+**ワーカーエージェント (Layer 4) にはプロンプトを持たない**。ワーカーはLLMではなくコードで実装されるため (セクション1.6参照)、行動はコードロジックで決定される。
 
-### 8.3 プロンプトファイルの構造
+### 8.3 プロンプトの構造
 
-各プロンプトファイルは以下の5セクションで構成される。
+各プロンプト (`agent_prompt_versions.prompt_text`) は以下の5セクションで構成される。
 
 ```markdown
 # [エージェント名] System Prompt
@@ -2392,7 +2393,7 @@ prompts/
 - タイミング制約: [制約]
 ```
 
-### 8.4 具体例: strategist.md (抜粋)
+### 8.4 具体例: strategist (抜粋)
 
 ```markdown
 # 戦略エージェント (社長) System Prompt
@@ -2441,78 +2442,75 @@ KPIを俯瞰し、ポートフォリオレベルの意思決定を行います�
 
 ### 8.5 LangGraphでの読み込み
 
-プロンプトファイルはLangGraphのグラフ初期化時に読み込まれ、各エージェントノードのSystem Promptとして設定される。
+プロンプトはLangGraphのグラフ初期化時にMCPツール経由でDBから読み込まれ、各エージェントノードのSystem Promptとして設定される。
 
 ```typescript
-// prompts/loader.ts — プロンプトファイルの読み込み
-import { readFileSync } from 'fs';
-import { join } from 'path';
-
-const PROMPTS_DIR = join(__dirname, '..', 'prompts');
+// prompts/loader.ts — プロンプトのDB読み込み
 
 interface AgentPrompt {
-  role: string;           // prompts/{role}.md
-  shared: string;         // prompts/shared/principles.md
-  nicheOverride?: string; // prompts/planner-{niche}.md (プランナーのみ)
+  role: string;           // agent_type (例: 'strategist')
+  nicheOverride?: string; // プランナーの場合のニッチ名 (例: 'beauty')
 }
 
-export function loadPrompt(agent: AgentPrompt): string {
-  // 共通原則を読み込み
-  const shared = readFileSync(
-    join(PROMPTS_DIR, 'shared', 'principles.md'), 'utf-8'
-  );
+export async function loadPrompt(agent: AgentPrompt): Promise<string> {
+  // 共通原則を読み込み (agent_type = 'shared-principles', active = true)
+  const shared = await mcpClient.call('get_active_prompt', {
+    agent_type: 'shared-principles'
+  });
 
-  // エージェント固有のプロンプトを読み込み
-  const agentPrompt = readFileSync(
-    join(PROMPTS_DIR, `${agent.role}.md`), 'utf-8'
-  );
+  // エージェント固有のプロンプトを読み込み (active = true のバージョン)
+  const agentPrompt = await mcpClient.call('get_active_prompt', {
+    agent_type: agent.role
+  });
 
   // プランナーの場合、ニッチ別追加指示を結合
   let nicheOverride = '';
   if (agent.nicheOverride) {
     try {
-      nicheOverride = readFileSync(
-        join(PROMPTS_DIR, `planner-${agent.nicheOverride}.md`), 'utf-8'
-      );
+      const override = await mcpClient.call('get_active_prompt', {
+        agent_type: `planner-${agent.nicheOverride}`
+      });
+      nicheOverride = override.prompt_content;
     } catch {
-      // ニッチ別ファイルが存在しなければスキップ
+      // ニッチ別プロンプトが存在しなければスキップ
     }
   }
 
-  return [shared, agentPrompt, nicheOverride].filter(Boolean).join('\n\n---\n\n');
+  return [shared.prompt_content, agentPrompt.prompt_content, nicheOverride]
+    .filter(Boolean).join('\n\n---\n\n');
 }
 
 // 使用例: 戦略サイクルグラフでの利用
-// const strategistPrompt = loadPrompt({ role: 'strategist', shared: 'principles' });
-// const researcherPrompt = loadPrompt({ role: 'researcher', shared: 'principles' });
-// const plannerPrompt = loadPrompt({
-//   role: 'planner', shared: 'principles', nicheOverride: 'beauty'
+// const strategistPrompt = await loadPrompt({ role: 'strategist' });
+// const researcherPrompt = await loadPrompt({ role: 'researcher' });
+// const plannerPrompt = await loadPrompt({
+//   role: 'planner', nicheOverride: 'beauty'
 // });
 ```
 
-**重要**: プロンプトファイルはグラフ初期化時 (= サイクル開始時) に読み込まれる。サイクル途中でファイルを編集しても、その変更は **次のサイクルから** 反映される。これにより、サイクル内の一貫性が保たれる。
+**重要**: プロンプトはグラフ初期化時 (= サイクル開始時) にDBから読み込まれる。サイクル途中でダッシュボードからプロンプトを編集しても、その変更は **次のサイクルから** 反映される。これにより、サイクル内の一貫性が保たれる。
 
-### 8.6 バージョン管理とレビュー
+### 8.6 バージョン管理とロールバック
 
-プロンプトファイルはリポジトリに含まれ、gitで管理される。
+プロンプトは `agent_prompt_versions` テーブルでバージョン管理される。`active = true` のレコードが現在有効なバージョンとなる。
 
 ```
 変更フロー:
-  1. プロンプトファイルを編集
-  2. git diff で変更内容を確認
-  3. git commit -m "prompt: リサーチャーに季節性分析の指示を追加"
-  4. (必要に応じて) Pull Requestでレビュー
-  5. マージ → 次サイクルから反映
+  1. ダッシュボードのプロンプト編集UIで内容を編集
+  2. 差分プレビューでBefore/Afterを確認
+  3. 保存 → agent_prompt_versionsに新行INSERT (active=true)
+     → 旧バージョンのactive=falseに更新
+  4. 次サイクルから反映
+
+ロールバック:
+  1. ダッシュボードの変更履歴から対象バージョンを選択
+  2. 「このバージョンに戻す」を実行
+     → 対象バージョンのactive=trueに更新
+     → 現在バージョンのactive=falseに更新
+  3. 次サイクルから反映
 ```
 
-**コミットプレフィックス規約**: プロンプトファイルの変更には `prompt:` プレフィックスを使用し、コード変更と明確に区別する。
-
-```
-prompt: 社長の判断基準にエンゲージメント率の重み付けを追加
-prompt: リサーチャーに季節性トレンドの調査指示を追加
-prompt: プランナー共通に投稿間隔の最低時間制約を追加
-prompt: beauty向けプランナーにBefore/Afterフォーマット優先指示
-```
+**変更追跡カラム**: 各バージョンには `changed_by` (変更者)、`change_reason` (変更理由)、`performance_snapshot` (変更時点のパフォーマンス指標) が記録される。これにより、どの変更がパフォーマンスに影響したかを後から分析可能。
 
 ## 9. 人間によるエージェントチューニング
 
@@ -2525,7 +2523,7 @@ LLMエージェントの行動は、大きく3つの要素で決まる:
                      (固定)           (チューニング対象) (自動収集)
 ```
 
-LLMのパラメータ自体はファインチューニングしない。つまり、**System Prompt (= プロンプトファイル) がエージェントの行動を形作る唯一のチューナブルな要素** である。入力データは自動収集されるが、データの解釈方法・判断基準・優先順位はすべてプロンプトで定義される。
+LLMのパラメータ自体はファインチューニングしない。つまり、**System Prompt (= `agent_prompt_versions` テーブルで管理) がエージェントの行動を形作る唯一のチューナブルな要素** である。入力データは自動収集されるが、データの解釈方法・判断基準・優先順位はすべてプロンプトで定義される。
 
 特に初期フェーズ (Phase 2〜3) では:
 
@@ -2538,7 +2536,7 @@ LLMのパラメータ自体はファインチューニングしない。つま�
 
 ### 9.2 チューニングワークフロー
 
-人間がエージェントの行動を観察し、プロンプトファイルを改善する継続的なサイクル。
+人間がエージェントの行動を観察し、プロンプトを改善する継続的なサイクル。
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -2627,7 +2625,7 @@ LLMのパラメータ自体はファインチューニングしない。つま�
 
 ### 9.5 ダッシュボードからのプロンプト編集
 
-プロンプトファイルはgitリポジトリで管理されるが、ダッシュボードからも直接編集できるUIを提供する。
+プロンプトは `agent_prompt_versions` テーブルで管理され、ダッシュボードから直接編集できるUIを提供する。
 
 ```
 ┌────────────────────────────────────────────────────────────┐
@@ -2636,9 +2634,9 @@ LLMのパラメータ自体はファインチューニングしない。つま�
 │                                                            │
 │  エージェント: [▼ リサーチャー ]                             │
 │                                                            │
-│  ファイル: prompts/researcher.md                            │
+│  現在のバージョン: v12 (active)                              │
 │  最終更新: 2026-02-15 14:30 by pochi                       │
-│  git hash: a3f2c1e                                         │
+│  変更理由: 調査範囲を注力ニッチに限定                        │
 │                                                            │
 │  ┌──────────────────────────────────────────────────────┐  │
 │  │ # リサーチャー System Prompt                          │  │
@@ -2653,38 +2651,39 @@ LLMのパラメータ自体はファインチューニングしない。つま�
 │  │ ...                                                  │  │
 │  └──────────────────────────────────────────────────────┘  │
 │                                                            │
-│  [差分プレビュー]  [保存 (git commit)]  [キャンセル]          │
+│  [差分プレビュー]  [保存 (新バージョン)]  [キャンセル]        │
 │                                                            │
 │  ─────────────────────────────────────────────────────     │
 │  変更履歴 (最近5件):                                        │
-│  a3f2c1e  prompt: 調査範囲を注力ニッチに限定     02-15 14:30 │
-│  b7d4e9f  prompt: 季節性トレンド調査を追加        02-12 09:15 │
-│  c1a8f3d  prompt: 初期プロンプト作成              02-10 11:00 │
+│  v12  調査範囲を注力ニッチに限定         02-15 14:30  pochi  │
+│  v11  季節性トレンド調査を追加            02-12 09:15  pochi  │
+│  v10  初期プロンプト作成                  02-10 11:00  pochi  │
+│                     [v11に戻す] [v10に戻す]                  │
 │                                                            │
 └────────────────────────────────────────────────────────────┘
 ```
 
-**実装方式**: ダッシュボード (Next.js) からgitリポジトリの `prompts/` ディレクトリを直接編集し、自動コミットする。差分プレビュー機能でBefore/Afterを確認してからコミットできる。
+**実装方式**: ダッシュボードから `agent_prompt_versions` テーブルに新バージョンを保存する。保存時に新行を `active=true` でINSERTし、旧バージョンを `active=false` に更新。差分プレビュー機能でBefore/Afterを確認してから保存できる。ロールバック時は対象バージョンの `active` フラグを切り替える。
 
 ### 9.6 human_directives (一時的指示) とプロンプトチューニング (永続的変更) の使い分け
 
 セクション4.9で定義した `submit_human_directive` ツールと、本セクションのプロンプトチューニングは **目的が異なる**。混同しないよう明確に区別する。
 
-| 観点 | human_directives (DB) | プロンプトチューニング (ファイル) |
+| 観点 | human_directives (DB) | プロンプトチューニング (DB) |
 |------|----------------------|-------------------------------|
 | **性質** | 一時的な戦術指示 | 永続的な行動変更 |
-| **保存先** | PostgreSQL `human_directives` テーブル | git管理の `prompts/*.md` ファイル |
-| **有効期間** | 1サイクル (処理されたら `applied` に遷移) | 次の変更まで恒久的に有効 |
+| **保存先** | PostgreSQL `human_directives` テーブル | PostgreSQL `agent_prompt_versions` テーブル |
+| **有効期間** | 1サイクル (処理されたら `applied` に遷移) | 次の変更まで恒久的に有効 (`active=true` のバージョン) |
 | **対象** | 特定アカウント/ニッチへの指示 | エージェント全体の行動パターン |
 | **例** | 「今週はbeautyニッチに集中してtechは停止」 | 「エンゲージメント率をview数より常に優先して判断する」 |
 | **例** | 「このURLの動画を参考にして」 | 「仮説立案時は必ず過去の類似仮説3件を参照する」 |
 | **例** | 「ACC_0013のコンテンツ量を倍にして」 | 「データ不足の場合は必ず 'inconclusive' と判定する」 |
-| **操作者** | ダッシュボードの指示フォーム | ダッシュボードのプロンプト編集UI or エディタ + git |
+| **操作者** | ダッシュボードの指示フォーム | ダッシュボードのプロンプト編集UI |
 | **反映タイミング** | 次のサイクル開始時 (社長が読み取り) | 次のグラフ初期化時 (セクション8.5参照) |
 
 **判断基準**: 「この指示は今後も常に適用すべきか?」と問う。
 
-- **Yes** → プロンプトファイルに追記する (永続的な行動変更)
+- **Yes** → プロンプトに追記する (agent_prompt_versionsで永続的な行動変更)
 - **No** → human_directivesとして投入する (一時的な指示)
 
 ```
@@ -2715,6 +2714,7 @@ LLMのパラメータ自体はファインチューニングしない。つま�
 | `reference_content` | 参考コンテンツの指定 | 社長がサイクル開始時に読み取り |
 | `instruction` | 一般的な指示 | 社長がサイクル開始時に読み取り |
 | `learning_guidance` | 学習方法の指導 | 各エージェントがサイクル開始時に `get_learning_directives` で読み取り |
+| `agent_response` | エージェントの相談・報告への返信 | 各エージェントが `get_human_responses` で読み取り |
 
 ## 10. エージェント個別振り返り（セルフリフレクション）
 
@@ -2980,7 +2980,7 @@ CREATE TABLE agent_reflections (
 
     -- 制約
     CONSTRAINT chk_agent_reflections_type
-        CHECK (agent_type IN ('strategist', 'researcher', 'analyst', 'tool_specialist', 'planner')),
+        CHECK (agent_type IN ('strategist', 'researcher', 'analyst', 'tool_specialist', 'data_curator', 'planner')),
     CONSTRAINT chk_agent_reflections_score
         CHECK (self_score >= 1 AND self_score <= 10)
 );
@@ -3314,7 +3314,7 @@ CREATE TABLE agent_individual_learnings (
 
     -- 制約
     CONSTRAINT chk_individual_learnings_type
-        CHECK (agent_type IN ('strategist', 'researcher', 'analyst', 'tool_specialist', 'planner'))
+        CHECK (agent_type IN ('strategist', 'researcher', 'analyst', 'tool_specialist', 'data_curator', 'planner'))
 );
 
 COMMENT ON TABLE agent_individual_learnings IS 'エージェント個別の学習メモリ。個人ノートブック相当';
@@ -3404,6 +3404,8 @@ COMMENT ON COLUMN agent_individual_learnings.last_applied_at IS '長期未使用
   人間 ←── agent_communications ── 社長
        ←── agent_communications ── リサーチャー
        ←── agent_communications ── アナリスト
+       ←── agent_communications ── ツールスペシャリスト
+       ←── agent_communications ── データキュレーター
        ←── agent_communications ── プランナー
                                    │
                                    ▼
@@ -3553,7 +3555,7 @@ CREATE TABLE agent_communications (
 
     -- 送信者情報
     agent_type      VARCHAR(20) NOT NULL,
-        -- strategist / researcher / analyst / planner
+        -- strategist / researcher / analyst / tool_specialist / data_curator / planner
     agent_instance  VARCHAR(50),
         -- プランナーの場合はインスタンス名
 
@@ -3563,6 +3565,8 @@ CREATE TABLE agent_communications (
         -- proposal: 提案
         -- question: 質問
         -- status_report: 定期報告
+        -- anomaly_alert: 異常検知アラート
+        -- milestone: マイルストーン達成報告
     content         TEXT NOT NULL,
         -- メッセージ本文 (自然言語)
     priority        VARCHAR(10) NOT NULL DEFAULT 'normal',
@@ -3595,9 +3599,9 @@ CREATE TABLE agent_communications (
 
     -- 制約
     CONSTRAINT chk_agent_comms_type
-        CHECK (agent_type IN ('strategist', 'researcher', 'analyst', 'tool_specialist', 'planner')),
+        CHECK (agent_type IN ('strategist', 'researcher', 'analyst', 'tool_specialist', 'data_curator', 'planner')),
     CONSTRAINT chk_agent_comms_message_type
-        CHECK (message_type IN ('struggle', 'proposal', 'question', 'status_report')),
+        CHECK (message_type IN ('struggle', 'proposal', 'question', 'status_report', 'anomaly_alert', 'milestone')),
     CONSTRAINT chk_agent_comms_priority
         CHECK (priority IN ('low', 'normal', 'high', 'urgent')),
     CONSTRAINT chk_agent_comms_status
@@ -3821,13 +3825,13 @@ function determineMessageType(reflection: AgentReflection): string {
   │                                                                     │
   │  情報源3: 人間による経験則の教育                                      │
   │  ┌───────────────────────────────────────────────────────────┐      │
-  │  │  ・prompts/tool-specialist.md への経験則追記                │      │
+  │  │  ・ダッシュボードから tool_experiences テーブルへ経験則追加   │      │
   │  │    例: 「アジア人の顔はKlingが自然、西洋人はRunwayが自然」  │      │
   │  │    例: 「Fish Audio + Sync Lipsyncは日本語の口パク精度が高い」│     │
-  │  │  ・手動Claude作業で得た知見のMDファイル化                    │      │
+  │  │  ・手動Claude作業で得た知見のDB登録                          │      │
   │  │                                                           │      │
   │  │  頻度: 必要時 (人間判断)                                   │      │
-  │  │  保存先: prompts/tool-specialist.md (git管理)              │      │
+  │  │  保存先: tool_experiences テーブル (DB管理)                 │      │
   │  └───────────────────────────────────────────────────────────┘      │
   │                                                                     │
   └─────────────────────────────────────────────────────────────────────┘
@@ -3888,7 +3892,7 @@ function determineMessageType(reflection: AgentReflection): string {
     ・コンテンツ要件 (キャラクター、ニッチ、プラットフォーム、品質目標)
     ・ツール知識DB (各ツールの得意/不得意/制約)
     ・過去の制作経験 (類似要件での成功実績)
-    ・人間の経験則 (prompts/tool-specialist.md)
+    ・人間の経験則 (tool_experiences テーブル)
 
   処理:
     1. 要件からキーファクターを抽出
@@ -3955,7 +3959,7 @@ function determineMessageType(reflection: AgentReflection): string {
   ★★★ = 最適  ★★ = 良好  ★ = 使用可能  - = 該当なし
 ```
 
-このマトリックスは初期値を `prompts/tool-specialist.md` で人間が設定し、制作経験の蓄積に応じて自動的に精度が向上する。
+このマトリックスは初期値を `tool_experiences` テーブルで人間がダッシュボードから設定し、制作経験の蓄積に応じて自動的に精度が向上する。
 
 ### 13.4 `tool_knowledge` テーブル設計
 
@@ -4131,6 +4135,8 @@ thought_logs分析のフロー:
 
 ### 14.5 実装: プロンプト改善チェッカー
 
+推奨プロンプト改善の分析は週次cronジョブとして実行される。Claude Sonnet 4.5を使用して `agent_thought_logs` と `agent_reflections` のパターンを分析し、結果を `prompt_suggestions` テーブルに保存する。ダッシュボードの推奨パネル (02-architecture.md 6.7) はこのテーブルを読み取って表示する。
+
 ```typescript
 interface PromptImprovementAlert {
   agent_type: string;
@@ -4205,9 +4211,9 @@ v5.0のエージェントシステムが完成するまでの間（Phase 2〜3�
 │  知見の整理       カテゴリ分け     プロンプト反映   バージョン記録          │
 │       │               │               │               │                │
 │       ▼               ▼               ▼               ▼                │
-│  MDファイル化     カテゴリ分類     対応エージェントの  agent_prompt_       │
-│  knowledge/      ツール特性/     プロンプトMDに      versionsテーブルに  │
-│  manual-insights/ コンテンツ戦略/  反映             変更を記録          │
+│  知見を構造化     カテゴリ分類     対応するDBテーブル  agent_prompt_       │
+│  して整理        ツール特性/     に反映             versionsテーブルに  │
+│                  コンテンツ戦略/                    変更を記録          │
 │                  プラットフォーム                                        │
 │                  特性/その他                                             │
 │                                                                          │
@@ -4225,30 +4231,11 @@ v5.0のエージェントシステムが完成するまでの間（Phase 2〜3�
 
 ### 15.3 各ステップの詳細
 
-**Step 1: 知見の整理 — MDファイル化**
+**Step 1: 知見の整理 — 構造化**
 
-手動Claude作業で得た知見を `knowledge/manual-insights/` ディレクトリにMarkdownファイルとして整理する。
+手動Claude作業で得た知見を以下のフォーマットに従って構造化する。ダッシュボードの知見登録フォームから直接DBに登録する。
 
-```
-knowledge/
-└── manual-insights/
-    ├── tool-characteristics/
-    │   ├── 2026-02-kling-face-generation.md
-    │   ├── 2026-02-fish-audio-japanese-tts.md
-    │   └── 2026-02-sync-lipsync-accuracy.md
-    ├── content-strategy/
-    │   ├── 2026-02-morning-post-effectiveness.md
-    │   ├── 2026-02-reaction-hook-pattern.md
-    │   └── 2026-02-cta-question-format.md
-    ├── platform-characteristics/
-    │   ├── 2026-02-tiktok-algorithm-update.md
-    │   ├── 2026-02-youtube-shorts-discovery.md
-    │   └── 2026-02-instagram-reels-save-rate.md
-    └── other/
-        └── 2026-02-character-rotation-frequency.md
-```
-
-各MDファイルのフォーマット:
+知見のフォーマット:
 
 ```markdown
 # [知見タイトル]
@@ -4280,14 +4267,14 @@ knowledge/
 
 | カテゴリ | 内容 | 対応エージェント | 反映先 |
 |---------|------|----------------|--------|
-| **ツール特性** | AIツールの得意/不得意、パラメータ設定のコツ | ツールスペシャリスト | `prompts/tool-specialist.md` |
-| **コンテンツ戦略** | 投稿フォーマット、タイミング、仮説パターン | プランナー、社長 | `prompts/planner.md`, `prompts/strategist.md` |
-| **プラットフォーム特性** | アルゴリズム特性、API制約、トレンド傾向 | リサーチャー、アナリスト | `prompts/researcher.md`, `prompts/analyst.md` |
-| **その他** | 上記に該当しない知見 | 関連エージェント | 該当プロンプトファイル |
+| **ツール特性** | AIツールの得意/不得意、パラメータ設定のコツ | ツールスペシャリスト | `tool_experiences` テーブル |
+| **コンテンツ戦略** | 投稿フォーマット、タイミング、仮説パターン | プランナー、社長 | `agent_individual_learnings` テーブル (planner/strategist) |
+| **プラットフォーム特性** | アルゴリズム特性、API制約、トレンド傾向 | リサーチャー、アナリスト | `agent_individual_learnings` テーブル (researcher/analyst) |
+| **その他** | 上記に該当しない知見 | 関連エージェント | `agent_individual_learnings` テーブル (該当エージェント) |
 
-**Step 3: プロンプト反映**
+**Step 3: DB反映**
 
-対応するエージェントのプロンプトMDファイルに知見を反映する。
+対応するDBテーブルに知見を反映する。
 
 ```
 反映の具体例:
@@ -4296,8 +4283,8 @@ knowledge/
   カテゴリ: ツール特性
   対応エージェント: ツールスペシャリスト
 
-  反映先: prompts/tool-specialist.md
-  反映セクション: 「4. ドメイン知識 > ツール別特性」
+  反映先: tool_experiences テーブル
+  反映方法: ダッシュボードまたはMCPツール経由でDB登録
 
   追加内容:
     ### 動画生成ツールのキャラクター適性
@@ -4317,23 +4304,27 @@ CREATE TABLE agent_prompt_versions (
 
     -- プロンプト情報
     agent_type      VARCHAR(30) NOT NULL,
-    prompt_file     VARCHAR(100) NOT NULL,
-        -- 'prompts/tool-specialist.md' etc.
-    git_hash        VARCHAR(40) NOT NULL,
-        -- 変更コミットのgitハッシュ
+    prompt_content  TEXT NOT NULL,
+        -- プロンプト本文 (Markdown)
+    active          BOOLEAN NOT NULL DEFAULT true,
+        -- true = 現在有効なバージョン (agent_typeごとに1つのみ)
 
     -- 変更内容
     change_summary  TEXT NOT NULL,
         -- 変更の概要 (自然言語)
+    change_reason   TEXT,
+        -- 変更理由
     change_section  VARCHAR(50),
         -- 変更されたセクション名 (例: 'Domain Knowledge > ツール別特性')
-    source_insight_file VARCHAR(200),
-        -- 元となった知見ファイル (例: 'knowledge/manual-insights/tool-characteristics/2026-02-kling-face-generation.md')
+    changed_by      VARCHAR(50) NOT NULL DEFAULT 'system',
+        -- 変更者 (ダッシュボードユーザー名 or 'system')
+    source_insight_id INTEGER,
+        -- 元となった知見のID (agent_individual_learnings.id, あれば)
 
     -- 効果測定
-    pre_change_metrics  JSONB,
-        -- 変更前のパフォーマンス指標
-    post_change_metrics JSONB,
+    performance_snapshot JSONB,
+        -- 変更時点のパフォーマンス指標
+    post_change_metrics  JSONB,
         -- 変更後のパフォーマンス指標 (後から更新)
     effectiveness       VARCHAR(20),
         -- 'effective', 'neutral', 'negative', 'pending'
@@ -4343,7 +4334,7 @@ CREATE TABLE agent_prompt_versions (
     measured_at     TIMESTAMPTZ
 );
 
-COMMENT ON TABLE agent_prompt_versions IS 'プロンプトファイルの変更履歴と効果測定記録';
+COMMENT ON TABLE agent_prompt_versions IS 'プロンプトのバージョン管理。active=trueが現在有効なバージョン';
 ```
 
 **Step 5: 効果測定**
@@ -4394,7 +4385,7 @@ COMMENT ON TABLE agent_prompt_versions IS 'プロンプトファイルの変更�
 ```
 Phase 2 (手動Claude運用中):
   ┌─────────────────────────────────────────────────────────────────┐
-  │ 手動作業 → 知見発見 → MDファイル化 → 蓄積                         │
+  │ 手動作業 → 知見発見 → DB登録 → 蓄積                               │
   │                                                                 │
   │ 目標: 50件以上の知見を蓄積してからエージェントシステムに移植       │
   └─────────────────────────────────────────────────────────────────┘
@@ -4402,10 +4393,10 @@ Phase 2 (手動Claude運用中):
 Phase 3 (エージェント開発中):
   ┌─────────────────────────────────────────────────────────────────┐
   │ 蓄積した知見を一括移植:                                          │
-  │   1. ツール特性 → prompts/tool-specialist.md                    │
-  │   2. コンテンツ戦略 → prompts/planner.md, strategist.md        │
-  │   3. プラットフォーム特性 → prompts/researcher.md, analyst.md  │
-  │   4. 高信頼知見 → learningsテーブル (初期データ)                 │
+  │   1. ツール特性 → tool_experiences テーブル                     │
+  │   2. コンテンツ戦略 → agent_individual_learnings (planner等)    │
+  │   3. プラットフォーム特性 → agent_individual_learnings (analyst等)│
+  │   4. System Prompt → agent_prompt_versions テーブル             │
   │                                                                 │
   │ 効果測定: エージェント稼働後3サイクルで効果判定                    │
   └─────────────────────────────────────────────────────────────────┘
