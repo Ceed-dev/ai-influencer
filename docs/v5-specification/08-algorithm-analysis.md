@@ -75,7 +75,7 @@ v5.0の「アルゴリズム精度」を以下の4指標で定義する。
 #### 予測誤差 (Prediction Error)
 
 ```
-予測誤差 = average( |predicted_kpi - actual_kpi| / actual_kpi )
+予測誤差 = average( |predicted_kpis - actual_kpis| / actual_kpis )
                     全confirmed/rejected仮説で計算
 ```
 
@@ -131,21 +131,22 @@ v5.0の「アルゴリズム精度」を以下の4指標で定義する。
 
 | カラム | 型 | 精度指標との関係 |
 |---|---|---|
-| `status` | enum('active','confirmed','rejected','inconclusive') | 的中率の分母・分子 |
-| `predicted_kpi` | jsonb | 予測誤差の計算元 |
-| `actual_kpi` | jsonb | 予測誤差の計算元 |
+| `verdict` | enum('pending','confirmed','rejected','inconclusive') | 的中率の分母・分子 |
+| `predicted_kpis` | jsonb | 予測誤差の計算元 |
+| `actual_kpis` | jsonb | 予測誤差の計算元 |
 | `confidence` | float(0.0〜1.0) | エージェントの事前確信度 |
 | `category` | text | カテゴリ別精度分析 |
-| `created_at` / `confirmed_at` | timestamp | 時系列分析 |
+| `created_at` / `updated_at` | timestamp | 時系列分析 |
 
 `learnings`テーブルの主要カラムと蓄積指標の関係:
 
 | カラム | 型 | 蓄積指標との関係 |
 |---|---|---|
-| `learning_type` | enum('insight','pattern','anti-pattern','rule') | 知見の分類 |
-| `applicability` | text[] | 適用可能なニッチ・プラットフォーム |
-| `confidence_score` | float | 知見の信頼度（再現性） |
-| `usage_count` | integer | 知見が参照された回数 |
+| `category` | enum('content','timing','audience','platform','niche') | 知見の分類 |
+| `applicable_niches` | VARCHAR(50)[] | 適用可能なニッチ |
+| `applicable_platforms` | VARCHAR(20)[] | 適用可能なプラットフォーム |
+| `confidence` | NUMERIC(3,2) | 知見の信頼度（再現性） |
+| `evidence_count` | integer | 知見を裏付けるデータポイント数 |
 | `embedding` | vector(1536) | pgvectorでの類似検索用 |
 
 
@@ -407,9 +408,9 @@ v5.0では、仮説と知見にembeddingベクトル（1536次元）を付与し
 
 ```sql
 -- 新しい仮説のembeddingに最も近い過去の仮説を検索
-SELECT h.description, h.status, h.actual_kpi, h.confidence
+SELECT h.statement, h.verdict, h.actual_kpis, h.confidence
 FROM hypotheses h
-WHERE h.status IN ('confirmed', 'rejected')
+WHERE h.verdict IN ('confirmed', 'rejected')
 ORDER BY h.embedding <=> $new_hypothesis_embedding
 LIMIT 5;
 ```
@@ -439,9 +440,9 @@ LIMIT 5;
 
 ```sql
 -- 特定ニッチのembeddingに近い知見を検索
-SELECT l.content, l.applicability, l.confidence_score, l.usage_count
+SELECT l.insight, l.applicable_niches, l.confidence, l.evidence_count
 FROM learnings l
-WHERE l.confidence_score > 0.5
+WHERE l.confidence > 0.5
 ORDER BY l.embedding <=> $niche_embedding
 LIMIT 10;
 ```
@@ -483,7 +484,7 @@ LIMIT 10;
 | 限界 | 影響 | 緩和策 |
 |---|---|---|
 | embedding品質はLLMに依存 | 類似度計算が不正確になる可能性 | text-embedding-3-large使用、定期的な再embedding |
-| ニッチ間の「見かけの類似」 | 表面的に似ているが本質が異なる知見の誤適用 | confidence_scoreによるフィルタリング、人間レビュー |
+| ニッチ間の「見かけの類似」 | 表面的に似ているが本質が異なる知見の誤適用 | confidenceによるフィルタリング、人間レビュー |
 | ベクトル空間の偏り | 特定ニッチの知見が過剰に参照される | 正規化、多様性スコアの導入 |
 
 
@@ -801,26 +802,31 @@ v5.0の各エージェントは、タスク実行後に**自己反省**を行い
 
 | カラム | 型 | 説明 |
 |---|---|---|
-| `agent_id` | text | エージェントの識別子（e.g., `researcher-01`, `planner-beauty`） |
-| `agent_type` | enum('strategist','researcher','analyst','tool_specialist','data_curator','planner') | エージェント種別 |
-| `period` | date | 集計期間（日次 or サイクル単位） |
-| `accuracy_metric` | float(0.0〜1.0) | 該当期間の精度値 |
-| `self_reflection_count` | integer | 該当期間の自己反省実施回数 |
-| `improvement_actions` | jsonb | 自己反省から生成された改善アクションのリスト |
-| `downstream_impact` | jsonb | 下流エージェントへの波及効果の記録 |
+| `id` | SERIAL | 主キー |
+| `measured_at` | TIMESTAMPTZ | 精度データが記録された日時 |
+| `period` | VARCHAR(10) | 集計期間（CHECK: 'daily', 'weekly', 'monthly'） |
+| `hypothesis_accuracy` | NUMERIC(5,4) | 仮説的中率（0.0000〜1.0000） |
+| `prediction_error` | NUMERIC(8,4) | 予測と実測の平均誤差（RMSE） |
+| `learning_count` | INTEGER | 累計蓄積知見数 |
+| `top_performing_niches` | JSONB | ジャンル別パフォーマンスランキング |
+| `improvement_rate` | NUMERIC(5,4) | 前期比改善率 |
+| `metadata` | JSONB | その他のメタデータ（仮説数、コンテンツ数、アカウント数等） |
 
 集計クエリ例:
 
 ```sql
--- エージェント種別ごとの月次精度推移
+-- 月次精度推移
 SELECT
-  agent_type,
-  date_trunc('month', period) AS month,
-  AVG(accuracy_metric) AS avg_accuracy,
-  COUNT(self_reflection_count) AS total_reflections
+  period,
+  date_trunc('month', measured_at) AS month,
+  AVG(hypothesis_accuracy) AS avg_accuracy,
+  AVG(prediction_error) AS avg_prediction_error,
+  MAX(learning_count) AS total_learnings,
+  AVG(improvement_rate) AS avg_improvement
 FROM algorithm_performance
-GROUP BY agent_type, date_trunc('month', period)
-ORDER BY month, agent_type;
+WHERE period = 'monthly'
+GROUP BY period, date_trunc('month', measured_at)
+ORDER BY month;
 ```
 
 
@@ -878,7 +884,7 @@ ORDER BY month, agent_type;
 | 仮説カテゴリの抽象度が不適切 | カテゴリ別的中率の比較 | カテゴリ再設計 |
 | ニッチ自体が不適切 | ニッチ別成長率の比較 | ニッチピボット |
 | 計測頻度が不足 | データポイント数/仮説を確認 | 計測ワーカーの頻度増加 |
-| 知見の再利用が不十分 | usage_countの分布を確認 | プランナーの知見参照ロジック改善 |
+| 知見の再利用が不十分 | evidence_countの分布を確認（※learningsにusage_countは存在しない。componentsテーブルに存在） | プランナーの知見参照ロジック改善 |
 | プラットフォーム側の変化 | 同一パターンの時系列変化を確認 | アルゴリズム変更の検知・適応 |
 
 **具体的な対策**:
@@ -1156,7 +1162,7 @@ KPI目標の2月50アカウントは、学習のためのデータ生成基盤�
 
 **対策**:
 - 仮説のテストデータと訓練データを分離（20%のアカウントをテスト用に確保）
-- 知見の`confidence_score`が0.8以上のものだけを横展開
+- 知見の`confidence`が0.8以上のものだけを横展開
 - 探索率（全サイクルの10〜20%を「確認済みパターン外」の新規仮説に充当）
 
 

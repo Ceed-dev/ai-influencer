@@ -83,7 +83,7 @@
   - [11.5 個別学習メモリの知見ライフサイクル](#115-個別学習メモリの知見ライフサイクル)
 - [12. エージェント→人間コミュニケーション（相談・報告）](#12-エージェント人間コミュニケーション相談報告)
   - [12.1 設計思想](#121-設計思想)
-  - [12.2 コミュニケーションの4タイプ](#122-コミュニケーションの4タイプ)
+  - [12.2 コミュニケーションの6タイプ](#122-コミュニケーションの6タイプ)
   - [12.3 `agent_communications` テーブル設計](#123-agent_communications-テーブル設計)
   - [12.4 コミュニケーションフローの全体像](#124-コミュニケーションフローの全体像)
   - [12.5 メッセージ送信の判断基準](#125-メッセージ送信の判断基準)
@@ -857,11 +857,11 @@ AIツール知識の管理・検索・制作レシピ設計のためのツール
 
 | # | ツール名 | 引数 | 戻り値 | 用途 |
 |---|---------|------|--------|------|
-| 1 | `save_reflection` | `{ agent_type, cycle_id, self_score, reasoning, went_well, to_improve, next_actions[] }` | `{ id }` | セルフリフレクション結果の保存 |
-| 2 | `get_recent_reflections` | `{ agent_type, limit: 5 }` | `[{ self_score, reasoning, next_actions, created_at }]` | 直近の自己振り返り取得 (次サイクル開始時に参照) |
-| 3 | `save_individual_learning` | `{ agent_type, insight, category, context?, applicable_niches[]? }` | `{ id }` | 個別学習メモリへの知見保存 |
-| 4 | `get_individual_learnings` | `{ agent_type, category?, limit: 20 }` | `[{ insight, category, times_applied, last_applied_at }]` | 自分の個別学習メモリ取得 |
-| 5 | `peek_other_agent_learnings` | `{ target_agent_type, category?, limit: 10 }` | `[{ insight, category, agent_type }]` | 他エージェントの個別学習メモリ参照 |
+| 1 | `save_reflection` | `{ agent_type, cycle_id, task_description, self_score, score_reasoning, what_went_well, what_to_improve, next_actions[], metrics_snapshot? }` | `{ id }` | セルフリフレクション結果の保存 |
+| 2 | `get_recent_reflections` | `{ agent_type, limit: 5 }` | `[{ self_score, score_reasoning, next_actions, created_at }]` | 直近の自己振り返り取得 (次サイクル開始時に参照) |
+| 3 | `save_individual_learning` | `{ agent_type, content, category, context?, confidence? }` | `{ id }` | 個別学習メモリへの知見保存 |
+| 4 | `get_individual_learnings` | `{ agent_type, category?, limit: 20 }` | `[{ content, category, times_applied, last_applied_at }]` | 自分の個別学習メモリ取得 |
+| 5 | `peek_other_agent_learnings` | `{ target_agent_type, category?, limit: 10 }` | `[{ content, category, agent_type }]` | 他エージェントの個別学習メモリ参照 |
 | 6 | `submit_agent_message` | `{ agent_type, message_type, content, priority? }` | `{ id }` | 人間への自発的メッセージ送信 |
 | 7 | `get_human_responses` | `{ agent_type }` | `[{ message_id, response_content, responded_at }]` | 人間からの返信確認 |
 | 8 | `mark_learning_applied` | `{ learning_id }` | `{ success }` | 個別学習メモリの知見を使用した記録 |
@@ -1051,9 +1051,9 @@ interface StrategyCycleState {
 interface AgentReflection {
   agent_type: 'strategist' | 'researcher' | 'analyst' | 'tool_specialist' | 'data_curator' | 'planner';
   self_score: number; // 1-10
-  reasoning: string;
-  went_well: string[];
-  to_improve: string[];
+  score_reasoning: string;
+  what_went_well: string[];
+  what_to_improve: string[];
   next_actions: string[];
 }
 
@@ -2816,11 +2816,11 @@ v5.0の各AIエージェントは「会社の社員」として振る舞う。�
 │ 振り返りの構造化フォーマット                         │
 ├───────────────────────────────────────────────────┤
 │                                                   │
-│  1. 良かった点 (went_well):                        │
+│  1. 良かった点 (what_went_well):                    │
 │     ・具体的に何がうまくいったか                     │
 │     ・どの判断/行動が効果的だったか                  │
 │                                                   │
-│  2. 改善点 (to_improve):                           │
+│  2. 改善点 (what_to_improve):                      │
 │     ・何がうまくいかなかったか                       │
 │     ・どこで判断を誤ったか                          │
 │     ・どの情報が不足していたか                       │
@@ -2901,12 +2901,12 @@ MCPツール呼び出し:
        agent_type: "researcher",
        cycle_id: 42,
        self_score: 6,
-       reasoning: "主要3ソースはカバーしたがTikTokトレンドデータを見逃した",
-       went_well: [
+       score_reasoning: "主要3ソースはカバーしたがTikTokトレンドデータを見逃した",
+       what_went_well: [
          "Google Trendsの glass skin トレンド上昇を24時間以内に検出",
          "競合アカウント5件の分析でリアクション形式Hookの有効性を特定"
        ],
-       to_improve: [
+       what_to_improve: [
          "TikTok CreativeCenterのデータを確認しなかった",
          "beautyニッチに集中しすぎてtechニッチの情報がゼロだった"
        ],
@@ -2940,56 +2940,88 @@ MCPツール呼び出し:
 ```sql
 CREATE TABLE agent_reflections (
     -- 主キー
-    id              SERIAL PRIMARY KEY,
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        -- UUIDで一意に識別
 
     -- エージェント情報
-    agent_type      VARCHAR(20) NOT NULL,
-        -- strategist / researcher / analyst / tool_specialist / data_curator / planner
-    agent_instance  VARCHAR(50),
-        -- プランナーの場合はインスタンス名 (例: 'planner-beauty')
-        -- その他は NULL
+    agent_type      TEXT NOT NULL CHECK (agent_type IN (
+        'strategist', 'researcher', 'analyst', 'planner', 'tool_specialist', 'data_curator'
+    )),
+        -- strategist: 戦略エージェント（サイクル全体の方針決定）
+        -- researcher: リサーチャーエージェント（市場情報収集）
+        -- analyst: アナリストエージェント（仮説生成・検証・分析）
+        -- planner: プランナーエージェント（コンテンツ計画・スケジューリング）
+        -- tool_specialist: ツールスペシャリスト（ツール選定・レシピ管理）
+        -- data_curator: データキュレーター（データ品質・外部情報管理）
 
-    -- サイクル紐づけ
+    -- サイクル紐付け
     cycle_id        INTEGER REFERENCES cycles(id),
+        -- この振り返りが属するサイクル
+        -- サイクル完了時に各エージェントが1件ずつ生成
+        -- NULLの場合: サイクル外のタスク（例: 計測ジョブ完了後の振り返り）
+
+    -- タスク情報
+    task_description TEXT NOT NULL,
+        -- エージェントがこのサイクルで担当したタスクの概要
+        -- 例: "サイクル#42の市場データ収集。beautyニッチのトレンド15件、
+        --       競合投稿8件、オーディエンスシグナル3件を収集"
 
     -- 自己評価
-    self_score      INTEGER NOT NULL,
-        -- 1〜10のスケール
-        -- 1-3: 大きな問題があった
-        -- 4-6: 改善の余地が大きい
-        -- 7-8: 良好
-        -- 9-10: 非常に良い
-    reasoning       TEXT NOT NULL,
-        -- 自己評価の理由 (自然言語)
+    self_score      INTEGER NOT NULL CHECK (self_score BETWEEN 1 AND 10),
+        -- 1-10の自己評価スコア
+        -- 1-3: 不十分（重大な見落としや失敗があった）
+        -- 4-5: 改善の余地あり（基本的なタスクは完了したが質に課題）
+        -- 6-7: 良好（期待通りのアウトプット）
+        -- 8-9: 優秀（期待以上の成果）
+        -- 10: 卓越（画期的な発見や大幅な改善を達成）
+    score_reasoning TEXT NOT NULL,
+        -- スコアの根拠（なぜこのスコアにしたか）
+        -- 例: "収集したトレンド15件中、実際にコンテンツに活用されたのは3件(20%)。
+        --       関連性の高い情報を選別する精度が低かった。
+        --       ただし、glass skinトレンドの早期発見はengagement向上に貢献した。"
 
-    -- 構造化振り返り
-    went_well       TEXT[] NOT NULL DEFAULT '{}',
-        -- 良かった点の配列
-    to_improve      TEXT[] NOT NULL DEFAULT '{}',
-        -- 改善点の配列
-    next_actions    TEXT[] NOT NULL DEFAULT '{}',
-        -- 次回への具体的アクションの配列
+    -- 振り返り詳細
+    what_went_well  TEXT[],
+        -- 良かった点のリスト
+        -- 例: {'glass skinトレンドを競合より2日早く検出',
+        --       'オーディエンスのセンチメント分析の精度が向上'}
+    what_to_improve TEXT[],
+        -- 改善すべき点のリスト
+        -- 例: {'トレンド情報の関連性フィルタリングが甘い',
+        --       '競合分析の深さが不足（表面的な数値比較のみ）'}
+    next_actions    TEXT[],
+        -- 次サイクルでの具体的アクション
+        -- 例: {'トレンド収集時にrelevance_score 0.6以上のみ報告する',
+        --       '競合分析にフック手法の分類を追加する'}
 
-    -- メタデータ
-    task_duration_ms INTEGER,
-        -- タスク実行にかかった時間 (ミリ秒)
-    tools_used      TEXT[],
-        -- 使用したMCPツールの一覧
-    llm_tokens_used INTEGER,
-        -- 消費したLLMトークン数
+    -- メトリクススナップショット
+    metrics_snapshot JSONB,
+        -- 振り返り時点での関連メトリクス
+        -- 構造例:
+        -- {
+        --   "hypotheses_generated": 3,
+        --   "hypotheses_accuracy": 0.67,
+        --   "intel_collected": 26,
+        --   "intel_used_rate": 0.20,
+        --   "avg_engagement_rate": 0.042,
+        --   "cycle_duration_hours": 24.5
+        -- }
+
+    -- 反映状況
+    applied_in_next_cycle BOOLEAN DEFAULT false,
+        -- この振り返りの内容が次サイクルで実際に反映されたか
+        -- 次サイクルのエージェントが冒頭で前回の振り返りを読み込み、
+        -- next_actionsを実行した場合にtrueに更新
+        -- ダッシュボードで「振り返りの活用率」を追跡するための指標
 
     -- タイムスタンプ
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-
-    -- 制約
-    CONSTRAINT chk_agent_reflections_type
-        CHECK (agent_type IN ('strategist', 'researcher', 'analyst', 'tool_specialist', 'data_curator', 'planner')),
-    CONSTRAINT chk_agent_reflections_score
-        CHECK (self_score >= 1 AND self_score <= 10)
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-COMMENT ON TABLE agent_reflections IS 'エージェントのセルフリフレクション記録。毎サイクル自動生成';
-COMMENT ON COLUMN agent_reflections.next_actions IS '次サイクル開始時にコンテキストとして注入される具体的改善アクション';
+COMMENT ON TABLE agent_reflections IS 'エージェントの自己評価記録。サイクル終了時に各エージェントが生成し、次サイクルで参照';
+COMMENT ON COLUMN agent_reflections.agent_type IS 'strategist/researcher/analyst/planner/tool_specialist/data_curator';
+COMMENT ON COLUMN agent_reflections.self_score IS '1-10の自己評価。8以上で優秀、4以下で要改善';
+COMMENT ON COLUMN agent_reflections.applied_in_next_cycle IS '次サイクルで振り返りが活用されたか。活用率の追跡指標';
 ```
 
 ### 10.4 LangGraph `reflect_all` ノードの実装
@@ -3006,6 +3038,7 @@ async function reflectAllNode(state: StrategyCycleState): Promise<Partial<Strate
     reflectAgent("researcher", state),
     reflectAgent("analyst", state),
     reflectAgent("tool_specialist", state),
+    reflectAgent("data_curator", state),
     // プランナーは複数いる場合がある
     ...state.content_plans
       .map(p => p.cluster)
@@ -3046,9 +3079,9 @@ async function reflectAgent(
     agent_type: agentType,
     cycle_id: state.cycle_id,
     self_score: reflection.self_score,
-    reasoning: reflection.reasoning,
-    went_well: reflection.went_well,
-    to_improve: reflection.to_improve,
+    score_reasoning: reflection.score_reasoning,
+    what_went_well: reflection.what_went_well,
+    what_to_improve: reflection.what_to_improve,
     next_actions: reflection.next_actions,
   });
 
@@ -3084,11 +3117,11 @@ async function reflectAgent(
      └──────────────────────────────────────────────┘
 
   2. next_actionsの実行率
-     → 前回のnext_actionsが今回の went_well に含まれているか
+     → 前回のnext_actionsが今回の what_went_well に含まれているか
      → 目標: 80%以上
 
   3. 同じ改善点の繰り返し検出
-     → to_improve に3サイクル以上同じ項目が出る場合
+     → what_to_improve に3サイクル以上同じ項目が出る場合
      → セルフリフレクションでは解決できない構造的問題
      → 人間によるプロンプトチューニング (セクション9) が必要なサイン
      → セクション14のプロンプト変更自動提案メカニズムがアラートを発火
@@ -3272,57 +3305,97 @@ ORDER BY agent_type;
 ```sql
 CREATE TABLE agent_individual_learnings (
     -- 主キー
-    id              SERIAL PRIMARY KEY,
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        -- UUIDで一意に識別
 
     -- エージェント情報
-    agent_type      VARCHAR(20) NOT NULL,
-        -- strategist / researcher / analyst / tool_specialist / data_curator / planner
-    agent_instance  VARCHAR(50),
-        -- プランナーの場合はインスタンス名 (例: 'planner-beauty')
+    agent_type      TEXT NOT NULL CHECK (agent_type IN (
+        'strategist', 'researcher', 'analyst', 'planner', 'tool_specialist', 'data_curator'
+    )),
+        -- この学びを所有するエージェント
+        -- strategist / researcher / analyst / planner / tool_specialist / data_curator
+        -- 各エージェントは自分の学びのみを参照する（他エージェントの学びは見えない）
 
-    -- 学習内容
-    insight         TEXT NOT NULL,
-        -- 個人的な気づき・知見 (自然言語)
-        -- 共有learningsと違い、主観的でOK
-    category        VARCHAR(30) NOT NULL,
-        -- エージェント固有のカテゴリ
-        -- 社長: resource_allocation, communication, strategy, human_interaction
-        -- リサーチャー: data_source, timing, methodology, platform_knowledge
-        -- アナリスト: analysis_pattern, methodology, verification, meta_analysis
-        -- ツールSP: tool_characteristics, tool_combination, tool_failure_pattern, tool_update
-        -- プランナー: content_strategy, scheduling, timing, hypothesis_pattern
+    -- カテゴリ
+    category        TEXT NOT NULL,
+        -- data_source: データソースに関する学び
+        --   例: "TikTok Creative Centerのトレンドデータは24時間遅延がある"
+        -- technique: 実践テクニック
+        --   例: "仮説生成時にpgvectorで類似度0.85以上の既存仮説があれば重複を避ける"
+        -- pattern: 発見したパターン
+        --   例: "beautyニッチでは月曜のengagementが他曜日より15%低い傾向"
+        -- mistake: 失敗から学んだこと
+        --   例: "サンプル数3件で仮説をconfirmedにしたが、追加データで覆った"
+        -- insight: その他の気づき
+        --   例: "人間のhypothesis指示は表面的な記述が多いので、背景を推測して補完すべき"
+
+    -- 学びの内容
+    content         TEXT NOT NULL,
+        -- 学んだ内容の本文
+        -- 具体的で再利用可能な形式で記述
+        -- 良い例: "relevance_score 0.6未満のトレンド情報はコンテンツ計画に採用されない。
+        --          収集時に0.6以上にフィルタリングすることで効率が3倍になった"
+        -- 悪い例: "フィルタリングは大事" (曖昧で再利用不能)
     context         TEXT,
-        -- この学びが得られた文脈 (例: "サイクル15でbeautyニッチを分析した際に...")
+        -- この学びが得られた状況の説明
+        -- 例: "サイクル#38でbeautyニッチのトレンド収集時。
+        --       30件収集して報告したが、プランナーが使ったのは4件だけだった"
+        -- NULLの場合: 文脈が不明 or 一般的な知識
 
-    -- 適用範囲
-    applicable_niches VARCHAR(50)[],
-        -- この知見が適用可能なジャンル (NULL = 汎用)
-
-    -- 利用追跡
+    -- 信頼度・有効性
+    confidence      FLOAT NOT NULL DEFAULT 0.5 CHECK (confidence BETWEEN 0.0 AND 1.0),
+        -- この学びへの確信度 0.0〜1.0
+        -- 初期値0.5、適用して成功するたびに上昇、失敗するたびに下降
+        -- 0.8以上: 高確信（積極的に適用）
+        -- 0.3未満: 低確信（再検証が必要）
     times_applied   INTEGER NOT NULL DEFAULT 0,
-        -- この知見を実際に適用した回数
-        -- 高いほど実用的な知見
-    last_applied_at TIMESTAMPTZ,
-        -- 最後に適用した日時
-        -- 長期間未使用の知見は優先度を下げる
+        -- この学びが参照・適用された回数
+        -- エージェントがタスク実行時にこの学びを使った場合にインクリメント
+    times_successful INTEGER NOT NULL DEFAULT 0,
+        -- 適用して良い結果につながった回数
+        -- 例: この学びを適用したサイクルのself_scoreが7以上だった場合にインクリメント
+    success_rate    FLOAT GENERATED ALWAYS AS (
+        CASE WHEN times_applied > 0 THEN times_successful::FLOAT / times_applied ELSE 0.0 END
+    ) STORED,
+        -- 自動計算される成功率
+        -- times_applied > 0 の場合: times_successful / times_applied
+        -- times_applied = 0 の場合: 0.0
+        -- ダッシュボードで「効果的な学び」をソートする際に使用
 
-    -- メタ情報
-    source_reflection_id INTEGER REFERENCES agent_reflections(id),
-        -- この学びの元になった振り返り (あれば)
-        -- 振り返り以外のタイミングで記録される場合もある
+    -- 有効フラグ
+    is_active       BOOLEAN NOT NULL DEFAULT true,
+        -- この学びがまだ有効かどうか
+        -- false: 学びが古くなった、または誤りだと判明した場合
+        -- confidenceが0.2未満に下がった場合に自動的にfalseに更新する運用を想定
+
+    -- 生成元
+    source_reflection_id UUID REFERENCES agent_reflections(id),
+        -- この学びを生成した振り返りのID
+        -- agent_reflectionsのnext_actionsから抽出された学びの場合に設定
+        -- NULLの場合: タスク実行中に直接発見された学び
+
+    -- ベクトル検索
+    embedding       vector(1536),
+        -- 学び内容 (content) のベクトル埋め込み
+        -- text-embedding-3-small (OpenAI) or Voyage-3 (Anthropic) で生成
+        -- 用途: タスク実行時に関連する過去の学びを検索
+        -- クエリ例: WHERE agent_type = $1 AND is_active = true
+        --           ORDER BY embedding <=> $2 LIMIT 5
 
     -- タイムスタンプ
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-
-    -- 制約
-    CONSTRAINT chk_individual_learnings_type
-        CHECK (agent_type IN ('strategist', 'researcher', 'analyst', 'tool_specialist', 'data_curator', 'planner'))
+    last_applied_at TIMESTAMPTZ,
+        -- この学びが最後に参照・適用された日時
+        -- エージェントがタスク実行時にこの学びを使った場合に更新
+        -- NULLの場合: まだ一度も適用されていない
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-COMMENT ON TABLE agent_individual_learnings IS 'エージェント個別の学習メモリ。個人ノートブック相当';
-COMMENT ON COLUMN agent_individual_learnings.times_applied IS '適用回数。高い値 = 実用的な知見';
-COMMENT ON COLUMN agent_individual_learnings.last_applied_at IS '長期未使用の知見は読み込み優先度を下げる';
+COMMENT ON TABLE agent_individual_learnings IS 'エージェント個別の学習メモリ。各エージェント固有の経験知を蓄積';
+COMMENT ON COLUMN agent_individual_learnings.agent_type IS 'この学びを所有するエージェント。各エージェントは自分の学びのみ参照';
+COMMENT ON COLUMN agent_individual_learnings.category IS 'data_source/technique/pattern/mistake/insight';
+COMMENT ON COLUMN agent_individual_learnings.success_rate IS '自動計算。times_successful / times_applied。効果的な学びのソート用';
+COMMENT ON COLUMN agent_individual_learnings.embedding IS '関連する学びの検索用。agent_type + is_activeでフィルタ後にベクトル検索';
 ```
 
 ### 11.4 個別学習メモリのアクセスパターン
@@ -3419,9 +3492,9 @@ COMMENT ON COLUMN agent_individual_learnings.last_applied_at IS '長期未使用
 
 会社の優秀な社員は、問題を一人で抱え込まず、上司に相談・報告・提案する。AIエージェントも同様に、困りごとがあれば相談し、成果が出れば報告し、改善案があれば提案する。
 
-### 12.2 コミュニケーションの4タイプ
+### 12.2 コミュニケーションの6タイプ
 
-エージェントが人間に送信するメッセージは4タイプに分類される。
+エージェントが人間に送信するメッセージは6タイプに分類される。
 
 #### (1) 困りごと報告 (struggle)
 
@@ -3559,9 +3632,6 @@ CREATE TABLE agent_communications (
     -- 送信者情報
     agent_type      VARCHAR(20) NOT NULL,
         -- strategist / researcher / analyst / tool_specialist / data_curator / planner
-    agent_instance  VARCHAR(50),
-        -- プランナーの場合はインスタンス名
-
     -- メッセージ内容
     message_type    VARCHAR(20) NOT NULL,
         -- struggle: 困りごと報告
@@ -3714,9 +3784,9 @@ function shouldNotifyHuman(reflection: AgentReflection, history: AgentReflection
 
   // 2. 同じ改善点が3サイクル以上続いている
   if (history.length >= 2) {
-    const recurring = reflection.to_improve.some(item =>
+    const recurring = reflection.what_to_improve.some(item =>
       history.slice(0, 2).every(prev =>
-        prev.to_improve.some(prevItem => isSimilar(item, prevItem))
+        prev.what_to_improve.some(prevItem => isSimilar(item, prevItem))
       )
     );
     if (recurring) return true;
@@ -3731,7 +3801,7 @@ function shouldNotifyHuman(reflection: AgentReflection, history: AgentReflection
 
 function determineMessageType(reflection: AgentReflection): string {
   if (reflection.self_score <= 4) return "struggle";
-  if (reflection.went_well.length >= 3 && reflection.self_score >= 8) return "proposal";
+  if (reflection.what_went_well.length >= 3 && reflection.self_score >= 8) return "proposal";
   return "status_report";
 }
 ```
@@ -4055,14 +4125,14 @@ COMMENT ON TABLE tool_experiences IS 'ツール組み合わせの使用実績と
       score[N] > score[N+1] > score[N+2]
       → 3サイクル連続で低下 = 構造的な問題の可能性
 
-  条件2: 同じto_improveが3回以上繰り返される
+  条件2: 同じwhat_to_improveが3回以上繰り返される
   ──────────────────────────────────────
-    cycle N:   to_improve = ["TikTokデータを確認していない"]
-    cycle N+3: to_improve = ["TikTokのトレンドを見逃した"]
-    cycle N+7: to_improve = ["TikTok情報の収集が不足"]  ← ここでアラート発火
+    cycle N:   what_to_improve = ["TikTokデータを確認していない"]
+    cycle N+3: what_to_improve = ["TikTokのトレンドを見逃した"]
+    cycle N+7: what_to_improve = ["TikTok情報の収集が不足"]  ← ここでアラート発火
 
     判定ロジック:
-      to_improveの意味的類似度が閾値以上 (isSimilar関数)
+      what_to_improveの意味的類似度が閾値以上 (isSimilar関数)
       かつ3回以上出現
       → セルフリフレクションでは解決できない構造的問題
       → プロンプトレベルの修正が必要
@@ -4143,7 +4213,6 @@ thought_logs分析のフロー:
 ```typescript
 interface PromptImprovementAlert {
   agent_type: string;
-  agent_instance?: string;
   trigger: 'score_decline' | 'recurring_issue';
   severity: 'warning' | 'critical';
   details: {
@@ -4175,8 +4244,8 @@ async function checkPromptImprovementNeeded(
     }
   }
 
-  // 条件2: 同じto_improveが3回以上繰り返される
-  const allImprovements = recentReflections.flatMap(r => r.to_improve);
+  // 条件2: 同じwhat_to_improveが3回以上繰り返される
+  const allImprovements = recentReflections.flatMap(r => r.what_to_improve);
   const clusters = clusterSimilarTexts(allImprovements);
   const recurring = clusters.filter(c => c.count >= 3);
 

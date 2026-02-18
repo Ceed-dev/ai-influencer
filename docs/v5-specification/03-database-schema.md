@@ -82,6 +82,18 @@ v5.0のPostgreSQLスキーマは、AI-Influencerシステムの全構造化デ�
 | **Observability** | 5 | エージェントの運用可視化・自己学習・デバッグ | agent_prompt_versions, agent_thought_logs, agent_reflections, agent_individual_learnings, agent_communications |
 | **Tool Management** | 5 | AIツールの知識管理・制作レシピ・プロンプト改善 | tool_catalog, tool_experiences, tool_external_sources, production_recipes, prompt_suggestions |
 
+> **テーブル作成順序 (FK依存関係)**
+>
+> 外部キー制約の依存関係により、CREATE TABLE文は以下の順序で実行する必要がある:
+>
+> 1. **依存なし (先に作成)**: `characters`, `cycles`, `tool_catalog`
+> 2. **第1層**: `accounts` (→characters), `hypotheses` (→cycles), `production_recipes`, `agent_prompt_versions`, `agent_reflections` (→cycles)
+> 3. **第2層**: `components`, `content` (→hypotheses, characters, production_recipes), `market_intel`, `learnings`, `human_directives`, `task_queue`, `algorithm_performance`
+> 4. **第3層**: `content_sections` (→content, components), `publications` (→content, accounts), `agent_thought_logs` (→cycles), `agent_individual_learnings` (→agent_reflections), `agent_communications` (→cycles)
+> 5. **第4層**: `metrics` (→publications), `analyses` (→cycles), `tool_experiences` (→tool_catalog, content), `tool_external_sources` (→tool_catalog), `prompt_suggestions`
+>
+> ※ 本ドキュメントのセクション順はカテゴリ別だが、実際のマイグレーションではこの順序に従うこと。
+
 ### ER図
 
 ```
@@ -382,7 +394,7 @@ CREATE TABLE characters (
         -- }
 
     -- 音声設定
-    voice_id        VARCHAR(32),
+    voice_id        VARCHAR(32) NOT NULL,
         -- Fish Audio 32-char hex reference_id
         -- 例: "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6"
         -- v4.0制約: 空の場合はエラー（必須フィールド）
@@ -488,7 +500,8 @@ CREATE TABLE components (
         -- 検索・フィルタリングに使用
 
     -- パフォーマンス指標
-    score           NUMERIC(5,2),
+    score           NUMERIC(5,2)
+        CHECK (score IS NULL OR (score >= 0.00 AND score <= 100.00)),
         -- コンポーネントスコア（0.00〜100.00）
         -- アナリストエージェントが分析結果に基づいて更新
         -- このコンポーネントを使ったコンテンツの平均パフォーマンス
@@ -738,9 +751,12 @@ CREATE TABLE content_sections (
 );
 
 COMMENT ON TABLE content_sections IS 'コンテンツのセクション構成。1コンテンツに対して動的にN件のセクションを定義';
+COMMENT ON COLUMN content_sections.component_id IS 'このセクションで使用するコンポーネント（シナリオ or モーション）';
 COMMENT ON COLUMN content_sections.section_order IS 'セクションの結合順序。ffmpeg concatの順序を決定';
 COMMENT ON COLUMN content_sections.section_label IS 'セクション名。hook/body/cta等の自由タグ';
 COMMENT ON COLUMN content_sections.script IS '実際に使用されたスクリプト。LLMが調整した最終版';
+COMMENT ON COLUMN content_sections.drive_file_id IS '完成セクション動画のGoogle DriveファイルID';
+COMMENT ON COLUMN content_sections.duration_seconds IS 'セクションの長さ（秒）。NUMERIC(8,2)';
 ```
 
 ### 2.3 publications — 投稿記録
@@ -992,9 +1008,17 @@ CREATE TABLE market_intel (
         -- 期限切れの情報はアナリストが参照しない (WHERE expires_at > NOW())
 
     -- ベクトル検索
-    embedding       vector(1536)
+    embedding       vector(1536),
         -- data内容のベクトル埋め込み
         -- 用途: 類似トレンドの発見、過去の類似市場状況との比較
+
+    -- 制約
+    CONSTRAINT chk_market_intel_type
+        CHECK (intel_type IN ('trending_topic', 'competitor_post', 'competitor_account', 'audience_signal', 'platform_update')),
+    CONSTRAINT chk_market_intel_platform
+        CHECK (platform IS NULL OR platform IN ('youtube', 'tiktok', 'instagram', 'x')),
+    CONSTRAINT chk_market_intel_relevance
+        CHECK (relevance_score IS NULL OR (relevance_score >= 0.00 AND relevance_score <= 1.00))
 );
 
 COMMENT ON TABLE market_intel IS '5種の市場情報を統合管理。リサーチャーが収集、アナリスト・プランナーが参照';
@@ -1124,7 +1148,11 @@ CREATE TABLE metrics (
 
     -- 制約
     CONSTRAINT chk_metrics_measurement_point
-        CHECK (measurement_point IS NULL OR measurement_point IN ('48h', '7d', '30d'))
+        CHECK (measurement_point IS NULL OR measurement_point IN ('48h', '7d', '30d')),
+    CONSTRAINT chk_metrics_completion_rate
+        CHECK (completion_rate IS NULL OR (completion_rate >= 0.0000 AND completion_rate <= 1.0000)),
+    CONSTRAINT chk_metrics_engagement_rate
+        CHECK (engagement_rate IS NULL OR (engagement_rate >= 0.0000 AND engagement_rate <= 1.0000))
 );
 
 COMMENT ON TABLE metrics IS '投稿パフォーマンスの時系列記録。1投稿に対して最大3回計測 (48h, 7d, 30d)';
@@ -1301,6 +1329,10 @@ CREATE TABLE learnings (
 COMMENT ON TABLE learnings IS '繰り返し確認された知見の蓄積。仮説から昇格した再利用可能なインサイト';
 COMMENT ON COLUMN learnings.embedding IS '類似知見検索・クラスタリング用。1536次元';
 COMMENT ON COLUMN learnings.confidence IS '信頼度。evidence_count増加に伴い上昇。0.80以上で高信頼';
+COMMENT ON COLUMN learnings.evidence_count IS 'この知見を裏付けるデータポイント数。10以上で高信頼知見';
+COMMENT ON COLUMN learnings.source_analyses IS '根拠となった分析のID配列 (analyses.id)';
+COMMENT ON COLUMN learnings.applicable_niches IS '適用可能なジャンル配列。NULL/空=全ジャンル共通';
+COMMENT ON COLUMN learnings.applicable_platforms IS '適用可能なプラットフォーム配列。NULL/空=全プラットフォーム共通';
 ```
 
 ## 4. Operations Tables (運用テーブル)
@@ -1317,7 +1349,7 @@ CREATE TABLE cycles (
     id              SERIAL PRIMARY KEY,
 
     -- サイクル情報
-    cycle_number    INTEGER NOT NULL,
+    cycle_number    INTEGER NOT NULL UNIQUE,
         -- サイクル番号（連番）
         -- 1から開始、日次で+1
         -- 仮説・分析・知見がどの世代に属するかを追跡
@@ -1452,6 +1484,9 @@ CREATE TABLE human_directives (
 
 COMMENT ON TABLE human_directives IS 'ダッシュボードからの人間の指示。戦略エージェントがサイクル開始時に読み取り';
 COMMENT ON COLUMN human_directives.directive_type IS 'hypothesis/reference_content/instruction/learning_guidance/agent_response。learning_guidanceは各エージェントがget_learning_directivesで読み取り';
+COMMENT ON COLUMN human_directives.target_niches IS '指示を適用するジャンル配列。NULLは全ジャンル対象';
+COMMENT ON COLUMN human_directives.target_agents IS '対象エージェント種別配列。NULLは全エージェントへのブロードキャスト';
+COMMENT ON COLUMN human_directives.acknowledged_at IS '戦略エージェントが認識した日時。pending→acknowledged遷移時刻';
 COMMENT ON COLUMN human_directives.priority IS 'urgentは進行中サイクルに割り込み';
 ```
 
@@ -1627,12 +1662,16 @@ CREATE TABLE algorithm_performance (
 
     -- 制約
     CONSTRAINT chk_algorithm_period
-        CHECK (period IN ('daily', 'weekly', 'monthly'))
+        CHECK (period IN ('daily', 'weekly', 'monthly')),
+    CONSTRAINT chk_algorithm_hypothesis_accuracy
+        CHECK (hypothesis_accuracy IS NULL OR (hypothesis_accuracy >= 0.0000 AND hypothesis_accuracy <= 1.0000))
 );
 
 COMMENT ON TABLE algorithm_performance IS 'システムの学習能力を定量追跡。ダッシュボードの精度パネル用';
+COMMENT ON COLUMN algorithm_performance.period IS '集計期間。daily/weekly/monthly。同一日に3行存在する場合あり';
 COMMENT ON COLUMN algorithm_performance.hypothesis_accuracy IS '仮説的中率。目標: 初期0.30→6ヶ月後0.65';
 COMMENT ON COLUMN algorithm_performance.improvement_rate IS '前期比改善率。正=改善、負=悪化';
+COMMENT ON COLUMN algorithm_performance.metadata IS 'その他メタデータ。total_hypotheses_tested, cost_per_content_usd等';
 ```
 
 ## 5. Observability Tables (運用・可視化テーブル)
@@ -1701,7 +1740,12 @@ CREATE TABLE agent_prompt_versions (
         -- 新バージョン作成時に旧バージョンを active=false に更新
 
     -- タイムスタンプ
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    -- 制約
+    CONSTRAINT uq_agent_prompt_versions_agent_version
+        UNIQUE (agent_type, version)
+        -- 同一エージェントタイプ内でバージョン番号は一意
 );
 
 COMMENT ON TABLE agent_prompt_versions IS 'エージェントプロンプトの変更履歴。変更前後のパフォーマンス比較を可能にする';
@@ -1806,9 +1850,16 @@ CREATE TABLE agent_thought_logs (
 );
 
 COMMENT ON TABLE agent_thought_logs IS 'エージェントの推論プロセスを完全記録。デバッグ・プロンプト改善の根拠';
+COMMENT ON COLUMN agent_thought_logs.cycle_id IS '属するサイクル。NULLはサイクル外の処理（計測ジョブ等）';
 COMMENT ON COLUMN agent_thought_logs.graph_name IS 'LangGraphのグラフ名。strategy_cycle/production_pipeline等';
 COMMENT ON COLUMN agent_thought_logs.node_name IS 'グラフ内のノード名。問題ステップの特定に使用';
+COMMENT ON COLUMN agent_thought_logs.input_summary IS 'ノードが受け取ったデータの要約。JSONB構造';
 COMMENT ON COLUMN agent_thought_logs.reasoning IS 'エージェントの思考全文。人間がレビューして改善点を発見';
+COMMENT ON COLUMN agent_thought_logs.decision IS 'エージェントが下した決定の要約';
+COMMENT ON COLUMN agent_thought_logs.output_summary IS 'ノードが出力したデータの要約。JSONB構造';
+COMMENT ON COLUMN agent_thought_logs.tools_used IS '呼び出したMCPツール名の配列。デバッグ時の追跡用';
+COMMENT ON COLUMN agent_thought_logs.llm_model IS '使用LLMモデル。opus=高精度ノード用、sonnet=コスト効率重視';
+COMMENT ON COLUMN agent_thought_logs.duration_ms IS 'ノードの処理時間（ミリ秒）。ボトルネック特定に使用';
 COMMENT ON COLUMN agent_thought_logs.token_usage IS 'トークン使用量・コスト。コスト最適化の分析に使用';
 ```
 
@@ -1899,7 +1950,14 @@ CREATE TABLE agent_reflections (
 
 COMMENT ON TABLE agent_reflections IS 'エージェントの自己評価記録。サイクル終了時に各エージェントが生成し、次サイクルで参照';
 COMMENT ON COLUMN agent_reflections.agent_type IS 'strategist/researcher/analyst/planner/tool_specialist/data_curator';
+COMMENT ON COLUMN agent_reflections.cycle_id IS '属するサイクル。NULLはサイクル外タスクの振り返り';
+COMMENT ON COLUMN agent_reflections.task_description IS 'エージェントがこのサイクルで担当したタスクの概要';
 COMMENT ON COLUMN agent_reflections.self_score IS '1-10の自己評価。8以上で優秀、4以下で要改善';
+COMMENT ON COLUMN agent_reflections.score_reasoning IS 'スコアの根拠。なぜこのスコアにしたかの説明';
+COMMENT ON COLUMN agent_reflections.what_went_well IS '良かった点のリスト（TEXT配列）';
+COMMENT ON COLUMN agent_reflections.what_to_improve IS '改善すべき点のリスト（TEXT配列）';
+COMMENT ON COLUMN agent_reflections.next_actions IS '次サイクルでの具体的アクション（TEXT配列）。agent_individual_learningsの生成元';
+COMMENT ON COLUMN agent_reflections.metrics_snapshot IS '振り返り時点の関連メトリクスのJSONBスナップショット';
 COMMENT ON COLUMN agent_reflections.applied_in_next_cycle IS '次サイクルで振り返りが活用されたか。活用率の追跡指標';
 ```
 
@@ -1922,7 +1980,7 @@ CREATE TABLE agent_individual_learnings (
         -- 各エージェントは自分の学びのみを参照する（他エージェントの学びは見えない）
 
     -- カテゴリ
-    category        TEXT NOT NULL,
+    category        TEXT NOT NULL CHECK (category IN ('data_source', 'technique', 'pattern', 'mistake', 'insight')),
         -- data_source: データソースに関する学び
         --   例: "TikTok Creative Centerのトレンドデータは24時間遅延がある"
         -- technique: 実践テクニック
@@ -2015,7 +2073,7 @@ CREATE TABLE agent_communications (
 
     -- エージェント情報
     agent_type      TEXT NOT NULL CHECK (agent_type IN (
-        'strategist', 'researcher', 'analyst', 'tool_specialist', 'planner', 'data_curator'
+        'strategist', 'researcher', 'analyst', 'planner', 'tool_specialist', 'data_curator'
     )),
         -- どのエージェントがこのメッセージを発信したか
 
@@ -2175,7 +2233,7 @@ CREATE TABLE tool_catalog (
         -- 例: '1920x1080'
 
     -- ステータス
-    is_active       BOOLEAN DEFAULT true,
+    is_active       BOOLEAN NOT NULL DEFAULT true,
         -- このツールが現在利用可能か
         -- falseの場合: 非推奨、サービス停止、バージョン更新済み等
 
@@ -2435,11 +2493,11 @@ CREATE TABLE production_recipes (
         -- レシピ作成者
         -- 'tool_specialist': Tool Specialistエージェントが自動生成
         -- 'human': 人間が手動作成
-    is_default      BOOLEAN DEFAULT false,
+    is_default      BOOLEAN NOT NULL DEFAULT false,
         -- デフォルトレシピかどうか
         -- true: v4.0パイプラインの組み合わせ（Kling + Fish Audio + fal lipsync）
         -- content_format + target_platform ごとに1つだけ is_default=true
-    is_active       BOOLEAN DEFAULT true,
+    is_active       BOOLEAN NOT NULL DEFAULT true,
         -- このレシピが現在利用可能か
         -- falseの場合: 非推奨、テスト中、廃止等
 
@@ -2612,6 +2670,12 @@ CREATE INDEX idx_content_recipe ON content(recipe_id);
     -- レシピ別のコンテンツ一覧（レシピ効果の分析用）
 CREATE INDEX idx_content_production_metadata ON content USING GIN(production_metadata);
     -- 制作メタデータのJSONB検索
+
+-- content_sections
+CREATE INDEX idx_content_sections_content ON content_sections(content_id);
+    -- コンテンツ別のセクション一覧取得
+CREATE INDEX idx_content_sections_component ON content_sections(component_id);
+    -- コンポーネント別の使用箇所逆引き
 
 -- publications
 CREATE INDEX idx_publications_content ON publications(content_id);
@@ -2829,6 +2893,8 @@ CREATE INDEX idx_individual_learnings_embedding ON agent_individual_learnings
     --           ORDER BY embedding <=> $2 LIMIT 5
 
 -- agent_communications
+CREATE INDEX idx_agent_communications_cycle ON agent_communications(cycle_id);
+    -- サイクル別のエージェントメッセージ一覧
 CREATE INDEX idx_communications_status_created ON agent_communications(status, created_at);
     -- 未読メッセージの取得: WHERE status = 'unread' ORDER BY created_at DESC
     -- ダッシュボードの通知バッジ表示に使用

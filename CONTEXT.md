@@ -1720,6 +1720,27 @@ Phase 2 (commit `3d4a7ac`): CJKピクセル幅補正
 
 **Agent Team構成**: fixer-arch, fixer-04, fixer-08, fixer-cost, fixer-tool, fixer-kpi, fixer-misc + reviewer-1, reviewer-2
 
+### 2026-02-18: v5.0仕様書 03-database-schema.md 詳細検証＆修正 (Session 3)
+
+**目的**: 03-database-schema.mdの実装レベル詳細検証 + 04/08ファイルとのスキーマ整合性修正
+
+**Phase 1: 検証** (4エージェント並行)
+- verifier-1: Section 1-4 → 19件発見（CHECK制約・Index欠落等）
+- verifier-2: Section 5-7 → 18件発見（CRITICAL: 04-agentとのCREATE TABLE乖離2件）
+- verifier-3: Section 8-10 → 0件（完全合格）
+- auditor: 全specファイル横断 → 08-algorithmに24件のカラム名不一致
+
+**Phase 2: 修正** (3エージェント並行)
+- 03-database-schema.md: CHECK制約8件、Index 3件、NOT NULL 4件、UNIQUE 2件、COMMENT ON COLUMN 24件、FK作成順序注記追加
+- 04-agent-design.md: agent_reflections/agent_individual_learnings CREATE TABLE全面差替（UUID PK、カラム名統一）、TypeScript interface修正14件、通信タイプ4→6修正、agent_instance削除2件
+- 08-algorithm-analysis.md: hypotheses(9件)、learnings(12件)、algorithm_performance(3件)のカラム名修正
+
+**Phase 3: 再検証** (2エージェント並行)
+- verifier-schema: 03-schema 全20項目PASS
+- verifier-cross: 08 完全クリーン、04 agent_instance残存2件 → 手動修正完了
+
+**最終検証結果**: agent_instance残存0件、全ファイルクリーン
+
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID
 - `.gsheets_token.json` - OAuth token for Sheets/Drive API
