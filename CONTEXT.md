@@ -1527,8 +1527,14 @@ node scripts/generate-digest.js --force               # 既存ファイル上書
 - `03-database-schema.md`: contentテーブルにcontent_format/recipe_id追加、CHECK制約/FK/インデックス/ライフサイクル図/移行マッピング更新、production_recipesのcontent_format値統一
 - `01-tech-stack.md`: content_format概要テーブル追加、デフォルトレシピ注記、代替ツール使い分け例追加、テキスト制作ワーカー詳細化
 
-**整合性チェック結果** (8項目全パス):
-- content_format列挙値、recipe_id FK、ワーカー種別、ツールスペシャリスト基準、テキストワーカー定義、MCPツール数(99)、TOC、production_recipesテーブル
+**整合性チェック結果** (8項目検証、6件の追加修正):
+- 検証項目: content_format列挙値、recipe_id FK、ワーカー種別、ツールスペシャリスト基準、テキストワーカー定義、MCPツール数(99)、TOC、production_recipesテーブル
+- 修正1: recipe_id参照パス修正（production_metadata JSONB内 → content直接カラム）
+- 修正2: production_recipes.content_format VARCHAR(50)→VARCHAR(20)に統一
+- 修正3: production_recipesにcontent_format CHECK制約追加
+- 修正4: 04-agent-design.md state構造のhook/body/cta固定 → 動的sections配列
+- 修正5: production_metadata JSONBから冗長なrecipe_id削除（FKで管理）
+- 修正6: task_queue payloadのrecipe_id型修正（文字列→整数）
 
 **レビュー進捗** (02-architecture.md):
 - セクション1〜5: 完了
