@@ -1058,6 +1058,7 @@ interface ContentPlan {
   content_id: string;
   hypothesis_id: number;
   character_id: string;
+  content_format: 'short_video' | 'text_post' | 'image_post'; // ワーカー振分の決定要素
   script_language: 'en' | 'jp';
   planned_post_date: string; // YYYY-MM-DD
   sections: Array<{
@@ -1231,12 +1232,15 @@ const app = strategyCycleGraph.compile({ checkpointer });
 │ dispatch              │
 │                      │
 │ content_format で分岐 │
+│ (short_video /       │
+│  text_post /          │
+│  image_post)          │
 └────────┬─────────────┘
          │
-    ┌────┴──────────────────┐
-    │                       │
-  short_video            text_post
-    │                       │
+    ┌────┴──────────────────┐──────────────┐
+    │                       │              │
+  short_video            text_post     image_post
+    │                       │          (将来拡張)
     ▼                       ▼
 ┌─────────────────────────────────────────────┐  ┌──────────────────────────┐
 │ generate_video (動画制作ワーカー)              │  │ generate_text             │

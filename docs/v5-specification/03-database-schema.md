@@ -100,10 +100,12 @@ v5.0のPostgreSQLスキーマは、AI-Influencerシステムの全構造化デ�
        └─────────────►│   content    │     │ content_sections  │
                       │              │◄────│                   │
                       │ content_id   │     │ content_id (FK)   │
-                      │ status       │     │ component_id (FK) │
-                      │ hypothesis_id│     │ section_order     │
-                      └──────┬──────┘      │ section_label     │
-                             │             └───────────────────┘
+                      │ content_format│     │ component_id (FK) │
+                      │ recipe_id(FK)│     │ section_order     │
+                      │ status       │     │ section_label     │
+                      │ hypothesis_id│     └───────────────────┘
+                      └──────┬──────┘
+                             │
                 hypothesis_id│  content_id
                              │         │
                 ┌────────────▼──┐      │    ┌──────────────┐
@@ -214,7 +216,11 @@ v5.0のPostgreSQLスキーマは、AI-Influencerシステムの全構造化デ�
                 │ embedding (vector)  │   │ avg_quality_score    │
                 └─────────────────────┘   │ success_rate         │
                                           │ is_default           │
-                ┌─────────────────────┐   └──────────────────────┘
+                                          └──────────┬───────────┘
+                                                     │
+                                                     │ ◄── content.recipe_id (FK)
+                                                     │
+                ┌─────────────────────┐              │
                 │ prompt_suggestions  │
                 │                     │
                 │ agent_type          │
@@ -2558,8 +2564,6 @@ CREATE INDEX idx_content_status ON content(status);
     -- ステータスでのフィルタ（最頻出クエリ）
     -- 制作PL: WHERE status = 'planned'
     -- 投稿スケジューラー: WHERE status = 'ready'
-CREATE INDEX idx_content_account ON content(account_id);
-    -- アカウント別のコンテンツ一覧
 CREATE INDEX idx_content_planned_date ON content(planned_post_date);
     -- 投稿予定日順のソート
 CREATE INDEX idx_content_status_planned_date ON content(status, planned_post_date);

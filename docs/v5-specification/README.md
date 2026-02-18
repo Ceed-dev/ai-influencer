@@ -89,6 +89,7 @@ v5.0は、AI-Influencerシステムを**完全AIエージェント駆動**に刷
 | エージェント構造 | 4層階層型 | 戦略は集約、実行は分散。スケール時はプランナー増設のみ |
 | ダッシュボード | Next.js + Shadcn/ui | 操作可能なUI必要。Node.js/TSスタック統一 |
 | 外部AI記憶サービス | 不採用 (pgvectorで代替) | ドメイン知識が構造化済み。依存を増やさない |
+| コンテンツ制作 | content_format + 動的レシピ駆動 | content_format (short_video/text_post/image_post) でワーカータイプを自動振り分け。動画はproduction_recipesのレシピ (JSONB steps) に従い実行、テキストはLLM直接生成 |
 | 制作API | ツールスペシャリストが選択、ワーカーが実行 | ツール特性を学習し最適な組み合わせを推奨。実行はワーカーが担当 |
 | コンテナ化 | Docker + docker-compose | 環境再現性、クラウド移植性、段階的導入 |
 | ツール選択 | ツールスペシャリストAgent | ツールのクセ・特性を学習し最適な組み合わせを推奨 |
