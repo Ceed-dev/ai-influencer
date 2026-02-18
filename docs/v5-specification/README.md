@@ -53,14 +53,14 @@ v5.0は、AI-Influencerシステムを**完全AIエージェント駆動**に刷
 +------------------------------v------------------------------+
 |              LangGraph.js v1.0 (Orchestration)              |
 |                                                             |
-|  Strategy  Research  Analyst  Tool Spec  Planner x N        |
-|  Agent     Agent     Agent    Agent      Agent              |
-|  (Opus)    (Sonnet)  (Sonnet) (Sonnet)   (Sonnet)           |
+|  Strategy  Research  Analyst  Tool Spec  Data       Planner |
+|  Agent     Agent     Agent    Agent      Curator    x N     |
+|  (Opus)    (Sonnet)  (Sonnet) (Sonnet)   (Sonnet)   (Sonnet)|
 |                                                             |
 |                        MCP Protocol                         |
 |                              |                              |
 |              Custom MCP Server (Node.js)                    |
-|           Business Logic + Queries (102 tools)              |
+|       Business Logic + Queries (89 MCP + 13 REST API)       |
 |                              |                              |
 |  Video    Text     Posting        Measurement               |
 |  Worker   Worker   Worker         Worker                    |
@@ -82,7 +82,7 @@ v5.0は、AI-Influencerシステムを**完全AIエージェント駆動**に刷
 
 | 決定事項 | 選択 | 理由 |
 |---------|------|------|
-| データベース | PostgreSQL + pgvector | 横断クエリ、時系列分析、ベクトル検索を1つのDBで |
+| データベース | PostgreSQL + pgvector (本番: Cloud SQL / 開発: Docker) | 横断クエリ、時系列分析、ベクトル検索を1つのDBで。本番はCloud SQLマネージド |
 | AIインターフェース | MCP Server (自作) | AIエージェントがネイティブにツール発見・呼び出し可能 |
 | オーケストレーション | LangGraph v1.0 | 唯一のv1.0 GA、Supervisorパターン、耐久実行、JS/TS対応 |
 | LLM | Claude (Opus + Sonnet) | 戦略=Opus(高推論), 実行=Sonnet(コスト効率) |

@@ -1192,6 +1192,7 @@ const app = strategyCycleGraph.compile({ checkpointer });
 | 仮説生成失敗 | plan_content | 既存仮説の再利用で代替 |
 | 承認ループ (3回超) | approve_plan | 強制承認 + 人間通知 |
 | 人間承認待ち | human_approval | キューに蓄積。人間が確認可能な時にダッシュボードで承認/差戻 (タイムアウトなし) |
+| コンテンツ取消 | 任意 (人間/エージェント) | content.status='cancelled' に更新。終端ステータスのため以降の処理対象外 |
 
 ### 5.2 グラフ2: 制作パイプライングラフ (Production Pipeline Graph)
 
@@ -1597,6 +1598,8 @@ interface CollectedMetrics {
             │  → planned → producing│──→ 制作パイプライン
             │  → ready              │    グラフ (連続)
             │  → analyzed           │
+            │  (error / cancelled   │
+            │   = 終端ステータス)    │
             │                       │
             │  publications.status: │
             │  scheduled → posted   │──→ 投稿スケジューラー

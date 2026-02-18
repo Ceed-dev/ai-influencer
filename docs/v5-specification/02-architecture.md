@@ -2395,6 +2395,14 @@ ORDER BY agent_type, count DESC;
 │  │ (planned)  │                │ 分析        │                   │
 │  └──────┬─────┘               └─────────────┘                   │
 │         │                                                        │
+│         │ 計画確定後                                              │
+│         ▼                                                        │
+│  ┌─────────────────┐                                             │
+│  │ ツールスペシャ   │  ← select_tools ノード                     │
+│  │ リスト (Sonnet)  │  各コンテンツに最適な制作レシピを設計      │
+│  │                  │  (ツール組み合わせ + パラメータ推奨)        │
+│  └──────┬──────────┘                                             │
+│         │                                                        │
 │         │ 制作指示 (下方向): content.status = 'planned'          │
 └─────────┼────────────────────────────────────────────────────────┘
           │
@@ -2402,13 +2410,14 @@ ORDER BY agent_type, count DESC;
 ┌─────────────────────────────────────────────────────────────────┐
 │  制作パイプライングラフ                                         │
 │                                                                   │
-│  planned → ツールスペシャリストがレシピ推奨 → producing → ready │
+│  planned → レシピに基づき制作実行 → producing → ready            │
+│  (レシピは戦略サイクルのselect_toolsノードで事前設計済み)        │
 │  動画制作ワーカー / テキスト制作ワーカー の2系統で実行          │
 │                                                                   │
 │  完了報告 (上方向): content.status = 'ready'                    │
 └─────────┬────────────────────────────────────────────────────────┘
           │
-          │ 投稿指示 (下方向): status = 'ready' + planned_post_date到来
+          │ 投稿指示 (下方向): publications.status = 'scheduled' + planned_post_date到来
           ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │  投稿スケジューラーグラフ                                       │
@@ -2423,11 +2432,22 @@ ORDER BY agent_type, count DESC;
 ┌─────────────────────────────────────────────────────────────────┐
 │  計測ジョブグラフ                                               │
 │                                                                   │
-│  posted → measured → analyzed                                     │
+│  publications.status: posted → measured (各publication個別)       │
+│  content.status: → analyzed (全publicationsがmeasured後)          │
 │                                                                   │
 │  パフォーマンスデータ (上方向): metricsテーブルに時系列保存       │
 │  → 次の戦略サイクルでリサーチャー・アナリストが参照             │
 └─────────────────────────────────────────────────────────────────┘
+
+          ┌──────────────────────────────────────────────────────┐
+          │  データキュレーターグラフ (横断的に動作)             │
+          │                                                      │
+          │  外部ソース (Drive, 参考URL, 人間提出) → 構造化       │
+          │  → components テーブルに保存 (review_status管理)      │
+          │  → 人間レビュー後に human_approved → 制作で利用可能   │
+          │                                                      │
+          │  task_queue (type='curate') 経由でタスク受信          │
+          └──────────────────────────────────────────────────────┘
 
                     ▼ 全データの最終保存先 ▼
 
@@ -2435,10 +2455,16 @@ ORDER BY agent_type, count DESC;
 │ PostgreSQL               │    │ Google Drive             │
 │                          │    │                          │
 │ ・content (ステータス)   │    │ ・final.mp4              │
-│・metrics (パフォーマンス)│    │ ・section_01.mp4         │
-│ ・hypotheses (仮説)      │    │ ・section_02.mp4         │
-│ ・insights (知見)        │    │ ・section_03.mp4 ...     │
-│ ・agent_thought_logs     │    │ ・キャラクター画像       │
+│ ・components (素材)      │    │ ・section_01.mp4         │
+│・metrics (パフォーマンス)│    │ ・section_02.mp4         │
+│ ・hypotheses (仮説)      │    │ ・section_03.mp4 ...     │
+│ ・learnings (知見)       │    │ ・キャラクター画像       │
+│ ・agent_thought_logs     │    │                          │
+│                          │    │                          │
+│ （主要テーブルのみ。     │    │                          │
+│  全26テーブルは          │    │                          │
+│  03-database-schema.md   │    │                          │
+│  参照）                  │    │                          │
 └──────────────────────────┘    └──────────────────────────┘
 ```
 
@@ -2450,7 +2476,7 @@ ORDER BY agent_type, count DESC;
 エージェント (LangGraph ノード)
     │
     │  1. MCPツールを選択
-    │     (例: get_performance_summary)
+    │     (例: get_account_performance)
     │
     │  2. 引数を指定
     │     (例: { account_id: "ACC_0013", period: "7d" })
@@ -2460,10 +2486,11 @@ MCP Server
     │
     │  3. 入力バリデーション
     │  4. SQLクエリ構築
-    │     SELECT ... FROM metrics
-    │     JOIN posts ON ...
-    │     WHERE account_id = $1
-    │     AND posted_at > NOW() - INTERVAL '7 days'
+    │     SELECT ... FROM metrics m
+    │     JOIN publications p ON m.publication_id = p.id
+    │     JOIN accounts a ON p.account_id = a.account_id
+    │     WHERE a.account_id = $1
+    │     AND p.posted_at > NOW() - INTERVAL '7 days'
     │
     │  5. クエリ実行
     │  6. 結果フォーマット
@@ -2489,11 +2516,16 @@ v5.0では **2層ステータス管理** を採用する。コンテンツの制
 **content.status** (制作ライフサイクル):
 
 ```
-planned ──→ producing ──→ ready ──→ analyzed
-   │            │           │           │
-   ▼            ▼           ▼           ▼
- 戦略サイクル  制作PL     制作PL    戦略サイクル
- グラフ       グラフ      グラフ    (次サイクル)
+                    REQUIRE_HUMAN_APPROVAL=true の場合:
+pending_approval ──→ planned ──→ producing ──→ ready ──→ analyzed
+       │               │            │           │           │
+       ▼               ▼            ▼           ▼           ▼
+  Dashboard承認    戦略サイクル  制作PL     制作PL    戦略サイクル
+  待ち (人間)      グラフ       グラフ      グラフ    (次サイクル)
+
+                    REQUIRE_HUMAN_APPROVAL=false の場合:
+                    planned ──→ producing ──→ ready ──→ analyzed
+                    (pending_approval をスキップ)
 ```
 
 **publications.status** (投稿ライフサイクル、contentが `ready` になった後にN件作成):
@@ -2523,11 +2555,21 @@ content:
                   │
                   └──→ planned (リトライ対象として再キューイング)
 
+  pending_approval ──→ cancelled (人間が差戻し後に取消)
+
 publications:
   posted ──→ failed (投稿失敗)
                 │
                 └──→ scheduled (再投稿対象として戻す)
 ```
+
+**リトライポリシー**:
+
+| 対象 | 最大リトライ回数 | バックオフ戦略 | 上限超過時の動作 |
+|---|---|---|---|
+| content (制作エラー) | 3回 | 指数バックオフ (1min, 5min, 30min) | `error` ステータスに固定。ダッシュボードに通知 |
+| publications (投稿失敗) | 3回 | 指数バックオフ (5min, 30min, 2h) | `failed` ステータスに固定。ダッシュボードに通知 |
+| 外部API呼び出し (fal.ai等) | 5回 | 指数バックオフ (10s, 30s, 90s, 270s, 810s) | 呼び出し元のタスクをエラーに遷移 |
 
 ### 8.2 ステータス定義
 
@@ -2535,12 +2577,13 @@ publications:
 
 | ステータス | 意味 | 設定するグラフ | 主要なカラム |
 |---|---|---|---|
-| `planned` | 制作計画が承認済み。制作待ち | 戦略サイクル | `planned_post_date`, `character_id` |
+| `pending_approval` | AI承認済み、人間の承認待ち (`REQUIRE_HUMAN_APPROVAL=true` 時のみ) | 戦略サイクル | `planned_post_date`, `character_id` |
+| `planned` | 制作計画が承認済み。制作待ち | 戦略サイクル / Dashboard承認 | `planned_post_date`, `character_id` |
 | `producing` | 動画生成中 | 制作パイプライン | `production_metadata` |
 | `ready` | 動画完成。投稿待ちプール内 | 制作パイプライン | `drive_folder_id`, `video_drive_id` |
 | `analyzed` | 全publicationsの計測完了後、分析結果が知見として保存済み | 戦略サイクル (次回) | — |
-| `error` | 制作で回復不能エラー発生 | 制作パイプライン | `error_message` |
-| `cancelled` | 人間orエージェントが取消 | 任意 | — |
+| `error` | 制作で回復不能エラー発生 (終端ステータス。リトライ上限超過) | 制作パイプライン | `error_message` |
+| `cancelled` | 人間orエージェントが取消 (終端ステータス) | 任意 | — |
 
 **publications テーブルのステータス**:
 
@@ -2570,11 +2613,11 @@ planned           ready          posted            measured
 
 | タイムスタンプ | 説明 | 設定タイミング | 変更可否 |
 |---|---|---|---|
-| `planned_post_date` | 投稿予定日。数日前に計画する | 戦略サイクルで `planned` 設定時 | ダッシュボードから変更可 |
-| `started_at` | 制作開始日時 | 制作パイプラインで `producing` 設定時 | 不可 |
-| `posted_at` | 実際の投稿日時 | 投稿スケジューラーで `posted` 設定時 | 不可 |
-| `measure_after` | 計測開始可能日時。デフォルト `posted_at + 48h` | 投稿完了時に自動計算 | ダッシュボードから計測間隔を変更可 |
-| `measured_at` | 計測実行日時 | 計測ジョブで `measured` 設定時 | 不可 |
+| `planned_post_date` | 投稿予定日。数日前に計画する (**content テーブル**) | 戦略サイクルで `planned` 設定時 | ダッシュボードから変更可 |
+| `started_at` | 制作開始日時 (**task_queue テーブル**。contentではなくタスクキューで管理) | タスクが `processing` に遷移した時 | 不可 |
+| `posted_at` | 実際の投稿日時 (**publications テーブル**) | 投稿スケジューラーで `posted` 設定時 | 不可 |
+| `measure_after` | 計測開始可能日時。デフォルト `posted_at + 48h` (**publications テーブル**) | 投稿完了時に自動計算 | ダッシュボードから計測間隔を変更可 |
+| `measured_at` | 計測実行日時 (**metrics テーブル**。各計測レコードに記録) | 計測ジョブで metrics レコード作成時 | 不可 |
 
 ## 9. v4.0からの移行ポイント
 
@@ -2590,7 +2633,10 @@ planned           ready          posted            measured
 | **コンポーネント作成** | 人間が手動でSpreadsheetに作成 | データキュレーターが自動生成 + 人間レビュー | task_queue (type='curate') 経由で自動化 |
 | **制作管理** | production-manager.js → Sheets API (33カラム) | MCP Server → PostgreSQL (content テーブル) | カラムマッピングを定義して移行 |
 | **コンテンツ生成** | orchestrator.js + media/* | **変更なし** (そのまま再利用) | タスク取得元をSheets→DBに変更するだけ |
-| **投稿** | posting/adapters/* | **変更なし** (そのまま再利用) | スケジュール管理をSheets→DBに変更 |
+| **投稿** | posting/adapters/* (youtube.js, tiktok.js, instagram.js, x.js) | **変更なし** (そのまま再利用) | スケジュール管理をSheets→DBに変更 |
+| **投稿デーモン** | watch-*-posting.js (4種: X, YT, TikTok, IG) | 投稿スケジューラーグラフに統合 | PM2デーモン → LangGraphノード |
+| **認証管理** | *-credential-manager.js (yt, tiktok, ig) | credentials ボリュームで管理 | ファイルベース認証情報をそのまま再利用 |
+| **投稿タスク管理** | *-posting-task-manager.js (x, yt, tiktok, ig) | 投稿スケジューラーグラフに統合 | Sheets→DB (publications テーブル) |
 
 ### 9.2 移行アーキテクチャ図
 
@@ -2653,6 +2699,8 @@ v4.0 (現行)                              v5.0 (新)
 
 v4.0からv5.0への移行は一括ではなく段階的に行う。各フェーズで既存システムと並行運用し、安全に切り替える。
 
+> **注**: ここでのPhase 1-6は移行フェーズであり、開発フェーズ (`06-development-roadmap.md` の Phase 1-5) とは番号体系が異なる。移行作業は対応する開発フェーズ内で実施する。
+
 | フェーズ | 作業内容 | v4.0側の状態 | v5.0側の状態 |
 |---|---|---|---|
 | **Phase 1** | PostgreSQLセットアップ + スキーマ作成 + データ移行 | 稼働中 (変更なし) | DB準備完了 |
@@ -2676,6 +2724,8 @@ v4.0からv5.0への移行は一括ではなく段階的に行う。各フェー
 ### 10.1 環境構成
 
 開発環境と本番環境を明確に分離し、安全な開発・テスト・デプロイのサイクルを実現する。
+
+> **ステージング環境について**: 現時点ではステージング環境を設けず、開発 (dev) と本番 (prod) の2環境構成とする。アカウント数が増加し、本番デプロイのリスクが高まった段階 (Phase 5以降) でステージング環境の導入を検討する。
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -2716,7 +2766,6 @@ v4.0からv5.0への移行は一括ではなく段階的に行う。各フェー
 │  ┌──────────────────────────────────────────────────────────────┐    │
 │  │ docker-compose.prod.yml                                       │   │
 │  │                                                               │   │
-│  │  postgres          (port: 5432)   ← 本番DB                    │   │
 │  │  mcp-server        (port: 3100)   ← 最適化ビルド              │   │
 │  │  strategy-agent    (port: 3200)   ← 本番モード                │   │
 │  │  production-agent  (port: 3300)   ← 実API接続                 │   │
@@ -2725,37 +2774,50 @@ v4.0からv5.0への移行は一括ではなく段階的に行う。各フェー
 │  │  dashboard         (port: 3000)   ← next start (最適化)      │    │
 │  └──────────────────────────────────────────────────────────────┘    │
 │                                                                      │
+│  ┌──────────────────────────────────────────────────────────────┐    │
+│  │ 外部マネージドサービス                                        │   │
+│  │                                                               │   │
+│  │  Cloud SQL (PostgreSQL 16 + pgvector)  ← 本番DB               │   │
+│  │  ・自動バックアップ + ポイントインタイムリカバリ               │   │
+│  │  ・高可用性 (リージョンHA構成)                                 │   │
+│  │  ・DATABASE_URL で接続 (Cloud SQL Auth Proxy 経由)             │   │
+│  └──────────────────────────────────────────────────────────────┘    │
+│                                                                      │
 │  環境変数: .env.production                                          │
-│  DB: prod_ai_influencer (本番データ)                                │
+│  DB: prod_ai_influencer (本番データ, Cloud SQL)                     │
 │  特徴:                                                              │
 │  ・最適化済みビルドイメージ                                         │
 │  ・本番SNSアカウントに投稿                                          │
 │  ・構造化ログ (JSON形式)                                            │
 │  ・エラー通知 (Slack/Discord)                                       │
 │  ・自動リスタート (restart: unless-stopped)                         │
+│  ・DBはCloud SQL (コンテナ管理外)                                   │
 │                                                                      │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
 ### 10.2 DB分離
 
-開発DBと本番DBは完全に分離する。同一VM上でポート分離するか、将来的に別インスタンスに分離する。
+開発DBと本番DBは完全に分離する。開発はDockerコンテナ内のPostgreSQL、本番はCloud SQL (マネージドサービス) を使用する。
 
 ```
-開発環境                                本番環境
+開発環境 (Docker コンテナ)              本番環境 (Cloud SQL)
 ┌──────────────────────────┐          ┌──────────────────────────┐
-│ PostgreSQL (port: 5433)  │          │ PostgreSQL (port: 5432)  │
+│ PostgreSQL (port: 5433)  │          │ Cloud SQL for PostgreSQL │
+│ (docker-compose管理)     │          │ (GCPマネージドサービス)  │
 │                          │          │                          │
 │ DB名: dev_ai_influencer  │          │ DB名: prod_ai_influencer │
 │                          │          │                          │
 │ ・テストデータ投入済み   │          │ ・本番データ             │
-│ ・resetスクリプトで      │          │ ・定期バックアップ       │
-│   初期化可能             │          │ ・WALアーカイブ          │
-│ ・マイグレーション検証用 │          │ ・pg_basebackup          │
-│                          │          │                          │
+│ ・resetスクリプトで      │          │ ・自動バックアップ (日次)│
+│   初期化可能             │          │ ・ポイントインタイム     │
+│ ・マイグレーション検証用 │          │   リカバリ (PITR)        │
+│                          │          │ ・リージョンHA構成       │
 │ pgvector: 有効           │          │ pgvector: 有効           │
 │ max_connections: 20      │          │ max_connections: 100     │
 └──────────────────────────┘          └──────────────────────────┘
+                                       接続: Cloud SQL Auth Proxy
+                                       or プライベートIP
 ```
 
 **DB運用ルール**:
@@ -2784,7 +2846,7 @@ v4.0からv5.0への移行は一括ではなく段階的に行う。各フェー
 | 変数名 | 開発環境 (.env.development) | 本番環境 (.env.production) |
 |---|---|---|
 | `NODE_ENV` | `development` | `production` |
-| `DATABASE_URL` | `postgres://dev:dev@localhost:5433/dev_ai_influencer` | `postgres://prod:***@localhost:5432/prod_ai_influencer` |
+| `DATABASE_URL` | `postgres://dev:dev@localhost:5433/dev_ai_influencer` | `postgres://prod:***@/prod_ai_influencer?host=/cloudsql/PROJECT:REGION:INSTANCE` |
 | `FAL_KEY` | テスト用APIキー (低レート) | 本番用APIキー |
 | `FISH_AUDIO_API_KEY` | テスト用APIキー | 本番用APIキー |
 | `ANTHROPIC_API_KEY` | テスト用APIキー | 本番用APIキー |
@@ -2833,15 +2895,19 @@ v4.0からv5.0への移行は一括ではなく段階的に行う。各フェー
 | 1. コード取得 | `git pull origin main` | 最新コードを取得 |
 | 2. イメージ更新 | `docker-compose -f docker-compose.prod.yml pull` | 最新イメージを取得 (外部イメージ) |
 | 3. ビルド | `docker-compose -f docker-compose.prod.yml build` | 自作イメージをビルド |
-| 4. マイグレーション | `docker-compose -f docker-compose.prod.yml run --rm mcp-server npx prisma migrate deploy` | DBスキーマ更新 |
-| 5. 起動 | `docker-compose -f docker-compose.prod.yml up -d` | 全サービス起動 (ダウンタイム最小化) |
+| 4. マイグレーション | `docker-compose -f docker-compose.prod.yml run --rm mcp-server npx prisma migrate deploy` | Cloud SQLへのスキーマ更新 (DATABASE_URL経由) |
+| 5. 起動 | `docker-compose -f docker-compose.prod.yml up -d` | アプリケーションコンテナ起動 (DBはCloud SQLで常時稼働) |
 | 6. 確認 | `docker-compose -f docker-compose.prod.yml ps` | 全サービスの稼働確認 |
+
+> **注**: 本番環境ではpostgresコンテナは存在しない。DBはCloud SQLで管理されるため、docker-composeでのDB起動/停止は不要。マイグレーションはCloud SQL Auth Proxy経由でDATABASE_URLを使って実行する。
+
+> **CI/CDについて**: 現時点ではCI/CDパイプラインは設けず、手動デプロイ (上記手順) で運用する。アカウント数増加に伴いデプロイ頻度が上がった段階で GitHub Actions 等によるCI/CD自動化を導入予定。
 
 ## 11. コンテナアーキテクチャ
 
 ### 11.1 docker-compose構成図
 
-全サービスをDockerコンテナとして管理し、再現性のある環境構築とデプロイを実現する。
+全サービスをDockerコンテナとして管理し、再現性のある環境構築とデプロイを実現する。本番DBはCloud SQLを使用するため、postgresコンテナは開発環境のみ。
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -2855,9 +2921,9 @@ v4.0からv5.0への移行は一括ではなく段階的に行う。各フェー
 │  │  │  image: node:20-slim                                  │     │   │
 │  │  │  port: 3000:3000                                      │     │   │
 │  │  │  volumes: ./dashboard:/app                            │     │   │
-│  │  │  depends_on: postgres                                 │     │   │
 │  │  │                                                       │     │   │
-│  │  │  Prisma/Drizzle ORM → PostgreSQL直結                  │     │   │
+│  │  │  Prisma/Drizzle ORM → DB接続                          │     │   │
+│  │  │  (dev: postgres container / prod: Cloud SQL)          │     │   │
 │  │  └───────────────────────────────┬───────────────────────┘     │   │
 │  │                                  │                             │   │
 │  └──────────────────────────────────┼─────────────────────────────┘   │
@@ -2865,13 +2931,21 @@ v4.0からv5.0への移行は一括ではなく段階的に行う。各フェー
 │  ┌─── internal network ────────────┼─────────────────────────────┐    │
 │  │                                  │                             │   │
 │  │  ┌──────────────────────────────┴──────────────────────────┐  │    │
-│  │  │ postgres (pgvector/pgvector:pg16)                        │  │   │
+│  │  │ postgres (pgvector/pgvector:pg16) ★開発環境のみ          │  │   │
 │  │  │                                                          │  │   │
-│  │  │  port: 5432:5432                                         │  │   │
+│  │  │  port: 5433:5432 (devポート)                              │  │   │
 │  │  │  volumes: pgdata:/var/lib/postgresql/data                 │  │  │
 │  │  │  environment:                                            │  │   │
 │  │  │    POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD          │  │  │
 │  │  │  healthcheck: pg_isready                                 │  │   │
+│  │  └──────────────────────────────────────────────────────────┘  │   │
+│  │                                                                 │  │
+│  │  ┌──────────────────────────────────────────────────────────┐  │   │
+│  │  │ Cloud SQL (PostgreSQL 16 + pgvector) ★本番環境のみ       │  │   │
+│  │  │ (外部マネージドサービス — docker-compose管理外)           │  │   │
+│  │  │                                                          │  │   │
+│  │  │  Cloud SQL Auth Proxy or プライベートIP経由で接続        │  │   │
+│  │  │  自動バックアップ / HA / PITR                            │  │   │
 │  │  └──────────────────────────────────────────────────────────┘  │   │
 │  │           ▲          ▲          ▲          ▲                  │  │
 │  │           │          │          │          │                  │  │
@@ -2879,15 +2953,18 @@ v4.0からv5.0への移行は一括ではなく段階的に行う。各フェー
 │  │  │ mcp-server │ │ strategy-  │ │production│ │posting-     │ │  │
 │  │  │            │ │ agent      │ │-agent    │ │agent        │ │  │
 │  │  │ Node.js    │ │ LangGraph  │ │LangGraph │ │LangGraph    │ │  │
-│  │  │ 102ツール  │ │ .js        │ │.js +     │ │.js          │ │  │
-│  │  │            │ │            │ │ffmpeg    │ │             │ │  │
+│  │  │ 89 MCP    │ │ .js        │ │.js +     │ │.js          │ │  │
+│  │  │ ツール    │ │            │ │ffmpeg    │ │             │ │  │
+│  │  │            │ │            │ │          │ │             │ │  │
 │  │  │ port: 3100 │ │ Opus +     │ │          │ │ Sonnet×N   │ │   │
-│  │  │            │ │ Sonnet×3 + │ │ Sonnet×N│ │             │ │   │
-│  │  │ SQL実行    │ │ ツールSP   │ │         │ │ 4 platform  │ │   │
-│  │  │ Drive API  │ │            │ │ fal.ai   │ │ adapters   │ │   │
-│  │  │            │ │            │ │ Fish     │ │             │ │  │
-│  │  └────────────┘ └────────────┘ │ Audio    │ └─────────────┘ │  │
-│  │                                └──────────┘                   │    │
+│  │  │            │ │ Sonnet×3   │ │ Sonnet×N│ │             │ │   │
+│  │  │ SQL実行    │ │ (リサーチャー│ │       │ │ 4 platform  │ │   │
+│  │  │ Drive API  │ │  アナリスト│ │ fal.ai  │ │ adapters   │ │   │
+│  │  │            │ │  プランナー)│ │ Fish   │ │             │ │  │
+│  │  │            │ │ +ツールSP  │ │ Audio   │ │             │ │  │
+│  │  │            │ │ +データ    │ │         │ │             │ │  │
+│  │  │            │ │  キュレーター│ │       │ │             │ │  │
+│  │  └────────────┘ └────────────┘ └─────────┘ └─────────────┘ │  │
 │  │                                                               │  │
 │  │  ┌─────────────────────┐                                     │     │
 │  │  │ measurement-agent   │                                     │     │
@@ -2908,21 +2985,26 @@ v4.0からv5.0への移行は一括ではなく段階的に行う。各フェー
 
 | コンテナ名 | ベースイメージ | 役割 | ポート | 特記事項 |
 |---|---|---|---|---|
-| `postgres` | `pgvector/pgvector:pg16` | PostgreSQL 16 + pgvector拡張 | 5432 | ヘルスチェック: `pg_isready` |
-| `mcp-server` | `node:20-slim` | MCP Server (102ツール) | 3100 | SQL実行 + Drive API |
-| `strategy-agent` | `node:20-slim` | 戦略サイクルグラフ (日次) | 3200 | Opus + Sonnet×3 + ツールスペシャリスト |
+| `postgres` | `pgvector/pgvector:pg16` | PostgreSQL 16 + pgvector拡張 | 5433 (dev) | **開発環境のみ**。本番はCloud SQL。ヘルスチェック: `pg_isready` |
+| `mcp-server` | `node:20-slim` | MCP Server (89 MCPツール) | 3100 | SQL実行 + Drive API。13 REST APIはdashboard側 |
+| `strategy-agent` | `node:20-slim` | 戦略サイクルグラフ (日次)。データキュレーターを内包 | 3200 | Opus + Sonnet×3 (リサーチャー+アナリスト+プランナー) + ツールSP + データキュレーター |
 | `production-agent` | `node:20-slim` + ffmpeg | 制作パイプライングラフ (連続) | 3300 | fal.ai + Fish Audio + ffmpeg |
 | `posting-agent` | `node:20-slim` | 投稿スケジューラーグラフ (連続) | 3400 | 4プラットフォームアダプター |
 | `measurement-agent` | `node:20-slim` | 計測ジョブグラフ (連続) | 3500 | Platform API接続 |
-| `dashboard` | `node:20-slim` | Next.js + Shadcn/ui | 3000 | Prisma/Drizzle ORM |
+| `dashboard` | `node:20-slim` | Next.js + Shadcn/ui | 3000 | Prisma/Drizzle ORM + 13 REST API |
+
+> **注**: 本番環境ではpostgresコンテナの代わりにCloud SQL (PostgreSQL 16 + pgvector) を使用する。コンテナ数は本番6 (postgres除外) / 開発7。
+> データキュレーターは独立コンテナではなく `strategy-agent` コンテナ内で動作する (戦略サイクルグラフのノードとして実装)。
+
+> **リソース制限**: コンテナのCPU/メモリ制限は Phase 2 以降の負荷テスト結果に基づいて設定する。初期目安: production-agent (ffmpegのため 2CPU / 4GB)、他のエージェント (1CPU / 2GB)、mcp-server (1CPU / 1GB)、dashboard (0.5CPU / 512MB)。
 
 ### 11.3 ボリューム
 
 | ボリューム名 | マウント先 | 用途 |
 |---|---|---|
-| `pgdata` | `/var/lib/postgresql/data` | PostgreSQLデータ永続化 |
+| `pgdata` | `/var/lib/postgresql/data` | PostgreSQLデータ永続化 (開発環境のみ。本番はCloud SQLが管理) |
 | `credentials` | `/app/credentials` (各エージェント) | OAuth認証情報 (Google, SNS各プラットフォーム) |
-| `prompts` | `/app/prompts` (各エージェント) | エージェントプロンプトファイル (バックアップ用、正はDB) |
+| `prompts` | `/app/prompts` (各エージェント) | エージェントプロンプトファイル (バックアップ用、正はDB `agent_prompt_versions` テーブル)。移行パス: Phase 1でファイルベースで開始 → Phase 3以降でDB管理に移行。ファイルはフォールバックとして維持 |
 
 ### 11.4 ネットワーク
 
@@ -2931,7 +3013,9 @@ v4.0からv5.0への移行は一括ではなく段階的に行う。各フェー
 │  external (ブリッジネットワーク)                        │
 │                                                         │
 │  ・dashboard → 外部公開 (port 3000)                     │
-│  ・dashboard → postgres (DB直結)                        │
+│  ・dashboard → DB接続:                                  │
+│    dev: postgres container (internal経由)               │
+│    prod: Cloud SQL (Auth Proxy or プライベートIP)       │
 │  ・将来的にリバースプロキシ (nginx/Caddy) を前段に配置  │
 │                                                         │
 └─────────────────────────────────────────────────────────┘
@@ -2939,9 +3023,9 @@ v4.0からv5.0への移行は一括ではなく段階的に行う。各フェー
 ┌─────────────────────────────────────────────────────────┐
 │  internal (内部ネットワーク)                            │
 │                                                         │
-│  ・postgres ← mcp-server, strategy-agent,               │
-│                production-agent, posting-agent,         │
-│                measurement-agent                        │
+│  ・DB接続:                                              │
+│    dev: postgres container ← 全アプリコンテナ           │
+│    prod: Cloud SQL ← 全アプリコンテナ (DATABASE_URL)    │
 │  ・mcp-server ← 各エージェント (MCP Protocol)           │
 │  ・外部からの直接アクセス不可                           │
 │                                                         │
@@ -2952,27 +3036,30 @@ v4.0からv5.0への移行は一括ではなく段階的に行う。各フェー
 
 | ネットワーク | 接続可能なコンテナ | 理由 |
 |---|---|---|
-| `external` | dashboard, postgres | ダッシュボードのみ外部公開。DBはダッシュボードからの直結のみ |
-| `internal` | 全コンテナ | エージェント間・MCP Server・DBの内部通信。外部から隠蔽 |
+| `external` | dashboard | ダッシュボードのみ外部公開 |
+| `internal` | 全アプリコンテナ + postgres (dev) | エージェント間・MCP Server・DBの内部通信。外部から隠蔽 |
+| Cloud SQL (prod) | 全アプリコンテナから接続 (外部マネージドサービス) | 本番DBはCloud SQL Auth Proxy経由。docker networkの外 |
 
 ### 11.5 Phase別の段階的Docker化計画
 
-全サービスを一括でDocker化するのではなく、開発フェーズ (06-development-roadmap.md) に合わせて段階的にコンテナ化する。
+全サービスを一括でDocker化するのではなく、開発フェーズに合わせて段階的にコンテナ化する。
+
+> **注**: ここでのPhase 1-5は Docker化の段階を示す。開発全体のフェーズ定義は `06-development-roadmap.md` を参照。
 
 | Phase | Docker化対象 | 理由 |
 |---|---|---|
-| **Phase 1** (DB + MCP) | `postgres` + `mcp-server` | データ基盤が最初に必要。MCPツールの開発・テストにDBが必須 |
+| **Phase 1** (DB + MCP) | dev: `postgres` container / prod: Cloud SQL セットアップ + `mcp-server` | データ基盤が最初に必要。開発はDockerコンテナ、本番はCloud SQLインスタンスを作成 |
 | **Phase 2** (制作PL) | `production-agent` | 制作パイプラインはffmpeg依存があり、コンテナ化による環境統一のメリットが大きい |
 | **Phase 3** (投稿+計測) | `posting-agent` + `measurement-agent` | OAuth認証情報のボリューム管理が重要。コンテナ化で認証情報を安全に管理 |
-| **Phase 4** (戦略) | `strategy-agent` | 最もLLM依存が重く、開発が最も後。他の全コンテナが安定してからDocker化 |
-| **Phase 5** (UI) | `dashboard` | 最後にUI。全バックエンドが安定してからフロントエンドを仕上げる |
+| **Phase 4** (戦略) | `strategy-agent` (データキュレーター含む) | 最もLLM依存が重く、開発が最も後。他の全コンテナが安定してからDocker化 |
+| **Phase 5** (UI + 接続プール) | `dashboard` + pgBouncer導入 (01-tech-stack.md参照) | 最後にUI。全バックエンドが安定してからフロントエンド。pgBouncerで接続プール管理 |
 
 **各Phaseでの docker-compose.yml の状態**:
 
 ```
-Phase 1: postgres + mcp-server                          (2コンテナ)
-Phase 2: postgres + mcp-server + production-agent        (3コンテナ)
-Phase 3: + posting-agent + measurement-agent             (5コンテナ)
-Phase 4: + strategy-agent                                (6コンテナ)
-Phase 5: + dashboard                                     (7コンテナ = 完全体)
+Phase 1: postgres (dev) + mcp-server                     (dev: 2コンテナ / prod: 1コンテナ + Cloud SQL)
+Phase 2: + production-agent                               (dev: 3 / prod: 2 + Cloud SQL)
+Phase 3: + posting-agent + measurement-agent              (dev: 5 / prod: 4 + Cloud SQL)
+Phase 4: + strategy-agent                                 (dev: 6 / prod: 5 + Cloud SQL)
+Phase 5: + dashboard + pgbouncer                          (dev: 8 / prod: 7 + Cloud SQL = 完全体)
 ```

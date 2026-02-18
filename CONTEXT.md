@@ -1598,6 +1598,50 @@ node scripts/generate-digest.js --force               # 既存ファイル上書
 
 **変更ファイル**: 7ファイル (+273/-221行)
 
+### 2026-02-18: v5.0仕様 Section 7-11 レビュー + 28件修正
+
+**レビュー対象**: `02-architecture.md` Section 7-11 (lines 2355-2978)
+- Section 7: データフロー図 (4層グラフ + 共通アクセスパターン)
+- Section 8: コンテンツライフサイクル (2層ステータス管理)
+- Section 9: v4.0マイグレーションポイント
+- Section 10: 環境分離 (dev/prod)
+- Section 11: コンテナアーキテクチャ (7コンテナ)
+
+**クロスファイル検証 (Agent Team: 3エージェント)**:
+- schema-checker: Section 7-11 vs 03-database-schema.md → 10件
+- agent-checker: Section 7-11 vs 04-agent-design.md → 9件
+- completeness-checker: Section 7-11 vs 01/06/09/README → 13件
+- **結果**: 重複排除後 28件 (6 CRITICAL / 7 HIGH / 10 MEDIUM / 5 LOW)
+
+**設計判断**:
+- 本番DB: **Cloud SQL** (選択肢B) — Docker PostgreSQLはdev環境のみ
+
+**修正 (Agent Team: 3エージェント並列)**:
+
+1. `02-architecture.md` (28件, +169/-79行, 2978→3065行):
+   - C1: `insights`→`learnings` (正しいテーブル名)
+   - C2: `JOIN posts`→`JOIN publications` (postsテーブル不存在)
+   - C3: `pending_approval`ステータスをSection 8ライフサイクル図+定義表+エラー回復に追加
+   - C4: Data CuratorをSection 7.1データフロー図に追加
+   - C5: Data Curatorをstrategy-agentコンテナ内に配置、11.2コンテナリスト+11.5フェーズ計画に追加
+   - C6: **Cloud SQL対応** (最大変更) — Section 10.1-10.4, 11.1-11.5全面改修。本番docker-composeからpostgres削除、Cloud SQL接続文字列、自動バックアップ/HA/PITR記述
+   - H1-H7: started_at所属テーブル明記、get_performance_summary→get_account_performance、ToolSpecialist戦略サイクル追加、Phase番号クロスリファレンス、postgres network整合性修正、v4.0投稿コンポーネント移行表追加、ツール数102→89 MCP修正
+   - M1-M10: 計測ジョブ図のステータス分離、タイムスタンプテーブル名ラベル追加、投稿トリガー修正、ToolSP配置修正、Sonnet×3明確化、staging省略ノート、pgBouncer Phase 5追記、プロンプト移行パス、リトライポリシー追加
+   - L1-L5: SQL列参照修正、テーブル数ノート、cancelled終端ステータス、CI/CDノート、リソース制限見積
+
+2. `04-agent-design.md` (2件, +3行):
+   - L3: `cancelled`ステータスをSection 5.1エラーハンドリング表+5.5グラフ接続図に追加
+
+3. `01-tech-stack.md` (1件): ツール数102→89 MCPツール + 13 REST API
+4. `09-risks-and-bottlenecks.md` (1件): ツール数102→89 MCPツール + 13 REST API
+5. `README.md` (3件): ツール数修正、Cloud SQL明記、Data Curatorをアーキテクチャ図に追加
+
+**検証済み (変更不要)**:
+- `03-database-schema.md`: pending_approval/cancelled共にCHECK制約に存在確認済み
+- `06-development-roadmap.md`: Phase番号(1-5)正規、Cloud SQL Phase 1記載、Data Curator Phase 3記載 — 全て確認済み
+
+**変更ファイル**: 5ファイル (+169/-79行)
+
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID
 - `.gsheets_token.json` - OAuth token for Sheets/Drive API
