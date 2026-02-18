@@ -1484,6 +1484,32 @@ node scripts/generate-digest.js --force               # 既存ファイル上書
 
 **変更ファイル** (7ファイル, +711/-61行)
 
+### 2026-02-18: v5.0仕様書レビュー — セクション4 MCPツール数の整合性修正
+
+02-architecture.md セクション4「MCP Server層」のレビュー中に、ツール総数が古いまま（~73 / ~82）だったことを発見。
+04-agent-design.md の12カテゴリを正確に集計し、全仕様書のツール数を統一。
+
+**ツール集計結果**:
+- MCPツール (エージェント用): 89本 (10カテゴリ)
+  - 戦略管理(10), 市場情報管理(12), 分析・知見管理(14), コンテンツ計画管理(9), ツール知識管理(5), 制作管理(12), 投稿管理(6), 計測管理(7), データキュレーション(6), エージェント学習(8)
+- Dashboard REST API (人間操作用): 10本 (2カテゴリ)
+  - ダッシュボード操作(7), キュレーション操作(3)
+- 合計: 99ツール
+
+**変更内容**:
+- `02-architecture.md`: セクション4のツール図を全面書き直し（12カテゴリ構成、代表ツール名記載、04-agent-design.mdへの相互参照追加）。全体アーキ図・Docker表の数値も更新
+- `04-agent-design.md`: ヘッダー・目次・セクション見出しのツール数を99に統一、カテゴリ数を12に明記
+- `README.md`: アーキテクチャ図のツール数更新
+- `01-tech-stack.md`: AI-DB接続のツール数更新
+- `09-risks-and-bottlenecks.md`: リスク表のツール数更新（2箇所）
+
+**変更ファイル**: 5ファイル、11箇所修正
+
+**レビュー進捗** (02-architecture.md):
+- セクション1〜3: 完了
+- セクション4 (MCP Server層): 完了
+- セクション5〜9 + 移行ポイント: 未確認
+
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID
 - `.gsheets_token.json` - OAuth token for Sheets/Drive API
