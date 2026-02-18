@@ -635,8 +635,8 @@ CREATE TABLE content (
         --   "concat_seconds": 15,
         --   "final_file_size_bytes": 54000000,
         --   "pipeline_version": "5.0",
-        --   "recipe_id": "RCP_0001",
         --   "dry_run": false
+        --   ※ recipe_id は content テーブルの直接カラム (FK) で管理
         -- }
 
     -- 人間承認
@@ -1463,7 +1463,7 @@ CREATE TABLE task_queue (
         --   "content_id": "CNT_202603_0001",
         --   "character_id": "CHR_0001",
         --   "script_language": "jp",
-        --   "recipe_id": "RCP_0001",
+        --   "recipe_id": 1,
         --   "sections": [
         --     {"order": 1, "label": "hook", "component_id": "SCN_0042"},
         --     {"order": 2, "label": "body", "component_id": "SCN_0043"},
@@ -2330,7 +2330,7 @@ CREATE TABLE production_recipes (
         -- レシピ名
         -- 例: 'asian_beauty_short', 'tech_explainer', 'pet_reaction'
         -- 用途・対象が分かりやすい名前をつける
-    content_format  VARCHAR(50) NOT NULL,
+    content_format  VARCHAR(20) NOT NULL,
         -- コンテンツフォーマット (content.content_format と一致させること)
         -- short_video: 短尺動画 (YouTube Shorts, TikTok, IG Reels)
         -- text_post: テキスト投稿 (X/Twitter)
@@ -2411,7 +2411,11 @@ CREATE TABLE production_recipes (
 
     -- タイムスタンプ
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    -- 制約
+    CONSTRAINT chk_recipes_content_format
+        CHECK (content_format IN ('short_video', 'text_post', 'image_post'))
 );
 
 COMMENT ON TABLE production_recipes IS 'ツール組み合わせパターン。v4.0パイプラインをデフォルトレシピとして保持';

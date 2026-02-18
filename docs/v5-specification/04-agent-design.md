@@ -1304,11 +1304,11 @@ interface ProductionPipelineState {
     character_id: string;
     script_language: 'en' | 'jp';
     recipe_id: number | null;  // text_postの場合はnull
-    components: {
-      hook: ComponentData;
-      body: ComponentData;
-      cta: ComponentData;
-    };
+    sections: Array<{
+      section_order: number;
+      section_label: string;  // 動的 (例: "hook", "body", "cta", "intro", "summary" 等)
+      component: ComponentData;
+    }>;
   } | null;
 
   // キャラクター情報

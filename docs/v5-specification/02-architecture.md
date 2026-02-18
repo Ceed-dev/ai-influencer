@@ -1224,7 +1224,7 @@ content テーブル
     │  recipe_name: 'asian_beauty_short'
     │  steps: [video_gen→TTS→lipsync→concat]
     ▼
-  content.production_metadata.recipe_id に記録
+  content.recipe_id に記録
 ```
 
 **レシピの steps JSONB 構造** (→ [03-database-schema.md §6.4](03-database-schema.md#64-production_recipes--制作レシピ)):
