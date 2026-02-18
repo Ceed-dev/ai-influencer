@@ -35,9 +35,10 @@ AI-Influencer は、AIキャラクターの動画コンテンツを自動生成�
 
 ### 自動で行われること
 
-- キャラクター画像からAI動画を生成（Kling）
+- キャラクター画像からAI動画を生成（Hook/CTA: Kling、Body: Fabric 1.0）
 - スクリプトから音声を生成（Fish Audio）
-- 動画と音声のリップシンク
+- Hook/CTAの動画と音声のリップシンク（Sync Lipsync）
+- Bodyは画像+音声から直接リップシンク済み動画を生成（Fabric 1.0）
 - 3セクション（hook/body/cta）の結合
 - Google Drive への動画アップロード
 - スプレッドシートへの結果記録
@@ -65,7 +66,7 @@ cp .env.example .env
 
 | 変数名 | 必須 | 説明 | 例 |
 |---|---|---|---|
-| `FAL_KEY` | **必須** | fal.ai の APIキー（Kling動画生成・Sync Lipsync に使用） | `fal-xxxxxxxxxxxx` |
+| `FAL_KEY` | **必須** | fal.ai の APIキー（Kling動画生成・Sync Lipsync・Fabric 1.0 に使用） | `fal-xxxxxxxxxxxx` |
 | `FISH_AUDIO_API_KEY` | **必須** | Fish Audio の APIキー（TTS音声生成に使用、fal.ai とは別サービス） | `xxxxxxxxxxxxxxxx` |
 | `GOOGLE_CREDENTIALS_PATH` | 必須 | Google OAuth 認証情報ファイルのパス | `./video_analytics_hub_claude_code_oauth.json` |
 | `GOOGLE_TOKEN_PATH` | 必須 | Google OAuth トークンファイルのパス | `./.gsheets_token.json` |
@@ -441,10 +442,13 @@ node scripts/run-pipeline.js
 ```
 Step 1: キャラクター画像を fal.storage にアップロード
 Step 2: 3セクション(hook/body/cta)を並列処理
-        各セクション:
+        [Hook / CTA]:
         ├─ モーション動画を fal.storage にアップロード
         ├─ Kling (動画生成) + Fish Audio (TTS) を並列実行
         └─ Lipsync (口同期)
+        [Body]:
+        ├─ Fish Audio (TTS) で音声生成
+        └─ Fabric 1.0 (画像 + 音声 → リップシンク済み動画を直接生成)
 Step 3: ffmpeg で3セクションを結合 → final.mp4
 Step 4: 4ファイルを Google Drive にアップロード
 Step 5: production タブのステータス・URLを更新
@@ -615,6 +619,6 @@ pm2 logs pipeline-watcher --lines 100
 
 コスト構造、スプレッドシートスキーマ（全タブ・カラム定義）、Drive フォルダ構造・ID一覧は [README.md](../../README.md) にまとめています:
 
-- [コスト構造](../../README.md#コスト構造) — 1本あたり ~$2.31、月次見積もり
+- [コスト構造](../../README.md#コスト構造) — 1本あたり ~$2.29、月次見積もり
 - [Google Sheets データスキーマ](../../README.md#google-sheets-データスキーマ) — 全タブ・カラム定義
 - [Google Drive フォルダ構造](../../README.md#google-drive-フォルダ構造) — フォルダツリー・命名規則・Drive ID一覧

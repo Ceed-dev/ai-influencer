@@ -1841,10 +1841,16 @@ Phase 2 (commit `3d4a7ac`): CJKピクセル幅補正
 - `tests/pipeline.test.js` — Fabric 関連テスト 7件追加 (Test 76-82)
 - `docs/ARCHITECTURE.md` — Body フロー・図・API テーブル更新
 - `README.md` — パイプラインフロー・API テーブル・コスト構造更新
+- `docs/manuals/OPERATIONS.md` — 自動化リスト・実行フロー・環境変数説明を更新
+- `docs/cost-analysis/per-video-cost.md` — Hook/CTA vs Body のコスト内訳を分離、構成比更新
+- `docs/cost-analysis/per-minute-cost.md` — ブレンドレート方式に更新、Fabric 1.0 セクション追加
+- `docs/cost-analysis/full-system-design.md` — Phase 5・月次コスト表・総コストサマリー全面更新
 
 **コスト変更** (1動画3セクション):
 - 旧: Hook $0.77 + Body $0.77 + CTA $0.77 = **$2.31**
-- 新: Hook $0.77 + Body $0.75 (Fabric 720p) + CTA $0.77 = **$2.29**
+- 新 Pro: Hook $0.77 + Body $0.75 (Fabric 720p) + CTA $0.77 = **$2.29**
+- 新 Std: Hook $0.60 + Body $0.75 (Fabric 720p) + CTA $0.60 = **$1.95**
+- 注: Std構成は旧$1.80→$1.95に増加（Fabric $0.75 > Kling+Std Lipsync $0.60 のため）
 
 **技術詳細**:
 - Fabric 1.0 endpoint: `veed/fabric-1.0` (fal.ai partner model)
