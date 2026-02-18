@@ -24,7 +24,9 @@
 - [9. アカウント数・投稿数の十分性分析](#9-アカウント数投稿数の十分性分析)
 - [10. 成長曲線のシミュレーション](#10-成長曲線のシミュレーション)
 - [11. リスクと限界](#11-リスクと限界)
-- [12. 結論](#12-結論)
+- [12. 判断ロジック・数式定義](#12-判断ロジック数式定義)
+- [13. データ変換ロジック](#13-データ変換ロジック)
+- [14. 結論](#14-結論)
 
 
 ## 1. エグゼクティブサマリー
@@ -33,12 +35,14 @@ v5.0の核心は**仮説駆動サイクル**である。エージェントが立
 
 ### 主要な予測
 
-| 指標 | 3ヶ月後 | 6ヶ月後 | 12ヶ月後 |
+| 指標 | 3ヶ月後（3月） | 6ヶ月後（6月） | 12ヶ月後（12月） |
 |---|---|---|---|
-| 仮説的中率 | 15〜25% | 40〜55% | 55〜70% |
-| 予測誤差 | 60〜80% | 25〜40% | 15〜25% |
-| 蓄積知見数 | 5〜10 | 100〜200 | 500+ |
-| コンテンツ品質改善率 | 基準値 | +20〜40% | +50〜100% |
+| 仮説的中率 | 15〜25% | 45〜60% | 60〜72% |
+| 予測誤差 | 60〜80% | 20〜35% | 12〜22% |
+| 蓄積知見数 | 5〜10 | 120〜250 | 550+ |
+| コンテンツ品質改善率 | 基準値 | +25〜45% | +55〜110% |
+
+> **注**: 4月（Phase 3）からLangGraphエージェントが稼働し学習が本格化するため、6月時点で2ヶ月分のデータ蓄積がある。これにより当初予測より的中率・蓄積知見数が加速する。
 
 ### 核心的なインサイト
 
@@ -66,6 +70,8 @@ v5.0の「アルゴリズム精度」を以下の4指標で定義する。
 - `confirmed`: 仮説で予測したKPI値を実績が上回った（または許容誤差内に収まった）
 - `rejected`: 仮説で予測したKPI値を実績が大幅に下回った
 - `inconclusive`: データ不足、外部要因、測定期間不足等でまだ判定できない
+
+> 記録先: `algorithm_performance.hypothesis_accuracy`。判定の閾値・数式はセクション12を参照。
 
 **例**: 仮説「美容ニッチのBefore/After形式は完視聴率75%以上を達成する」
 - 実績: 完視聴率78% → **confirmed**
@@ -161,9 +167,9 @@ v5.0の開発スケジュール（Phase 1〜5）と連動した月別精度予�
 | 3月 (Phase 2完了) | 初期テスト | 2〜4 | 10〜20 | 15〜25% | 60〜80% | 5〜10 | DB稼働開始。初期データ収集期 |
 | 4月 (Phase 3) | 学習開始 | 8〜12 | 40〜80 | 25〜35% | 40〜60% | 20〜40 | LangGraphエージェント初稼働。パターン認識が始まる |
 | 5月 (Phase 4) | 自律運用 | 15〜20 | 100〜200 | 35〜45% | 30〜50% | 50〜100 | 全エージェント稼働。仮説の質が向上 |
-| 6月 (Phase 5) | 最適化 | 20〜30 | 200〜400 | 40〜55% | 25〜40% | 100〜200 | ダッシュボード + 人間介入。クロスニッチ学習 |
-| 9月 | 成長期 | 40〜60 | 500〜800 | 50〜60% | 20〜30% | 300〜400 | パターンの安定化。予測精度が実用レベルに |
-| 12月 | 成熟期 | 50〜100 | 1,000+ | 55〜70% | 15〜25% | 500+ | 限界効用逓減。エッジケースへの対応 |
+| 6月 (Phase 5) | 最適化 | 20〜30 | 200〜400 | 45〜60% | 20〜35% | 120〜250 | ダッシュボード + 人間介入。4月からの2ヶ月分のデータ蓄積でクロスニッチ学習が加速 |
+| 9月 | 成長期 | 40〜60 | 500〜800 | 55〜65% | 15〜25% | 350〜450 | パターンの安定化。5ヶ月分の蓄積で予測精度が実用レベルに |
+| 12月 | 成熟期 | 50〜100 | 1,000+ | 60〜72% | 12〜22% | 550+ | 限界効用逓減。エッジケースへの対応。8ヶ月の学習蓄積 |
 
 ### 3.2 サイクル数の根拠
 
@@ -324,11 +330,13 @@ v5.0の品質評価は以下のメトリクスで構成される:
 
 | メトリクス | 重み | 測定方法 | 目標値 |
 |---|---|---|---|
-| **完視聴率** | 35% | プラットフォームAnalytics | 70%以上 |
-| **エンゲージメント率** | 25% | (いいね+コメント+シェア)/Imp | 3%以上 |
-| **シェア率** | 20% | シェア数/Imp | 0.5%以上 |
-| **3秒離脱率** | 15% | Analytics | 40%以下 |
-| **コメント感情** | 5% | NLP分析 | ポジティブ60%以上 |
+| **完視聴率** | 35%（system_settings: `QUALITY_WEIGHT_COMPLETION`、デフォルト: 0.35） | プラットフォームAnalytics | 70%以上 |
+| **エンゲージメント率** | 25%（system_settings: `QUALITY_WEIGHT_ENGAGEMENT`、デフォルト: 0.25） | (いいね+コメント+シェア)/Imp | 3%以上 |
+| **シェア率** | 20%（system_settings: `QUALITY_WEIGHT_SHARE`、デフォルト: 0.20） | シェア数/Imp | 0.5%以上 |
+| **3秒離脱率** | 15%（system_settings: `QUALITY_WEIGHT_RETENTION`、デフォルト: 0.15） | Analytics | 40%以下 |
+| **コメント感情** | 5%（system_settings: `QUALITY_WEIGHT_SENTIMENT`、デフォルト: 0.05） | NLP分析 | ポジティブ60%以上 |
+
+> 各メトリクスのスケーリング関数と品質スコア算出式の詳細はセクション12.5を参照。
 
 ### 5.2 コンポーネント別スコアリング
 
@@ -363,9 +371,9 @@ v5.0の品質評価は以下のメトリクスで構成される:
 | 3月（初期） | 4.5 | 6.0 | 15% | 30% |
 | 4月 | 5.2 | 6.8 | 25% | 22% |
 | 5月 | 5.8 | 7.3 | 35% | 15% |
-| 6月 | 6.3 | 7.8 | 45% | 10% |
-| 9月 | 7.0 | 8.2 | 60% | 5% |
-| 12月 | 7.5 | 8.5 | 70% | 3% |
+| 6月 | 6.5 | 8.0 | 50% | 8% |
+| 9月 | 7.2 | 8.4 | 65% | 4% |
+| 12月 | 7.8 | 8.7 | 75% | 2% |
 
 ### 5.4 低スコアコンポーネントの自動淘汰
 
@@ -1076,13 +1084,13 @@ KPI目標の2月50アカウントは、学習のためのデータ生成基盤�
 │ 3月 │ 20%    │ 70%  │ 8    │ 4.5  │ 75   │ 1,125              │
 │ 4月 │ 30%    │ 50%  │ 30   │ 5.2  │ 150  │ 3,600              │
 │ 5月 │ 40%    │ 40%  │ 75   │ 5.8  │ 550  │ 24,750             │
-│ 6月 │ 48%    │ 33%  │ 150  │ 6.3  │ 1,000│ 75,000             │
-│ 7月 │ 52%    │ 28%  │ 220  │ 6.8  │ 1,400│ 140,000            │
-│ 8月 │ 55%    │ 25%  │ 290  │ 7.1  │ 1,800│ 216,000            │
-│ 9月 │ 58%    │ 22%  │ 360  │ 7.3  │ 2,200│ 308,000            │
-│10月 │ 60%    │ 20%  │ 420  │ 7.5  │ 2,600│ 416,000            │
-│11月 │ 63%    │ 18%  │ 470  │ 7.7  │ 3,000│ 540,000            │
-│12月 │ 65%    │ 17%  │ 520  │ 7.9  │ 3,500│ 700,000            │
+│ 6月 │ 52%    │ 28%  │ 180  │ 6.5  │ 1,000│ 75,000             │
+│ 7月 │ 55%    │ 24%  │ 250  │ 6.9  │ 1,400│ 147,000            │
+│ 8月 │ 58%    │ 21%  │ 310  │ 7.2  │ 1,800│ 226,800            │
+│ 9月 │ 61%    │ 19%  │ 380  │ 7.5  │ 2,200│ 330,000            │
+│10月 │ 63%    │ 17%  │ 430  │ 7.7  │ 2,600│ 442,000            │
+│11月 │ 65%    │ 16%  │ 480  │ 7.8  │ 3,000│ 570,000            │
+│12月 │ 67%    │ 15%  │ 540  │ 8.0  │ 3,500│ 735,000            │
 ├─────┴────────┴──────┴──────┴──────┴──────┴──────────────────────┤
 │ 的中率: confirmed/(confirmed+rejected)                          │
 │ 誤差: avg(|predicted - actual| / actual)                       │
@@ -1135,7 +1143,7 @@ KPI目標の2月50アカウントは、学習のためのデータ生成基盤�
 | **プラットフォームのアルゴリズム大幅変更** | 蓄積知見が無効化される可能性 | 知見に有効期限を設定。定期的な再検証 |
 | **AIコンテンツ検出の強化** | 投稿自体が制限される可能性 | コンテンツの人間性を高める工夫。ハイブリッド戦略 |
 | **ニッチの市場飽和** | 特定ニッチで成長が停滞 | ポートフォリオ分散。アナリストの早期検知 |
-| **仮説の「局所最適」への陥没** | 特定パターンに固執し、新しいアプローチを試さない | 探索率（exploration rate）を10〜20%に設定 |
+| **仮説の「局所最適」への陥没** | 特定パターンに固執し、新しいアプローチを試さない | 探索率を10〜20%に設定（system_settings: `EXPLORATION_RATE`、デフォルト: 0.15） |
 | **計測データの遅延** | プラットフォームAnalyticsの反映に24〜48時間 | 遅延を織り込んだサイクル設計 |
 
 ### 11.2 モデルの限界
@@ -1163,10 +1171,293 @@ KPI目標の2月50アカウントは、学習のためのデータ生成基盤�
 **対策**:
 - 仮説のテストデータと訓練データを分離（20%のアカウントをテスト用に確保）
 - 知見の`confidence`が0.8以上のものだけを横展開
-- 探索率（全サイクルの10〜20%を「確認済みパターン外」の新規仮説に充当）
+- 探索率（全サイクルの10〜20%を「確認済みパターン外」の新規仮説に充当）（system_settings: `EXPLORATION_RATE`、デフォルト: 0.15）
 
 
-## 12. 結論
+## 12. 判断ロジック・数式定義
+
+本セクションでは、アルゴリズム精度に関わる各判断の数式・閾値・アルゴリズムを定義する。全ての閾値は `system_settings` テーブルで管理され、ハードコーディングは禁止される。04-agent-design.md セクション17の数式定義と整合する。
+
+### 12.1 仮説的中率 (hypothesis_accuracy)
+
+```
+hypothesis_accuracy = confirmed_count / (confirmed_count + rejected_count)
+```
+
+- `inconclusive` は分母から除外
+- 記録先: `algorithm_performance.hypothesis_accuracy`
+- 算出タイミング: `cycle_review` 分析の実行時
+
+### 12.2 予測誤差 (prediction_error)
+
+```
+prediction_error = AVG(|predicted_kpis[key] - actual_kpis[key]| / actual_kpis[key])
+```
+
+- `predicted_kpis`, `actual_kpis` は JSONB（複数KPI指標を含む）
+- 各KPI指標（views, engagement_rate, completion_rate等）の相対誤差の平均
+- 記録先: `algorithm_performance.prediction_error`
+
+### 12.3 仮説判定 (verdict)
+
+```
+per_kpi_error = |predicted_value - actual_value| / actual_value
+
+verdict = CASE
+    WHEN AVG(per_kpi_error) < HYPOTHESIS_CONFIRM_THRESHOLD     THEN 'confirmed'
+    WHEN AVG(per_kpi_error) < HYPOTHESIS_INCONCLUSIVE_THRESHOLD THEN 'inconclusive'
+    ELSE 'rejected'
+END
+```
+
+| 設定キー | デフォルト | 意味 |
+|---|---|---|
+| `HYPOTHESIS_CONFIRM_THRESHOLD`（system_settings、デフォルト: 0.3） | 0.3 | 予測精度70%以上で `confirmed` |
+| `HYPOTHESIS_INCONCLUSIVE_THRESHOLD`（system_settings、デフォルト: 0.5） | 0.5 | 予測精度50%以上で `inconclusive`、50%未満で `rejected` |
+
+判定の信頼度:
+
+```
+confidence = 1.0 - AVG(per_kpi_error)
+-- confirmed: confidence 0.7〜1.0
+-- inconclusive: confidence 0.5〜0.7
+-- rejected: confidence < 0.5
+```
+
+### 12.4 異常検知 (anomaly_detection)
+
+```sql
+-- 基準期間: ANOMALY_DETECTION_WINDOW_DAYS（system_settings、デフォルト: 14日）
+-- 閾値: ANOMALY_DETECTION_SIGMA（system_settings、デフォルト: 2.0）
+
+WITH baseline AS (
+    SELECT
+        account_id,
+        AVG(engagement_rate) as mean_er,
+        STDDEV(engagement_rate) as std_er,
+        AVG(completion_rate) as mean_cr,
+        STDDEV(completion_rate) as std_cr,
+        AVG(views) as mean_views,
+        STDDEV(views) as std_views
+    FROM metrics m
+    JOIN publications p ON m.publication_id = p.publication_id
+    WHERE m.collected_at >= NOW() - INTERVAL ':window_days days'
+    GROUP BY account_id
+)
+SELECT m.*, b.*
+FROM metrics m
+JOIN publications p ON m.publication_id = p.publication_id
+JOIN baseline b ON p.account_id = b.account_id
+WHERE ABS(m.engagement_rate - b.mean_er) > :sigma * b.std_er
+   OR ABS(m.completion_rate - b.mean_cr) > :sigma * b.std_cr
+   OR ABS(m.views - b.mean_views) > :sigma * b.std_views;
+```
+
+異常の分類:
+
+- **正の異常（バイラル）**: 値が mean + sigma × std を超過 → 成功パターン分析を優先実行
+- **負の異常（急落）**: 値が mean - sigma × std を下回る → 問題調査タスクを自動生成
+
+### 12.5 コンポーネント品質スコア (quality_score)
+
+```
+quality_score = Σ(metric_scaled × weight)
+```
+
+| メトリクス | ウェイト設定キー | デフォルト | スケーリング関数 | スケーリング基準値 |
+|-----------|----------------|-----------|----------------|------------------|
+| completion_rate | `QUALITY_WEIGHT_COMPLETION`（system_settings） | 0.35 | `min(10, rate / 0.07)` | 70%で10点満点（優秀なショート動画の基準） |
+| engagement_rate | `QUALITY_WEIGHT_ENGAGEMENT`（system_settings） | 0.25 | `min(10, rate / 0.003)` | 3%で10点満点（バイラル動画の基準） |
+| share_rate | `QUALITY_WEIGHT_SHARE`（system_settings） | 0.20 | `min(10, rate / 0.005)` | 0.5%で10点満点 |
+| 3秒離脱率 | `QUALITY_WEIGHT_RETENTION`（system_settings） | 0.15 | `min(10, (1 - rate) / 0.06)` | 40%以下で10点満点（40%は業界平均） |
+| ポジティブ感情比率 | `QUALITY_WEIGHT_SENTIMENT`（system_settings） | 0.05 | `min(10, ratio / 0.06)` | 60%以上で10点満点 |
+
+**計算例**:
+
+```
+completion_rate = 0.78 → scaled = min(10, 0.78/0.07) = 10.0 (cap)
+engagement_rate = 0.025 → scaled = min(10, 0.025/0.003) = 8.33
+share_rate = 0.003 → scaled = min(10, 0.003/0.005) = 6.0
+3秒離脱率 = 0.35 → scaled = min(10, (1-0.35)/0.06) = 10.0 (cap)
+ポジティブ感情 = 0.55 → scaled = min(10, 0.55/0.06) = 9.17
+
+quality_score = 10.0×0.35 + 8.33×0.25 + 6.0×0.20 + 10.0×0.15 + 9.17×0.05
+             = 3.50 + 2.08 + 1.20 + 1.50 + 0.46
+             = 8.74
+```
+
+### 12.6 学習信頼度の更新ルール
+
+```
+-- 個別学習 (agent_individual_learnings)
+初期confidence = 0.5
+
+適用成功時:
+    new_confidence = MIN(1.0, old_confidence + LEARNING_SUCCESS_INCREMENT)
+    times_successful += 1
+
+適用失敗時:
+    new_confidence = MAX(0.0, old_confidence - LEARNING_FAILURE_DECREMENT)
+```
+
+| 設定キー | デフォルト | 説明 |
+|---|---|---|
+| `LEARNING_SUCCESS_INCREMENT`（system_settings） | 0.1 | 適用成功時のconfidence増分 |
+| `LEARNING_FAILURE_DECREMENT`（system_settings） | 0.15 | 適用失敗時のconfidence減分（失敗の方が影響大） |
+| `LEARNING_CONFIDENCE_THRESHOLD`（system_settings） | 0.7 | この値以上で「有効」として積極参照 |
+| `LEARNING_DEACTIVATE_THRESHOLD`（system_settings） | 0.2 | この値未満で参照対象から除外 |
+
+有効判定:
+
+```
+confidence >= LEARNING_CONFIDENCE_THRESHOLD (0.7) → 積極的に参照
+confidence 0.2〜0.7 → 参照はするが優先度低
+confidence < LEARNING_DEACTIVATE_THRESHOLD (0.2) → 参照対象から除外
+```
+
+自動昇格条件:
+
+```
+times_successful >= LEARNING_AUTO_PROMOTE_COUNT
+AND confidence >= 0.8
+→ learningsテーブルに昇格（全エージェント参照可能）
+```
+
+| 設定キー | デフォルト | 説明 |
+|---|---|---|
+| `LEARNING_AUTO_PROMOTE_COUNT`（system_settings） | 10 | 昇格に必要な成功適用回数 |
+| `LEARNING_AUTO_PROMOTE_ENABLED`（system_settings） | false | trueの場合は自動昇格、falseの場合はアナリストの月次レビューで承認 |
+
+### 12.7 リソース配分計算
+
+```
+-- プランナー数の算出
+planner_count = CEIL(active_account_count / PLANNER_ACCOUNTS_PER_INSTANCE)
+-- 例: 50 accounts / 50 = 1 planner, 160 / 50 = 4 planners
+
+-- 日次制作目標
+daily_production_target = active_account_count × MAX_POSTS_PER_ACCOUNT_PER_DAY
+-- 例: 50 × 2 = 100 videos/day
+
+-- 1動画あたり予算上限
+budget_per_video = DAILY_BUDGET_LIMIT_USD / daily_production_target
+-- 例: $100 / 100 = $1.00/video → Standard Lipsync推奨
+
+-- fal.ai並列タスク配分
+concurrent_per_planner = MAX_CONCURRENT_PRODUCTIONS / planner_count
+-- 例: 5 / 1 = 5 concurrent tasks per planner
+```
+
+| 設定キー | デフォルト | 説明 |
+|---|---|---|
+| `PLANNER_ACCOUNTS_PER_INSTANCE`（system_settings） | 50 | 1プランナーの担当アカウント数上限 |
+| `MAX_POSTS_PER_ACCOUNT_PER_DAY`（system_settings） | 2 | 1アカウントの1日あたり最大投稿数 |
+| `DAILY_BUDGET_LIMIT_USD`（system_settings） | 100 | 1日あたりのfal.ai等外部API予算上限(USD) |
+| `MAX_CONCURRENT_PRODUCTIONS`（system_settings） | 5 | 同時制作可能な動画数の上限 |
+
+
+## 13. データ変換ロジック
+
+本セクションでは、データがシステム内の各分析ステージ間でどのように変換・伝搬されるかを定義する。
+
+### 13.1 metrics → hypothesis verdict
+
+```
+1. metricsテーブルから対象publicationのデータ取得
+2. 該当contentのhypothesis_idから仮説のpredicted_kpisを取得
+3. 各KPI指標について相対誤差を計算:
+   error[key] = |predicted[key] - actual[key]| / actual[key]
+4. 全KPI指標の平均誤差でverdict判定（セクション12.3参照）
+5. hypotheses.verdict, hypotheses.actual_kpis, hypotheses.confidence を更新
+6. analyses レコードを生成:
+   {
+     "analysis_type": "hypothesis_verification",
+     "findings": {
+       "hypothesis_id": ...,
+       "predicted": {...},
+       "actual": {...},
+       "per_kpi_errors": {...},
+       "verdict": "confirmed|rejected|inconclusive",
+       "confidence": 0.XX
+     },
+     "recommendations": ["判定に基づく次の施策提案"]
+   }
+```
+
+### 13.2 learnings → 次サイクルのプロンプト注入
+
+```
+1. MCP Serverのget_relevant_learningsツールが呼ばれる
+2. 現在のコンテキスト（niche, platform, content_format）をembedding化
+3. pgvectorでcosine similarity >= LEARNING_SIMILARITY_THRESHOLD の知見を検索
+   （system_settings: LEARNING_SIMILARITY_THRESHOLD、デフォルト: 0.7）
+4. confidence >= LEARNING_CONFIDENCE_THRESHOLD のもののみフィルタ
+   （system_settings: LEARNING_CONFIDENCE_THRESHOLD、デフォルト: 0.7）
+5. 上位 MAX_LEARNINGS_PER_CONTEXT 件をJSON配列として返却
+   （system_settings: MAX_LEARNINGS_PER_CONTEXT、デフォルト: 20）
+6. エージェントのプロンプトの「蓄積された知見」セクションに注入:
+
+   ## 関連する蓄積知見
+   1. [confidence: 0.85] beauty/hookフォーマット: 「質問形式のフックはengagement_rateが1.5倍」
+   2. [confidence: 0.73] timing: 「20-22時投稿はcompletion_rateが高い」
+   ...
+```
+
+### 13.3 hypothesis → content plan 変換
+
+```
+1. 戦略エージェントのポリシーとプランナーの知見を入力
+2. 検証したい仮説を選択（新規作成 or 再検証）:
+   - 新規: リサーチャーのmarket_intelとlearningsから仮説を生成
+   - 再検証: inconclusiveの仮説から条件を変えて再テスト
+3. 仮説のcategoryに基づいてコンポーネント選択:
+   - hook_format仮説 → hookコンポーネントを変数として選択
+   - posting_time仮説 → 同じコンテンツで時刻を変えて投稿
+   - content_length仮説 → duration_secondsを変えたシナリオ
+4. content レコード作成:
+   {
+     "content_format": "short_video",
+     "hypothesis_id": 新仮説のID,
+     "status": "planned",
+     "recipe_id": Tool Specialistの推奨レシピ
+   }
+5. content_sections作成（hook/body/ctaのコンポーネント割当）
+6. hypotheses レコード作成:
+   {
+     "statement": "beautyニッチでは質問形式フックがengagement_rate 3%以上を達成する",
+     "category": "hook_format",
+     "predicted_kpis": {"engagement_rate": 0.03, "completion_rate": 0.7},
+     "confidence": 0.5 (初期値)
+   }
+```
+
+### 13.4 反省 → 個別学習 → グローバル知見 変換
+
+```
+1. 各サイクル終了時にエージェントが自己反省 (agent_reflections)
+2. what_went_well + what_to_improve からパターン抽出:
+   - 「同じ状況で同じ判断が成功した」→ 正のパターン
+   - 「同じ種類のエラーが繰り返された」→ 負のパターン
+3. パターンをagent_individual_learnings に保存:
+   {
+     "category": "content|timing|audience|platform|niche|tool_characteristics|...",
+     "content": "抽出されたパターンの記述",
+     "confidence": 0.5 (初期),
+     "source_reflection_id": 元のreflection UUID
+   }
+4. embedding生成して類似既存知見を検索:
+   - cosine >= COMPONENT_DUPLICATE_THRESHOLD → 既存知見のconfidenceを更新（evidenceカウント増）
+     （system_settings: COMPONENT_DUPLICATE_THRESHOLD、デフォルト: 0.9）
+   - cosine 0.7〜0.9 → 関連知見としてリンク
+   - cosine < 0.7 → 新規知見として保存
+5. 昇格条件チェック（セクション12.6参照）:
+   times_successful >= LEARNING_AUTO_PROMOTE_COUNT (デフォルト: 10)
+   AND confidence >= 0.8
+   → learnings テーブルにコピー（全エージェント参照可能）
+```
+
+
+## 14. 結論
 
 ### v5.0アルゴリズム精度の全体像
 
@@ -1175,13 +1466,13 @@ KPI目標の2月50アカウントは、学習のためのデータ生成基盤�
 │                                                                  │
 │   月     3月   4月   5月   6月   9月   12月                       │
 │          │     │     │     │     │     │                         │
-│  的中率  20%   30%   40%   48%   58%   65%                       │
+│  的中率  20%   30%   40%   52%   61%   67%                       │
 │          │     │     │     │     │     │                         │
 │          ▼     ▼     ▼     ▼     ▼     ▼                         │
-│  品質    4.5   5.2   5.8   6.3   7.3   7.9                      │
+│  品質    4.5   5.2   5.8   6.5   7.5   8.0                      │
 │          │     │     │     │     │     │                         │
 │          ▼     ▼     ▼     ▼     ▼     ▼                         │
-│  知見    8     30    75    150   360   520                       │
+│  知見    8     30    75    180   380   540                       │
 │                                                                  │
 │  Phase:  A(ランダム) B(パターン) C(最適化)  D(成熟)                │
 │                                                                  │
@@ -1193,14 +1484,14 @@ KPI目標の2月50アカウントは、学習のためのデータ生成基盤�
 │  戦略エージェント ████████████████████████████  60%               │
 │  プランナー       ██████████████████████████  55%                 │
 │                                                                  │
-│  ★ 個別精度の向上 → 好循環 → システム全体の的中率65%達成           │
+│  ★ 個別精度の向上 → 好循環 → システム全体の的中率67%達成           │
 │                                                                  │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
 ### 要点の整理
 
-1. **精度は段階的に向上する**: 初期20% → 6ヶ月48% → 12ヶ月65%。魔法の解決策はなく、データの蓄積と学習サイクルの繰り返しが必要
+1. **精度は段階的に向上する**: 初期20% → 6ヶ月52% → 12ヶ月67%。4月からの学習開始により6月時点で2ヶ月分のデータ蓄積があり、当初予測より加速する
 
 2. **天井は65〜70%**: ソーシャルメディアの不確実性により、完全な予測は不可能。65%以上は人間のエキスパートマーケターと同等のレベル
 
@@ -1212,7 +1503,9 @@ KPI目標の2月50アカウントは、学習のためのデータ生成基盤�
 
 6. **50アカウントでデータは十分**: 50アカウント × 30投稿/月 = 1,500データポイント/月。統計的なパターン発見には十分な量
 
-7. **エージェント個別精度の追跡がシステム全体を最適化する**: リサーチャー(75%)、アナリスト(65%)、戦略エージェント(60%)、プランナー(55%)がそれぞれの天井に向かって個別に改善し、好循環により全体の仮説的中率65%を達成する。自己反省の導入により改善速度が2〜3倍に加速する
+7. **エージェント個別精度の追跡がシステム全体を最適化する**: リサーチャー(75%)、アナリスト(65%)、戦略エージェント(60%)、プランナー(55%)がそれぞれの天井に向かって個別に改善し、好循環により全体の仮説的中率67%を達成する。自己反省の導入により改善速度が2〜3倍に加速する
+
+8. **全ての閾値・数式はsystem_settingsで管理**: 仮説判定閾値、品質スコアウェイト、異常検知パラメータ、学習昇格条件等の全設定値はDBに保存され、ダッシュボードから動的に調整可能（セクション12参照）
 
 ### 次のアクション
 

@@ -11,7 +11,10 @@
   - [動画制作 — デフォルトレシピ（v4.0互換）](#動画制作--デフォルトレシピv40互換)
   - [代替ツール候補](#代替ツール候補)
   - [テキストコンテンツ制作](#テキストコンテンツ制作)
-- [ダッシュボード](#ダッシュボード)
+- [ダッシュボードUI技術スタック](#ダッシュボードui技術スタック)
+  - [デザインシステム](#デザインシステム)
+  - [認証・通知](#認証通知)
+  - [ダッシュボード画面一覧](#ダッシュボード画面一覧)
 - [投稿・計測プラットフォームAPI](#投稿計測プラットフォームapi)
 - [開発・運用ツール](#開発運用ツール)
 - [埋め込みモデル (pgvector用)](#埋め込みモデル-pgvector用)
@@ -124,16 +127,96 @@ X投稿などのテキストコンテンツ生成。動画制作ワーカー（�
 | TikTok | キャプション（4,000文字） | トレンドタグ |
 | YouTube | タイトル（100文字）+ 説明文（5,000文字） | SEOキーワード |
 
-## ダッシュボード
+## ダッシュボードUI技術スタック
 
-| コンポーネント | 技術 | 用途 |
-|---|---|---|
-| フレームワーク | Next.js | React SSR/SSGフレームワーク |
-| UIライブラリ | Shadcn/ui | コンポーネントライブラリ |
-| グラフ描画 | Recharts or Tremor | KPI推移・アルゴリズム精度のグラフ |
-| 認証 | NextAuth.js + Google OAuth | ダッシュボード認証・セッション管理 |
-| DB接続 | Prisma or Drizzle ORM | PostgreSQLへの型安全クエリ |
-| マークダウンエディタ | Monaco Editor or MDXEditor | プロンプト編集UI (6.6) |
+### フレームワーク
+
+| コンポーネント | 技術 | バージョン | 用途 |
+|---|---|---|---|
+| フレームワーク | Next.js | 14+ (App Router) | フルスタックReactフレームワーク |
+| UIライブラリ | Shadcn/ui | latest | UIコンポーネントライブラリ（Tailwind CSS ベース） |
+| CSS | Tailwind CSS | 3.x | ユーティリティファーストCSS |
+| グラフ描画 | Recharts | 2.x | KPIグラフ・チャート描画 |
+| ダッシュボードUI | Tremor | 3.x | ダッシュボード特化UIコンポーネント |
+| DB接続 | Prisma or Drizzle ORM | — | PostgreSQLへの型安全クエリ |
+| マークダウンエディタ | Monaco Editor or MDXEditor | — | プロンプト編集UI |
+
+### デザインシステム
+
+#### カラーテーマ: Solarized
+
+ダッシュボードのカラーテーマはSolarized（Ethan Schoonover設計）を採用。
+Dark/Lightの切り替えは `system_settings.DASHBOARD_THEME` で制御（デフォルト: `dark`）。
+
+| 役割 | Dark Mode | Light Mode | CSS Variable |
+|------|-----------|------------|--------------|
+| Background | `#002b36` (base03) | `#fdf6e3` (base3) | `--bg-primary` |
+| Surface | `#073642` (base02) | `#eee8d5` (base2) | `--bg-surface` |
+| Foreground | `#839496` (base0) | `#657b83` (base00) | `--fg-primary` |
+| Secondary Text | `#586e75` (base01) | `#93a1a1` (base1) | `--fg-secondary` |
+| Accent Blue | `#268bd2` | `#268bd2` | `--accent-blue` |
+| Accent Cyan | `#2aa198` | `#2aa198` | `--accent-cyan` |
+| Success | `#859900` (green) | `#859900` | `--status-success` |
+| Warning | `#b58900` (yellow) | `#b58900` | `--status-warning` |
+| Error | `#dc322f` (red) | `#dc322f` | `--status-error` |
+| Info | `#268bd2` (blue) | `#268bd2` | `--status-info` |
+
+#### フォント: Nunito
+
+| 用途 | フォント | サイズ | ウェイト |
+|------|---------|-------|---------|
+| 見出し (h1) | Nunito | 32px | 700 (Bold) |
+| 見出し (h2) | Nunito | 24px | 600 (SemiBold) |
+| 見出し (h3) | Nunito | 20px | 600 (SemiBold) |
+| 本文 | Nunito | 14px | 400 (Regular) |
+| ラベル | Nunito | 12px | 500 (Medium) |
+| コード・ログ | JetBrains Mono | 13px | 400 (Regular) |
+
+選定理由: 丸みを帯びたグリフデザインで親しみやすいUI。Google Fonts提供で無料。
+
+#### レスポンシブデザイン
+
+| ブレイクポイント | 幅 | レイアウト |
+|---------------|-----|----------|
+| Mobile | < 640px | 1カラム、ハンバーガーメニュー、カード縦積み |
+| Tablet (sm) | 640-767px | 1カラム、コンパクトサイドバー |
+| Tablet (md) | 768-1023px | 2カラム、折りたたみサイドバー |
+| Desktop (lg) | 1024-1279px | マルチカラム、固定サイドバー |
+| Wide (xl) | >= 1280px | マルチカラム、フルサイドバー |
+
+モバイル対応方針:
+- タッチターゲット: 最低44px × 44px
+- カード型レイアウト: テーブルはモバイルでカード表示に変換
+- プルダウンリフレッシュ: モバイルで下スワイプでデータ更新
+- ボトムナビゲーション: モバイルではフッターにメインナビ配置
+
+### 認証・通知
+
+| 機能 | 初期実装 | 将来拡張 |
+|------|---------|---------|
+| 認証 | なし（localhost単一ユーザー） | NextAuth.js (OAuth) |
+| 通知 | なし（ダッシュボード上のアラートのみ） | Slack webhook, Email |
+| アクセス制御 | なし | RBAC (admin/viewer) |
+
+### ダッシュボード画面一覧
+
+| # | 画面名 | URL Path | 主要機能 |
+|---|-------|----------|---------|
+| 1 | ホーム | `/` | KPI概要、本日の制作状況、直近アラート |
+| 2 | KPI | `/kpi` | アカウント別/期間別KPI進捗グラフ |
+| 3 | 制作キュー | `/production` | task_queue一覧、優先度管理 |
+| 4 | コンテンツレビュー | `/review` | pending_review一覧、承認/差戻し |
+| 5 | コンテンツ一覧 | `/content` | 全content検索、フィルター |
+| 6 | アカウント管理 | `/accounts` | CRUD、OAuth設定、認証情報 |
+| 7 | キャラクター管理 | `/characters` | CRUD、アセットアップロード |
+| 8 | エージェント | `/agents` | 状態、思考ログ、反省、学習 |
+| 9 | 仮説ブラウザ | `/hypotheses` | 一覧、的中率推移、カテゴリ分析 |
+| 10 | 知見ブラウザ | `/learnings` | 一覧、信頼度フィルター、類似検索 |
+| 11 | ツール管理 | `/tools` | tool_catalog、レシピ、経験一覧 |
+| 12 | エラーログ | `/errors` | failed/retryingタスク、操作 |
+| 13 | コスト管理 | `/costs` | API支出、予算消化率 |
+| 14 | 設定 | `/settings` | system_settings全項目編集 |
+| 15 | 人間指示 | `/directives` | human_directives作成・履歴 |
 
 ## 投稿・計測プラットフォームAPI
 

@@ -4,7 +4,7 @@
 >
 > **データベース**: PostgreSQL 16+ with pgvector extension
 >
-> **テーブル数**: 25テーブル (Entity 3 / Production 3 / Intelligence 5 / Operations 4 / Observability 5 / Tool Management 5)
+> **テーブル数**: 26テーブル (Entity 3 / Production 3 / Intelligence 5 / Operations 4 / Observability 5 / Tool Management 5 / System Management 1)
 >
 > **関連ドキュメント**: [02-architecture.md](02-architecture.md) (データ基盤層の設計思想), [01-tech-stack.md](01-tech-stack.md) (pgvector・ORM選定)
 
@@ -45,31 +45,36 @@
   - [6.3 tool_external_sources — ツール外部情報源](#63-tool_external_sources--ツール外部情報源)
   - [6.4 production_recipes — 制作レシピ](#64-production_recipes--制作レシピ)
   - [6.5 prompt_suggestions — プロンプト改善提案](#65-prompt_suggestions--プロンプト改善提案)
-- [7. インデックス定義](#7-インデックス定義)
-  - [7.1 Entity Tables のインデックス](#71-entity-tables-のインデックス)
-  - [7.2 Production Tables のインデックス](#72-production-tables-のインデックス)
-  - [7.3 Intelligence Tables のインデックス](#73-intelligence-tables-のインデックス)
-  - [7.4 Operations Tables のインデックス](#74-operations-tables-のインデックス)
-  - [7.5 Observability Tables のインデックス](#75-observability-tables-のインデックス)
-  - [7.6 Tool Management Tables のインデックス](#76-tool-management-tables-のインデックス)
-- [8. updated_at 自動更新トリガー](#8-updated_at-自動更新トリガー)
-- [9. テーブル間リレーション詳細](#9-テーブル間リレーション詳細)
-  - [9.1 外部キー一覧](#91-外部キー一覧)
-  - [9.2 データフロー上の間接参照](#92-データフロー上の間接参照)
-  - [9.3 コンテンツのライフサイクルとテーブル遷移](#93-コンテンツのライフサイクルとテーブル遷移)
-- [10. v4.0からのデータ移行マッピング](#10-v40からのデータ移行マッピング)
-  - [10.1 Spreadsheet → PostgreSQL マッピング](#101-spreadsheet--postgresql-マッピング)
-  - [10.2 カラムマッピング例 (production タブ → content)](#102-カラムマッピング例-production-タブ--content)
-- [11. 想定クエリパターン](#11-想定クエリパターン)
-  - [11.1 制作パイプライングラフ: タスク取得](#111-制作パイプライングラフ-タスク取得)
-  - [11.2 計測ジョブグラフ: 計測対象検出](#112-計測ジョブグラフ-計測対象検出)
-  - [11.3 アナリスト: 類似仮説検索 (pgvector)](#113-アナリスト-類似仮説検索-pgvector)
-  - [11.4 プランナー: アカウント別パフォーマンスサマリー](#114-プランナー-アカウント別パフォーマンスサマリー)
-  - [11.5 ダッシュボード: アルゴリズム精度推移](#115-ダッシュボード-アルゴリズム精度推移)
+- [7. System Management Tables (システム管理テーブル)](#7-system-management-tables-システム管理テーブル)
+  - [7.1 system_settings — システム設定](#71-system_settings--システム設定)
+  - [7.2 デフォルト設定値（初期INSERT）](#72-デフォルト設定値初期insert)
+  - [7.3 accounts.auth_credentials JSONB スキーマ定義](#73-accountsauth_credentials-jsonb-スキーマ定義)
+- [8. インデックス定義](#8-インデックス定義)
+  - [8.1 Entity Tables のインデックス](#81-entity-tables-のインデックス)
+  - [8.2 Production Tables のインデックス](#82-production-tables-のインデックス)
+  - [8.3 Intelligence Tables のインデックス](#83-intelligence-tables-のインデックス)
+  - [8.4 Operations Tables のインデックス](#84-operations-tables-のインデックス)
+  - [8.5 Observability Tables のインデックス](#85-observability-tables-のインデックス)
+  - [8.6 Tool Management Tables のインデックス](#86-tool-management-tables-のインデックス)
+  - [8.7 System Management Tables のインデックス](#87-system-management-tables-のインデックス)
+- [9. updated_at 自動更新トリガー](#9-updated_at-自動更新トリガー)
+- [10. テーブル間リレーション詳細](#10-テーブル間リレーション詳細)
+  - [10.1 外部キー一覧](#101-外部キー一覧)
+  - [10.2 データフロー上の間接参照](#102-データフロー上の間接参照)
+  - [10.3 コンテンツのライフサイクルとテーブル遷移](#103-コンテンツのライフサイクルとテーブル遷移)
+- [11. v4.0からのデータ移行マッピング](#11-v40からのデータ移行マッピング)
+  - [11.1 Spreadsheet → PostgreSQL マッピング](#111-spreadsheet--postgresql-マッピング)
+  - [11.2 カラムマッピング例 (production タブ → content)](#112-カラムマッピング例-production-タブ--content)
+- [12. 想定クエリパターン](#12-想定クエリパターン)
+  - [12.1 制作パイプライングラフ: タスク取得](#121-制作パイプライングラフ-タスク取得)
+  - [12.2 計測ジョブグラフ: 計測対象検出](#122-計測ジョブグラフ-計測対象検出)
+  - [12.3 アナリスト: 類似仮説検索 (pgvector)](#123-アナリスト-類似仮説検索-pgvector)
+  - [12.4 プランナー: アカウント別パフォーマンスサマリー](#124-プランナー-アカウント別パフォーマンスサマリー)
+  - [12.5 ダッシュボード: アルゴリズム精度推移](#125-ダッシュボード-アルゴリズム精度推移)
 
 ## 概要
 
-v5.0のPostgreSQLスキーマは、AI-Influencerシステムの全構造化データを一元管理する。v4.0で5つのGoogle Spreadsheet + 33列productionタブに散在していたデータを、リレーショナルDBの正規化された25テーブルに集約する。
+v5.0のPostgreSQLスキーマは、AI-Influencerシステムの全構造化データを一元管理する。v4.0で5つのGoogle Spreadsheet + 33列productionタブに散在していたデータを、リレーショナルDBの正規化された26テーブルに集約する。
 
 ### テーブルカテゴリ
 
@@ -81,12 +86,13 @@ v5.0のPostgreSQLスキーマは、AI-Influencerシステムの全構造化デ�
 | **Operations** | 4 | システム運用・タスク管理 | cycles, human_directives, task_queue, algorithm_performance |
 | **Observability** | 5 | エージェントの運用可視化・自己学習・デバッグ | agent_prompt_versions, agent_thought_logs, agent_reflections, agent_individual_learnings, agent_communications |
 | **Tool Management** | 5 | AIツールの知識管理・制作レシピ・プロンプト改善 | tool_catalog, tool_experiences, tool_external_sources, production_recipes, prompt_suggestions |
+| **System Management** | 1 | システム設定の一元管理 | system_settings |
 
 > **テーブル作成順序 (FK依存関係)**
 >
 > 外部キー制約の依存関係により、CREATE TABLE文は以下の順序で実行する必要がある:
 >
-> 1. **依存なし (先に作成)**: `characters`, `cycles`, `tool_catalog`
+> 1. **依存なし (先に作成)**: `characters`, `cycles`, `tool_catalog`, `system_settings`
 > 2. **第1層**: `accounts` (→characters), `hypotheses` (→cycles), `production_recipes`, `agent_prompt_versions`, `agent_reflections` (→cycles)
 > 3. **第2層**: `components`, `content` (→hypotheses, characters, production_recipes), `market_intel`, `learnings`, `human_directives`, `task_queue`, `algorithm_performance`
 > 4. **第3層**: `content_sections` (→content, components), `publications` (→content, accounts), `agent_thought_logs` (→cycles), `agent_individual_learnings` (→agent_reflections), `agent_communications` (→cycles)
@@ -553,7 +559,7 @@ COMMENT ON COLUMN components.review_status IS 'キュレーション結果のレ
 
 ### 2.1 content — コンテンツ管理
 
-コンテンツの制作ライフサイクルを管理する中核テーブル。`content_format` でコンテンツ形式 (`short_video` / `text_post` / `image_post`) を区別し、使用するワーカータイプを決定する。`recipe_id` で Tool Specialist が選択した制作レシピ (`production_recipes`) を参照する。制作ステータス (`pending_approval` → `planned` → `producing` → `ready` → `analyzed`) を追跡し、LangGraphグラフ間の間接連携ポイントとなる。`REQUIRE_HUMAN_APPROVAL=true` 時はAI承認後に `pending_approval` で人間の承認を待ち、`false` 時は直接 `planned` に遷移する。投稿以降のライフサイクル (`scheduled` → `posted` → `measured`) は `publications` テーブルで管理する（1コンテンツ→N投稿の1:Nモデル）。
+コンテンツの制作ライフサイクルを管理する中核テーブル。`content_format` でコンテンツ形式 (`short_video` / `text_post` / `image_post`) を区別し、使用するワーカータイプを決定する。`recipe_id` で Tool Specialist が選択した制作レシピ (`production_recipes`) を参照する。制作ステータス (`planned` → `producing` → `ready` → `[pending_review → approved/rejected → revision_needed]` → `posted` → `measured`) を追跡し、LangGraphグラフ間の間接連携ポイントとなる。`HUMAN_REVIEW_ENABLED=true` 時はコンテンツ完成後に `pending_review` で人間のレビューを待ち、`AUTO_APPROVE_SCORE_THRESHOLD` 以上の品質スコアのコンテンツは自動承認される。`review_status` / `quality_score` / `reviewer_comment` で詳細なレビュー管理を行う。
 
 v4.0の production タブ (33カラム) からの移行先。
 
@@ -585,16 +591,17 @@ CREATE TABLE content (
         -- content_format='text_post'時: NULL (Text WorkerがLLMで直接生成、レシピ不要)
         -- プランナーがコンテンツ計画作成後、Tool Specialistが設定
 
-    -- ステータス管理 (制作ライフサイクルのみ)
+    -- ステータス管理 (コンテンツライフサイクル)
     status          VARCHAR(20) NOT NULL DEFAULT 'planned',
-        -- pending_approval: AI承認済み、人間の承認待ち (REQUIRE_HUMAN_APPROVAL=true時のみ)
-        -- planned:    人間 or AI が計画承認済み。制作待ち
-        -- producing:  制作パイプラインが動画生成中
-        -- ready:      動画完成。投稿待ちプール内
-        --             ※ readyの後はpublicationsテーブルで各投稿先を管理
-        -- analyzed:   全publicationsの計測完了後、分析結果が知見として保存済み
-        -- error:      制作で回復不能エラー発生
-        -- cancelled:  人間orエージェントが取消
+        -- planned:          人間 or AI が計画承認済み。制作待ち
+        -- producing:        制作パイプラインが動画生成中
+        -- ready:            動画完成。レビュー待ち or 投稿待ち
+        -- pending_review:   HUMAN_REVIEW_ENABLED=true時、人間のレビュー待ち
+        -- approved:         レビュー承認済み。投稿可能
+        -- rejected:         レビュー却下。revision_neededへ遷移
+        -- revision_needed:  差し戻し。再制作が必要
+        -- posted:           投稿完了
+        -- measured:         計測完了。分析待ち
     planned_post_date DATE,
         -- 投稿予定日。戦略サイクルが設定
         -- 投稿スケジューラーがこの日付+最適時間帯で投稿
@@ -675,6 +682,23 @@ CREATE TABLE content (
         -- fal.ai 403 "Forbidden" = 残高不足
         -- fal.ai 422 = パラメータ不正 (prompt空文字, keep_original_sound等)
 
+    -- レビュー管理
+    review_status     VARCHAR(20)  DEFAULT 'not_required',
+        -- not_required: レビュー不要（HUMAN_REVIEW_ENABLED=false時）
+        -- pending_review: レビュー待ち（動画完成後、人間のレビューを待機中）
+        -- approved: レビュー承認済み（投稿可能）
+        -- rejected: レビュー却下（差し戻し、再制作が必要）
+    reviewer_comment  TEXT,
+        -- 人間のレビューコメント。差し戻し理由を記載
+        -- 再制作時にエージェントが参照
+    reviewed_at       TIMESTAMPTZ,
+        -- レビュー実施日時
+    revision_count    INTEGER      DEFAULT 0,
+        -- 差し戻し→再制作の回数。過度のリビジョンを検知するため
+    quality_score     NUMERIC(3,1),
+        -- AI生成時の品質自己評価スコア（0-10）
+        -- AUTO_APPROVE_SCORE_THRESHOLD以上で自動承認
+
     -- タイムスタンプ
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -682,9 +706,13 @@ CREATE TABLE content (
     -- 制約
     CONSTRAINT chk_content_status
         CHECK (status IN (
-            'pending_approval', 'planned', 'producing', 'ready', 'analyzed',
-            'error', 'cancelled'
+            'planned', 'producing', 'ready', 'pending_review', 'approved',
+            'rejected', 'revision_needed', 'posted', 'measured'
         )),
+    CONSTRAINT chk_content_review_status
+        CHECK (review_status IN ('not_required', 'pending_review', 'approved', 'rejected')),
+    CONSTRAINT chk_content_quality_score
+        CHECK (quality_score IS NULL OR (quality_score >= 0 AND quality_score <= 10)),
     CONSTRAINT chk_content_format
         CHECK (content_format IN ('short_video', 'text_post', 'image_post')),
     CONSTRAINT chk_content_script_language
@@ -696,12 +724,16 @@ CREATE TABLE content (
 );
 
 COMMENT ON TABLE content IS 'コンテンツのライフサイクル管理。4つのLangGraphグラフ間の間接連携ポイント';
-COMMENT ON COLUMN content.status IS 'pending_approval→planned→producing→ready→analyzed の制作ステータス遷移。pending_approvalはREQUIRE_HUMAN_APPROVAL=true時のみ使用。投稿以降はpublicationsテーブルで管理';
+COMMENT ON COLUMN content.status IS 'コンテンツライフサイクル: planned→producing→ready→[pending_review→approved/rejected→revision_needed]→posted→measured。[]内はHUMAN_REVIEW_ENABLED時のみ';
 COMMENT ON COLUMN content.hypothesis_id IS '仮説駆動サイクルの根拠。NULLは人間の直接指示';
 COMMENT ON COLUMN content.content_format IS 'コンテンツ形式。short_video/text_post/image_post。使用するワーカータイプを決定';
 COMMENT ON COLUMN content.recipe_id IS 'Tool Specialistが選択した制作レシピ。text_postではNULL可 (LLM直接生成)';
 COMMENT ON COLUMN content.production_metadata IS 'fal.ai request ID, 処理時間, ファイルサイズ等';
 COMMENT ON COLUMN content.rejection_category IS '差戻しカテゴリ。plan_revision=プランナーへ, data_insufficient=リサーチャーへ, hypothesis_weak=アナリストへ。AI・人間両方が設定可能';
+COMMENT ON COLUMN content.review_status IS 'レビュー状態。HUMAN_REVIEW_ENABLED=false時はnot_required固定。trueの場合ready→pending_review→approved/rejected';
+COMMENT ON COLUMN content.reviewer_comment IS '人間のレビューコメント。差し戻し理由を記載。再制作時にエージェントが参照';
+COMMENT ON COLUMN content.revision_count IS '差し戻し→再制作の回数。過度のリビジョンを検知するため';
+COMMENT ON COLUMN content.quality_score IS 'AI生成時の品質自己評価スコア（0-10）。AUTO_APPROVE_SCORE_THRESHOLD以上で自動承認';
 ```
 
 ### 2.2 content_sections — セクション構成
@@ -1552,11 +1584,13 @@ CREATE TABLE task_queue (
         -- }
 
     -- ステータス管理
-    status          VARCHAR(20) NOT NULL DEFAULT 'queued',
-        -- queued: キュー投入済み。処理待ち
+    status          VARCHAR(20) NOT NULL DEFAULT 'pending',
+        -- pending: キュー投入済み。処理待ち
         -- processing: 処理中。assigned_workerが処理中
+        -- retrying: リトライ待ち。MAX_RETRY_ATTEMPTSまで自動リトライ
         -- completed: 処理完了
-        -- failed: 処理失敗（リトライ可能な場合は再キューイング）
+        -- failed: 処理失敗（リトライ可能な一時的失敗）
+        -- failed_permanent: 回復不能な失敗。MAX_RETRY_ATTEMPTS到達 or 致命的エラー
     priority        INTEGER NOT NULL DEFAULT 0,
         -- 優先度（大きいほど高優先）
         -- 0: 通常
@@ -1569,13 +1603,15 @@ CREATE TABLE task_queue (
 
     -- リトライ管理
     retry_count     INTEGER NOT NULL DEFAULT 0,
-        -- 現在のリトライ回数
+        -- 現在のリトライ回数。MAX_RETRY_ATTEMPTS到達で failed_permanent へ遷移
     max_retries     INTEGER NOT NULL DEFAULT 3,
         -- 最大リトライ回数
-        -- retry_count >= max_retries で failed に確定
+        -- retry_count >= max_retries で failed_permanent に確定
     error_message   TEXT,
         -- 最新のエラーメッセージ
-        -- リトライ時に上書きされる
+        -- ダッシュボードのエラーログ表示に使用。リトライ時に上書きされる
+    last_error_at   TIMESTAMPTZ,
+        -- 最後のエラー発生日時
 
     -- タイムスタンプ
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -1588,12 +1624,16 @@ CREATE TABLE task_queue (
     CONSTRAINT chk_task_type
         CHECK (task_type IN ('produce', 'publish', 'measure', 'curate')),
     CONSTRAINT chk_task_status
-        CHECK (status IN ('queued', 'processing', 'completed', 'failed'))
+        CHECK (status IN ('pending', 'processing', 'retrying', 'completed', 'failed', 'failed_permanent'))
 );
 
 COMMENT ON TABLE task_queue IS '制作・投稿・計測・キュレーションのタスクキュー。各LangGraphグラフがポーリングで取得';
 COMMENT ON COLUMN task_queue.priority IS '大きいほど高優先。ORDER BY priority DESC, created_at ASC';
-COMMENT ON COLUMN task_queue.max_retries IS 'デフォルト3。retry_count >= max_retries で failed確定';
+COMMENT ON COLUMN task_queue.max_retries IS 'デフォルト3。retry_count >= max_retries で failed_permanent確定';
+COMMENT ON COLUMN task_queue.retry_count IS '現在のリトライ回数。MAX_RETRY_ATTEMPTS到達で failed_permanent へ遷移';
+COMMENT ON COLUMN task_queue.error_message IS '最後のエラーメッセージ。ダッシュボードのエラーログ表示に使用';
+COMMENT ON COLUMN task_queue.last_error_at IS '最後のエラー発生日時';
+COMMENT ON COLUMN task_queue.status IS 'pending→processing→[retrying→processing]→completed/failed_permanent。retryはMAX_RETRY_ATTEMPTSまで自動';
 ```
 
 ### 4.4 algorithm_performance — アルゴリズム精度追跡
@@ -2602,11 +2642,181 @@ COMMENT ON COLUMN prompt_suggestions.confidence IS '提案の確信度。0.80以
 COMMENT ON COLUMN prompt_suggestions.status IS 'pending→accepted/rejected/expired。人間がダッシュボードで判断';
 ```
 
-## 7. インデックス定義
+## 7. System Management Tables (システム管理テーブル)
+
+全システム設定値を一元管理するテーブル。ハードコーディングを排除し、ダッシュボードから動的に変更可能にする設計思想を支える。
+
+### 7.1 system_settings — システム設定
+
+全システム設定値の一元管理テーブル。ハードコーディングを排除し、ダッシュボードから動的に変更可能。
+
+```sql
+-- ========================================
+-- 7. システム管理テーブル (1)
+-- ========================================
+
+-- 7.1 system_settings: 全システム設定値の一元管理
+-- ハードコーディングを排除し、ダッシュボードから動的に変更可能
+CREATE TABLE system_settings (
+    setting_key   VARCHAR(100) PRIMARY KEY,
+    setting_value JSONB        NOT NULL,
+    category      VARCHAR(50)  NOT NULL CHECK (category IN (
+                    'production', 'posting', 'agent', 'measurement',
+                    'dashboard', 'credentials', 'cost_control', 'review'
+                  )),
+    description   TEXT         NOT NULL,
+    default_value JSONB        NOT NULL,
+    value_type    VARCHAR(20)  NOT NULL CHECK (value_type IN (
+                    'integer', 'float', 'boolean', 'string', 'json', 'enum'
+                  )),
+    constraints   JSONB,       -- {"min": 1, "max": 100} or {"options": ["a","b"]}
+    updated_at    TIMESTAMPTZ  DEFAULT NOW(),
+    updated_by    VARCHAR(100) DEFAULT 'system'
+);
+
+-- トリガー: updated_at 自動更新
+CREATE TRIGGER trg_system_settings_updated
+    BEFORE UPDATE ON system_settings
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- インデックス: カテゴリ別検索
+CREATE INDEX idx_system_settings_category ON system_settings (category);
+
+COMMENT ON TABLE system_settings IS '全システム設定値を一元管理。ダッシュボードから動的変更可能。ハードコーディング禁止の原則を支えるテーブル';
+COMMENT ON COLUMN system_settings.setting_key IS '設定キー名（例: MAX_CONCURRENT_PRODUCTIONS）。アプリケーションコードではこのキーで参照';
+COMMENT ON COLUMN system_settings.setting_value IS '現在の設定値（JSONB）。value_typeに基づいてアプリ側で型変換';
+COMMENT ON COLUMN system_settings.category IS '設定カテゴリ。ダッシュボードでのグループ表示に使用';
+COMMENT ON COLUMN system_settings.default_value IS 'デフォルト値。リセット機能で使用';
+COMMENT ON COLUMN system_settings.constraints IS '値の制約条件。integer/float: {"min","max"}, enum: {"options":[...]}';
+COMMENT ON COLUMN system_settings.updated_by IS '最終更新者。"system"=初期値, "human"=ダッシュボード, エージェント名=自動調整';
+```
+
+### 7.2 デフォルト設定値（初期INSERT）
+
+システム初期化時にINSERTされるデフォルト設定値。全カテゴリの設定を網羅する。
+
+```sql
+-- ========================================
+-- 7.2 デフォルト設定値（初期INSERT）
+-- ========================================
+
+-- Production settings
+INSERT INTO system_settings (setting_key, setting_value, category, description, default_value, value_type, constraints) VALUES
+('MAX_CONCURRENT_PRODUCTIONS', '5', 'production', '同時動画制作数上限。fal.aiの並列タスク制限(40)以下に設定', '5', 'integer', '{"min": 1, "max": 40}'),
+('PRODUCTION_POLL_INTERVAL_SEC', '30', 'production', 'パイプラインのタスクキューポーリング間隔（秒）', '30', 'integer', '{"min": 10, "max": 300}'),
+('MAX_RETRY_ATTEMPTS', '3', 'production', '外部API呼び出し失敗時の最大リトライ回数', '3', 'integer', '{"min": 1, "max": 10}'),
+('RETRY_BACKOFF_BASE_SEC', '2', 'production', 'リトライ時の指数バックオフ基準秒数（実際の待機 = base × 2^attempt）', '2', 'integer', '{"min": 1, "max": 30}'),
+('QUALITY_FILTER_THRESHOLD', '4.0', 'production', '品質スコアがこの値未満のスクリプトは制作をスキップ', '4.0', 'float', '{"min": 0, "max": 10}'),
+('VIDEO_SECTION_TIMEOUT_SEC', '600', 'production', '動画セクション1つの制作タイムアウト（秒）。Kling生成〜リップシンクまで', '600', 'integer', '{"min": 120, "max": 1800}'),
+
+-- Posting settings
+('POSTING_POLL_INTERVAL_SEC', '120', 'posting', '投稿スケジューラーのポーリング間隔（秒）', '120', 'integer', '{"min": 30, "max": 600}'),
+('MAX_POSTS_PER_ACCOUNT_PER_DAY', '2', 'posting', 'アカウントあたりの1日最大投稿数。BAN回避のため控えめに設定', '2', 'integer', '{"min": 1, "max": 10}'),
+('POSTING_TIME_JITTER_MIN', '15', 'posting', '投稿時刻のランダムずらし幅（分）。Bot検知回避', '15', 'integer', '{"min": 0, "max": 60}'),
+
+-- Review settings
+('HUMAN_REVIEW_ENABLED', 'true', 'review', 'コンテンツ投稿前に人間のレビューを要求するか', 'true', 'boolean', null),
+('AUTO_APPROVE_SCORE_THRESHOLD', '8.0', 'review', 'HUMAN_REVIEW_ENABLED=true時でも、品質スコアがこの値以上なら自動承認', '8.0', 'float', '{"min": 0, "max": 10}'),
+('STRATEGY_APPROVAL_REQUIRED', 'true', 'review', '戦略サイクルのポリシー決定に人間の承認を要求するか', 'true', 'boolean', null),
+('RECIPE_APPROVAL_REQUIRED', 'true', 'review', '新しいプロダクションレシピの使用に人間の承認を要求するか', 'true', 'boolean', null),
+
+-- Agent settings
+('HYPOTHESIS_CYCLE_INTERVAL_HOURS', '24', 'agent', '仮説駆動サイクルの実行間隔（時間）。日次=24', '24', 'integer', '{"min": 6, "max": 168}'),
+('RESEARCHER_POLL_INTERVAL_HOURS', '6', 'agent', 'リサーチャーの市場情報収集間隔（時間）', '6', 'integer', '{"min": 1, "max": 48}'),
+('ANOMALY_DETECTION_SIGMA', '2.0', 'agent', '異常検知の標準偏差閾値。この倍数を超えるメトリクス変動をアラート', '2.0', 'float', '{"min": 1.0, "max": 5.0}'),
+('ANOMALY_DETECTION_WINDOW_DAYS', '14', 'agent', '異常検知の基準期間（日）。この期間の平均・標準偏差を基準に判定', '14', 'integer', '{"min": 7, "max": 90}'),
+('LEARNING_CONFIDENCE_THRESHOLD', '0.7', 'agent', '知見(learnings)の信頼度がこの値以上で有効とみなす', '0.7', 'float', '{"min": 0.1, "max": 1.0}'),
+('LEARNING_AUTO_PROMOTE_COUNT', '10', 'agent', '知見が何回適用成功したら自動昇格（グローバル知見化）するか', '10', 'integer', '{"min": 3, "max": 50}'),
+('COMPONENT_DUPLICATE_THRESHOLD', '0.9', 'agent', 'コンポーネント重複判定のコサイン類似度閾値', '0.9', 'float', '{"min": 0.7, "max": 1.0}'),
+('PLANNER_ACCOUNTS_PER_INSTANCE', '50', 'agent', 'プランナー1インスタンスあたりの担当アカウント数', '50', 'integer', '{"min": 10, "max": 100}'),
+
+-- Measurement settings
+('METRICS_COLLECTION_DELAY_HOURS', '48', 'measurement', 'コンテンツ投稿後、メトリクス収集開始までの遅延（時間）', '48', 'integer', '{"min": 24, "max": 168}'),
+('METRICS_COLLECTION_RETRY_HOURS', '24', 'measurement', 'メトリクス収集失敗時のリトライ間隔（時間）', '24', 'integer', '{"min": 6, "max": 72}'),
+('METRICS_MAX_COLLECTION_ATTEMPTS', '5', 'measurement', 'メトリクス収集の最大試行回数', '5', 'integer', '{"min": 1, "max": 20}'),
+
+-- Cost control settings
+('DAILY_BUDGET_LIMIT_USD', '100', 'cost_control', '1日あたりの最大API支出（USD）。超過時は新規制作を停止', '100', 'float', '{"min": 10, "max": 10000}'),
+('MONTHLY_BUDGET_LIMIT_USD', '3000', 'cost_control', '月間最大API支出（USD）。超過時は全制作を停止', '3000', 'float', '{"min": 100, "max": 300000}'),
+('FAL_AI_BALANCE_ALERT_USD', '50', 'cost_control', 'fal.ai残高がこの値を下回ったらダッシュボードにアラート', '50', 'float', '{"min": 10, "max": 1000}'),
+('COST_TRACKING_ENABLED', 'true', 'cost_control', 'API利用コストの自動追跡を有効にするか', 'true', 'boolean', null),
+
+-- Dashboard settings
+('DASHBOARD_THEME', '"dark"', 'dashboard', 'ダッシュボードのカラーテーマ。dark=Solarized Dark, light=Solarized Light', '"dark"', 'enum', '{"options": ["dark", "light"]}'),
+('DASHBOARD_ITEMS_PER_PAGE', '20', 'dashboard', '一覧画面のデフォルト表示件数', '20', 'integer', '{"min": 10, "max": 100}'),
+('DASHBOARD_AUTO_REFRESH_SEC', '30', 'dashboard', 'ダッシュボードの自動リフレッシュ間隔（秒）。0=無効', '30', 'integer', '{"min": 0, "max": 300}'),
+
+-- Credential settings (values are placeholder, human must set via dashboard)
+('CRED_FAL_AI_API_KEY', '""', 'credentials', 'fal.ai APIキー。ダッシュボードの設定画面から入力', '""', 'string', null),
+('CRED_FISH_AUDIO_API_KEY', '""', 'credentials', 'Fish Audio APIキー。Plus plan ($11/month) 必須', '""', 'string', null),
+('CRED_OPENAI_API_KEY', '""', 'credentials', 'OpenAI APIキー（Embedding用: text-embedding-3-small）', '""', 'string', null),
+('CRED_ANTHROPIC_API_KEY', '""', 'credentials', 'Anthropic APIキー（Claude Opus/Sonnet）', '""', 'string', null);
+```
+
+### 7.3 accounts.auth_credentials JSONB スキーマ定義
+
+`accounts.auth_credentials` カラムのプラットフォーム別JSONBスキーマ定義。ダッシュボードのアカウント管理画面から入力する。
+
+```sql
+-- ========================================
+-- accounts.auth_credentials JSONB スキーマ定義
+-- ========================================
+-- プラットフォーム別のOAuth認証情報をJSONBで格納。
+-- ダッシュボードのアカウント管理画面から入力。
+--
+-- YouTube:
+-- {
+--   "channel_id": "UCxxxxxxx",
+--   "oauth": {
+--     "client_id": "xxx.apps.googleusercontent.com",
+--     "client_secret": "GOCSPX-xxx",
+--     "refresh_token": "1//xxx",
+--     "access_token": "ya29.xxx",
+--     "token_expiry": "2026-03-01T00:00:00Z"
+--   }
+-- }
+--
+-- TikTok:
+-- {
+--   "open_id": "xxx",
+--   "oauth": {
+--     "client_key": "xxx",
+--     "client_secret": "xxx",
+--     "access_token": "act.xxx",
+--     "refresh_token": "rft.xxx",
+--     "token_expiry": "2026-03-01T00:00:00Z"
+--   }
+-- }
+--
+-- Instagram:
+-- {
+--   "ig_user_id": "17841400xxx",
+--   "page_id": "xxx",
+--   "oauth": {
+--     "app_id": "xxx",
+--     "app_secret": "xxx",
+--     "long_lived_token": "EAAxx",
+--     "token_expiry": "2026-04-01T00:00:00Z"
+--   }
+-- }
+--
+-- X (Twitter):
+-- {
+--   "user_id": "xxx",
+--   "oauth": {
+--     "api_key": "xxx",
+--     "api_secret": "xxx",
+--     "access_token": "xxx",
+--     "access_token_secret": "xxx"
+--   }
+-- }
+```
+
+## 8. インデックス定義
 
 パフォーマンスを確保するためのインデックス。主にステータスフィルタリング、時系列クエリ、JSONB検索、ベクトル検索に対応する。
 
-### 7.1 Entity Tables のインデックス
+### 8.1 Entity Tables のインデックス
 
 ```sql
 -- accounts
@@ -2644,7 +2854,7 @@ CREATE INDEX idx_components_curated_by ON components(curated_by);
     -- auto/human でフィルタ
 ```
 
-### 7.2 Production Tables のインデックス
+### 8.2 Production Tables のインデックス
 
 ```sql
 -- content
@@ -2670,6 +2880,10 @@ CREATE INDEX idx_content_recipe ON content(recipe_id);
     -- レシピ別のコンテンツ一覧（レシピ効果の分析用）
 CREATE INDEX idx_content_production_metadata ON content USING GIN(production_metadata);
     -- 制作メタデータのJSONB検索
+CREATE INDEX idx_content_review_status ON content(review_status);
+    -- レビュー状態でのフィルタ（ダッシュボード: pending_reviewの一覧）
+CREATE INDEX idx_content_quality_score ON content(quality_score DESC NULLS LAST);
+    -- 品質スコア順のソート（AUTO_APPROVE_SCORE_THRESHOLD判定）
 
 -- content_sections
 CREATE INDEX idx_content_sections_content ON content_sections(content_id);
@@ -2694,7 +2908,7 @@ CREATE INDEX idx_publications_status_measure ON publications(status, measure_aft
     -- 複合: 計測対象の検出クエリ最適化
 ```
 
-### 7.3 Intelligence Tables のインデックス
+### 8.3 Intelligence Tables のインデックス
 
 ```sql
 -- hypotheses
@@ -2786,7 +3000,7 @@ CREATE INDEX idx_learnings_embedding ON learnings
     -- 類似知見の自動発見・クラスタリング
 ```
 
-### 7.4 Operations Tables のインデックス
+### 8.4 Operations Tables のインデックス
 
 ```sql
 -- cycles
@@ -2839,7 +3053,7 @@ CREATE INDEX idx_algorithm_perf_period_measured ON algorithm_performance(period,
     -- 複合: "weeklyの精度推移" 等
 ```
 
-### 7.5 Observability Tables のインデックス
+### 8.5 Observability Tables のインデックス
 
 ```sql
 -- agent_prompt_versions
@@ -2907,7 +3121,7 @@ CREATE INDEX idx_communications_created_at ON agent_communications(created_at);
     -- 週次ダイジェスト集計用
 ```
 
-### 7.6 Tool Management Tables のインデックス
+### 8.6 Tool Management Tables のインデックス
 
 ```sql
 -- tool_catalog
@@ -2975,7 +3189,23 @@ CREATE INDEX idx_prompt_suggestions_created_at ON prompt_suggestions(created_at)
     -- 時系列ソート
 ```
 
-## 8. updated_at 自動更新トリガー
+### 8.7 System Management Tables のインデックス
+
+```sql
+-- system_settings
+CREATE INDEX idx_system_settings_category ON system_settings(category);
+    -- カテゴリ別の設定一覧取得
+CREATE INDEX idx_system_settings_updated_at ON system_settings(updated_at);
+    -- 最近更新された設定の取得
+```
+
+```sql
+-- task_queue: リトライ・失敗状態の部分インデックス
+CREATE INDEX idx_task_queue_status_retry ON task_queue(status) WHERE status IN ('retrying', 'failed_permanent');
+    -- リトライ中・永続失敗のタスクをダッシュボードで監視
+```
+
+## 9. updated_at 自動更新トリガー
 
 `updated_at` カラムを持つテーブルに対して、レコード更新時に自動的に現在時刻を設定するトリガーを定義する。
 
@@ -3025,11 +3255,15 @@ CREATE TRIGGER trg_tool_catalog_updated_at
 CREATE TRIGGER trg_production_recipes_updated_at
     BEFORE UPDATE ON production_recipes
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER trg_system_settings_updated_at
+    BEFORE UPDATE ON system_settings
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 ```
 
-## 9. テーブル間リレーション詳細
+## 10. テーブル間リレーション詳細
 
-### 9.1 外部キー一覧
+### 10.1 外部キー一覧
 
 | From テーブル | From カラム | To テーブル | To カラム | 関係 | 説明 |
 |---|---|---|---|---|---|
@@ -3052,7 +3286,7 @@ CREATE TRIGGER trg_production_recipes_updated_at
 | tool_experiences | content_id | content | content_id | N:1 | 使用されたコンテンツ (VARCHAR(20)参照) |
 | tool_external_sources | tool_id | tool_catalog | id | N:1 | 関連するツール (NULLable) |
 
-### 9.2 データフロー上の間接参照
+### 10.2 データフロー上の間接参照
 
 外部キーでは表現されないが、アプリケーションレベルで重要な参照関係。
 
@@ -3068,7 +3302,7 @@ CREATE TRIGGER trg_production_recipes_updated_at
 
 これらは配列型で格納されるため、外部キー制約は設定しない。アプリケーション層（MCP Server）でバリデーションを行う。
 
-### 9.3 コンテンツのライフサイクルとテーブル遷移
+### 10.3 コンテンツのライフサイクルとテーブル遷移
 
 ```
 1. 戦略サイクルグラフ
@@ -3118,9 +3352,9 @@ CREATE TRIGGER trg_production_recipes_updated_at
    prompt_suggestions (INSERT) ← パフォーマンス分析に基づくプロンプト改善提案
 ```
 
-## 10. v4.0からのデータ移行マッピング
+## 11. v4.0からのデータ移行マッピング
 
-### 10.1 Spreadsheet → PostgreSQL マッピング
+### 11.1 Spreadsheet → PostgreSQL マッピング
 
 | v4.0 データソース | v5.0 テーブル | 移行方法 |
 |---|---|---|
@@ -3131,7 +3365,7 @@ CREATE TRIGGER trg_production_recipes_updated_at
 | Audio Inventory | components (type='audio') | drive_file_idを移行 |
 | Master Spreadsheet production タブ | content | 33カラムを正規化して移行 |
 
-### 10.2 カラムマッピング例 (production タブ → content)
+### 11.2 カラムマッピング例 (production タブ → content)
 
 | v4.0 production カラム | v5.0 content カラム | 変換 |
 |---|---|---|
@@ -3150,11 +3384,11 @@ CREATE TRIGGER trg_production_recipes_updated_at
 | drive_folder_id | drive_folder_id | そのまま |
 | error | error_message | そのまま |
 
-## 11. 想定クエリパターン
+## 12. 想定クエリパターン
 
 MCP Serverが構築する主要なクエリパターンを示す。エージェントはこれらのクエリをMCPツール名で呼び出し、SQLを直接書くことはない。
 
-### 11.1 制作パイプライングラフ: タスク取得
+### 12.1 制作パイプライングラフ: タスク取得
 
 ```sql
 -- MCPツール: get_pending_tasks
@@ -3182,7 +3416,7 @@ ORDER BY c.planned_post_date ASC
 LIMIT 5;
 ```
 
-### 11.2 計測ジョブグラフ: 計測対象検出
+### 12.2 計測ジョブグラフ: 計測対象検出
 
 ```sql
 -- MCPツール: get_posts_needing_measurement
@@ -3201,7 +3435,7 @@ WHERE p.status = 'posted'
 ORDER BY p.measure_after ASC;
 ```
 
-### 11.3 アナリスト: 類似仮説検索 (pgvector)
+### 12.3 アナリスト: 類似仮説検索 (pgvector)
 
 ```sql
 -- MCPツール: search_similar_hypotheses
@@ -3214,7 +3448,7 @@ ORDER BY embedding <=> $1
 LIMIT 10;
 ```
 
-### 11.4 プランナー: アカウント別パフォーマンスサマリー
+### 12.4 プランナー: アカウント別パフォーマンスサマリー
 
 ```sql
 -- MCPツール: get_performance_summary
@@ -3232,7 +3466,7 @@ WHERE a.account_id = $1
 GROUP BY a.account_id, a.platform, a.niche;
 ```
 
-### 11.5 ダッシュボード: アルゴリズム精度推移
+### 12.5 ダッシュボード: アルゴリズム精度推移
 
 ```sql
 -- ORM (Prisma/Drizzle) で直接発行

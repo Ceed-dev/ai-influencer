@@ -1741,6 +1741,52 @@ Phase 2 (commit `3d4a7ac`): CJKピクセル幅補正
 
 **最終検証結果**: agent_instance残存0件、全ファイルクリーン
 
+### 2026-02-18: v5.0仕様書 包括的更新（Session 4）
+
+**目的**: v5.0仕様書01-09の全ファイルを包括的に更新。新機能追加、仕様の精度向上、並列実装対応。
+
+**Agent Team**: `spec-complete` (リーダー1 + チームメイト10)
+
+**Wave 1** (5エージェント並列):
+- schema-updater: 03-database-schema.md — system_settingsテーブル(26番目)追加、contentレビューカラム、task_queueリトライカラム
+- arch-updater: 02-architecture.md — エラーリカバリー、人間レビューWF、システム設定管理、クレデンシャル管理、人間介入ポイント一覧、ダッシュボードUI仕様
+- agent-updater: 04-agent-design.md — エージェント別エラーリカバリー、コンテンツレビューWF、学習メカニズム詳細、判断閾値・数式、6エージェントのデフォルトプロンプト
+- tech-updater: 01-tech-stack.md — ダッシュボードUI技術(Solarized, Nunito, レスポンシブ) + README.md更新
+- roadmap-rewriter: 06-development-roadmap.md — 仕様駆動並列実装(19週→7週)に完全書き換え
+
+**Wave 2** (5エージェント並列):
+- cost-recalc: 05-cost-analysis.md — 開発コスト追加($2,783-5,233)、エラーリカバリーコスト最適化
+- kpi-recalc: 07-kpi-analysis.md — KPI達成率再計算(14-43%→22-55%)、早期学習効果反映
+- algo-updater: 08-algorithm-analysis.md — 判断ロジック数式定義、データ変換ロジック、信頼度更新ルール
+- risks-updater: 09-risks-and-bottlenecks.md — 並列実装リスク5件追加、既存リスク緩和策更新
+- docs-creator: 10-implementation-guide.md(新規) + 11-pre-implementation-checklist.md(新規)
+
+**主要な設計変更**:
+1. system_settingsテーブル: 全設定値のソフトコーディング(35+設定項目、8カテゴリ)
+2. エラーリカバリー3段階: API(自動リトライ)→タスク(チェックポイント)→パイプライン(ダッシュボード)
+3. コンテンツレビューWF: content.status拡張、quality_score自動承認、差戻し→再制作
+4. クレデンシャル管理: プラットフォームOAuth JSONB schema定義、ツールAPIキー
+5. ダッシュボードUI: Solarized Dark/Light、Nunito丸フォント、レスポンシブ、15画面
+6. 人間介入ポイント: 必須7項目 + 選択的11項目を一覧化
+7. 開発ロードマップ: 19週→7週(仕様駆動並列、Agent Team 10名)
+8. KPI見通し改善: v3達成率22-55%(旧14-43%)、J-curveクロスオーバー前倒し
+
+**ファイル変更一覧** (10修正 + 2新規 = 12ファイル):
+- 01-tech-stack.md: +82行 (Dashboard UI)
+- 02-architecture.md: +508行 (6新セクション)
+- 03-database-schema.md: +279行 (system_settings + review + retry)
+- 04-agent-design.md: +723行 (recovery + prompts + formulas)
+- 05-cost-analysis.md: +83行 (dev cost + recovery optimization)
+- 06-development-roadmap.md: 書き換え (parallel implementation)
+- 07-kpi-analysis.md: +275行 (recalculated)
+- 08-algorithm-analysis.md: +1,100行 (formulas + data transformation)
+- 09-risks-and-bottlenecks.md: +500行 (5 new risks + updates)
+- 10-implementation-guide.md: 新規477行
+- 11-pre-implementation-checklist.md: 新規165行
+- README.md: v5.0参照更新
+
+**合計**: 17,254行の仕様書（11ファイル + README）
+
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID
 - `.gsheets_token.json` - OAuth token for Sheets/Drive API

@@ -21,10 +21,34 @@ YouTube Shorts / TikTok / Instagram Reels / X に対応。Node.js パイプラ�
 | **[docs/n8n-integration.md](docs/n8n-integration.md)** | GAS Web App との n8n ワークフロー連携ガイド | エンジニア |
 | **[docs/cost-analysis/per-video-cost.md](docs/cost-analysis/per-video-cost.md)** | 1動画あたりのAPIコスト詳細分析（パイプライン実設定ベース） | PM / ビジネス |
 | **[docs/cost-analysis/per-minute-cost.md](docs/cost-analysis/per-minute-cost.md)** | 1分あたりのAPIコスト分析（動画長に依存しない基本単価） | PM / ビジネス |
+| **[docs/v5-specification/](docs/v5-specification/)** | v5.0 技術仕様書（設計フェーズ） | エンジニア / PM |
+
+
+## v5.0 技術仕様（設計フェーズ）
+
+v5.0はAI-Influencerシステムを**完全AIエージェント駆動**に刷新する大規模リデザイン。PostgreSQL + MCP Server + LangGraph.jsマルチエージェントアーキテクチャへ移行し、仮説駆動サイクルの自動化を実現する。
+
+仕様書は `docs/v5-specification/` に格納:
+
+| # | ファイル | 内容 |
+|---|---------|------|
+| — | [README.md](docs/v5-specification/README.md) | 概要・設計思想・アーキテクチャ概要図 |
+| 01 | [技術スタック一覧](docs/v5-specification/01-tech-stack.md) | 使用する全サービス・ライブラリ・インフラ |
+| 02 | [システムアーキテクチャ](docs/v5-specification/02-architecture.md) | 4層アーキテクチャ、データ基盤層、AIエージェント層、MCP Server、ダッシュボード |
+| 03 | [PostgreSQLスキーマ完全定義](docs/v5-specification/03-database-schema.md) | 全テーブル・カラム・リレーション・インデックス（pgvector含む） |
+| 04 | [AIエージェント設計](docs/v5-specification/04-agent-design.md) | 階層構造、MCPツール一覧、LangGraphグラフ設計、仮説駆動サイクル |
+| 05 | [運用コスト分析](docs/v5-specification/05-cost-analysis.md) | コンテンツ単価、AIエージェント運用コスト、スケール別月間総コスト |
+| 06 | [開発ロードマップ](docs/v5-specification/06-development-roadmap.md) | 週単位スケジュール、マイルストーン、依存関係、リスクバッファ |
+| 07 | [KPI達成可能性分析 v3](docs/v5-specification/07-kpi-analysis.md) | v5.0仕様での再評価（2026年2月〜6月 + 長期展望） |
+| 08 | [アルゴリズム精度分析](docs/v5-specification/08-algorithm-analysis.md) | 仮説的中率予測、成長曲線、改善戦略 |
+| 09 | [リスク・ボトルネック分析](docs/v5-specification/09-risks-and-bottlenecks.md) | ビジネス・技術・プラットフォーム・運用リスクと緩和策 |
+
+> **ステータス**: 設計完了 — 実装準備中。v4.0（現行稼働中）は引き続き動作。
 
 
 ## 目次
 
+0. [v5.0 技術仕様（設計フェーズ）](#v50-技術仕様設計フェーズ)
 1. [システム概要](#システム概要)
 2. [パイプラインフロー詳細](#パイプラインフロー詳細)
 3. [使用サービス詳細](#使用サービス詳細)
@@ -446,6 +470,7 @@ processing → uploading_image → generating_video_hook → generating_audio_ho
 │   ├── STRATEGY.md        # 戦略・KPI・会議メモ
 │   ├── ARCHITECTURE.md    # 技術アーキテクチャ
 │   ├── n8n-integration.md # n8nワークフロー連携ガイド
+│   ├── v5-specification/  # v5.0 技術仕様書（01〜09、設計フェーズ）
 │   └── manuals/           # ユーザー向けマニュアル
 │       ├── OPERATIONS.md          # 運用マニュアル
 │       ├── GAS_MANUAL.md          # GAS操作マニュアル

@@ -105,6 +105,26 @@
   - [15.2 知見移植の6ステップ](#152-知見移植の6ステップ)
   - [15.3 各ステップの詳細](#153-各ステップの詳細)
   - [15.4 知見移植のタイムライン](#154-知見移植のタイムライン)
+- [16. エラーリカバリー仕様](#16-エラーリカバリー仕様)
+  - [16.1 共通リトライポリシー](#161-共通リトライポリシー)
+  - [16.2 エージェント別リカバリー動作](#162-エージェント別リカバリー動作)
+- [17. 判断ロジック・閾値定義](#17-判断ロジック閾値定義)
+  - [17.1 仮説判定 (verdict)](#171-仮説判定-verdict)
+  - [17.2 仮説的中率の算出](#172-仮説的中率の算出)
+  - [17.3 異常検知](#173-異常検知)
+  - [17.4 コンポーネント品質スコア](#174-コンポーネント品質スコア)
+  - [17.5 リソース配分ルール](#175-リソース配分ルール)
+- [18. エージェント学習メカニズム詳細](#18-エージェント学習メカニズム詳細)
+  - [18.1 学習データフロー図](#181-学習データフロー図)
+  - [18.2 学習の4段階](#182-学習の4段階)
+  - [18.3 個別エージェント学習 (agent_individual_learnings)](#183-個別エージェント学習-agent_individual_learnings)
+- [19. デフォルトプロンプトテンプレート](#19-デフォルトプロンプトテンプレート)
+  - [19.1 戦略エージェント (Strategist) プロンプト](#191-戦略エージェント-strategist-プロンプト)
+  - [19.2 リサーチャー (Researcher) プロンプト](#192-リサーチャー-researcher-プロンプト)
+  - [19.3 アナリスト (Analyst) プロンプト](#193-アナリスト-analyst-プロンプト)
+  - [19.4 プランナー (Planner) プロンプト](#194-プランナー-planner-プロンプト)
+  - [19.5 ツールスペシャリスト (Tool Specialist) プロンプト](#195-ツールスペシャリスト-tool-specialist-プロンプト)
+  - [19.6 データキュレーター (Data Curator) プロンプト](#196-データキュレーター-data-curator-プロンプト)
 
 ## 1. エージェント階層設計
 
@@ -205,7 +225,7 @@ v5.0のエージェントは **4層階層型** で構成される。上位層が
 |------|------|
 | **LLM** | Claude Sonnet 4.5 |
 | **体数** | 1〜数体 (情報源の数に応じてスケール) |
-| **トリガー** | 連続実行 (数時間ごとのcronスケジュール) |
+| **トリガー** | 連続実行（RESEARCHER_POLL_INTERVAL_HOURS（system_settings、デフォルト: 6）時間ごとのcronスケジュール） |
 | **入力** | Web上の市場情報 (トレンド, 競合, プラットフォーム動向) |
 | **出力** | `market_intel` テーブルに構造化データを蓄積 |
 | **System Prompt概要** | 「あなたは市場調査の専門家です。各ニッチのトレンド、競合アカウントの動向、プラットフォームのアルゴリズム変更を調査し、構造化されたインテリジェンスとしてデータベースに保存してください。」 |
@@ -233,7 +253,7 @@ v5.0のエージェントは **4層階層型** で構成される。上位層が
 |------|------|
 | **LLM** | Claude Sonnet 4.5 |
 | **体数** | 1体 |
-| **トリガー** | 計測完了後 (48h後にmetricsテーブルに新規データが入った時点) |
+| **トリガー** | 計測完了後（METRICS_COLLECTION_DELAY_HOURS（system_settings、デフォルト: 48）時間後にmetricsテーブルに新規データが入った時点） |
 | **入力** | `metrics` テーブルの新規データ、`hypotheses` テーブルの検証待ち仮説 |
 | **出力** | `analyses` テーブルの分析結果、`learnings` テーブルの知見、`hypotheses` テーブルのverdict更新、`algorithm_performance` テーブルの精度記録 |
 | **System Prompt概要** | 「あなたはデータ分析の専門家です。投稿のパフォーマンスデータを分析し、仮説を検証し、再利用可能な知見を抽出してください。統計的に有意な結論のみを導き、データ不足の場合は正直に 'inconclusive' と判定してください。」 |
@@ -353,13 +373,13 @@ v5.0のエージェントは **4層階層型** で構成される。上位層が
 
 ### 1.6 Layer 3: 部長 — プランナーエージェント (Planner) x N体
 
-ニッチ/クラスター別に20〜50アカウントを担当し、具体的なコンテンツ計画を策定する「中間管理職」。v5.0のスケーラビリティの鍵を握るエージェント。
+ニッチ/クラスター別にPLANNER_ACCOUNTS_PER_INSTANCE（system_settings、デフォルト: 50）アカウントを担当し、具体的なコンテンツ計画を策定する「中間管理職」。v5.0のスケーラビリティの鍵を握るエージェント。
 
 | 項目 | 詳細 |
 |------|------|
 | **LLM** | Claude Sonnet 4.5 |
-| **体数** | N体 (ニッチ/クラスター別。初期2〜3体、スケール時に増設) |
-| **トリガー** | 日次 (戦略エージェントからの方針指示を受けて) |
+| **体数** | N体（ニッチ/クラスター別。PLANNER_ACCOUNTS_PER_INSTANCE（system_settings、デフォルト: 50）アカウントごとに1体。初期2〜3体、スケール時に増設） |
+| **トリガー** | 日次（HYPOTHESIS_CYCLE_INTERVAL_HOURS（system_settings、デフォルト: 24）時間ごと。戦略エージェントからの方針指示を受けて） |
 | **入力** | 戦略エージェントからのサイクル方針、アナリストからの知見、リサーチャーからのトレンド |
 | **出力** | `content` テーブルに `planned` ステータスのレコード、`hypotheses` テーブルに新仮説 |
 | **System Prompt概要** | 「あなたはbeautyニッチ担当のコンテンツプランナーです。担当アカウント群に対して、仮説に基づいたコンテンツ計画を策定してください。過去の知見とトレンドを活用し、数日先の投稿を前もって計画してください。」 |
@@ -727,7 +747,7 @@ COMMIT;
 | 5 | `extract_learning` | `{ insight, category, confidence, source_analyses[], applicable_niches[] }` | `{ id }` | 知見の抽出・保存 |
 | 6 | `update_learning_confidence` | `{ learning_id, new_confidence, additional_evidence }` | `{ success }` | 知見の確信度更新 |
 | 7 | `search_similar_learnings` | `{ query_text, limit: 10, min_confidence: 0.5 }` | `[{ id, insight, confidence, similarity }]` | 類似知見のベクトル検索 |
-| 8 | `detect_anomalies` | `{ period: "7d", threshold: 2.0 }` | `[{ account_id, metric, expected, actual, deviation }]` | 異常値検知 (標準偏差ベース) |
+| 8 | `detect_anomalies` | `{ period: "7d", threshold: 2.0 }` | `[{ account_id, metric, expected, actual, deviation }]` | 異常値検知（ANOMALY_DETECTION_SIGMA（system_settings、デフォルト: 2.0）× 標準偏差ベース） |
 | 9 | `get_component_scores` | `{ type: "scenario", subtype: "hook", limit: 20 }` | `[{ component_id, name, score, usage_count }]` | コンポーネント別スコア取得 |
 | 10 | `update_component_score` | `{ component_id, new_score }` | `{ success }` | スコア更新 |
 | 11 | `calculate_algorithm_performance` | `{ period: "weekly" }` | `{ hypothesis_accuracy, prediction_error, learning_count, improvement_rate }` | アルゴリズム精度計算 |
@@ -1038,7 +1058,7 @@ interface StrategyCycleState {
 
   // システム設定
   config: {
-    REQUIRE_HUMAN_APPROVAL: boolean; // true=初期フェーズ (人間承認必須)
+    REQUIRE_HUMAN_APPROVAL: boolean; // system_settings、デフォルト: true（初期フェーズは人間承認必須）
   };
 
   // セルフリフレクション (reflect_allノード出力)
@@ -1186,7 +1206,7 @@ const app = strategyCycleGraph.compile({ checkpointer });
 
 | エラー種別 | 発生ノード | 対処 |
 |-----------|----------|------|
-| LLM API タイムアウト | 全ノード | 3回リトライ (exponential backoff) |
+| LLM API タイムアウト | 全ノード | MAX_RETRY_ATTEMPTS（system_settings、デフォルト: 3）回リトライ（exponential backoff、RETRY_BACKOFF_BASE_SEC（system_settings、デフォルト: 2）秒 × 2^(attempt-1)） |
 | MCP ツール失敗 | 全ノード | エラーログ記録 + 該当処理スキップ |
 | 市場データ取得失敗 | collect_intel | 前回データで続行 (stale data警告付き) |
 | 仮説生成失敗 | plan_content | 既存仮説の再利用で代替 |
@@ -1299,6 +1319,31 @@ const app = strategyCycleGraph.compile({ checkpointer });
                             poll_tasks に戻る
 ```
 
+#### レビューステップ
+
+制作完了後のコンテンツは品質評価を経てルーティングされる。HUMAN_REVIEW_ENABLED（system_settings、デフォルト: false）の設定により、人間レビューを必須にするか自動承認するかを切り替える。
+
+```
+produce_content → assess_quality → route_review
+  → (HUMAN_REVIEW_ENABLED=false) → schedule_posting
+  → (quality_score >= AUTO_APPROVE_SCORE_THRESHOLD) → auto_approve → schedule_posting
+  → (quality_score < threshold) → pending_review → [wait for human]
+    → approved → schedule_posting
+    → rejected → revision_planning → produce_content (再制作)
+```
+
+- `AUTO_APPROVE_SCORE_THRESHOLD`（system_settings、デフォルト: 7.0）— この閾値以上の品質スコアを持つコンテンツは自動承認される
+- `HUMAN_REVIEW_ENABLED`（system_settings、デフォルト: false）— trueの場合、全コンテンツに人間レビューを必須とする（初期フェーズ推奨）
+
+**revision_planningノード**:
+
+| 項目 | 詳細 |
+|------|------|
+| **入力** | reviewer_comment（差し戻し理由）、元のcontentレコード、使用コンポーネント一覧 |
+| **処理** | 1. reviewer_commentを解析して改善ポイントを抽出 → 2. 元のPlannerのコンテンツプランを参照 → 3. コンポーネントの差し替え or パラメータ変更を決定 → 4. content.revision_count += 1 → 5. 新しいtask_queueエントリを作成 |
+| **出力** | 改善されたproduction task（revision_count=N、feedback参照付き） |
+| **上限** | `MAX_CONTENT_REVISION_COUNT`（system_settings、デフォルト: 3）— この回数を超えた場合はcontent.status='cancelled'に遷移 |
+
 #### ステート構造
 
 ```typescript
@@ -1375,7 +1420,7 @@ interface SectionResult {
 
 ### 5.3 グラフ3: 投稿スケジューラーグラフ (Publishing Scheduler Graph)
 
-**実行頻度**: 連続 (30秒ポーリング)
+**実行頻度**: 連続（POSTING_POLL_INTERVAL_SEC（system_settings、デフォルト: 30）秒ポーリング）
 **参加エージェント**: 投稿ワーカー (コード)
 **目的**: `ready` ステータスのコンテンツを適切なタイミングで投稿する
 
@@ -1479,9 +1524,9 @@ interface PublishMetadata {
 
 ### 5.4 グラフ4: 計測ジョブグラフ (Measurement Jobs Graph)
 
-**実行頻度**: 連続 (5分ポーリング)
+**実行頻度**: 連続（MEASUREMENT_POLL_INTERVAL_SEC（system_settings、デフォルト: 300）秒ポーリング）
 **参加エージェント**: 計測ワーカー (コード)
-**目的**: 投稿後48h経過したコンテンツのパフォーマンスを計測する
+**目的**: 投稿後METRICS_COLLECTION_DELAY_HOURS（system_settings、デフォルト: 48）時間経過したコンテンツのパフォーマンスを計測する
 
 #### ノード定義
 
@@ -2438,7 +2483,7 @@ KPIを俯瞰し、ポートフォリオレベルの意思決定を行います�
 - Instagram Reels: フォロワーへのリーチが安定。保存率が重要指標
 
 ## 5. 制約
-- 1サイクルあたりのfal.ai予算上限: $100 (超過時はプランナーに減産指示)
+- 1サイクルあたりのfal.ai予算上限: DAILY_BUDGET_LIMIT_USD（system_settings、デフォルト: 100）ドル（超過時はプランナーに減産指示）
 - 最低3サイクル分のデータがないニッチの仮説は confidence=0.3以下で扱う
 - human_directivesのurgent指示は他の判断に優先して即時反映する
 ```
@@ -3155,7 +3200,7 @@ ORDER BY agent_type;
   │  ┌───────────────────────────────────────────────────────────┐  │
   │  │                                                           │  │
   │  │  ・全エージェントが投稿、全エージェントが参照              │  │
-  │  │  ・統計的に有意な知見のみ (confidence >= 0.50)             │  │
+  │  │  ・統計的に有意な知見のみ (confidence >= LEARNING_CONFIDENCE_THRESHOLD、デフォルト: 0.7) │  │
   │  │  ・フォーマルな知見: 「beautyニッチで朝7時投稿は           │  │
   │  │    engagement_rate +20% (5件, p=0.03, confidence=0.82)」  │  │
   │  │  ・アナリストが品質管理 (confidence更新、evidence追加)      │  │
@@ -3454,8 +3499,8 @@ COMMENT ON COLUMN agent_individual_learnings.embedding IS '関連する学びの
                                                     (削除はしない)
 
   判断基準:
-    ・times_applied >= 10 かつ 複数サイクルで一貫して有効
-      → 共有learningsテーブルへ昇格を検討
+    ・times_successful >= LEARNING_AUTO_PROMOTE_COUNT（system_settings、デフォルト: 10）かつ 複数サイクルで一貫して有効
+      → 共有learningsテーブルへ昇格を検討（アナリストが月次レビューで確認）
     ・90日以上未使用
       → 読み込み優先度を最低に設定 (get_individual_learningsの結果に含まれない)
 ```
@@ -4479,4 +4524,600 @@ Phase 4以降 (エージェント運用中):
   │   ・手動作業で新しい知見が得られたら随時移植                      │
   │   ・エージェント自身の学習 + 人間の知見 = 最速の改善サイクル       │
   └─────────────────────────────────────────────────────────────────┘
+```
+
+## 16. エラーリカバリー仕様
+
+### 16.1 共通リトライポリシー
+
+全エージェント・ワーカー共通のAPI呼び出しリトライ仕様。
+
+| 項目 | 設定キー | デフォルト値 | 説明 |
+|------|---------|------------|------|
+| **リトライ対象** | — | HTTP 429/500/502/503/408, Network Error | リトライすべきエラー種別 |
+| **リトライ対象外** | — | HTTP 400/401/403/422 | クライアントエラーはリトライしない（即座にfailed） |
+| **最大リトライ回数** | `MAX_RETRY_ATTEMPTS` | 3 | 超過時は永続失敗として処理 |
+| **待機時間（秒）** | `RETRY_BACKOFF_BASE_SEC` | 2 | 指数バックオフ: base × 2^(attempt-1)。1回目=2秒、2回目=4秒、3回目=8秒 |
+| **リトライ間ジッター** | `RETRY_JITTER_MAX_SEC` | 1 | 0〜RETRY_JITTER_MAX_SEC のランダム秒を待機時間に加算（thundering herd回避） |
+
+```
+リトライ待機時間の計算式:
+
+  wait_seconds = RETRY_BACKOFF_BASE_SEC × 2^(attempt - 1) + random(0, RETRY_JITTER_MAX_SEC)
+
+  例 (デフォルト値):
+    attempt 1: 2 × 2^0 + random(0,1) = 2〜3秒
+    attempt 2: 2 × 2^1 + random(0,1) = 4〜5秒
+    attempt 3: 2 × 2^2 + random(0,1) = 8〜9秒
+    attempt 4: 全リトライ失敗 → エラーハンドリングへ
+```
+
+### 16.2 エージェント別リカバリー動作
+
+#### 戦略エージェント (Strategist)
+
+| 障害シナリオ | リカバリー動作 | 記録先 |
+|------------|--------------|--------|
+| KPIデータ取得失敗 | 前回サイクルのキャッシュデータで代替実行。stale dataフラグ付きで方針決定 | `agent_thought_logs` に「キャッシュデータ使用」を記録 |
+| Claude API失敗 | 共通リトライポリシーに従いリトライ。全リトライ失敗時はサイクルをスキップ（翌日再実行） | `cycles.status` = 'skipped'、ダッシュボードにアラート |
+| human_directives読み取り失敗 | DB接続リトライ。失敗時はhuman_directivesなしでサイクル続行 | `agent_thought_logs` に障害記録 |
+| リカバリー後アクション | `agent_thought_logs` に障害記録、`agent_communications` (message_type='anomaly_alert') でダッシュボードにアラート | — |
+
+#### リサーチャー (Researcher)
+
+| 障害シナリオ | リカバリー動作 | 記録先 |
+|------------|--------------|--------|
+| WebSearch/WebFetch失敗 | 共通リトライ。失敗時はその情報ソースをスキップし、他ソースで継続 | `agent_thought_logs` にスキップしたソースを記録 |
+| market_intel書き込み失敗 | DB接続リトライ。失敗時はメモリに保持し次回ポーリングで再書き込み | `agent_thought_logs` に書き込み遅延を記録 |
+| 情報ソース全滅 | 全ソース失敗時はポーリング間隔を`RESEARCHER_RETRY_INTERVAL_HOURS`（system_settings、デフォルト: 1）時間に短縮して再試行 | `agent_communications` (message_type='struggle') で人間に通知 |
+| リカバリー後アクション | 収集できなかったソースを次回ポーリングで優先的に再収集（`intel_gaps` テーブルで追跡） | — |
+
+#### アナリスト (Analyst)
+
+| 障害シナリオ | リカバリー動作 | 記録先 |
+|------------|--------------|--------|
+| メトリクス不足（API制限等） | `METRICS_COLLECTION_RETRY_HOURS`（system_settings、デフォルト: 6）時間後に再スケジュール | `task_queue` に再計測タスクをINSERT |
+| 仮説検証の判定不能 | verdict='inconclusive'で記録。次サイクルで追加データが揃った時点で再検証 | `hypotheses.verdict` = 'inconclusive' |
+| 異常検知の偽陽性が多発 | `ANOMALY_DETECTION_SIGMA`（system_settings、デフォルト: 2.0）を一時的に引き上げ（人間承認後） | `agent_communications` (message_type='proposal') で閾値変更を提案 |
+| リカバリー後アクション | `analyses.recommendations` に「データ不足による暫定判定」を記録。次サイクルで再確認を促すフラグ設定 | — |
+
+#### プランナー (Planner)
+
+| 障害シナリオ | リカバリー動作 | 記録先 |
+|------------|--------------|--------|
+| コンポーネント在庫不足 | Data Curatorにキュレーションタスクを発行（`task_queue` type='curate'）して待機 | `agent_thought_logs` に不足コンポーネント種別を記録 |
+| 品質スコア低下が継続 | `learnings` テーブルを再参照し、高confidence知見の適用を増やす。3サイクル改善なしで戦略エージェントにエスカレート | `agent_communications` (message_type='struggle') |
+| 仮説生成の多様性不足 | 過去`HYPOTHESIS_DIVERSITY_WINDOW`（system_settings、デフォルト: 5）サイクル以内の類似仮説を自動チェックし、重複を回避 | `agent_thought_logs` に類似仮説検出記録 |
+| リカバリー後アクション | 代替コンポーネントでプラン作成。quality_scoreの期待値を下方修正してPlan承認フローに進む | — |
+
+#### ツールスペシャリスト (Tool Specialist)
+
+| 障害シナリオ | リカバリー動作 | 記録先 |
+|------------|--------------|--------|
+| ツールAPI仕様変更検知 | `tool_catalog.quirks` を更新。影響するレシピ（`production_recipes`）をフラグ付きで通知 | `tool_catalog.updated_at` 更新 |
+| 推奨レシピの連続失敗（`RECIPE_FAILURE_THRESHOLD`（system_settings、デフォルト: 3）回） | そのレシピを `is_active=false` に変更。代替レシピを推奨 | `tool_experiences` に失敗記録、`agent_communications` (message_type='anomaly_alert') |
+| 新規ツール情報の信頼性不明 | confidence=0.3で仮登録。`RECIPE_APPROVAL_REQUIRED`（system_settings、デフォルト: true）の場合は人間の承認を待つ | `tool_catalog` に仮登録記録 |
+| リカバリー後アクション | `tool_experiences` に失敗記録。`prompt_suggestions` で改善提案を自動生成 | — |
+
+#### データキュレーター (Data Curator)
+
+| 障害シナリオ | リカバリー動作 | 記録先 |
+|------------|--------------|--------|
+| コンポーネント生成失敗 | 入力データを変えて再試行（最大`CURATION_RETRY_VARIANTS`（system_settings、デフォルト: 2）回の別パターン生成） | `task_queue.retry_count` 更新 |
+| 重複検知の高コスト | バッチ処理に切り替え（pgvectorクエリを集約。`CURATION_BATCH_SIZE`（system_settings、デフォルト: 10）件単位） | `agent_thought_logs` にバッチ切替記録 |
+| 品質スコア初期評価の精度低下 | 人間レビューの承認/却下パターンを学習し、`curation_confidence` の校正を実行 | `agent_individual_learnings` に校正結果を記録 |
+| リカバリー後アクション | 低品質コンポーネント（initial_score < `CURATION_MIN_QUALITY`（system_settings、デフォルト: 4.0））は自動的に `review_status='pending'` にフラグ | — |
+
+#### 動画制作ワーカー (Video Production Worker)
+
+| 障害シナリオ | リカバリー動作 | 記録先 |
+|------------|--------------|--------|
+| Kling生成失敗 | 共通リトライ。`MAX_RETRY_ATTEMPTS` 回失敗で `task_queue.status='failed_permanent'` | `task_queue.last_error` に詳細記録 |
+| TTS生成失敗 | 共通リトライ。Fish Audio API障害時はタスクを `status='waiting'` で保留 | `task_queue.last_error` に詳細記録 |
+| リップシンク失敗 | 共通リトライ。失敗時はリップシンクなし版で代替（品質低下を `content.metadata` に記録） | `tool_experiences` に失敗記録 |
+| fal.ai残高不足（HTTP 403） | 即座に全制作タスクを `status='waiting'` に変更。`agent_communications` (message_type='anomaly_alert', priority='urgent') でダッシュボードにアラート | `task_queue.last_error` = 'fal_balance_exhausted' |
+| セクション途中失敗 | 完了済みセクションはチェックポイントに保持。失敗セクションのみ再実行 | チェックポイントDBに保存 |
+| ffmpeg concat失敗 | blackdetect + auto-trim で再試行。再失敗時はCRF値を下げて再エンコード | `task_queue.last_error` に詳細記録 |
+
+#### 投稿ワーカー (Posting Worker)
+
+| 障害シナリオ | リカバリー動作 | 記録先 |
+|------------|--------------|--------|
+| OAuthトークン期限切れ | トークンリフレッシュ試行。失敗時はアカウントを `accounts.status='suspended'` に変更 | `agent_communications` (message_type='anomaly_alert') |
+| Rate Limit | `POSTING_TIME_JITTER_MIN`（system_settings、デフォルト: 5）分を増やして再スケジュール | `task_queue.scheduled_at` を更新 |
+| 投稿API失敗 | 共通リトライ。永続失敗時は `content.status` を 'ready' に戻す（再投稿可能） | `publications.status` = 'failed'、`task_queue.last_error` に詳細記録 |
+| プラットフォーム一時停止 | 該当プラットフォームの全投稿タスクを `PLATFORM_COOLDOWN_HOURS`（system_settings、デフォルト: 24）時間保留 | `agent_communications` (message_type='anomaly_alert') |
+
+#### 計測ワーカー (Measurement Worker)
+
+| 障害シナリオ | リカバリー動作 | 記録先 |
+|------------|--------------|--------|
+| API Rate Limit | 次のメトリクス収集ウィンドウまで待機。`METRICS_COLLECTION_RETRY_HOURS`（system_settings、デフォルト: 6）時間後に再試行 | `task_queue.scheduled_at` を更新 |
+| データ欠損 | partial dataで記録。`metrics.raw_data` に欠損フラグ（`{ "partial": true, "missing_fields": [...] }`）を含める | `metrics` に部分データINSERT |
+| プラットフォームAPI変更 | エラーをログし、`agent_communications` (message_type='struggle') で人間に通知 | `agent_thought_logs` に詳細記録 |
+| リカバリー後アクション | 次回収集時に欠損データの補完を試行。`METRICS_BACKFILL_MAX_DAYS`（system_settings、デフォルト: 7）日以内のデータのみ補完対象 | — |
+
+## 17. 判断ロジック・閾値定義
+
+本セクションでは、エージェントの各判断に使用される数式・閾値・アルゴリズムを定義する。全ての閾値は `system_settings` テーブルで管理され、ハードコーディングは禁止される。
+
+### 17.1 仮説判定 (verdict)
+
+アナリストが仮説のpredicted_kpis と actual_kpis を比較して判定する際の基準。
+
+```
+prediction_error = |predicted_kpis.target_value - actual_kpis.actual_value| / actual_kpis.actual_value
+
+if prediction_error < HYPOTHESIS_CONFIRM_THRESHOLD (system_settings、デフォルト: 0.3):
+    verdict = 'confirmed'   # 予測精度70%以上
+elif prediction_error < HYPOTHESIS_INCONCLUSIVE_THRESHOLD (system_settings、デフォルト: 0.5):
+    verdict = 'inconclusive' # 判定保留
+else:
+    verdict = 'rejected'     # 外れ
+```
+
+| 判定 | prediction_error | 意味 | アクション |
+|------|-----------------|------|----------|
+| `confirmed` | < 0.3 | 予測精度70%以上。仮説は支持された | confidence上昇、learningsに知見抽出 |
+| `inconclusive` | 0.3〜0.5 | 判定保留。データ不足 or 外部要因の影響 | 次サイクルで追加データ収集して再検証 |
+| `rejected` | > 0.5 | 予測が大幅に外れた | 仮説のアプローチを見直し、rejectedパターンを記録 |
+
+### 17.2 仮説的中率の算出
+
+```
+hypothesis_accuracy = confirmed_count / (confirmed_count + rejected_count)
+※ inconclusive は除外
+```
+
+| 項目 | 詳細 |
+|------|------|
+| **算出タイミング** | `cycle_review` 分析実行時（サイクル終了時のアナリスト処理） |
+| **記録先** | `algorithm_performance.hypothesis_accuracy` |
+| **目標値** | 6ヶ月で 0.30 → 0.65 |
+
+### 17.3 異常検知
+
+```sql
+-- ANOMALY_DETECTION_WINDOW_DAYS (system_settings、デフォルト: 14) の期間で基準値算出
+WITH baseline AS (
+    SELECT
+        AVG(engagement_rate) as avg_er,
+        STDDEV(engagement_rate) as std_er
+    FROM metrics
+    WHERE account_id = :account_id
+    AND collected_at >= NOW() - INTERVAL ':window_days days'
+)
+SELECT * FROM metrics
+WHERE engagement_rate > (SELECT avg_er + :sigma * std_er FROM baseline)
+   OR engagement_rate < (SELECT avg_er - :sigma * std_er FROM baseline);
+```
+
+| 設定キー | デフォルト値 | 説明 |
+|---------|------------|------|
+| `ANOMALY_DETECTION_SIGMA` | 2.0 | 基準値からの標準偏差倍数。大きくすると感度が下がる |
+| `ANOMALY_DETECTION_WINDOW_DAYS` | 14 | 基準値算出の対象期間（日数） |
+| `ANOMALY_MIN_DATAPOINTS` | 7 | この数未満のデータポイントでは異常検知を実行しない |
+
+### 17.4 コンポーネント品質スコア
+
+コンテンツのパフォーマンスメトリクスから品質スコアを算出する式。各メトリクスを0-10にスケーリングし、重み付き加重平均を取る。
+
+```
+quality_score =
+    completion_rate_scaled × QUALITY_WEIGHT_COMPLETION (system_settings、デフォルト: 0.35) +
+    engagement_rate_scaled × QUALITY_WEIGHT_ENGAGEMENT (system_settings、デフォルト: 0.25) +
+    share_rate_scaled × QUALITY_WEIGHT_SHARE (system_settings、デフォルト: 0.20) +
+    dropoff_scaled × QUALITY_WEIGHT_RETENTION (system_settings、デフォルト: 0.15) +
+    sentiment_scaled × QUALITY_WEIGHT_SENTIMENT (system_settings、デフォルト: 0.05)
+```
+
+**スケーリング関数**（各メトリクスを0-10に正規化）:
+
+| メトリクス | スケーリング式 | 10点の基準 |
+|-----------|-------------|-----------|
+| completion_rate | `min(10, completion_rate / 0.07)` | 70%完視聴で10点 |
+| engagement_rate | `min(10, engagement_rate / 0.003)` | 3%エンゲージメントで10点 |
+| share_rate | `min(10, share_rate / 0.005)` | 0.5%シェア率で10点 |
+| three_sec_retention | `min(10, (1 - three_sec_dropoff) / 0.06)` | 40%離脱（60%残留）で10点 |
+| sentiment_positive | `min(10, sentiment_positive_ratio / 0.06)` | 60%ポジティブで10点 |
+
+### 17.5 リソース配分ルール
+
+```
+planner_count = CEIL(active_account_count / PLANNER_ACCOUNTS_PER_INSTANCE)
+-- デフォルト: 50アカウントにつき1プランナー
+
+daily_production_target = active_account_count × MAX_POSTS_PER_ACCOUNT_PER_DAY
+-- MAX_POSTS_PER_ACCOUNT_PER_DAY (system_settings、デフォルト: 2)
+
+daily_budget_per_video = DAILY_BUDGET_LIMIT_USD / daily_production_target
+-- DAILY_BUDGET_LIMIT_USD (system_settings、デフォルト: 100)
+-- 予算制約: 1動画あたりの許容コストを算出
+
+worker_pool_size = CEIL(daily_production_target / WORKER_THROUGHPUT_PER_HOUR)
+-- WORKER_THROUGHPUT_PER_HOUR (system_settings、デフォルト: 5)
+-- 動画制作ワーカーの必要数を算出
+```
+
+| 設定キー | デフォルト値 | 説明 |
+|---------|------------|------|
+| `PLANNER_ACCOUNTS_PER_INSTANCE` | 50 | 1プランナーの担当アカウント数上限 |
+| `MAX_POSTS_PER_ACCOUNT_PER_DAY` | 2 | 1アカウントの1日あたり最大投稿数 |
+| `DAILY_BUDGET_LIMIT_USD` | 100 | 1日あたりのfal.ai等外部API予算上限 |
+| `WORKER_THROUGHPUT_PER_HOUR` | 5 | 1ワーカーの1時間あたり処理可能動画数 |
+| `QUALITY_FILTER_THRESHOLD` | 5.0 | この品質スコア以上のコンポーネントのみ使用可能 |
+
+## 18. エージェント学習メカニズム詳細
+
+セクション6、10、11で定義した学習の仕組みを統合し、データフロー・数式・ライフサイクルを詳細に定義する。
+
+### 18.1 学習データフロー図
+
+```
+[計測ワーカー]
+    ↓ metrics収集
+[メトリクスDB] ←────────────────────────────────────────────┐
+    ↓                                                       │
+[アナリスト]                                                 │
+    ├→ hypothesis.verdict更新 (confirmed/rejected)           │
+    ├→ analyses作成 (findings + recommendations)             │
+    ├→ learnings抽出 (再利用可能な知見)                        │
+    └→ algorithm_performance記録                              │
+         ↓                                                   │
+[知見DB (learnings + agent_individual_learnings)]             │
+    ↓                                                        │
+[各エージェントの次サイクル]                                    │
+    ├→ 戦略Agent: KPI改善の知見をポリシーに反映                  │
+    ├→ プランナー: コンテンツプランに知見を適用                   │
+    ├→ ツールSP: ツール選択に経験を反映                         │
+    └→ データキュレーター: 品質基準を更新                        │
+         ↓                                                   │
+[コンテンツ制作 → 投稿]                                        │
+    ↓                                                        │
+[プラットフォーム] ─────── 48h+ ──────────────────────────────┘
+```
+
+### 18.2 学習の4段階
+
+#### 段階1: データ収集 (Measurement Worker → metrics)
+
+| 項目 | 詳細 |
+|------|------|
+| **トリガー** | 投稿後 `METRICS_COLLECTION_DELAY_HOURS`（system_settings、デフォルト: 48）時間 |
+| **収集メトリクス** | views, likes, comments, shares, completion_rate, engagement_rate, follower_delta |
+| **追加計測** | 7日後、30日後に追加計測（`METRICS_FOLLOWUP_DAYS`（system_settings、デフォルト: [7, 30]）） |
+
+#### 段階2: 分析・検証 (Analyst → analyses, hypotheses.verdict)
+
+| 項目 | 詳細 |
+|------|------|
+| **仮説の予測値 vs 実績値** | prediction_error = \|predicted - actual\| / actual |
+| **判定基準** | < 0.3 → confirmed、0.3〜0.5 → inconclusive、> 0.5 → rejected（セクション17.1参照） |
+| **異常検知** | 平均 ± `ANOMALY_DETECTION_SIGMA`（デフォルト: 2.0）× 標準偏差（セクション17.3参照） |
+
+#### 段階3: 知見抽出 (Analyst → learnings)
+
+| 項目 | 詳細 |
+|------|------|
+| **抽出元** | confirmed仮説から再利用可能な知見を抽出 |
+| **embedding生成** | text-embedding-3-small（1536次元） |
+| **類似知見検索** | pgvectorでcosine similarity >= `LEARNING_SIMILARITY_THRESHOLD`（system_settings、デフォルト: 0.8） |
+| **統合判定** | 既存知見と類似度 >= 0.8 → 既存知見のconfidence更新。< 0.8 → 新規知見として保存 |
+| **初期confidence** | 0.5 |
+
+#### 段階4: 反映 (各エージェントの次サイクル)
+
+| 項目 | 詳細 |
+|------|------|
+| **知見の提供** | MCP Serverが各エージェントに関連知見を提供（`get_niche_learnings`, `search_similar_learnings`） |
+| **コンテキスト注入** | エージェントは知見をプロンプトのコンテキストに含めて判断 |
+| **フィードバックループ** | 適用結果がmetricsに反映 → 次のアナリスト分析で効果を検証 |
+| **知見の参照上限** | `MAX_LEARNINGS_PER_CONTEXT`（system_settings、デフォルト: 20）件まで |
+
+### 18.3 個別エージェント学習 (agent_individual_learnings)
+
+各エージェントが自分の作業から学ぶ仕組みの詳細フロー。
+
+#### 自己反省 (agent_reflections)
+
+| 項目 | 詳細 |
+|------|------|
+| **タイミング** | 各サイクル終了時 |
+| **自己評価** | self_score（1-10）を自己評価 |
+| **記録内容** | what_went_well, what_to_improve, next_actions |
+
+**自己評価ルーブリック**:
+
+| スコア | 基準 |
+|--------|------|
+| 9-10 | 目標を大幅超過。革新的なアプローチを発見した |
+| 7-8 | 目標達成。安定した実行ができた |
+| 5-6 | 部分的な成功。改善余地が明確にある |
+| 3-4 | 目標未達。明確な問題が発生した |
+| 1-2 | 重大な失敗。根本的な見直しが必要 |
+
+#### 知見抽出 (reflections → individual_learnings)
+
+反省からパターンを識別し、個別学習メモリに記録する。
+
+```
+confidence更新ルール:
+
+  初期値 = 0.5
+  適用→成功 で confidence += LEARNING_SUCCESS_INCREMENT (system_settings、デフォルト: 0.1)  ※ max 1.0
+  適用→失敗 で confidence -= LEARNING_FAILURE_DECREMENT (system_settings、デフォルト: 0.15) ※ min 0.0
+
+  confidence < LEARNING_CONFIDENCE_THRESHOLD (system_settings、デフォルト: 0.7) の知見
+    → 参照頻度を下げる（get_individual_learningsの結果で後方に配置）
+
+  confidence < LEARNING_DEACTIVATE_THRESHOLD (system_settings、デフォルト: 0.2) の知見
+    → is_active = false に自動変更
+```
+
+#### 知見の昇格 (individual → global learnings)
+
+| 項目 | 詳細 |
+|------|------|
+| **昇格条件** | `times_successful` >= `LEARNING_AUTO_PROMOTE_COUNT`（system_settings、デフォルト: 10） |
+| **昇格先** | `learnings` テーブル（全エージェントが参照可能） |
+| **承認** | アナリストが月次レビューで確認。`LEARNING_AUTO_PROMOTE_ENABLED`（system_settings、デフォルト: false）の場合は自動昇格 |
+| **昇格時confidence** | 元のindividual_learningのconfidence値を継承 |
+
+#### プロンプト自動提案 (prompt_suggestions)
+
+| トリガー | 条件 | アクション |
+|---------|------|----------|
+| low_score検知 | self_score < `PROMPT_SUGGEST_LOW_SCORE`（system_settings、デフォルト: 5）が3回連続 | プロンプト改善提案を `prompt_suggestions` テーブルに生成 |
+| 成功パターン検知 | self_score >= `PROMPT_SUGGEST_HIGH_SCORE`（system_settings、デフォルト: 8）が5回連続 | 他エージェントへの知見共有提案 |
+| failure_pattern検知 | 同じエラーが`PROMPT_SUGGEST_FAILURE_COUNT`（system_settings、デフォルト: 3）回発生 | ツール変更 or パラメータ変更提案 |
+
+## 19. デフォルトプロンプトテンプレート
+
+各エージェントのSystem Promptの初期テンプレート。`agent_prompt_versions` テーブルの `version=1` として初期挿入される。セクション8で定義した5セクション構成（役割定義 / 思考アプローチ / 判断基準 / ドメイン知識 / 制約）に従う。
+
+### 19.1 戦略エージェント (Strategist) プロンプト
+
+```markdown
+あなたはAIインフルエンサー運用システムの戦略責任者（CEO）です。
+
+## 役割
+- 全アカウントのKPI進捗を監視し、日次の運用方針を決定します
+- 各専門エージェントへの指示を策定します
+- 人間からの指示（human_directives）を解釈して方針に反映します
+
+## 入力情報
+- KPI進捗データ（accounts × metrics 集計）
+- アナリストの分析レポート（analyses）
+- リサーチャーの市場情報（market_intel 要約）
+- 人間の指示（human_directives 未処理分）
+- 前サイクルの反省（agent_reflections）
+- 蓄積された知見（learnings、confidence >= LEARNING_CONFIDENCE_THRESHOLD のもの）
+
+## 出力
+1. サイクルポリシー: 今日の重点施策（JSON形式）
+2. プランナーへの指示: アカウント群ごとの方針
+3. リソース配分: 制作優先度、予算配分
+
+## 判断基準
+- KPI達成率が低いアカウント群を優先
+- confirmed仮説に基づく施策を推奨
+- rejected仮説のパターンを回避
+- DAILY_BUDGET_LIMIT_USDを超えない配分
+
+## 制約
+- HYPOTHESIS_CYCLE_INTERVAL_HOURS設定に従い実行（デフォルト: 1日1回）
+- 大規模な方針変更はSTRATEGY_APPROVAL_REQUIRED=trueの場合、人間の承認を待つ
+- 全ての判断根拠をagent_thought_logsに記録すること
+```
+
+### 19.2 リサーチャー (Researcher) プロンプト
+
+```markdown
+あなたはAIインフルエンサー運用システムの市場調査担当です。
+
+## 役割
+- Web上の最新トレンド、競合の動向、プラットフォームの変化を調査します
+- 収集した情報を構造化してmarket_intelテーブルに保存します
+
+## 情報カテゴリ（5種類）
+1. trending_topic: SNSで急上昇中のトピック（有効期限: 7日）
+2. competitor_post: 競合アカウントの高パフォーマンス投稿分析（有効期限: 30日）
+3. competitor_account: 競合アカウントの成長動向（有効期限: 30日）
+4. audience_signal: オーディエンスの反応変化（有効期限: 14日）
+5. platform_update: プラットフォームのアルゴリズム・ポリシー変更（有効期限: 永続）
+
+## 収集方法
+- WebSearch: キーワード検索でトレンド記事を収集
+- WebFetch: 特定URLからデータ抽出
+- 各プラットフォームのAPIデータ（Measurement Workerと連携）
+
+## 出力形式
+各情報をmarket_intelテーブルのdata列（JSONB）に以下のスキーマで保存:
+{
+  "title": "情報タイトル",
+  "summary": "要約（200文字以内）",
+  "source_url": "情報源URL",
+  "relevance_score": 0.0-1.0,
+  "affected_niches": ["beauty", "tech"],
+  "affected_platforms": ["tiktok", "youtube"],
+  "key_insights": ["ポイント1", "ポイント2"],
+  "raw_data": { /* 元データ */ }
+}
+
+## 制約
+- RESEARCHER_POLL_INTERVAL_HOURS間隔で実行
+- 重複情報はembedding類似度で検出（cosine >= 0.9は同一とみなす）
+- 全ての調査ログをagent_thought_logsに記録
+```
+
+### 19.3 アナリスト (Analyst) プロンプト
+
+```markdown
+あなたはAIインフルエンサー運用システムのデータ分析担当です。
+
+## 役割
+- 収集されたメトリクスを分析し、仮説の検証を行います
+- パターンを識別し、再利用可能な知見を抽出します
+- 異常を検知して早期警告します
+
+## 4つの分析タイプ
+1. cycle_review: サイクル全体の振り返り → algorithm_performance更新
+2. hypothesis_verification: 個別仮説の予測 vs 実績比較 → verdict更新
+3. anomaly_detection: ANOMALY_DETECTION_SIGMA超の変動検知
+4. trend_analysis: 中長期パターン分析 → learnings抽出
+
+## 仮説判定基準
+prediction_error = |predicted - actual| / actual
+- < HYPOTHESIS_CONFIRM_THRESHOLD (デフォルト: 0.3) → confirmed (的中)
+- < HYPOTHESIS_INCONCLUSIVE_THRESHOLD (デフォルト: 0.5) → inconclusive (判定保留)
+- >= 0.5 → rejected (外れ)
+
+## 知見抽出基準
+- confirmed仮説から汎化可能なパターンを抽出
+- 知見のcategory: content/timing/audience/platform/niche
+- 初期confidence = 0.5
+- embedding生成して類似既存知見と統合判定 (cosine >= LEARNING_SIMILARITY_THRESHOLD)
+
+## 出力
+- analyses: findings (JSONB) + recommendations (JSONB)
+- hypotheses.verdict更新
+- learnings: 新規知見レコード
+- algorithm_performance: 精度メトリクス更新
+
+## 制約
+- メトリクス到着後に自動トリガー（METRICS_COLLECTION_DELAY_HOURS経過分）
+- サンプルサイズANALYSIS_MIN_SAMPLE_SIZE（デフォルト: 5）未満の場合はinconclusiveと判定
+- 全ての分析ログをagent_thought_logsに記録
+```
+
+### 19.4 プランナー (Planner) プロンプト
+
+```markdown
+あなたはAIインフルエンサー運用システムのコンテンツ企画担当です。
+
+## 役割
+- 担当アカウント群（PLANNER_ACCOUNTS_PER_INSTANCE、デフォルト50）のコンテンツを企画します
+- 戦略エージェントのポリシーに基づき、各アカウントの投稿プランを作成します
+- 仮説を立ててA/Bテストを設計します
+
+## 入力情報
+- 戦略エージェントのサイクルポリシー
+- 担当アカウント群の最新メトリクス
+- 関連する知見（learnings, confidence >= LEARNING_CONFIDENCE_THRESHOLD）
+- 利用可能なコンポーネント（components, score >= QUALITY_FILTER_THRESHOLD）
+- 前サイクルの反省（agent_reflections）
+
+## 出力
+1. contentレコード作成 (status='planned')
+2. content_sectionsレコード作成（hook/body/cta + コンポーネント割当）
+3. hypothesesレコード作成（このコンテンツで検証する仮説）
+
+## コンテンツプラン作成ルール
+- 1アカウント × MAX_POSTS_PER_ACCOUNT_PER_DAY件のプランを作成
+- 各コンテンツにhypothesis_idを紐付け（何を検証するか明確に）
+- コンポーネント選択はTool Specialistのレシピ推奨に従う
+- 品質スコアが低いアカウントは知見の適用を増やす
+
+## 仮説設計
+- predicted_kpis: 予測値をJSON形式で記載 (例: {"views": 5000, "engagement_rate": 0.03})
+- category: hook_format/posting_time/content_length/hashtags/narrative_structure/niche_selection/platform_strategy
+- 同一仮説カテゴリの連続テストは最大HYPOTHESIS_SAME_CATEGORY_MAX（デフォルト: 3）回まで
+  （結論が出なければinconclusiveで次へ）
+
+## 制約
+- DAILY_BUDGET_LIMIT_USD / active_account_count の予算内でレシピ選択
+- 全ての企画ログをagent_thought_logsに記録
+```
+
+### 19.5 ツールスペシャリスト (Tool Specialist) プロンプト
+
+```markdown
+あなたはAIインフルエンサー運用システムのツール知識管理担当です。
+
+## 役割
+- コンテンツ制作に使用するツール（Kling, Runway, Fish Audio等）の特性を学習します
+- 各コンテンツに最適なproduction_recipe（ツール組合せ）を推奨します
+- ツールの不具合やアップデート情報を収集・反映します
+
+## ツール知識の情報源
+1. tool_catalog: ツール基本情報（strengths, quirks, cost_per_use）
+2. tool_experiences: 過去の使用結果（quality_score, success率）
+3. tool_external_sources: 外部情報（ブログ、Xポスト、リリースノート）
+
+## レシピ推奨ロジック
+入力: content_format, target_platform, niche, character_style, quality_target, budget_limit
+出力: production_recipes.recipe_id（最適なレシピ）
+
+選択基準（優先度順）:
+1. success_rate >= RECIPE_MIN_SUCCESS_RATE (デフォルト: 0.8) のレシピを優先
+2. avg_quality_score × success_rate の積が最大
+3. cost_per_video <= budget_limit
+4. 対象niches/platformsとの適合性
+
+## 新レシピ作成
+- 既存レシピで要件を満たせない場合のみ新規作成
+- RECIPE_APPROVAL_REQUIRED=trueの場合は人間の承認を待つ
+- テスト制作（dry_run）の結果がquality_score >= RECIPE_MIN_QUALITY (デフォルト: 6.0) で本番使用可能
+
+## 制約
+- 推奨レシピがRECIPE_FAILURE_THRESHOLD（デフォルト: 3）回連続失敗した場合はis_active=falseに変更
+- ツールAPI仕様変更の検知時はtool_catalog.quirksを即座に更新
+- 全ての判断ログをagent_thought_logsに記録
+```
+
+### 19.6 データキュレーター (Data Curator) プロンプト
+
+```markdown
+あなたはAIインフルエンサー運用システムのデータ構造化担当です。
+
+## 役割
+- リサーチャーの収集した市場データを構造化されたコンポーネントに変換します
+- シナリオ・モーション・オーディオ・画像のコンポーネントを自動生成します
+- 品質スコアの初期評価と重複検知を行います
+
+## コンポーネント変換ルール
+入力データ種別 → 出力コンポーネント種別:
+- trending_topic → scenario（トレンドに合わせたスクリプト生成）
+- competitor_post（高パフォーマンス） → scenario + motion（構成パターン抽出）
+- competitor_account → 参考データとしてtagsに記録
+- audience_signal → scenario（視聴者ニーズに対応するスクリプト）
+- platform_update → メタデータとして全コンポーネントのtagsに反映
+
+## 出力スキーマ (components.data JSONB)
+
+scenario:
+{
+  "script_en": "英語スクリプト",
+  "script_jp": "日本語スクリプト",
+  "scenario_prompt": "動画生成用プロンプト（英語）",
+  "emotion": "happy/serious/excited/calm/mysterious",
+  "duration_seconds": 5,
+  "target_niches": ["beauty", "tech"],
+  "source_intel_id": 123
+}
+
+motion:
+{
+  "motion_type": "pan_left/zoom_in/static/dynamic",
+  "duration_seconds": 5,
+  "intensity": "low/medium/high",
+  "compatible_emotions": ["happy", "excited"]
+}
+
+## 品質スコア初期評価
+- relevance（関連性）: 0-10 — 対象ニッチとの適合度
+- originality（独自性）: 0-10 — 既存コンポーネントとの差別化
+- completeness（完全性）: 0-10 — 必要フィールドの充足率
+- initial_score = (relevance + originality + completeness) / 3
+
+## 重複検知
+- embedding生成後、pgvectorでcosine similarity検索
+- >= COMPONENT_DUPLICATE_THRESHOLD (system_settings、デフォルト: 0.9): 重複とみなし既存を更新
+- >= 0.7 かつ < 0.9: 類似品としてフラグ（人間判断を推奨）
+- < 0.7: 新規コンポーネントとして保存
+
+## 制約
+- task_queue (type='curate') のポーリングで実行
+- initial_score < CURATION_MIN_QUALITY (system_settings、デフォルト: 4.0) のコンポーネントは自動的にreview_status='pending'
+- 全ての判断ログをagent_thought_logsに記録
 ```
