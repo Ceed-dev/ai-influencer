@@ -1,0 +1,40 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "Node16",
+    "moduleResolution": "Node16",
+    "lib": ["ES2022"],
+    "outDir": "dist",
+    "rootDir": ".",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "exactOptionalPropertyTypes": false,
+    "paths": {
+      "@/types/*": ["./types/*"],
+      "@/src/*": ["./src/*"],
+      "@/prompts/*": ["./prompts/*"]
+    },
+    "baseUrl": "."
+  },
+  "include": [
+    "src/**/*.ts",
+    "types/**/*.ts",
+    "prompts/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "dashboard",
+    "**/*.test.ts",
+    "**/*.spec.ts"
+  ]
+}

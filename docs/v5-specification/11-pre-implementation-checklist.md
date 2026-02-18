@@ -36,12 +36,14 @@ Agent Teamが並列実装を開始する前に、人間（Shungo）が完了し�
 
 | # | 作業 | 詳細 | ステータス |
 |---|------|------|----------|
-| 1 | Cloud SQL インスタンス作成 | PostgreSQL 16 + pgvector 拡張有効化。GCPプロジェクト: `video-analytics-hub` (既存プロジェクト再利用) | ☐ |
-| 2 | Cloud SQL 接続設定 | Private IP or Cloud SQL Proxy 設定。GCE VMからの接続確認 | ☐ |
-| 3 | GCE VM 確認 | 16GB RAM, 4vCPU, 48GB+ disk。Node.js 20+, Docker, Docker Compose インストール確認 | ☐ |
-| 4 | Docker 環境確認 | `docker --version`, `docker compose --version` 正常動作確認 | ☐ |
-| 5 | Git リポジトリ準備 | v5用ブランチ（`develop`）作成、`.gitignore` 更新 | ☐ |
-| 6 | 監視・アラート基盤の準備 | Cloud Monitoring + Error Reporting の有効化 | ☐ |
+| 1 | GCPプロジェクト新規作成 | GCPコンソールで新規プロジェクト作成。名称は作成時に決定 | ☐ |
+| 2 | GCE VM プロビジョニング | e2-standard-4: 4vCPU, 16GB RAM, 100GB SSD | ☐ |
+| 3 | Cloud SQL PostgreSQL 16 インスタンス作成 | PostgreSQL 16 + pgvector 拡張有効化。初期: db-f1-micro → 本番時 db-custom-2-7680 | ☐ |
+| 4 | VPCネットワーク + ファイアウォール設定 | SSH, HTTP 3000 (Dashboard), API 3001 (MCP Server) | ☐ |
+| 5 | Docker + Docker Compose インストール | `docker --version`, `docker compose --version` 正常動作確認 | ☐ |
+| 6 | Cloud SQL 接続設定 | Private IP or Cloud SQL Proxy 設定。GCE VMからの接続確認 | ☐ |
+| 7 | Git リポジトリ準備 | v5用ブランチ（`develop`）作成、`.gitignore` 更新 | ☐ |
+| 8 | 監視・アラート基盤の準備 | Cloud Monitoring + Error Reporting の有効化 | ☐ |
 
 ### 2.2 AIサービス API キー
 

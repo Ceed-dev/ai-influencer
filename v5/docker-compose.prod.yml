@@ -1,0 +1,65 @@
+# v5.0 Production Overrides
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# Spec: docs/v5-specification/02-architecture.md Section 15-16
+#
+# Note: Production uses Cloud SQL instead of postgres container.
+# The postgres and pgbouncer services are NOT started in production.
+# Override DATABASE_URL in .env.production to point to Cloud SQL.
+
+services:
+  postgres:
+    profiles:
+      - dev-only
+
+  pgbouncer:
+    profiles:
+      - dev-only
+
+  app:
+    image: node:20-slim
+    container_name: v5-app
+    working_dir: /app
+    restart: unless-stopped
+    volumes: []
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL}
+      LOG_LEVEL: info
+      DRY_RUN: "false"
+    ports:
+      - "3001:3001"
+    command: ["npm", "run", "start"]
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  dashboard:
+    image: node:20-slim
+    container_name: v5-dashboard
+    working_dir: /dashboard
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_started
+    volumes: []
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
+    ports:
+      - "3000:3000"
+    command: ["npm", "run", "start"]
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"

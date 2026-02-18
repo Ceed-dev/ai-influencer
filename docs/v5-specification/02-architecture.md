@@ -45,6 +45,7 @@
   - [6.11 ダッシュボード機能一覧 (サマリ)](#611-ダッシュボード機能一覧-サマリ)
   - [6.12 キュレーション結果レビュー (Curation Review)](#612-キュレーション結果レビュー-curation-review)
   - [6.13 Dashboard REST API ルート定義](#613-dashboard-rest-api-ルート定義)
+  - [6.14 主要ページのコンポーネント構成](#614-主要ページのコンポーネント構成)
 - [7. データフロー図](#7-データフロー図)
   - [7.1 全体データフロー](#71-全体データフロー)
   - [7.2 エージェント共通のデータアクセスパターン](#72-エージェント共通のデータアクセスパターン)
@@ -2485,6 +2486,48 @@ ORDER BY agent_type, count DESC;
 | 11 | `GET` | `/api/settings` | 全system_settingsの取得（カテゴリ別グルーピング） | — | `{ settings: SystemSetting[] }` |
 | 12 | `PUT` | `/api/settings/:key` | system_setting値の更新 | `{ value: any }` | `{ setting: SystemSetting }` |
 | 13 | `GET` | `/api/errors` | エラーログ一覧（期間/タスクタイプでフィルター可） | — | `{ errors: ErrorLog[], total: number }` |
+
+### 6.14 主要ページのコンポーネント構成
+
+ダッシュボードの主要ページを構成するReactコンポーネントの一覧。各コンポーネントはShadcn/ui + Recharts + Tremorを組み合わせて実装する。
+
+#### #1 ダッシュボード（ホーム） — `/`
+
+| コンポーネント名 | 種別 | 説明 |
+|---|---|---|
+| `KPISummaryCards` | 表示 | 4枚のサマリカード: 総アカウント数, アクティブ率, 平均品質スコア, 日次予算消化率 |
+| `EngagementTrendChart` | グラフ | Recharts AreaChart。過去30日間のエンゲージメント推移 |
+| `AccountGrowthChart` | グラフ | Recharts BarChart。週次アカウント増減 |
+| `RecentContentTable` | テーブル | 最新20件のコンテンツ一覧。status badge + quality score 表示 |
+| `PlatformBreakdownPie` | グラフ | Recharts PieChart。4プラットフォーム別コンテンツ分布 |
+
+#### #4 コンテンツレビュー — `/review`
+
+| コンポーネント名 | 種別 | 説明 |
+|---|---|---|
+| `ReviewQueue` | リスト | pending_review / pending_approval のアイテム一覧。優先度・作成日でソート |
+| `ContentPreview` | プレビュー | 動画プレイヤー（short_video）またはテキストプレビュー（text_post） |
+| `QualityScoreDisplay` | グラフ | レーダーチャート: 5メトリクス（originality, engagement_potential, brand_alignment, technical_quality, platform_fit） |
+| `ApproveRejectButtons` + `FeedbackTextarea` | 操作 | 承認/差戻しボタン + フィードバック入力テキストエリア |
+| `RevisionHistory` | 表示 | アコーディオン形式。過去バージョンの差分表示 |
+
+#### #14 設定 — `/settings`
+
+| コンポーネント名 | 種別 | 説明 |
+|---|---|---|
+| `SettingsCategoryTabs` | ナビ | 8カテゴリのタブ切替: cost_control, content_production, posting, measurement, agent, quality, platform_api, system |
+| `SettingsTable` | テーブル | カテゴリ別の設定値一覧: key, value, type, description |
+| `EditSettingModal` | モーダル | 型に応じた入力UI: number → NumberInput, string → TextInput, boolean → Switch, json → Monaco Editor |
+| `SaveConfirmDialog` | ダイアログ | 変更前後の値を表示し、保存を確認 |
+
+#### #12 エラーログ — `/errors`
+
+| コンポーネント名 | 種別 | 説明 |
+|---|---|---|
+| `ErrorFilterBar` | フィルター | ステータス（retrying/failed_permanent）、日付範囲、エージェントタイプでフィルタ |
+| `ErrorTable` | テーブル | task_id, error_message, retry_count, created_at, updated_at の一覧 |
+| `ErrorDetailDrawer` | ドロワー | 完全なエラートレース表示 + リトライボタン |
+| `RetryConfirmDialog` | ダイアログ | リトライ実行前の確認。リトライ回数の表示 |
 
 ## 7. データフロー図
 

@@ -1,0 +1,3868 @@
+{
+  "version": "5.0.0",
+  "generated_at": "2026-02-18T10:12:04.375Z",
+  "total_features": 150,
+  "features": [
+    {
+      "id": "FEAT-DB-001",
+      "category": "database",
+      "module": "sql",
+      "agent": "infra-agent",
+      "priority": "P0",
+      "description": "pgvector拡張の初期セットアップ。CREATE EXTENSION vector の実行確認",
+      "spec_refs": [
+        "03-database-schema.md §初期セットアップ",
+        "01-tech-stack.md §サーバー・インフラ"
+      ],
+      "test_ids": [
+        "TEST-DB-001"
+      ],
+      "dependencies": [],
+      "steps": [
+        "Docker ComposeでPostgreSQL 16コンテナを起動",
+        "CREATE EXTENSION IF NOT EXISTS vector を実行",
+        "SELECT extversion FROM pg_extension WHERE extname = 'vector' で確認"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DB-002",
+      "category": "database",
+      "module": "sql",
+      "agent": "infra-agent",
+      "priority": "P0",
+      "description": "全26テーブルの存在を保証するマイグレーションスクリプトの作成",
+      "spec_refs": [
+        "03-database-schema.md §概要"
+      ],
+      "test_ids": [
+        "TEST-DB-002"
+      ],
+      "dependencies": [
+        "FEAT-DB-001"
+      ],
+      "steps": [
+        "sql/001_create_tables.sql を作成",
+        "テーブル作成順序（FK依存）に従い26テーブルのCREATE文を記述",
+        "psqlでDDLを実行しinformation_schema.tablesで26テーブルの存在を確認"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DB-003",
+      "category": "database",
+      "module": "sql",
+      "agent": "infra-agent",
+      "priority": "P0",
+      "description": "accountsテーブルの作成。全カラム・CHECK制約・デフォルト値・UNIQUE制約",
+      "spec_refs": [
+        "03-database-schema.md §1.1"
+      ],
+      "test_ids": [
+        "TEST-DB-003",
+        "TEST-DB-004",
+        "TEST-DB-005",
+        "TEST-DB-006",
+        "TEST-DB-007",
+        "TEST-DB-008"
+      ],
+      "dependencies": [
+        "FEAT-DB-001"
+      ],
+      "steps": [
+        "03-database-schema.md §1.1のCREATE TABLE文を確認",
+        "sql/001_create_tables.sqlにaccountsテーブルDDLを追記",
+        "platform CHECK制約(youtube/tiktok/instagram/x)を設定",
+        "status CHECK制約(active/suspended/setup) + デフォルトsetupを設定",
+        "monetization_status CHECK制約(none/eligible/active)を設定",
+        "account_id UNIQUE制約を設定",
+        "psqlで実行しTEST-DB-003〜008を実行"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DB-004",
+      "category": "database",
+      "module": "sql",
+      "agent": "infra-agent",
+      "priority": "P0",
+      "description": "charactersテーブルの作成。voice_id NOT NULL・VARCHAR(32)制約",
+      "spec_refs": [
+        "03-database-schema.md §1.2"
+      ],
+      "test_ids": [
+        "TEST-DB-009",
+        "TEST-DB-010"
+      ],
+      "dependencies": [
+        "FEAT-DB-001"
+      ],
+      "steps": [
+        "03-database-schema.md §1.2のCREATE TABLE文を確認",
+        "sql/001_create_tables.sqlにcharactersテーブルDDLを追記",
+        "voice_id VARCHAR(32) NOT NULL制約を設定",
+        "psqlで実行しTEST-DB-009, TEST-DB-010を実行"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DB-005",
+      "category": "database",
+      "module": "sql",
+      "agent": "infra-agent",
+      "priority": "P0",
+      "description": "componentsテーブルの作成。type/score/curated_by/review_status CHECK制約",
+      "spec_refs": [
+        "03-database-schema.md §1.3"
+      ],
+      "test_ids": [
+        "TEST-DB-011",
+        "TEST-DB-012",
+        "TEST-DB-013",
+        "TEST-DB-014"
+      ],
+      "dependencies": [
+        "FEAT-DB-001"
+      ],
+      "steps": [
+        "03-database-schema.md §1.3のCREATE TABLE文を確認",
+        "type CHECK制約(scenario/motion/audio/image)を設定",
+        "score CHECK制約(0.00-100.00, NULL許可)を設定",
+        "curated_by CHECK制約(human/auto) デフォルトhumanを設定",
+        "review_status CHECK制約 デフォルトauto_approvedを設定",
+        "psqlで実行しTEST-DB-011〜014を実行"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DB-006",
+      "category": "database",
+      "module": "sql",
+      "agent": "infra-agent",
+      "priority": "P0",
+      "description": "contentテーブルの作成。status(12値)/content_format/quality_score/rejection_category/review_status CHECK制約",
+      "spec_refs": [
+        "03-database-schema.md §2.1"
+      ],
+      "test_ids": [
+        "TEST-DB-015",
+        "TEST-DB-016",
+        "TEST-DB-017",
+        "TEST-DB-018",
+        "TEST-DB-019",
+        "TEST-DB-020"
+      ],
+      "dependencies": [
+        "FEAT-DB-001",
+        "FEAT-DB-004"
+      ],
+      "steps": [
+        "03-database-schema.md §2.1のCREATE TABLE文を確認",
+        "status CHECK制約(12値) デフォルトplannedを設定",
+        "content_format CHECK制約(short_video/text_post/image_post)を設定",
+        "quality_score CHECK制約(0-10, NULL許可)を設定",
+        "rejection_category CHECK制約(3値+NULL)を設定",
+        "review_status CHECK制約 デフォルトnot_requiredを設定",
+        "FK: character_id→characters, hypothesis_id→hypotheses, recipe_id→production_recipesを設定"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DB-007",
+      "category": "database",
+      "module": "sql",
+      "agent": "infra-agent",
+      "priority": "P0",
+      "description": "publicationsテーブルの作成。status CHECK制約(4値)",
+      "spec_refs": [
+        "03-database-schema.md §2.3"
+      ],
+      "test_ids": [
+        "TEST-DB-021"
+      ],
+      "dependencies": [
+        "FEAT-DB-001",
+        "FEAT-DB-006"
+      ],
+      "steps": [
+        "03-database-schema.md §2.3のCREATE TABLE文を確認",
+        "status CHECK制約(scheduled/posted/measured/failed)を設定",
+        "FK: content_id→content, account_id→accountsを設定",
+        "psqlで実行しTEST-DB-021を実行"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DB-008",
+      "category": "database",
+      "module": "sql",
+      "agent": "infra-agent",
+      "priority": "P0",
+      "description": "hypothesesテーブルの作成。category/verdict/confidence CHECK制約 + pgvector embedding",
+      "spec_refs": [
+        "03-database-schema.md §3.1"
+      ],
+      "test_ids": [
+        "TEST-DB-022",
+        "TEST-DB-023",
+        "TEST-DB-024",
+        "TEST-DB-025"
+      ],
+      "dependencies": [
+        "FEAT-DB-001"
+      ],
+      "steps": [
+        "03-database-schema.md §3.1のCREATE TABLE文を確認",
+        "category CHECK制約(5値)を設定",
+        "verdict CHECK制約(4値) デフォルトpendingを設定",
+        "confidence CHECK制約(0.00-1.00)を設定",
+        "embedding vector(1536)カラムを設定",
+        "FK: cycle_id→cyclesを設定",
+        "psqlで実行しTEST-DB-022〜025を実行"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DB-009",
+      "category": "database",
+      "module": "sql",
+      "agent": "infra-agent",
+      "priority": "P1",
+      "description": "market_intelテーブルの作成。intel_type CHECK制約(5値)",
+      "spec_refs": [
+        "03-database-schema.md §3.2"
+      ],
+      "test_ids": [
+        "TEST-DB-026"
+      ],
+      "dependencies": [
+        "FEAT-DB-001"
+      ],
+      "steps": [
+        "03-database-schema.md §3.2のCREATE TABLE文を確認",
+        "intel_type CHECK制約(trending_topic/competitor_post/competitor_account/audience_signal/platform_update)を設定",
+        "psqlで実行しTEST-DB-026を実行"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DB-010",
+      "category": "database",
+      "module": "sql",
+      "agent": "infra-agent",
+      "priority": "P0",
+      "description": "task_queueテーブルの作成。task_type/status CHECK制約 + デフォルト値",
+      "spec_refs": [
+        "03-database-schema.md §4.3"
+      ],
+      "test_ids": [
+        "TEST-DB-027",
+        "TEST-DB-028",
+        "TEST-DB-029",
+        "TEST-DB-030"
+      ],
+      "dependencies": [
+        "FEAT-DB-001"
+      ],
+      "steps": [
+        "03-database-schema.md §4.3のCREATE TABLE文を確認",
+        "task_type CHECK制約(produce/publish/measure/curate)を設定",
+        "status CHECK制約(8値) デフォルトpendingを設定",
+        "retry_countデフォルト0, max_retriesデフォルト3を設定",
+        "psqlで実行しTEST-DB-027〜030を実行"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DB-011",
+      "category": "database",
+      "module": "sql",
+      "agent": "infra-agent",
+      "priority": "P1",
+      "description": "agent_individual_learningsテーブルの作成。category(17値)/confidence CHECK + success_rate GENERATED",
+      "spec_refs": [
+        "03-database-schema.md §5.4"
+      ],
+      "test_ids": [
+        "TEST-DB-031",
+        "TEST-DB-032",
+        "TEST-DB-033"
+      ],
+      "dependencies": [
+        "FEAT-DB-001"
+      ],
+      "steps": [
+        "03-database-schema.md §5.4のCREATE TABLE文を確認",
+        "category CHECK制約(17値)を設定",
+        "confidence CHECK制約(0.0-1.0) デフォルト0.5を設定",
+        "success_rate GENERATED ALWAYS AS (times_successful/NULLIF(times_applied,0)) STOREDを設定",
+        "FK: reflection_id→agent_reflectionsを設定"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DB-012",
+      "category": "database",
+      "module": "sql",
+      "agent": "infra-agent",
+      "priority": "P1",
+      "description": "agent_communicationsテーブルの作成。message_type CHECK制約(6値)",
+      "spec_refs": [
+        "03-database-schema.md §5.5"
+      ],
+      "test_ids": [
+        "TEST-DB-034"
+      ],
+      "dependencies": [
+        "FEAT-DB-001"
+      ],
+      "steps": [
+        "03-database-schema.md §5.5のCREATE TABLE文を確認",
+        "message_type CHECK制約(struggle/proposal/question/status_report/anomaly_alert/milestone)を設定",
+        "FK: cycle_id→cyclesを設定"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DB-013",
+      "category": "database",
+      "module": "sql",
+      "agent": "infra-agent",
+      "priority": "P0",
+      "description": "agent_type CHECK制約の統一設定（6テーブル共通: 6値）",
+      "spec_refs": [
+        "03-database-schema.md §5"
+      ],
+      "test_ids": [
+        "TEST-DB-035"
+      ],
+      "dependencies": [
+        "FEAT-DB-001"
+      ],
+      "steps": [
+        "agent_prompt_versions, agent_thought_logs, agent_reflections, agent_individual_learnings, agent_communications, prompt_suggestionsの6テーブルを確認",
+        "全テーブルのagent_type CHECK制約を統一値(strategist/researcher/analyst/planner/tool_specialist/data_curator)に設定",
+        "psqlで実行しTEST-DB-035(6テーブル横断テスト)を実行"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DB-014",
+      "category": "database",
+      "module": "sql",
+      "agent": "infra-agent",
+      "priority": "P1",
+      "description": "human_directivesテーブルの作成。directive_type CHECK制約(5値)",
+      "spec_refs": [
+        "03-database-schema.md §4.2"
+      ],
+      "test_ids": [
+        "TEST-DB-036"
+      ],
+      "dependencies": [
+        "FEAT-DB-001"
+      ],
+      "steps": [
+        "03-database-schema.md §4.2のCREATE TABLE文を確認",
+        "directive_type CHECK制約(hypothesis/reference_content/instruction/learning_guidance/agent_response)を設定"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DB-015",
+      "category": "database",
+      "module": "sql",
+      "agent": "infra-agent",
+      "priority": "P1",
+      "description": "cyclesテーブルの作成。status CHECK制約(5値)",
+      "spec_refs": [
+        "03-database-schema.md §4.1"
+      ],
+      "test_ids": [
+        "TEST-DB-037"
+      ],
+      "dependencies": [
+        "FEAT-DB-001"
+      ],
+      "steps": [
+        "03-database-schema.md §4.1のCREATE TABLE文を確認",
+        "status CHECK制約(planning/executing/measuring/analyzing/completed)を設定"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DB-016",
+      "category": "database",
+      "module": "sql",
+      "agent": "infra-agent",
+      "priority": "P1",
+      "description": "tool_catalogテーブルの作成。tool_type CHECK制約(11値)",
+      "spec_refs": [
+        "03-database-schema.md §6.1"
+      ],
+      "test_ids": [
+        "TEST-DB-038"
+      ],
+      "dependencies": [
+        "FEAT-DB-001"
+      ],
+      "steps": [
+        "03-database-schema.md §6.1のCREATE TABLE文を確認",
+        "tool_type CHECK制約(11値)を設定"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DB-017",
+      "category": "database",
+      "module": "sql",
+      "agent": "infra-agent",
+      "priority": "P2",
+      "description": "tool_external_sourcesテーブルの作成。source_type CHECK制約(8値)",
+      "spec_refs": [
+        "03-database-schema.md §6.3"
+      ],
+      "test_ids": [
+        "TEST-DB-039"
+      ],
+      "dependencies": [
+        "FEAT-DB-001",
+        "FEAT-DB-016"
+      ],
+      "steps": [
+        "03-database-schema.md §6.3のCREATE TABLE文を確認",
+        "source_type CHECK制約(8値)を設定",
+        "FK: tool_name→tool_catalogを設定"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DB-018",
+      "category": "database",
+      "module": "sql",
+      "agent": "infra-agent",
+      "priority": "P1",
+      "description": "production_recipesテーブルの作成。content_format CHECK制約",
+      "spec_refs": [
+        "03-database-schema.md §6.4"
+      ],
+      "test_ids": [
+        "TEST-DB-040"
+      ],
+      "dependencies": [
+        "FEAT-DB-001"
+      ],
+      "steps": [
+        "03-database-schema.md §6.4のCREATE TABLE文を確認",
+        "content_format CHECK制約(short_video/text_post/image_post)を設定"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DB-019",
+      "category": "database",
+      "module": "sql",
+      "agent": "infra-agent",
+      "priority": "P0",
+      "description": "system_settingsテーブルの作成 + デフォルト設定値INSERT",
+      "spec_refs": [
+        "03-database-schema.md §7.1",
+        "03-database-schema.md §7.2"
+      ],
+      "test_ids": [
+        "TEST-DB-041"
+      ],
+      "dependencies": [
+        "FEAT-DB-001"
+      ],
+      "steps": [
+        "03-database-schema.md §7.1のCREATE TABLE文を確認",
+        "category/key UNIQUE制約を設定",
+        "§7.2のデフォルト設定値INSERT文を記述",
+        "psqlで実行しsystem_settings初期データを確認"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DB-020",
+      "category": "database",
+      "module": "sql",
+      "agent": "infra-agent",
+      "priority": "P1",
+      "description": "content_sectionsテーブルの作成。FK: content_id→content, component_id→components",
+      "spec_refs": [
+        "03-database-schema.md §2.2"
+      ],
+      "test_ids": [
+        "TEST-DB-042"
+      ],
+      "dependencies": [
+        "FEAT-DB-001",
+        "FEAT-DB-005",
+        "FEAT-DB-006"
+      ],
+      "steps": [
+        "03-database-schema.md §2.2のCREATE TABLE文を確認",
+        "FK制約を設定: content_id→content, component_id→components",
+        "psqlで実行"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DB-021",
+      "category": "database",
+      "module": "sql",
+      "agent": "infra-agent",
+      "priority": "P1",
+      "description": "metricsテーブルの作成。FK: publication_id→publications",
+      "spec_refs": [
+        "03-database-schema.md §3.3"
+      ],
+      "test_ids": [
+        "TEST-DB-043"
+      ],
+      "dependencies": [
+        "FEAT-DB-001",
+        "FEAT-DB-007"
+      ],
+      "steps": [
+        "03-database-schema.md §3.3のCREATE TABLE文を確認",
+        "FK制約を設定: publication_id→publications",
+        "psqlで実行"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DB-022",
+      "category": "database",
+      "module": "sql",
+      "agent": "infra-agent",
+      "priority": "P1",
+      "description": "analysesテーブルの作成。FK: cycle_id→cycles",
+      "spec_refs": [
+        "03-database-schema.md §3.4"
+      ],
+      "test_ids": [
+        "TEST-DB-044"
+      ],
+      "dependencies": [
+        "FEAT-DB-001",
+        "FEAT-DB-015"
+      ],
+      "steps": [
+        "03-database-schema.md §3.4のCREATE TABLE文を確認",
+        "FK制約を設定: cycle_id→cycles",
+        "psqlで実行"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DB-023",
+      "category": "database",
+      "module": "sql",
+      "agent": "infra-agent",
+      "priority": "P1",
+      "description": "learningsテーブルの作成 + pgvector embedding",
+      "spec_refs": [
+        "03-database-schema.md §3.5"
+      ],
+      "test_ids": [
+        "TEST-DB-045"
+      ],
+      "dependencies": [
+        "FEAT-DB-001"
+      ],
+      "steps": [
+        "03-database-schema.md §3.5のCREATE TABLE文を確認",
+        "embedding vector(1536)カラムを設定",
+        "psqlで実行"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DB-024",
+      "category": "database",
+      "module": "sql",
+      "agent": "infra-agent",
+      "priority": "P1",
+      "description": "Observabilityテーブル群の作成 (agent_prompt_versions, agent_thought_logs, agent_reflections)",
+      "spec_refs": [
+        "03-database-schema.md §5.1",
+        "03-database-schema.md §5.2",
+        "03-database-schema.md §5.3"
+      ],
+      "test_ids": [
+        "TEST-DB-046"
+      ],
+      "dependencies": [
+        "FEAT-DB-001",
+        "FEAT-DB-015"
+      ],
+      "steps": [
+        "agent_prompt_versionsテーブルを作成",
+        "agent_thought_logsテーブルを作成 (FK: cycle_id→cycles)",
+        "agent_reflectionsテーブルを作成 (FK: cycle_id→cycles)",
+        "psqlで実行し3テーブルの存在を確認"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DB-025",
+      "category": "database",
+      "module": "sql",
+      "agent": "infra-agent",
+      "priority": "P1",
+      "description": "Tool Managementテーブル群の作成 (tool_experiences, prompt_suggestions)",
+      "spec_refs": [
+        "03-database-schema.md §6.2",
+        "03-database-schema.md §6.5"
+      ],
+      "test_ids": [
+        "TEST-DB-047"
+      ],
+      "dependencies": [
+        "FEAT-DB-001",
+        "FEAT-DB-016"
+      ],
+      "steps": [
+        "tool_experiencesテーブルを作成 (FK: tool_name→tool_catalog, content_id→content)",
+        "prompt_suggestionsテーブルを作成",
+        "psqlで実行し2テーブルの存在を確認"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DB-026",
+      "category": "database",
+      "module": "sql",
+      "agent": "infra-agent",
+      "priority": "P1",
+      "description": "algorithm_performanceテーブルの作成",
+      "spec_refs": [
+        "03-database-schema.md §4.4"
+      ],
+      "test_ids": [
+        "TEST-DB-048"
+      ],
+      "dependencies": [
+        "FEAT-DB-001"
+      ],
+      "steps": [
+        "03-database-schema.md §4.4のCREATE TABLE文を確認",
+        "psqlで実行"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DB-027",
+      "category": "database",
+      "module": "sql",
+      "agent": "infra-agent",
+      "priority": "P0",
+      "description": "全テーブルのインデックス作成 (Entity + Production + Intelligence)",
+      "spec_refs": [
+        "03-database-schema.md §8.1",
+        "03-database-schema.md §8.2",
+        "03-database-schema.md §8.3"
+      ],
+      "test_ids": [
+        "TEST-DB-049",
+        "TEST-DB-050"
+      ],
+      "dependencies": [
+        "FEAT-DB-002"
+      ],
+      "steps": [
+        "sql/002_create_indexes.sqlを作成",
+        "Entity Tables用インデックスを追記 (componentsのGINインデックス含む)",
+        "Production Tables用インデックスを追記",
+        "Intelligence Tables用インデックス (HNSWベクトルインデックス含む)を追記",
+        "psqlで実行しpg_indexesで確認"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DB-028",
+      "category": "database",
+      "module": "sql",
+      "agent": "infra-agent",
+      "priority": "P1",
+      "description": "全テーブルのインデックス作成 (Operations + Observability + Tool Mgmt + System)",
+      "spec_refs": [
+        "03-database-schema.md §8.4",
+        "03-database-schema.md §8.5",
+        "03-database-schema.md §8.6",
+        "03-database-schema.md §8.7"
+      ],
+      "test_ids": [
+        "TEST-DB-051"
+      ],
+      "dependencies": [
+        "FEAT-DB-002"
+      ],
+      "steps": [
+        "sql/002_create_indexes.sqlにOperations用インデックスを追記",
+        "Observability用インデックスを追記",
+        "Tool Management用インデックスを追記",
+        "System Management用インデックスを追記",
+        "psqlで実行"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DB-029",
+      "category": "database",
+      "module": "sql",
+      "agent": "infra-agent",
+      "priority": "P0",
+      "description": "updated_at自動更新トリガーの作成 (全テーブル共通)",
+      "spec_refs": [
+        "03-database-schema.md §9"
+      ],
+      "test_ids": [
+        "TEST-DB-052"
+      ],
+      "dependencies": [
+        "FEAT-DB-002"
+      ],
+      "steps": [
+        "sql/003_create_triggers.sqlを作成",
+        "update_updated_at()関数を定義",
+        "全テーブルにBEFORE UPDATEトリガーを設定",
+        "UPDATEでupdated_atが自動更新されることを確認"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DB-030",
+      "category": "database",
+      "module": "sql",
+      "agent": "infra-agent",
+      "priority": "P1",
+      "description": "外部キー参照整合性の検証 (全FK)",
+      "spec_refs": [
+        "03-database-schema.md §10.1"
+      ],
+      "test_ids": [
+        "TEST-DB-053"
+      ],
+      "dependencies": [
+        "FEAT-DB-002"
+      ],
+      "steps": [
+        "03-database-schema.md §10.1の全FK一覧を確認",
+        "各FKで参照先が存在しない場合のINSERTが拒否されることを検証",
+        "親レコード削除時のCASCADE/RESTRICT動作を確認"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DB-031",
+      "category": "database",
+      "module": "sql",
+      "agent": "infra-agent",
+      "priority": "P1",
+      "description": "accounts.auth_credentials JSONBスキーマの検証",
+      "spec_refs": [
+        "03-database-schema.md §7.3"
+      ],
+      "test_ids": [
+        "TEST-DB-054"
+      ],
+      "dependencies": [
+        "FEAT-DB-003"
+      ],
+      "steps": [
+        "auth_credentials JSONBカラムのスキーマ定義を確認",
+        "platform別の必須フィールドが含まれたJSONBの挿入テスト",
+        "不正構造のJSONB挿入テスト"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DB-032",
+      "category": "database",
+      "module": "sql",
+      "agent": "infra-agent",
+      "priority": "P2",
+      "description": "データ移行マッピング検証 (v4.0 Spreadsheet → PostgreSQL)",
+      "spec_refs": [
+        "03-database-schema.md §11"
+      ],
+      "test_ids": [
+        "TEST-DB-055"
+      ],
+      "dependencies": [
+        "FEAT-DB-002"
+      ],
+      "steps": [
+        "03-database-schema.md §11のマッピング表を確認",
+        "v4.0 productionタブの33列→content/content_sections/publicationsへの変換ロジックを検証",
+        "サンプルデータで移行テストを実行"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-INF-001",
+      "category": "infra",
+      "module": "infra",
+      "agent": "infra-agent",
+      "priority": "P0",
+      "description": "docker-compose.yml + docker-compose.dev.ymlの作成",
+      "spec_refs": [
+        "01-tech-stack.md §サーバー・インフラ",
+        "10-implementation-guide.md §3"
+      ],
+      "test_ids": [
+        "TEST-DB-001"
+      ],
+      "dependencies": [],
+      "steps": [
+        "docker-compose.ymlを作成 (PostgreSQL 16 + pgvector, Node.jsアプリ)",
+        "docker-compose.dev.ymlを作成 (dev用ポート・ホットリロード)",
+        "docker compose up -dで起動確認"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-INF-002",
+      "category": "infra",
+      "module": "infra",
+      "agent": "infra-agent",
+      "priority": "P0",
+      "description": ".env.exampleの作成。全環境変数テンプレート",
+      "spec_refs": [
+        "10-implementation-guide.md §3"
+      ],
+      "test_ids": [
+        "TEST-DB-002"
+      ],
+      "dependencies": [],
+      "steps": [
+        ".env.exampleを作成 (DATABASE_URL, ANTHROPIC_API_KEY, FAL_KEY等)",
+        "各変数にコメントで説明を付与"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-INF-003",
+      "category": "infra",
+      "module": "infra",
+      "agent": "infra-agent",
+      "priority": "P0",
+      "description": "TypeScriptプロジェクト初期化。tsconfig/package.json/ESLint/Prettier",
+      "spec_refs": [
+        "10-implementation-guide.md §5.1"
+      ],
+      "test_ids": [],
+      "dependencies": [],
+      "steps": [
+        "package.jsonを作成 (scripts: build/test/lint/format)",
+        "tsconfig.jsonを作成 (strict: true, target: ES2022)",
+        ".eslintrc.jsonを作成",
+        ".prettierrcを作成",
+        "npm installで依存関係インストール"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-INF-004",
+      "category": "infra",
+      "module": "infra",
+      "agent": "infra-agent",
+      "priority": "P0",
+      "description": "PostgreSQLマイグレーション実行スクリプト (init.sh拡張)",
+      "spec_refs": [
+        "13-agent-harness.md §3"
+      ],
+      "test_ids": [],
+      "dependencies": [
+        "FEAT-INF-001"
+      ],
+      "steps": [
+        "init.shにDB初期化ロジックを追加",
+        "sql/配下のDDLファイルを順序通りに実行するスクリプトを記述",
+        "マイグレーション冪等性(IF NOT EXISTS)を確保"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-INF-005",
+      "category": "infra",
+      "module": "infra",
+      "agent": "infra-agent",
+      "priority": "P1",
+      "description": "CI/CD基盤: GitHub Actions workflow定義",
+      "spec_refs": [
+        "10-implementation-guide.md §5"
+      ],
+      "test_ids": [],
+      "dependencies": [
+        "FEAT-INF-003"
+      ],
+      "steps": [
+        ".github/workflows/ci.ymlを作成",
+        "lint→build→test→typecheck のステップを定義",
+        "PostgreSQL serviceコンテナを設定",
+        "ブランチ保護ルール(develop, main)を設定"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCC-001",
+      "category": "mcp-core",
+      "module": "src/mcp-server",
+      "agent": "mcp-core-agent",
+      "priority": "P0",
+      "description": "MCP Serverエントリポイント + PostgreSQL接続管理の実装",
+      "spec_refs": [
+        "02-architecture.md §4.1",
+        "04-agent-design.md §4"
+      ],
+      "test_ids": [
+        "TEST-MCP-087"
+      ],
+      "dependencies": [
+        "FEAT-INF-001",
+        "FEAT-INF-003"
+      ],
+      "steps": [
+        "src/mcp-server/index.tsを作成 (MCP Server初期化 + ツール登録)",
+        "src/mcp-server/db.tsを作成 (PostgreSQL接続プール管理)",
+        "types/mcp-tools.tsの型を参照しツール登録構造を確認"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCC-002",
+      "category": "mcp-core",
+      "module": "src/mcp-server/tools/entity",
+      "agent": "mcp-core-agent",
+      "priority": "P0",
+      "description": "戦略エージェント用ツール: get_system_overview (全体KPIサマリー)",
+      "spec_refs": [
+        "04-agent-design.md §4.1"
+      ],
+      "test_ids": [
+        "TEST-MCP-001"
+      ],
+      "dependencies": [
+        "FEAT-MCC-001",
+        "FEAT-DB-003"
+      ],
+      "steps": [
+        "src/mcp-server/tools/entity/system-overview.tsを作成",
+        "get_system_overview: 全アカウント集計・KPIサマリーを返すツールを実装",
+        "TEST-MCP-001を実行"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCC-003",
+      "category": "mcp-core",
+      "module": "src/mcp-server/tools/operations",
+      "agent": "mcp-core-agent",
+      "priority": "P0",
+      "description": "戦略エージェント用ツール: set_portfolio_strategy + get_portfolio_strategy",
+      "spec_refs": [
+        "04-agent-design.md §4.1"
+      ],
+      "test_ids": [
+        "TEST-MCP-002"
+      ],
+      "dependencies": [
+        "FEAT-MCC-001"
+      ],
+      "steps": [
+        "src/mcp-server/tools/operations/portfolio-strategy.tsを作成",
+        "set_portfolio_strategy: ポートフォリオ戦略の保存ツールを実装",
+        "get_portfolio_strategy: 最新戦略の取得ツールを実装",
+        "TEST-MCP-002を実行"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCC-004",
+      "category": "mcp-core",
+      "module": "src/mcp-server/tools/operations",
+      "agent": "mcp-core-agent",
+      "priority": "P1",
+      "description": "戦略エージェント用ツール: allocate_resources + get_resource_allocation",
+      "spec_refs": [
+        "04-agent-design.md §4.1"
+      ],
+      "test_ids": [
+        "TEST-MCP-003"
+      ],
+      "dependencies": [
+        "FEAT-MCC-001"
+      ],
+      "steps": [
+        "src/mcp-server/tools/operations/resource-allocation.tsを作成",
+        "allocate_resources: リソース配分の設定ツールを実装",
+        "get_resource_allocation: 現在の配分取得ツールを実装",
+        "TEST-MCP-003を実行"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCC-005",
+      "category": "mcp-core",
+      "module": "src/mcp-server/tools/operations",
+      "agent": "mcp-core-agent",
+      "priority": "P1",
+      "description": "戦略エージェント用ツール: set_global_directives + get_active_directives",
+      "spec_refs": [
+        "04-agent-design.md §4.1"
+      ],
+      "test_ids": [
+        "TEST-MCP-004"
+      ],
+      "dependencies": [
+        "FEAT-MCC-001",
+        "FEAT-DB-014"
+      ],
+      "steps": [
+        "src/mcp-server/tools/operations/directives.tsを作成",
+        "set_global_directives: 全体指示の設定ツールを実装",
+        "get_active_directives: アクティブ指示の取得ツールを実装",
+        "TEST-MCP-004を実行"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCC-006",
+      "category": "mcp-core",
+      "module": "src/mcp-server/tools/operations",
+      "agent": "mcp-core-agent",
+      "priority": "P1",
+      "description": "戦略エージェント用ツール: review_cycle_results + approve_next_cycle",
+      "spec_refs": [
+        "04-agent-design.md §4.1"
+      ],
+      "test_ids": [
+        "TEST-MCP-005",
+        "TEST-MCP-006"
+      ],
+      "dependencies": [
+        "FEAT-MCC-001",
+        "FEAT-DB-015"
+      ],
+      "steps": [
+        "src/mcp-server/tools/operations/cycle-management.tsを作成",
+        "review_cycle_results: サイクル結果レビューツールを実装",
+        "approve_next_cycle: 次サイクル承認ツールを実装",
+        "TEST-MCP-005, TEST-MCP-006を実行"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCC-007",
+      "category": "mcp-core",
+      "module": "src/mcp-server/tools/entity",
+      "agent": "mcp-core-agent",
+      "priority": "P1",
+      "description": "戦略エージェント用ツール: flag_underperforming_accounts + set_account_priority",
+      "spec_refs": [
+        "04-agent-design.md §4.1"
+      ],
+      "test_ids": [
+        "TEST-MCP-007",
+        "TEST-MCP-008"
+      ],
+      "dependencies": [
+        "FEAT-MCC-001",
+        "FEAT-DB-003"
+      ],
+      "steps": [
+        "src/mcp-server/tools/entity/account-priority.tsを作成",
+        "flag_underperforming_accounts: 低パフォーマンスアカウント検出ツール",
+        "set_account_priority: アカウント優先度設定ツール",
+        "TEST-MCP-007, TEST-MCP-008を実行"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCC-008",
+      "category": "mcp-core",
+      "module": "src/mcp-server/tools/entity",
+      "agent": "mcp-core-agent",
+      "priority": "P1",
+      "description": "戦略エージェント用ツール: get_cross_account_insights + escalate_decision",
+      "spec_refs": [
+        "04-agent-design.md §4.1"
+      ],
+      "test_ids": [
+        "TEST-MCP-009",
+        "TEST-MCP-010"
+      ],
+      "dependencies": [
+        "FEAT-MCC-001"
+      ],
+      "steps": [
+        "src/mcp-server/tools/intelligence/cross-account.tsを作成",
+        "get_cross_account_insights: クロスアカウント分析ツール",
+        "escalate_decision: 意思決定エスカレーションツール",
+        "TEST-MCP-009, TEST-MCP-010を実行"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCC-009",
+      "category": "mcp-core",
+      "module": "src/mcp-server/tools/production",
+      "agent": "mcp-core-agent",
+      "priority": "P1",
+      "description": "プランナー用ツール: create_content_plan + get_content_plan + update_content_plan",
+      "spec_refs": [
+        "04-agent-design.md §4.4"
+      ],
+      "test_ids": [
+        "TEST-MCP-027",
+        "TEST-MCP-028"
+      ],
+      "dependencies": [
+        "FEAT-MCC-001",
+        "FEAT-DB-006"
+      ],
+      "steps": [
+        "src/mcp-server/tools/production/content-plan.tsを作成",
+        "create_content_plan: コンテンツ計画作成ツール",
+        "get_content_plan: 計画取得ツール",
+        "update_content_plan: 計画更新ツール"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCC-010",
+      "category": "mcp-core",
+      "module": "src/mcp-server/tools/production",
+      "agent": "mcp-core-agent",
+      "priority": "P1",
+      "description": "プランナー用ツール: create_hypothesis + assign_hypothesis_to_content",
+      "spec_refs": [
+        "04-agent-design.md §4.4"
+      ],
+      "test_ids": [
+        "TEST-MCP-029",
+        "TEST-MCP-030"
+      ],
+      "dependencies": [
+        "FEAT-MCC-001",
+        "FEAT-DB-008"
+      ],
+      "steps": [
+        "src/mcp-server/tools/production/hypothesis-assignment.tsを作成",
+        "create_hypothesis: 仮説作成ツール",
+        "assign_hypothesis_to_content: 仮説-コンテンツ紐付けツール"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCC-011",
+      "category": "mcp-core",
+      "module": "src/mcp-server/tools/operations",
+      "agent": "mcp-core-agent",
+      "priority": "P1",
+      "description": "プランナー用ツール: enqueue_task + get_queue_status + cancel_task",
+      "spec_refs": [
+        "04-agent-design.md §4.4"
+      ],
+      "test_ids": [
+        "TEST-MCP-031",
+        "TEST-MCP-032",
+        "TEST-MCP-033"
+      ],
+      "dependencies": [
+        "FEAT-MCC-001",
+        "FEAT-DB-010"
+      ],
+      "steps": [
+        "src/mcp-server/tools/operations/task-management.tsを作成",
+        "enqueue_task: タスクキュー投入ツール",
+        "get_queue_status: キュー状態取得ツール",
+        "cancel_task: タスクキャンセルツール"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCC-012",
+      "category": "mcp-core",
+      "module": "src/mcp-server/tools/production",
+      "agent": "mcp-core-agent",
+      "priority": "P0",
+      "description": "制作ワーカー用ツール: dequeue_task + update_task_status",
+      "spec_refs": [
+        "04-agent-design.md §4.6"
+      ],
+      "test_ids": [
+        "TEST-MCP-037",
+        "TEST-MCP-038"
+      ],
+      "dependencies": [
+        "FEAT-MCC-001",
+        "FEAT-DB-010"
+      ],
+      "steps": [
+        "src/mcp-server/tools/production/task-worker.tsを作成",
+        "dequeue_task: 次タスク取得ツール",
+        "update_task_status: タスクステータス更新ツール"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCC-013",
+      "category": "mcp-core",
+      "module": "src/mcp-server/tools/production",
+      "agent": "mcp-core-agent",
+      "priority": "P0",
+      "description": "制作ワーカー用ツール: get_production_recipe + get_component",
+      "spec_refs": [
+        "04-agent-design.md §4.6"
+      ],
+      "test_ids": [
+        "TEST-MCP-039",
+        "TEST-MCP-040"
+      ],
+      "dependencies": [
+        "FEAT-MCC-001",
+        "FEAT-DB-018",
+        "FEAT-DB-005"
+      ],
+      "steps": [
+        "src/mcp-server/tools/production/recipe-component.tsを作成",
+        "get_production_recipe: レシピ取得ツール",
+        "get_component: コンポーネント取得ツール"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCC-014",
+      "category": "mcp-core",
+      "module": "src/mcp-server/tools/production",
+      "agent": "mcp-core-agent",
+      "priority": "P0",
+      "description": "制作ワーカー用ツール: generate_video + generate_tts + generate_lipsync",
+      "spec_refs": [
+        "04-agent-design.md §4.6"
+      ],
+      "test_ids": [
+        "TEST-MCP-041",
+        "TEST-MCP-042",
+        "TEST-MCP-043"
+      ],
+      "dependencies": [
+        "FEAT-MCC-001"
+      ],
+      "steps": [
+        "src/mcp-server/tools/production/media-generation.tsを作成",
+        "generate_video: fal.ai Kling API呼び出しツール",
+        "generate_tts: Fish Audio TTS API呼び出しツール",
+        "generate_lipsync: リップシンクAPI呼び出しツール"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCC-015",
+      "category": "mcp-core",
+      "module": "src/mcp-server/tools/production",
+      "agent": "mcp-core-agent",
+      "priority": "P0",
+      "description": "制作ワーカー用ツール: concatenate_sections + upload_to_storage",
+      "spec_refs": [
+        "04-agent-design.md §4.6"
+      ],
+      "test_ids": [
+        "TEST-MCP-044",
+        "TEST-MCP-045"
+      ],
+      "dependencies": [
+        "FEAT-MCC-001"
+      ],
+      "steps": [
+        "src/mcp-server/tools/production/post-processing.tsを作成",
+        "concatenate_sections: セクション結合ツール",
+        "upload_to_storage: ストレージアップロードツール"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCC-016",
+      "category": "mcp-core",
+      "module": "src/mcp-server/tools/production",
+      "agent": "mcp-core-agent",
+      "priority": "P0",
+      "description": "制作ワーカー用ツール: update_content_status + save_section_result + get_content_for_production",
+      "spec_refs": [
+        "04-agent-design.md §4.6"
+      ],
+      "test_ids": [
+        "TEST-MCP-046",
+        "TEST-MCP-047",
+        "TEST-MCP-048"
+      ],
+      "dependencies": [
+        "FEAT-MCC-001",
+        "FEAT-DB-006",
+        "FEAT-DB-020"
+      ],
+      "steps": [
+        "src/mcp-server/tools/production/content-status.tsを作成",
+        "update_content_status: コンテンツステータス更新ツール",
+        "save_section_result: セクション結果保存ツール",
+        "get_content_for_production: 制作対象コンテンツ取得ツール"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCC-017",
+      "category": "mcp-core",
+      "module": "src/mcp-server/tools/production",
+      "agent": "mcp-core-agent",
+      "priority": "P1",
+      "description": "投稿ワーカー用ツール: get_scheduled_publications + post_to_platform + update_publication_status",
+      "spec_refs": [
+        "04-agent-design.md §4.7"
+      ],
+      "test_ids": [
+        "TEST-MCP-049",
+        "TEST-MCP-050",
+        "TEST-MCP-051"
+      ],
+      "dependencies": [
+        "FEAT-MCC-001",
+        "FEAT-DB-007"
+      ],
+      "steps": [
+        "src/mcp-server/tools/production/posting.tsを作成",
+        "get_scheduled_publications: 投稿予定取得ツール",
+        "post_to_platform: プラットフォーム投稿ツール",
+        "update_publication_status: 投稿ステータス更新ツール"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCC-018",
+      "category": "mcp-core",
+      "module": "src/mcp-server/tools/production",
+      "agent": "mcp-core-agent",
+      "priority": "P1",
+      "description": "投稿ワーカー用ツール: get_posting_credentials + log_posting_result + retry_failed_post",
+      "spec_refs": [
+        "04-agent-design.md §4.7"
+      ],
+      "test_ids": [
+        "TEST-MCP-052",
+        "TEST-MCP-053",
+        "TEST-MCP-054"
+      ],
+      "dependencies": [
+        "FEAT-MCC-001",
+        "FEAT-DB-003"
+      ],
+      "steps": [
+        "src/mcp-server/tools/production/posting-ops.tsを作成",
+        "get_posting_credentials: 投稿認証情報取得ツール",
+        "log_posting_result: 投稿結果記録ツール",
+        "retry_failed_post: 失敗投稿リトライツール"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCC-019",
+      "category": "mcp-core",
+      "module": "src/mcp-server/tools/production",
+      "agent": "mcp-core-agent",
+      "priority": "P1",
+      "description": "計測ワーカー用ツール: get_publications_to_measure + fetch_platform_metrics",
+      "spec_refs": [
+        "04-agent-design.md §4.8"
+      ],
+      "test_ids": [
+        "TEST-MCP-055",
+        "TEST-MCP-056"
+      ],
+      "dependencies": [
+        "FEAT-MCC-001",
+        "FEAT-DB-007",
+        "FEAT-DB-021"
+      ],
+      "steps": [
+        "src/mcp-server/tools/production/measurement.tsを作成",
+        "get_publications_to_measure: 計測対象取得ツール",
+        "fetch_platform_metrics: プラットフォームメトリクス取得ツール"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCC-020",
+      "category": "mcp-core",
+      "module": "src/mcp-server/tools/production",
+      "agent": "mcp-core-agent",
+      "priority": "P1",
+      "description": "計測ワーカー用ツール: save_metrics + calculate_engagement_rate + update_algorithm_performance",
+      "spec_refs": [
+        "04-agent-design.md §4.8"
+      ],
+      "test_ids": [
+        "TEST-MCP-057",
+        "TEST-MCP-058",
+        "TEST-MCP-059"
+      ],
+      "dependencies": [
+        "FEAT-MCC-001",
+        "FEAT-DB-021",
+        "FEAT-DB-026"
+      ],
+      "steps": [
+        "src/mcp-server/tools/production/metrics-ops.tsを作成",
+        "save_metrics: メトリクス保存ツール",
+        "calculate_engagement_rate: エンゲージメント率計算ツール",
+        "update_algorithm_performance: アルゴリズム精度更新ツール"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCC-021",
+      "category": "mcp-core",
+      "module": "src/mcp-server/tools/production",
+      "agent": "mcp-core-agent",
+      "priority": "P2",
+      "description": "計測ワーカー用ツール: detect_anomaly + get_measurement_history",
+      "spec_refs": [
+        "04-agent-design.md §4.8"
+      ],
+      "test_ids": [
+        "TEST-MCP-060",
+        "TEST-MCP-061"
+      ],
+      "dependencies": [
+        "FEAT-MCC-001",
+        "FEAT-DB-021"
+      ],
+      "steps": [
+        "src/mcp-server/tools/production/anomaly-detection.tsを作成",
+        "detect_anomaly: 異常値検知ツール",
+        "get_measurement_history: 計測履歴取得ツール"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCC-022",
+      "category": "mcp-core",
+      "module": "src/mcp-server/tools/dashboard",
+      "agent": "mcp-core-agent",
+      "priority": "P1",
+      "description": "ダッシュボード用ツール: get_dashboard_summary + get_account_performance",
+      "spec_refs": [
+        "04-agent-design.md §4.9"
+      ],
+      "test_ids": [
+        "TEST-MCP-062",
+        "TEST-MCP-063"
+      ],
+      "dependencies": [
+        "FEAT-MCC-001"
+      ],
+      "steps": [
+        "src/mcp-server/tools/dashboard/summary.tsを作成",
+        "get_dashboard_summary: ダッシュボードサマリー取得ツール",
+        "get_account_performance: アカウントパフォーマンス取得ツール"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCC-023",
+      "category": "mcp-core",
+      "module": "src/mcp-server/tools/dashboard",
+      "agent": "mcp-core-agent",
+      "priority": "P1",
+      "description": "ダッシュボード用ツール: get_content_pipeline_status + get_hypothesis_performance",
+      "spec_refs": [
+        "04-agent-design.md §4.9"
+      ],
+      "test_ids": [
+        "TEST-MCP-064",
+        "TEST-MCP-065"
+      ],
+      "dependencies": [
+        "FEAT-MCC-001"
+      ],
+      "steps": [
+        "src/mcp-server/tools/dashboard/pipeline-status.tsを作成",
+        "get_content_pipeline_status: パイプラインステータス取得ツール",
+        "get_hypothesis_performance: 仮説パフォーマンス取得ツール"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCC-024",
+      "category": "mcp-core",
+      "module": "src/mcp-server/tools/dashboard",
+      "agent": "mcp-core-agent",
+      "priority": "P1",
+      "description": "ダッシュボード用ツール: get_agent_activity + get_tool_usage_stats + get_cycle_timeline",
+      "spec_refs": [
+        "04-agent-design.md §4.9"
+      ],
+      "test_ids": [
+        "TEST-MCP-066",
+        "TEST-MCP-067",
+        "TEST-MCP-068"
+      ],
+      "dependencies": [
+        "FEAT-MCC-001"
+      ],
+      "steps": [
+        "src/mcp-server/tools/dashboard/activity.tsを作成",
+        "get_agent_activity: エージェント活動取得ツール",
+        "get_tool_usage_stats: ツール利用統計取得ツール",
+        "get_cycle_timeline: サイクルタイムライン取得ツール"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCC-025",
+      "category": "mcp-core",
+      "module": "src/mcp-server/tools/dashboard",
+      "agent": "mcp-core-agent",
+      "priority": "P1",
+      "description": "ダッシュボード用ツール: get_communications_inbox + get_system_health",
+      "spec_refs": [
+        "04-agent-design.md §4.9"
+      ],
+      "test_ids": [
+        "TEST-MCP-069",
+        "TEST-MCP-070"
+      ],
+      "dependencies": [
+        "FEAT-MCC-001",
+        "FEAT-DB-012"
+      ],
+      "steps": [
+        "src/mcp-server/tools/dashboard/inbox-health.tsを作成",
+        "get_communications_inbox: コミュニケーション受信トレイ取得ツール",
+        "get_system_health: システムヘルス取得ツール"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCC-026",
+      "category": "mcp-core",
+      "module": "src/mcp-server/tools/system",
+      "agent": "mcp-core-agent",
+      "priority": "P0",
+      "description": "システム設定ツール: get_system_setting + update_system_setting",
+      "spec_refs": [
+        "04-agent-design.md §4.1",
+        "03-database-schema.md §7.1"
+      ],
+      "test_ids": [
+        "TEST-MCP-088",
+        "TEST-MCP-089"
+      ],
+      "dependencies": [
+        "FEAT-MCC-001",
+        "FEAT-DB-019"
+      ],
+      "steps": [
+        "src/mcp-server/tools/system/settings.tsを作成",
+        "get_system_setting: 設定値取得ツール",
+        "update_system_setting: 設定値更新ツール"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCC-027",
+      "category": "mcp-core",
+      "module": "src/mcp-server",
+      "agent": "mcp-core-agent",
+      "priority": "P0",
+      "description": "MCPツール共通バリデーション: 入力型チェック + エラーレスポンス統一",
+      "spec_refs": [
+        "04-agent-design.md §4"
+      ],
+      "test_ids": [
+        "TEST-MCP-090",
+        "TEST-MCP-091",
+        "TEST-MCP-092"
+      ],
+      "dependencies": [
+        "FEAT-MCC-001"
+      ],
+      "steps": [
+        "src/mcp-server/middleware/validation.tsを作成",
+        "全ツール共通の入力バリデーションミドルウェアを実装",
+        "エラーレスポンス形式を統一 (code/message/details)",
+        "TEST-MCP-090〜092を実行"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCC-028",
+      "category": "mcp-core",
+      "module": "src/mcp-server",
+      "agent": "mcp-core-agent",
+      "priority": "P1",
+      "description": "MCPツール共通: ページネーション + ソート + フィルタリング",
+      "spec_refs": [
+        "04-agent-design.md §4"
+      ],
+      "test_ids": [
+        "TEST-MCP-093",
+        "TEST-MCP-094",
+        "TEST-MCP-095"
+      ],
+      "dependencies": [
+        "FEAT-MCC-001"
+      ],
+      "steps": [
+        "src/mcp-server/middleware/pagination.tsを作成",
+        "offset/limit ページネーションを実装",
+        "sort_by/sort_order パラメータを実装",
+        "filter条件の組み合わせロジックを実装"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCC-029",
+      "category": "mcp-core",
+      "module": "src/mcp-server",
+      "agent": "mcp-core-agent",
+      "priority": "P1",
+      "description": "MCPツール共通: レート制限 + タイムアウト + リトライ",
+      "spec_refs": [
+        "04-agent-design.md §4",
+        "04-agent-design.md §16.1"
+      ],
+      "test_ids": [
+        "TEST-MCP-096",
+        "TEST-MCP-097",
+        "TEST-MCP-098"
+      ],
+      "dependencies": [
+        "FEAT-MCC-001"
+      ],
+      "steps": [
+        "src/mcp-server/middleware/rate-limit.tsを作成",
+        "ツール別レート制限を実装",
+        "タイムアウト処理を実装",
+        "リトライポリシー(指数バックオフ)を実装"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCC-030",
+      "category": "mcp-core",
+      "module": "src/mcp-server",
+      "agent": "mcp-core-agent",
+      "priority": "P2",
+      "description": "MCPツール共通: ロギング + メトリクス収集",
+      "spec_refs": [
+        "04-agent-design.md §4"
+      ],
+      "test_ids": [
+        "TEST-MCP-099",
+        "TEST-MCP-100",
+        "TEST-MCP-101"
+      ],
+      "dependencies": [
+        "FEAT-MCC-001"
+      ],
+      "steps": [
+        "src/mcp-server/middleware/logging.tsを作成",
+        "ツール呼び出しログ (呼び出し元/パラメータ/結果/所要時間)を実装",
+        "メトリクス収集 (成功率/平均応答時間)を実装"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCC-031",
+      "category": "mcp-core",
+      "module": "src/mcp-server/tools/entity",
+      "agent": "mcp-core-agent",
+      "priority": "P0",
+      "description": "accounts CRUD ツール (create/get/list/update/search/count)",
+      "spec_refs": [
+        "04-agent-design.md §4.1",
+        "03-database-schema.md §1.1"
+      ],
+      "test_ids": [
+        "TEST-MCP-102"
+      ],
+      "dependencies": [
+        "FEAT-MCC-001",
+        "FEAT-DB-003"
+      ],
+      "steps": [
+        "src/mcp-server/tools/entity/accounts.tsを作成",
+        "create_account, get_account, list_accounts, update_account, search_accounts, count_accountsを実装",
+        "types/mcp-tools.tsの入出力型に準拠"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCC-032",
+      "category": "mcp-core",
+      "module": "src/mcp-server/tools/entity",
+      "agent": "mcp-core-agent",
+      "priority": "P0",
+      "description": "characters CRUD ツール (create/get/list/update)",
+      "spec_refs": [
+        "04-agent-design.md §4.1",
+        "03-database-schema.md §1.2"
+      ],
+      "test_ids": [
+        "TEST-MCP-103"
+      ],
+      "dependencies": [
+        "FEAT-MCC-001",
+        "FEAT-DB-004"
+      ],
+      "steps": [
+        "src/mcp-server/tools/entity/characters.tsを作成",
+        "create_character, get_character, list_characters, update_characterを実装"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCC-033",
+      "category": "mcp-core",
+      "module": "src/mcp-server/tools/entity",
+      "agent": "mcp-core-agent",
+      "priority": "P0",
+      "description": "components CRUD + 検索ツール (create/get/list/search/update)",
+      "spec_refs": [
+        "04-agent-design.md §4.1",
+        "03-database-schema.md §1.3"
+      ],
+      "test_ids": [
+        "TEST-MCP-104",
+        "TEST-MCP-105"
+      ],
+      "dependencies": [
+        "FEAT-MCC-001",
+        "FEAT-DB-005"
+      ],
+      "steps": [
+        "src/mcp-server/tools/entity/components.tsを作成",
+        "GINインデックスを活用したtags検索を含む5ツールを実装"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCI-001",
+      "category": "mcp-intel",
+      "module": "src/mcp-server/tools/intelligence",
+      "agent": "mcp-intel-agent",
+      "priority": "P1",
+      "description": "リサーチャー用ツール: search_trending_topics + save_market_intel",
+      "spec_refs": [
+        "04-agent-design.md §4.2"
+      ],
+      "test_ids": [
+        "TEST-MCP-011",
+        "TEST-MCP-012"
+      ],
+      "dependencies": [
+        "FEAT-MCC-001",
+        "FEAT-DB-009"
+      ],
+      "steps": [
+        "src/mcp-server/tools/intelligence/trending.tsを作成",
+        "search_trending_topics: トレンドトピック検索ツール",
+        "save_market_intel: 市場情報保存ツール"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCI-002",
+      "category": "mcp-intel",
+      "module": "src/mcp-server/tools/intelligence",
+      "agent": "mcp-intel-agent",
+      "priority": "P1",
+      "description": "リサーチャー用ツール: search_competitor_content + analyze_competitor_account",
+      "spec_refs": [
+        "04-agent-design.md §4.2"
+      ],
+      "test_ids": [
+        "TEST-MCP-013",
+        "TEST-MCP-014"
+      ],
+      "dependencies": [
+        "FEAT-MCC-001",
+        "FEAT-DB-009"
+      ],
+      "steps": [
+        "src/mcp-server/tools/intelligence/competitor.tsを作成",
+        "search_competitor_content: 競合コンテンツ検索ツール",
+        "analyze_competitor_account: 競合アカウント分析ツール"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCI-003",
+      "category": "mcp-intel",
+      "module": "src/mcp-server/tools/intelligence",
+      "agent": "mcp-intel-agent",
+      "priority": "P1",
+      "description": "リサーチャー用ツール: get_audience_signals + get_platform_updates + get_market_intel_summary",
+      "spec_refs": [
+        "04-agent-design.md §4.2"
+      ],
+      "test_ids": [
+        "TEST-MCP-015",
+        "TEST-MCP-016",
+        "TEST-MCP-017"
+      ],
+      "dependencies": [
+        "FEAT-MCC-001",
+        "FEAT-DB-009"
+      ],
+      "steps": [
+        "src/mcp-server/tools/intelligence/market-signals.tsを作成",
+        "get_audience_signals: オーディエンスシグナル取得ツール",
+        "get_platform_updates: プラットフォーム更新取得ツール",
+        "get_market_intel_summary: 市場情報サマリー取得ツール"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCI-004",
+      "category": "mcp-intel",
+      "module": "src/mcp-server/tools/intelligence",
+      "agent": "mcp-intel-agent",
+      "priority": "P1",
+      "description": "アナリスト用ツール: get_hypothesis_results + evaluate_hypothesis + update_hypothesis_verdict",
+      "spec_refs": [
+        "04-agent-design.md §4.3"
+      ],
+      "test_ids": [
+        "TEST-MCP-018",
+        "TEST-MCP-019",
+        "TEST-MCP-020"
+      ],
+      "dependencies": [
+        "FEAT-MCC-001",
+        "FEAT-DB-008"
+      ],
+      "steps": [
+        "src/mcp-server/tools/intelligence/hypothesis-eval.tsを作成",
+        "get_hypothesis_results: 仮説結果取得ツール",
+        "evaluate_hypothesis: 仮説評価ツール",
+        "update_hypothesis_verdict: 仮説判定更新ツール"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCI-005",
+      "category": "mcp-intel",
+      "module": "src/mcp-server/tools/intelligence",
+      "agent": "mcp-intel-agent",
+      "priority": "P1",
+      "description": "アナリスト用ツール: similar_hypotheses_search + get_content_performance",
+      "spec_refs": [
+        "04-agent-design.md §4.3"
+      ],
+      "test_ids": [
+        "TEST-MCP-021",
+        "TEST-MCP-022"
+      ],
+      "dependencies": [
+        "FEAT-MCC-001",
+        "FEAT-DB-008"
+      ],
+      "steps": [
+        "src/mcp-server/tools/intelligence/hypothesis-search.tsを作成",
+        "similar_hypotheses_search: pgvectorコサイン類似度検索ツール",
+        "get_content_performance: コンテンツパフォーマンス取得ツール"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCI-006",
+      "category": "mcp-intel",
+      "module": "src/mcp-server/tools/intelligence",
+      "agent": "mcp-intel-agent",
+      "priority": "P1",
+      "description": "アナリスト用ツール: save_analysis + save_learning + get_relevant_learnings + similar_learnings_search",
+      "spec_refs": [
+        "04-agent-design.md §4.3"
+      ],
+      "test_ids": [
+        "TEST-MCP-023",
+        "TEST-MCP-024",
+        "TEST-MCP-025",
+        "TEST-MCP-026"
+      ],
+      "dependencies": [
+        "FEAT-MCC-001",
+        "FEAT-DB-022",
+        "FEAT-DB-023"
+      ],
+      "steps": [
+        "src/mcp-server/tools/intelligence/analysis-learning.tsを作成",
+        "save_analysis: 分析結果保存ツール",
+        "save_learning: 学習知見保存ツール",
+        "get_relevant_learnings: 関連知見取得ツール",
+        "similar_learnings_search: pgvectorベクトル検索ツール"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCI-007",
+      "category": "mcp-intel",
+      "module": "src/mcp-server/tools/tool-mgmt",
+      "agent": "mcp-intel-agent",
+      "priority": "P1",
+      "description": "ツールスペシャリスト用ツール: get_tool_catalog + update_tool_knowledge + recommend_tool_combination",
+      "spec_refs": [
+        "04-agent-design.md §4.5"
+      ],
+      "test_ids": [
+        "TEST-MCP-034",
+        "TEST-MCP-035"
+      ],
+      "dependencies": [
+        "FEAT-MCC-001",
+        "FEAT-DB-016"
+      ],
+      "steps": [
+        "src/mcp-server/tools/tool-mgmt/tool-specialist.tsを作成",
+        "get_tool_catalog: ツールカタログ取得ツール",
+        "update_tool_knowledge: ツール知識更新ツール",
+        "recommend_tool_combination: ツール組み合わせ推薦ツール"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCI-008",
+      "category": "mcp-intel",
+      "module": "src/mcp-server/tools/tool-mgmt",
+      "agent": "mcp-intel-agent",
+      "priority": "P1",
+      "description": "ツールスペシャリスト用ツール: save_tool_experience + get_tool_external_sources",
+      "spec_refs": [
+        "04-agent-design.md §4.5"
+      ],
+      "test_ids": [
+        "TEST-MCP-036"
+      ],
+      "dependencies": [
+        "FEAT-MCC-001",
+        "FEAT-DB-016",
+        "FEAT-DB-025"
+      ],
+      "steps": [
+        "src/mcp-server/tools/tool-mgmt/tool-experience.tsを作成",
+        "save_tool_experience: ツール使用経験保存ツール",
+        "get_tool_external_sources: ツール外部情報取得ツール"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCI-009",
+      "category": "mcp-intel",
+      "module": "src/mcp-server/tools/intelligence",
+      "agent": "mcp-intel-agent",
+      "priority": "P1",
+      "description": "データキュレーター用ツール: get_raw_data_queue + classify_component + save_curated_component",
+      "spec_refs": [
+        "04-agent-design.md §4.10"
+      ],
+      "test_ids": [
+        "TEST-MCP-071",
+        "TEST-MCP-072",
+        "TEST-MCP-073"
+      ],
+      "dependencies": [
+        "FEAT-MCC-001",
+        "FEAT-DB-005"
+      ],
+      "steps": [
+        "src/mcp-server/tools/intelligence/data-curation.tsを作成",
+        "get_raw_data_queue: 未処理データキュー取得ツール",
+        "classify_component: コンポーネント分類ツール",
+        "save_curated_component: キュレーション済コンポーネント保存ツール"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCI-010",
+      "category": "mcp-intel",
+      "module": "src/mcp-server/tools/intelligence",
+      "agent": "mcp-intel-agent",
+      "priority": "P1",
+      "description": "データキュレーター用ツール: check_duplicate + score_quality + get_curation_stats",
+      "spec_refs": [
+        "04-agent-design.md §4.10"
+      ],
+      "test_ids": [
+        "TEST-MCP-074",
+        "TEST-MCP-075"
+      ],
+      "dependencies": [
+        "FEAT-MCC-001",
+        "FEAT-DB-005"
+      ],
+      "steps": [
+        "src/mcp-server/tools/intelligence/curation-quality.tsを作成",
+        "check_duplicate: 重複チェックツール",
+        "score_quality: 品質スコアリングツール",
+        "get_curation_stats: キュレーション統計取得ツール"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCI-011",
+      "category": "mcp-intel",
+      "module": "src/mcp-server/tools/intelligence",
+      "agent": "mcp-intel-agent",
+      "priority": "P1",
+      "description": "キュレーションダッシュボード用ツール: get_pending_reviews + approve_component + reject_component",
+      "spec_refs": [
+        "04-agent-design.md §4.11"
+      ],
+      "test_ids": [
+        "TEST-MCP-076",
+        "TEST-MCP-077",
+        "TEST-MCP-078"
+      ],
+      "dependencies": [
+        "FEAT-MCC-001",
+        "FEAT-DB-005"
+      ],
+      "steps": [
+        "src/mcp-server/tools/intelligence/curation-dashboard.tsを作成",
+        "get_pending_reviews: レビュー待ちコンポーネント取得ツール",
+        "approve_component: コンポーネント承認ツール",
+        "reject_component: コンポーネント却下ツール"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCI-012",
+      "category": "mcp-intel",
+      "module": "src/mcp-server/tools/observability",
+      "agent": "mcp-intel-agent",
+      "priority": "P1",
+      "description": "エージェント自己学習ツール: save_thought_log + get_thought_logs + save_reflection + get_reflections",
+      "spec_refs": [
+        "04-agent-design.md §4.12"
+      ],
+      "test_ids": [
+        "TEST-MCP-079",
+        "TEST-MCP-080",
+        "TEST-MCP-081",
+        "TEST-MCP-082"
+      ],
+      "dependencies": [
+        "FEAT-MCC-001",
+        "FEAT-DB-024"
+      ],
+      "steps": [
+        "src/mcp-server/tools/observability/thought-logs.tsを作成",
+        "src/mcp-server/tools/observability/reflections.tsを作成",
+        "save_thought_log: 思考ログ保存ツール",
+        "get_thought_logs: 思考ログ取得ツール",
+        "save_reflection: 振り返り保存ツール",
+        "get_reflections: 振り返り取得ツール"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCI-013",
+      "category": "mcp-intel",
+      "module": "src/mcp-server/tools/observability",
+      "agent": "mcp-intel-agent",
+      "priority": "P1",
+      "description": "エージェント個別学習ツール: save_individual_learning + get_my_learnings",
+      "spec_refs": [
+        "04-agent-design.md §4.12"
+      ],
+      "test_ids": [
+        "TEST-MCP-083",
+        "TEST-MCP-084"
+      ],
+      "dependencies": [
+        "FEAT-MCC-001",
+        "FEAT-DB-011"
+      ],
+      "steps": [
+        "src/mcp-server/tools/observability/individual-learning.tsを作成",
+        "save_individual_learning: 個別学習保存ツール",
+        "get_my_learnings: 自分の学習取得ツール"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCI-014",
+      "category": "mcp-intel",
+      "module": "src/mcp-server/tools/observability",
+      "agent": "mcp-intel-agent",
+      "priority": "P1",
+      "description": "エージェントコミュニケーションツール: send_message_to_human + get_human_responses",
+      "spec_refs": [
+        "04-agent-design.md §4.12"
+      ],
+      "test_ids": [
+        "TEST-MCP-085",
+        "TEST-MCP-086"
+      ],
+      "dependencies": [
+        "FEAT-MCC-001",
+        "FEAT-DB-012"
+      ],
+      "steps": [
+        "src/mcp-server/tools/observability/communication.tsを作成",
+        "send_message_to_human: 人間へのメッセージ送信ツール",
+        "get_human_responses: 人間の応答取得ツール"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-VW-001",
+      "category": "video-worker",
+      "module": "src/workers/video-production",
+      "agent": "video-worker-agent",
+      "priority": "P0",
+      "description": "fal.aiクライアント実装。Kling v2.6 image-to-video API連携",
+      "spec_refs": [
+        "02-architecture.md §5.2",
+        "04-agent-design.md §4.6"
+      ],
+      "test_ids": [
+        "TEST-WKR-001"
+      ],
+      "dependencies": [
+        "FEAT-INF-003"
+      ],
+      "steps": [
+        "src/workers/video-production/fal-client.tsを作成",
+        "fal.ai SDK初期化 + image-to-video API呼び出し",
+        "motion-controlパラメータ(character_orientation必須)を設定",
+        "fal.storageアップロード機能を実装"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-VW-002",
+      "category": "video-worker",
+      "module": "src/workers/video-production",
+      "agent": "video-worker-agent",
+      "priority": "P0",
+      "description": "Fish Audio TTSクライアント実装",
+      "spec_refs": [
+        "02-architecture.md §5.2"
+      ],
+      "test_ids": [
+        "TEST-WKR-002"
+      ],
+      "dependencies": [
+        "FEAT-INF-003"
+      ],
+      "steps": [
+        "src/workers/video-production/tts-client.tsを作成",
+        "Fish Audio直接API (https://api.fish.audio/v1/tts)呼び出し",
+        "referenceId パラメータ(32文字hex)必須バリデーション",
+        "MP3バイナリ受信→fal.storageアップロード"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-VW-003",
+      "category": "video-worker",
+      "module": "src/workers/video-production",
+      "agent": "video-worker-agent",
+      "priority": "P0",
+      "description": "リップシンククライアント実装",
+      "spec_refs": [
+        "02-architecture.md §5.2"
+      ],
+      "test_ids": [
+        "TEST-WKR-003"
+      ],
+      "dependencies": [
+        "FEAT-VW-001",
+        "FEAT-VW-002"
+      ],
+      "steps": [
+        "src/workers/video-production/lipsync-client.tsを作成",
+        "動画+音声入力→リップシンク動画出力",
+        "API呼び出し+ポーリング(完了待ち)を実装"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-VW-004",
+      "category": "video-worker",
+      "module": "src/workers/video-production",
+      "agent": "video-worker-agent",
+      "priority": "P0",
+      "description": "セクション結合: FFmpeg filter_complex H.264再エンコード",
+      "spec_refs": [
+        "02-architecture.md §5.2"
+      ],
+      "test_ids": [
+        "TEST-WKR-004"
+      ],
+      "dependencies": [
+        "FEAT-VW-001"
+      ],
+      "steps": [
+        "src/workers/video-production/concat.tsを作成",
+        "filter_complex CRF18 H.264再エンコードを実装",
+        "blackdetect検証+自動トリムを実装",
+        "3セクション(hook/body/cta)結合テスト"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-VW-005",
+      "category": "video-worker",
+      "module": "src/workers/video-production",
+      "agent": "video-worker-agent",
+      "priority": "P1",
+      "description": "動画制作オーケストレーター: 3セクション並列パイプライン",
+      "spec_refs": [
+        "04-agent-design.md §5.2"
+      ],
+      "test_ids": [
+        "TEST-WKR-005",
+        "TEST-WKR-006"
+      ],
+      "dependencies": [
+        "FEAT-VW-001",
+        "FEAT-VW-002",
+        "FEAT-VW-003",
+        "FEAT-VW-004"
+      ],
+      "steps": [
+        "src/workers/video-production/orchestrator.tsを作成",
+        "キャラクター画像→リサイズ→fal.storage(1回)→3並列セクション",
+        "各セクション: Kling+TTS並列→lipsync→セクション完了",
+        "全セクション完了→concat→最終動画",
+        "エラーハンドリング: 部分失敗時のリカバリー"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-VW-006",
+      "category": "video-worker",
+      "module": "src/workers/video-production",
+      "agent": "video-worker-agent",
+      "priority": "P0",
+      "description": "画像リサイズ: Kling最大3850x3850制約対応",
+      "spec_refs": [
+        "02-architecture.md §5.2"
+      ],
+      "test_ids": [
+        "TEST-WKR-007"
+      ],
+      "dependencies": [
+        "FEAT-INF-003"
+      ],
+      "steps": [
+        "src/workers/video-production/image-resize.tsを作成",
+        "resizeImageIfNeeded: 3850x3850超過時の自動リサイズ",
+        "アスペクト比保持リサイズを実装"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-VW-007",
+      "category": "video-worker",
+      "module": "src/workers/video-production",
+      "agent": "video-worker-agent",
+      "priority": "P1",
+      "description": "動画制作ワーカー: タスクキュー統合 + MCP経由のステータス更新",
+      "spec_refs": [
+        "04-agent-design.md §5.2"
+      ],
+      "test_ids": [
+        "TEST-WKR-008",
+        "TEST-WKR-009",
+        "TEST-WKR-010"
+      ],
+      "dependencies": [
+        "FEAT-VW-005",
+        "FEAT-MCC-012"
+      ],
+      "steps": [
+        "src/workers/video-production/worker.tsを作成",
+        "task_queueからproduce+short_videoタスクを取得",
+        "オーケストレーターを呼び出し",
+        "MCP経由でcontent/content_sectionsを更新",
+        "完了/失敗をtask_queueに反映"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-VW-008",
+      "category": "video-worker",
+      "module": "src/workers/video-production",
+      "agent": "video-worker-agent",
+      "priority": "P1",
+      "description": "動画品質検証: 出力動画のフォーマット・解像度・長さ検証",
+      "spec_refs": [
+        "04-agent-design.md §4.6"
+      ],
+      "test_ids": [
+        "TEST-WKR-011",
+        "TEST-WKR-012"
+      ],
+      "dependencies": [
+        "FEAT-VW-004"
+      ],
+      "steps": [
+        "src/workers/video-production/quality-check.tsを作成",
+        "FFprobeで動画メタデータ検証 (H.264, AAC, 解像度)",
+        "動画長の妥当性チェック (最小/最大秒数)",
+        "音声トラック存在確認"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-TP-001",
+      "category": "text-post",
+      "module": "src/workers/text-production",
+      "agent": "text-post-agent",
+      "priority": "P1",
+      "description": "テキスト投稿生成ワーカー: X投稿文生成パイプライン",
+      "spec_refs": [
+        "04-agent-design.md §4.6"
+      ],
+      "test_ids": [
+        "TEST-WKR-013",
+        "TEST-WKR-014"
+      ],
+      "dependencies": [
+        "FEAT-INF-003",
+        "FEAT-MCC-012"
+      ],
+      "steps": [
+        "src/workers/text-production/text-generator.tsを作成",
+        "キャラクター設定+シナリオ読み込み",
+        "LLM呼び出しで投稿文生成",
+        "文字数制限・ハッシュタグ付与"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-TP-002",
+      "category": "text-post",
+      "module": "src/workers/text-production",
+      "agent": "text-post-agent",
+      "priority": "P1",
+      "description": "投稿ワーカー: YouTube Shorts自動投稿",
+      "spec_refs": [
+        "04-agent-design.md §4.7"
+      ],
+      "test_ids": [
+        "TEST-WKR-015",
+        "TEST-WKR-016"
+      ],
+      "dependencies": [
+        "FEAT-MCC-017"
+      ],
+      "steps": [
+        "src/workers/posting/youtube.tsを作成",
+        "OAuth2認証+YouTubeアップロードAPI呼び出し",
+        "タイトル・説明文・タグ設定",
+        "アップロード結果のステータス更新"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-TP-003",
+      "category": "text-post",
+      "module": "src/workers/text-production",
+      "agent": "text-post-agent",
+      "priority": "P1",
+      "description": "投稿ワーカー: TikTok自動投稿",
+      "spec_refs": [
+        "04-agent-design.md §4.7"
+      ],
+      "test_ids": [
+        "TEST-WKR-017",
+        "TEST-WKR-018"
+      ],
+      "dependencies": [
+        "FEAT-MCC-017"
+      ],
+      "steps": [
+        "src/workers/posting/tiktok.tsを作成",
+        "OAuth2認証+TikTok FILE_UPLOAD (init→PUT→status poll)",
+        "公開設定(SELF_ONLY/PUBLIC)の制御",
+        "アップロード結果のステータス更新"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-TP-004",
+      "category": "text-post",
+      "module": "src/workers/text-production",
+      "agent": "text-post-agent",
+      "priority": "P1",
+      "description": "投稿ワーカー: Instagram Reels自動投稿",
+      "spec_refs": [
+        "04-agent-design.md §4.7"
+      ],
+      "test_ids": [
+        "TEST-WKR-019",
+        "TEST-WKR-020"
+      ],
+      "dependencies": [
+        "FEAT-MCC-017"
+      ],
+      "steps": [
+        "src/workers/posting/instagram.tsを作成",
+        "Facebook OAuth+IGコンテナ→公開フロー",
+        "fal.storage経由での公開URL生成",
+        "アップロード結果のステータス更新"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-TP-005",
+      "category": "text-post",
+      "module": "src/workers/text-production",
+      "agent": "text-post-agent",
+      "priority": "P1",
+      "description": "投稿ワーカー: X (Twitter)自動投稿",
+      "spec_refs": [
+        "04-agent-design.md §4.7"
+      ],
+      "test_ids": [
+        "TEST-WKR-021",
+        "TEST-WKR-022"
+      ],
+      "dependencies": [
+        "FEAT-MCC-017"
+      ],
+      "steps": [
+        "src/workers/posting/x-twitter.tsを作成",
+        "OAuth認証+X API投稿",
+        "テキスト投稿+メディア添付",
+        "投稿結果のステータス更新"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-TP-006",
+      "category": "text-post",
+      "module": "src/workers/text-production",
+      "agent": "text-post-agent",
+      "priority": "P1",
+      "description": "投稿スケジューラー統合: 4プラットフォーム統一ポーリング",
+      "spec_refs": [
+        "04-agent-design.md §5.3"
+      ],
+      "test_ids": [
+        "TEST-WKR-023",
+        "TEST-WKR-024"
+      ],
+      "dependencies": [
+        "FEAT-TP-002",
+        "FEAT-TP-003",
+        "FEAT-TP-004",
+        "FEAT-TP-005"
+      ],
+      "steps": [
+        "src/workers/posting/scheduler.tsを作成",
+        "task_queueからpublishタスクをポーリング",
+        "プラットフォーム別にアダプターを呼び分け",
+        "日次クォータ管理 (YT:6/day, TikTok:50/day, IG:25/hr)"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MS-001",
+      "category": "measure",
+      "module": "src/workers/measurement",
+      "agent": "measure-agent",
+      "priority": "P1",
+      "description": "計測ワーカー: プラットフォームAPI経由メトリクス取得",
+      "spec_refs": [
+        "04-agent-design.md §4.8",
+        "04-agent-design.md §5.4"
+      ],
+      "test_ids": [
+        "TEST-WKR-025",
+        "TEST-WKR-026"
+      ],
+      "dependencies": [
+        "FEAT-INF-003",
+        "FEAT-MCC-019"
+      ],
+      "steps": [
+        "src/workers/measurement/metrics-collector.tsを作成",
+        "YouTube Analytics API呼び出し",
+        "TikTok/IG/X API呼び出し",
+        "メトリクス正規化 (views/likes/comments/shares)"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MS-002",
+      "category": "measure",
+      "module": "src/workers/measurement",
+      "agent": "measure-agent",
+      "priority": "P1",
+      "description": "計測ワーカー: エンゲージメント率計算+異常値検知",
+      "spec_refs": [
+        "04-agent-design.md §4.8",
+        "04-agent-design.md §17.3"
+      ],
+      "test_ids": [
+        "TEST-WKR-027",
+        "TEST-WKR-028"
+      ],
+      "dependencies": [
+        "FEAT-MS-001",
+        "FEAT-MCC-020"
+      ],
+      "steps": [
+        "src/workers/measurement/engagement-calculator.tsを作成",
+        "エンゲージメント率計算 (likes+comments+shares)/views",
+        "異常値検知: 3σルール+前回比較",
+        "異常検知時のalert生成"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MS-003",
+      "category": "measure",
+      "module": "src/workers/measurement",
+      "agent": "measure-agent",
+      "priority": "P1",
+      "description": "計測ワーカー: タスクキュー統合+定期ポーリング",
+      "spec_refs": [
+        "04-agent-design.md §5.4"
+      ],
+      "test_ids": [
+        "TEST-WKR-029",
+        "TEST-WKR-030"
+      ],
+      "dependencies": [
+        "FEAT-MS-001",
+        "FEAT-MCC-012"
+      ],
+      "steps": [
+        "src/workers/measurement/worker.tsを作成",
+        "task_queueからmeasureタスクを取得",
+        "計測実行→metrics保存→publication更新",
+        "定期ポーリング(120s間隔)の実装"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MS-004",
+      "category": "measure",
+      "module": "src/workers/measurement",
+      "agent": "measure-agent",
+      "priority": "P2",
+      "description": "計測ワーカー: algorithm_performance追跡",
+      "spec_refs": [
+        "04-agent-design.md §6.4"
+      ],
+      "test_ids": [
+        "TEST-WKR-031",
+        "TEST-WKR-032"
+      ],
+      "dependencies": [
+        "FEAT-MS-002",
+        "FEAT-DB-026"
+      ],
+      "steps": [
+        "src/workers/measurement/algorithm-tracker.tsを作成",
+        "サイクルごとの仮説的中率算出",
+        "algorithm_performanceテーブルへの記録",
+        "アルゴリズム精度推移の計算"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-INT-001",
+      "category": "intelligence",
+      "module": "src/agents",
+      "agent": "intelligence-agent",
+      "priority": "P0",
+      "description": "LangGraph基盤: グラフ実行エンジン+状態管理+チェックポイント",
+      "spec_refs": [
+        "04-agent-design.md §5",
+        "02-architecture.md §3"
+      ],
+      "test_ids": [
+        "TEST-AGT-001",
+        "TEST-AGT-002"
+      ],
+      "dependencies": [
+        "FEAT-INF-003"
+      ],
+      "steps": [
+        "src/agents/engine.tsを作成",
+        "LangGraph.js初期化+グラフコンパイル",
+        "状態管理(StateGraph)の実装",
+        "チェックポイント(SQLiteベース)の設定"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-INT-002",
+      "category": "intelligence",
+      "module": "src/agents",
+      "agent": "intelligence-agent",
+      "priority": "P1",
+      "description": "リサーチャーノード: 市場調査+トレンド収集ノード実装",
+      "spec_refs": [
+        "04-agent-design.md §1.2",
+        "04-agent-design.md §5.1"
+      ],
+      "test_ids": [
+        "TEST-AGT-003",
+        "TEST-AGT-004"
+      ],
+      "dependencies": [
+        "FEAT-INT-001",
+        "FEAT-MCI-001"
+      ],
+      "steps": [
+        "src/agents/nodes/researcher.tsを作成",
+        "Claude Sonnet 4.5でリサーチャーエージェント実装",
+        "MCPツール(search_trending_topics等)を呼び出し",
+        "市場情報の構造化+保存"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-INT-003",
+      "category": "intelligence",
+      "module": "src/agents",
+      "agent": "intelligence-agent",
+      "priority": "P1",
+      "description": "アナリストノード: 仮説検証+学習蓄積ノード実装",
+      "spec_refs": [
+        "04-agent-design.md §1.3",
+        "04-agent-design.md §5.1"
+      ],
+      "test_ids": [
+        "TEST-AGT-005",
+        "TEST-AGT-006"
+      ],
+      "dependencies": [
+        "FEAT-INT-001",
+        "FEAT-MCI-004"
+      ],
+      "steps": [
+        "src/agents/nodes/analyst.tsを作成",
+        "Claude Sonnet 4.5でアナリストエージェント実装",
+        "仮説結果の取得→評価→verdict更新",
+        "learningsへの知見蓄積"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-INT-004",
+      "category": "intelligence",
+      "module": "src/agents",
+      "agent": "intelligence-agent",
+      "priority": "P1",
+      "description": "ツールスペシャリストノード: AIツール特性把握+レシピ設計",
+      "spec_refs": [
+        "04-agent-design.md §1.4"
+      ],
+      "test_ids": [
+        "TEST-AGT-007",
+        "TEST-AGT-008"
+      ],
+      "dependencies": [
+        "FEAT-INT-001",
+        "FEAT-MCI-007"
+      ],
+      "steps": [
+        "src/agents/nodes/tool-specialist.tsを作成",
+        "Claude Sonnet 4.5でツールSPエージェント実装",
+        "ツールカタログ参照+最適組み合わせ推薦",
+        "production_recipesの設計+保存"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-INT-005",
+      "category": "intelligence",
+      "module": "src/agents",
+      "agent": "intelligence-agent",
+      "priority": "P1",
+      "description": "データキュレーターノード: 生データ構造化+品質判定",
+      "spec_refs": [
+        "04-agent-design.md §1.5"
+      ],
+      "test_ids": [
+        "TEST-AGT-009",
+        "TEST-AGT-010"
+      ],
+      "dependencies": [
+        "FEAT-INT-001",
+        "FEAT-MCI-009"
+      ],
+      "steps": [
+        "src/agents/nodes/data-curator.tsを作成",
+        "Claude Sonnet 4.5でデータキュレーターエージェント実装",
+        "生データキュー取得→分類→品質スコアリング→保存",
+        "重複チェック機能"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-INT-006",
+      "category": "intelligence",
+      "module": "src/agents",
+      "agent": "intelligence-agent",
+      "priority": "P2",
+      "description": "reflect_allノード: 全エージェントの振り返り統合",
+      "spec_refs": [
+        "04-agent-design.md §10"
+      ],
+      "test_ids": [
+        "TEST-AGT-011",
+        "TEST-AGT-012"
+      ],
+      "dependencies": [
+        "FEAT-INT-001",
+        "FEAT-MCI-012"
+      ],
+      "steps": [
+        "src/agents/nodes/reflect-all.tsを作成",
+        "各エージェントの思考ログ集約",
+        "振り返りレポート生成+保存",
+        "個別学習メモリへの知見蓄積"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-INT-007",
+      "category": "intelligence",
+      "module": "src/agents",
+      "agent": "intelligence-agent",
+      "priority": "P0",
+      "description": "LangGraphグラフ2: 制作パイプライングラフの実装",
+      "spec_refs": [
+        "04-agent-design.md §5.2"
+      ],
+      "test_ids": [
+        "TEST-AGT-013",
+        "TEST-AGT-014",
+        "TEST-AGT-015",
+        "TEST-AGT-016"
+      ],
+      "dependencies": [
+        "FEAT-INT-001",
+        "FEAT-VW-005",
+        "FEAT-MCC-012"
+      ],
+      "steps": [
+        "src/agents/graphs/production-pipeline.tsを作成",
+        "ノード: dequeue→get_recipe→produce→save_result→complete",
+        "条件分岐: content_format別(short_video/text_post/image_post)",
+        "エラー時リトライノードの実装"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-INT-008",
+      "category": "intelligence",
+      "module": "src/agents",
+      "agent": "intelligence-agent",
+      "priority": "P1",
+      "description": "LangGraphグラフ3: 投稿スケジューラーグラフの実装",
+      "spec_refs": [
+        "04-agent-design.md §5.3"
+      ],
+      "test_ids": [
+        "TEST-AGT-017",
+        "TEST-AGT-018"
+      ],
+      "dependencies": [
+        "FEAT-INT-001",
+        "FEAT-TP-006"
+      ],
+      "steps": [
+        "src/agents/graphs/publishing-scheduler.tsを作成",
+        "ノード: get_scheduled→post→update_status",
+        "タイムウィンドウ判定ロジック",
+        "クォータ管理ノード"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-INT-009",
+      "category": "intelligence",
+      "module": "src/agents",
+      "agent": "intelligence-agent",
+      "priority": "P1",
+      "description": "LangGraphグラフ4: 計測ジョブグラフの実装",
+      "spec_refs": [
+        "04-agent-design.md §5.4"
+      ],
+      "test_ids": [
+        "TEST-AGT-019",
+        "TEST-AGT-020"
+      ],
+      "dependencies": [
+        "FEAT-INT-001",
+        "FEAT-MS-001"
+      ],
+      "steps": [
+        "src/agents/graphs/measurement-jobs.tsを作成",
+        "ノード: detect_targets→fetch_metrics→save→anomaly_check",
+        "計測対象の自動検出(投稿後24h/72h)",
+        "異常検知→通知の分岐"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-STR-001",
+      "category": "strategy",
+      "module": "src/agents",
+      "agent": "strategy-agent",
+      "priority": "P0",
+      "description": "LangGraphグラフ1: 戦略サイクルグラフの実装",
+      "spec_refs": [
+        "04-agent-design.md §5.1"
+      ],
+      "test_ids": [
+        "TEST-AGT-021",
+        "TEST-AGT-022",
+        "TEST-AGT-023",
+        "TEST-AGT-024"
+      ],
+      "dependencies": [
+        "FEAT-INT-001",
+        "FEAT-MCC-002"
+      ],
+      "steps": [
+        "src/agents/graphs/strategy-cycle.tsを作成",
+        "ノード: research→analyze→plan→execute→measure→reflect",
+        "日次トリガー設定",
+        "サイクル状態遷移(planning→executing→measuring→analyzing→completed)"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-STR-002",
+      "category": "strategy",
+      "module": "src/agents",
+      "agent": "strategy-agent",
+      "priority": "P0",
+      "description": "戦略エージェントノード: Claude Opus 4.6全体KPI監視+方針決定",
+      "spec_refs": [
+        "04-agent-design.md §1.1"
+      ],
+      "test_ids": [
+        "TEST-AGT-025",
+        "TEST-AGT-026"
+      ],
+      "dependencies": [
+        "FEAT-INT-001",
+        "FEAT-MCC-002"
+      ],
+      "steps": [
+        "src/agents/nodes/strategist.tsを作成",
+        "Claude Opus 4.6で戦略エージェント実装",
+        "ポートフォリオレベルKPI監視",
+        "リソース配分決定+グローバル指示"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-STR-003",
+      "category": "strategy",
+      "module": "src/agents",
+      "agent": "strategy-agent",
+      "priority": "P1",
+      "description": "プランナーノード: ニッチ/クラスター別コンテンツ計画",
+      "spec_refs": [
+        "04-agent-design.md §1.6"
+      ],
+      "test_ids": [
+        "TEST-AGT-027",
+        "TEST-AGT-028"
+      ],
+      "dependencies": [
+        "FEAT-INT-001",
+        "FEAT-MCC-009"
+      ],
+      "steps": [
+        "src/agents/nodes/planner.tsを作成",
+        "Claude Sonnet 4.5でプランナーエージェント実装",
+        "担当アカウント群のコンテンツ計画策定",
+        "仮説立案+制作指示の生成"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-STR-004",
+      "category": "strategy",
+      "module": "src/agents",
+      "agent": "strategy-agent",
+      "priority": "P1",
+      "description": "プロンプトDB管理: バージョン管理+ロールバック",
+      "spec_refs": [
+        "04-agent-design.md §8"
+      ],
+      "test_ids": [
+        "TEST-AGT-029",
+        "TEST-AGT-030"
+      ],
+      "dependencies": [
+        "FEAT-DB-024",
+        "FEAT-MCC-001"
+      ],
+      "steps": [
+        "src/agents/prompt-manager.tsを作成",
+        "agent_prompt_versionsからプロンプト読み込み",
+        "バージョン番号管理(major.minor)",
+        "ロールバック機能(前バージョンに戻す)"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-STR-005",
+      "category": "strategy",
+      "module": "src/agents",
+      "agent": "strategy-agent",
+      "priority": "P1",
+      "description": "デフォルトプロンプトテンプレート: 6エージェント分の初期プロンプト投入",
+      "spec_refs": [
+        "04-agent-design.md §19"
+      ],
+      "test_ids": [
+        "TEST-AGT-031",
+        "TEST-AGT-032"
+      ],
+      "dependencies": [
+        "FEAT-STR-004",
+        "FEAT-DB-024"
+      ],
+      "steps": [
+        "sql/004_seed_prompts.sqlを作成",
+        "戦略エージェント/リサーチャー/アナリスト/プランナー/ツールSP/データキュレーターの6種プロンプト",
+        "agent_prompt_versionsへのINSERT文を記述",
+        "各プロンプトのバージョン1.0を投入"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DSH-001",
+      "category": "dashboard",
+      "module": "dashboard",
+      "agent": "dashboard-agent",
+      "priority": "P0",
+      "description": "Next.jsプロジェクト初期化 + Solarized Dark/Light テーマ設定",
+      "spec_refs": [
+        "05-dashboard.md §1",
+        "05-dashboard.md §2"
+      ],
+      "test_ids": [
+        "TEST-DSH-001",
+        "TEST-DSH-002",
+        "TEST-DSH-003"
+      ],
+      "dependencies": [],
+      "steps": [
+        "npx create-next-app dashboardを実行",
+        "Solarized Dark/Lightテーマ定義 (CSS変数)",
+        "Nunitoフォント読み込み設定",
+        "テーマ切替トグル実装",
+        "レスポンシブブレークポイント設定 (mobile/tablet/desktop)"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DSH-002",
+      "category": "dashboard",
+      "module": "dashboard",
+      "agent": "dashboard-agent",
+      "priority": "P1",
+      "description": "ダッシュボードレイアウト: サイドバー+ヘッダー+メインコンテンツ",
+      "spec_refs": [
+        "05-dashboard.md §2"
+      ],
+      "test_ids": [
+        "TEST-DSH-004",
+        "TEST-DSH-005"
+      ],
+      "dependencies": [
+        "FEAT-DSH-001"
+      ],
+      "steps": [
+        "dashboard/components/Layout.tsxを作成",
+        "サイドバーナビゲーション(15画面)",
+        "ヘッダー(テーマ切替+ステータスインジケータ)",
+        "レスポンシブ対応(モバイル:ハンバーガーメニュー)"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DSH-003",
+      "category": "dashboard",
+      "module": "dashboard",
+      "agent": "dashboard-agent",
+      "priority": "P1",
+      "description": "ダッシュボードホーム画面: KPIカード+サイクルステータス",
+      "spec_refs": [
+        "05-dashboard.md §3.1"
+      ],
+      "test_ids": [
+        "TEST-DSH-006",
+        "TEST-DSH-007"
+      ],
+      "dependencies": [
+        "FEAT-DSH-002",
+        "FEAT-MCC-022"
+      ],
+      "steps": [
+        "dashboard/pages/index.tsxを作成",
+        "KPIカード(総アカウント数/今月投稿数/平均エンゲージメント率/仮説的中率)",
+        "サイクルステータスウィジェット",
+        "REST API呼び出し: GET /api/dashboard/summary"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DSH-004",
+      "category": "dashboard",
+      "module": "dashboard",
+      "agent": "dashboard-agent",
+      "priority": "P1",
+      "description": "アカウント一覧画面: テーブル+フィルタ+ソート",
+      "spec_refs": [
+        "05-dashboard.md §3.2"
+      ],
+      "test_ids": [
+        "TEST-DSH-008",
+        "TEST-DSH-009"
+      ],
+      "dependencies": [
+        "FEAT-DSH-002",
+        "FEAT-MCC-031"
+      ],
+      "steps": [
+        "dashboard/pages/accounts/index.tsxを作成",
+        "アカウントテーブル(platform/status/follower数/エンゲージメント率)",
+        "フィルタ(platform, status)",
+        "ソート(follower数, engagement_rate)"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DSH-005",
+      "category": "dashboard",
+      "module": "dashboard",
+      "agent": "dashboard-agent",
+      "priority": "P1",
+      "description": "アカウント詳細画面: パフォーマンスチャート+投稿履歴",
+      "spec_refs": [
+        "05-dashboard.md §3.3"
+      ],
+      "test_ids": [
+        "TEST-DSH-010",
+        "TEST-DSH-011"
+      ],
+      "dependencies": [
+        "FEAT-DSH-004"
+      ],
+      "steps": [
+        "dashboard/pages/accounts/[id].tsxを作成",
+        "パフォーマンス推移チャート(Recharts)",
+        "投稿履歴テーブル",
+        "アカウント設定編集フォーム"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DSH-006",
+      "category": "dashboard",
+      "module": "dashboard",
+      "agent": "dashboard-agent",
+      "priority": "P1",
+      "description": "コンテンツパイプライン画面: ステータス別カンバン",
+      "spec_refs": [
+        "05-dashboard.md §3.4"
+      ],
+      "test_ids": [
+        "TEST-DSH-012",
+        "TEST-DSH-013"
+      ],
+      "dependencies": [
+        "FEAT-DSH-002",
+        "FEAT-MCC-023"
+      ],
+      "steps": [
+        "dashboard/pages/pipeline.tsxを作成",
+        "カンバンボード(planned/producing/ready/posted/measured)",
+        "各カードにコンテンツ概要表示",
+        "ステータスフィルタ"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DSH-007",
+      "category": "dashboard",
+      "module": "dashboard",
+      "agent": "dashboard-agent",
+      "priority": "P1",
+      "description": "仮説管理画面: 仮説一覧+verdict別フィルタ+詳細",
+      "spec_refs": [
+        "05-dashboard.md §3.5"
+      ],
+      "test_ids": [
+        "TEST-DSH-014",
+        "TEST-DSH-015"
+      ],
+      "dependencies": [
+        "FEAT-DSH-002",
+        "FEAT-MCC-023"
+      ],
+      "steps": [
+        "dashboard/pages/hypotheses.tsxを作成",
+        "仮説テーブル(category/verdict/confidence/対象コンテンツ数)",
+        "verdict別フィルタ(pending/confirmed/rejected/inconclusive)",
+        "仮説詳細モーダル"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DSH-008",
+      "category": "dashboard",
+      "module": "dashboard",
+      "agent": "dashboard-agent",
+      "priority": "P1",
+      "description": "エージェント活動画面: 思考ログ+リフレクション",
+      "spec_refs": [
+        "05-dashboard.md §3.6"
+      ],
+      "test_ids": [
+        "TEST-DSH-016",
+        "TEST-DSH-017"
+      ],
+      "dependencies": [
+        "FEAT-DSH-002",
+        "FEAT-MCC-024"
+      ],
+      "steps": [
+        "dashboard/pages/agents.tsxを作成",
+        "エージェント一覧(type/最終活動/状態)",
+        "思考ログタイムライン表示",
+        "リフレクション詳細表示"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DSH-009",
+      "category": "dashboard",
+      "module": "dashboard",
+      "agent": "dashboard-agent",
+      "priority": "P1",
+      "description": "ツール管理画面: ツールカタログ+使用統計",
+      "spec_refs": [
+        "05-dashboard.md §3.7"
+      ],
+      "test_ids": [
+        "TEST-DSH-018",
+        "TEST-DSH-019"
+      ],
+      "dependencies": [
+        "FEAT-DSH-002",
+        "FEAT-MCC-024"
+      ],
+      "steps": [
+        "dashboard/pages/tools.tsxを作成",
+        "ツールカタログ一覧(名前/タイプ/成功率/コスト)",
+        "ツール使用統計チャート",
+        "ツール外部情報源リンク"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DSH-010",
+      "category": "dashboard",
+      "module": "dashboard",
+      "agent": "dashboard-agent",
+      "priority": "P1",
+      "description": "サイクル管理画面: サイクルタイムライン+詳細",
+      "spec_refs": [
+        "05-dashboard.md §3.8"
+      ],
+      "test_ids": [
+        "TEST-DSH-020",
+        "TEST-DSH-021"
+      ],
+      "dependencies": [
+        "FEAT-DSH-002",
+        "FEAT-MCC-024"
+      ],
+      "steps": [
+        "dashboard/pages/cycles.tsxを作成",
+        "サイクルタイムライン(Gantt風)",
+        "サイクル詳細(各フェーズの結果)",
+        "サイクル間比較"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DSH-011",
+      "category": "dashboard",
+      "module": "dashboard",
+      "agent": "dashboard-agent",
+      "priority": "P1",
+      "description": "コミュニケーション受信トレイ画面: エージェントメッセージ管理",
+      "spec_refs": [
+        "05-dashboard.md §3.9",
+        "04-agent-design.md §12.6"
+      ],
+      "test_ids": [
+        "TEST-DSH-022",
+        "TEST-DSH-023"
+      ],
+      "dependencies": [
+        "FEAT-DSH-002",
+        "FEAT-MCC-025"
+      ],
+      "steps": [
+        "dashboard/pages/inbox.tsxを作成",
+        "メッセージ一覧(type/priority/from_agent/日時)",
+        "未読/既読フィルタ",
+        "返信フォーム(human_directives経由)"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DSH-012",
+      "category": "dashboard",
+      "module": "dashboard",
+      "agent": "dashboard-agent",
+      "priority": "P1",
+      "description": "プロンプト管理画面: プロンプト編集+バージョン管理",
+      "spec_refs": [
+        "05-dashboard.md §3.10",
+        "04-agent-design.md §8"
+      ],
+      "test_ids": [
+        "TEST-DSH-024",
+        "TEST-DSH-025"
+      ],
+      "dependencies": [
+        "FEAT-DSH-002"
+      ],
+      "steps": [
+        "dashboard/pages/prompts.tsxを作成",
+        "エージェント別プロンプト一覧",
+        "プロンプト編集エディタ(Markdown対応)",
+        "バージョン履歴+ロールバックボタン"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DSH-013",
+      "category": "dashboard",
+      "module": "dashboard",
+      "agent": "dashboard-agent",
+      "priority": "P1",
+      "description": "コンポーネントキュレーション画面: レビュー+承認/却下",
+      "spec_refs": [
+        "05-dashboard.md §3.11"
+      ],
+      "test_ids": [
+        "TEST-DSH-026",
+        "TEST-DSH-027"
+      ],
+      "dependencies": [
+        "FEAT-DSH-002",
+        "FEAT-MCI-011"
+      ],
+      "steps": [
+        "dashboard/pages/curation.tsxを作成",
+        "レビュー待ちコンポーネント一覧",
+        "プレビュー+承認/却下ボタン",
+        "品質スコア表示"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DSH-014",
+      "category": "dashboard",
+      "module": "dashboard",
+      "agent": "dashboard-agent",
+      "priority": "P1",
+      "description": "アルゴリズム精度画面: 仮説的中率推移+パフォーマンスメトリクス",
+      "spec_refs": [
+        "05-dashboard.md §3.12"
+      ],
+      "test_ids": [
+        "TEST-DSH-028",
+        "TEST-DSH-029"
+      ],
+      "dependencies": [
+        "FEAT-DSH-002",
+        "FEAT-MCC-022"
+      ],
+      "steps": [
+        "dashboard/pages/algorithm.tsxを作成",
+        "仮説的中率推移チャート(Recharts)",
+        "エージェント別パフォーマンス比較",
+        "algorithm_performanceデータの可視化"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DSH-015",
+      "category": "dashboard",
+      "module": "dashboard",
+      "agent": "dashboard-agent",
+      "priority": "P1",
+      "description": "システム設定画面: system_settings CRUD",
+      "spec_refs": [
+        "05-dashboard.md §3.13"
+      ],
+      "test_ids": [
+        "TEST-DSH-030",
+        "TEST-DSH-031"
+      ],
+      "dependencies": [
+        "FEAT-DSH-002",
+        "FEAT-MCC-026"
+      ],
+      "steps": [
+        "dashboard/pages/settings.tsxを作成",
+        "カテゴリ別設定値一覧",
+        "設定値編集フォーム(型に応じたUIウィジェット)",
+        "変更履歴表示"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DSH-016",
+      "category": "dashboard",
+      "module": "dashboard",
+      "agent": "dashboard-agent",
+      "priority": "P1",
+      "description": "Dashboard REST API: /api/dashboard/* エンドポイント (7ルート)",
+      "spec_refs": [
+        "05-dashboard.md §4"
+      ],
+      "test_ids": [
+        "TEST-DSH-032",
+        "TEST-DSH-033",
+        "TEST-DSH-034",
+        "TEST-DSH-035"
+      ],
+      "dependencies": [
+        "FEAT-DSH-001",
+        "FEAT-MCC-022"
+      ],
+      "steps": [
+        "dashboard/pages/api/dashboard/*.tsを作成",
+        "GET /api/dashboard/summary",
+        "GET /api/dashboard/accounts/:id/performance",
+        "GET /api/dashboard/pipeline/status",
+        "GET /api/dashboard/hypotheses/performance",
+        "GET /api/dashboard/agents/activity",
+        "GET /api/dashboard/tools/stats",
+        "GET /api/dashboard/cycles/timeline"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DSH-017",
+      "category": "dashboard",
+      "module": "dashboard",
+      "agent": "dashboard-agent",
+      "priority": "P1",
+      "description": "Dashboard REST API: /api/communications/* + /api/prompts/* (4ルート)",
+      "spec_refs": [
+        "05-dashboard.md §4"
+      ],
+      "test_ids": [
+        "TEST-DSH-036",
+        "TEST-DSH-037",
+        "TEST-DSH-038"
+      ],
+      "dependencies": [
+        "FEAT-DSH-001"
+      ],
+      "steps": [
+        "dashboard/pages/api/communications/*.tsを作成",
+        "GET /api/communications/inbox",
+        "POST /api/communications/reply",
+        "GET /api/prompts/:agent_type",
+        "PUT /api/prompts/:agent_type"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DSH-018",
+      "category": "dashboard",
+      "module": "dashboard",
+      "agent": "dashboard-agent",
+      "priority": "P1",
+      "description": "Dashboard REST API: /api/settings/* + /api/system/* (2ルート)",
+      "spec_refs": [
+        "05-dashboard.md §4"
+      ],
+      "test_ids": [
+        "TEST-DSH-039",
+        "TEST-DSH-040"
+      ],
+      "dependencies": [
+        "FEAT-DSH-001",
+        "FEAT-MCC-026"
+      ],
+      "steps": [
+        "dashboard/pages/api/settings/*.tsを作成",
+        "GET /api/settings",
+        "PUT /api/settings/:category/:key",
+        "GET /api/system/health"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DSH-019",
+      "category": "dashboard",
+      "module": "dashboard",
+      "agent": "dashboard-agent",
+      "priority": "P2",
+      "description": "レスポンシブ対応: モバイル(320px)/タブレット(768px)/デスクトップ(1280px)",
+      "spec_refs": [
+        "05-dashboard.md §2"
+      ],
+      "test_ids": [
+        "TEST-DSH-041",
+        "TEST-DSH-042",
+        "TEST-DSH-043"
+      ],
+      "dependencies": [
+        "FEAT-DSH-002"
+      ],
+      "steps": [
+        "全画面のレスポンシブCSS検証",
+        "モバイル: ハンバーガーメニュー+スタック表示",
+        "タブレット: 2カラム",
+        "デスクトップ: フルレイアウト"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DSH-020",
+      "category": "dashboard",
+      "module": "dashboard",
+      "agent": "dashboard-agent",
+      "priority": "P1",
+      "description": "ダッシュボードチャート共通: Rechartsコンポーネントライブラリ",
+      "spec_refs": [
+        "05-dashboard.md §2"
+      ],
+      "test_ids": [
+        "TEST-DSH-044",
+        "TEST-DSH-045",
+        "TEST-DSH-046",
+        "TEST-DSH-047"
+      ],
+      "dependencies": [
+        "FEAT-DSH-001"
+      ],
+      "steps": [
+        "dashboard/components/charts/*.tsxを作成",
+        "LineChart: 時系列推移",
+        "BarChart: カテゴリ比較",
+        "PieChart: 構成比",
+        "Solarizedカラーパレット適用"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-TST-001",
+      "category": "test",
+      "module": "tests",
+      "agent": "test-agent",
+      "priority": "P0",
+      "description": "テスト基盤: Jest設定 + PostgreSQLテストコンテナ + テストヘルパー",
+      "spec_refs": [
+        "12-test-specifications.md §テストID体系",
+        "10-implementation-guide.md §5"
+      ],
+      "test_ids": [
+        "TEST-INT-001"
+      ],
+      "dependencies": [
+        "FEAT-INF-003"
+      ],
+      "steps": [
+        "jest.config.tsを作成",
+        "テスト用docker-compose.test.ymlを作成",
+        "tests/helpers/db.tsを作成 (テストDB接続+クリーンアップ)",
+        "tests/helpers/fixtures.tsを作成 (テストデータ生成)"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-TST-002",
+      "category": "test",
+      "module": "tests",
+      "agent": "test-agent",
+      "priority": "P1",
+      "description": "Database Layerテストスイート: TEST-DB-001〜055全実装",
+      "spec_refs": [
+        "12-test-specifications.md §1"
+      ],
+      "test_ids": [
+        "TEST-INT-002"
+      ],
+      "dependencies": [
+        "FEAT-TST-001",
+        "FEAT-DB-002"
+      ],
+      "steps": [
+        "tests/database/*.test.tsを作成",
+        "各テーブルのCRUDテスト",
+        "CHECK制約テスト",
+        "FK参照整合性テスト",
+        "インデックス存在確認テスト",
+        "トリガーテスト"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-TST-003",
+      "category": "test",
+      "module": "tests",
+      "agent": "test-agent",
+      "priority": "P1",
+      "description": "MCP Server Layerテストスイート: TEST-MCP-001〜105全実装",
+      "spec_refs": [
+        "12-test-specifications.md §2"
+      ],
+      "test_ids": [
+        "TEST-INT-003"
+      ],
+      "dependencies": [
+        "FEAT-TST-001",
+        "FEAT-MCC-001"
+      ],
+      "steps": [
+        "tests/mcp-server/*.test.tsを作成",
+        "各ツールの正常系テスト",
+        "バリデーションエラーテスト",
+        "ページネーション/ソートテスト",
+        "レート制限テスト"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-TST-004",
+      "category": "test",
+      "module": "tests",
+      "agent": "test-agent",
+      "priority": "P1",
+      "description": "Worker Layerテストスイート: TEST-WKR-001〜040全実装",
+      "spec_refs": [
+        "12-test-specifications.md §3"
+      ],
+      "test_ids": [
+        "TEST-INT-004"
+      ],
+      "dependencies": [
+        "FEAT-TST-001"
+      ],
+      "steps": [
+        "tests/workers/*.test.tsを作成",
+        "動画制作ワーカーテスト(モックAPI)",
+        "投稿ワーカーテスト(モックAPI)",
+        "計測ワーカーテスト(モックAPI)",
+        "タスクキュー統合テスト"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-TST-005",
+      "category": "test",
+      "module": "tests",
+      "agent": "test-agent",
+      "priority": "P1",
+      "description": "Agent Layerテストスイート: TEST-AGT-001〜032全実装",
+      "spec_refs": [
+        "12-test-specifications.md §4"
+      ],
+      "test_ids": [
+        "TEST-INT-005"
+      ],
+      "dependencies": [
+        "FEAT-TST-001",
+        "FEAT-INT-001"
+      ],
+      "steps": [
+        "tests/agents/*.test.tsを作成",
+        "LangGraphグラフ遷移テスト",
+        "ノード入出力テスト",
+        "チェックポイント復旧テスト",
+        "プロンプトDB管理テスト"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-TST-006",
+      "category": "test",
+      "module": "tests",
+      "agent": "test-agent",
+      "priority": "P1",
+      "description": "Dashboard Layerテストスイート: TEST-DSH-001〜047全実装",
+      "spec_refs": [
+        "12-test-specifications.md §5"
+      ],
+      "test_ids": [
+        "TEST-INT-006"
+      ],
+      "dependencies": [
+        "FEAT-TST-001",
+        "FEAT-DSH-001"
+      ],
+      "steps": [
+        "tests/dashboard/*.test.tsxを作成",
+        "Next.jsページレンダリングテスト",
+        "REST APIエンドポイントテスト",
+        "テーマ切替テスト",
+        "レスポンシブテスト"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-TST-007",
+      "category": "test",
+      "module": "tests",
+      "agent": "test-agent",
+      "priority": "P1",
+      "description": "Integration Layerテストスイート: レイヤー間連携テスト",
+      "spec_refs": [
+        "12-test-specifications.md §6"
+      ],
+      "test_ids": [
+        "TEST-INT-007",
+        "TEST-INT-008",
+        "TEST-INT-009",
+        "TEST-INT-010"
+      ],
+      "dependencies": [
+        "FEAT-TST-002",
+        "FEAT-TST-003"
+      ],
+      "steps": [
+        "tests/integration/*.test.tsを作成",
+        "DB→MCP Server連携テスト",
+        "MCP Server→Worker連携テスト",
+        "Worker→Agent連携テスト",
+        "Agent→Dashboard連携テスト"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-TST-008",
+      "category": "test",
+      "module": "tests",
+      "agent": "test-agent",
+      "priority": "P1",
+      "description": "Integration: グラフ間間接通信テスト",
+      "spec_refs": [
+        "12-test-specifications.md §6"
+      ],
+      "test_ids": [
+        "TEST-INT-011",
+        "TEST-INT-012",
+        "TEST-INT-013",
+        "TEST-INT-014",
+        "TEST-INT-015"
+      ],
+      "dependencies": [
+        "FEAT-TST-005"
+      ],
+      "steps": [
+        "tests/integration/graph-communication.test.tsを作成",
+        "戦略サイクル→制作パイプラインの間接通信テスト",
+        "制作パイプライン→投稿スケジューラーの連携テスト",
+        "投稿スケジューラー→計測ジョブの連携テスト",
+        "計測ジョブ→戦略サイクルのフィードバックループテスト"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-TST-009",
+      "category": "test",
+      "module": "tests",
+      "agent": "test-agent",
+      "priority": "P1",
+      "description": "Integration: データ整合性+並行性テスト",
+      "spec_refs": [
+        "12-test-specifications.md §6"
+      ],
+      "test_ids": [
+        "TEST-INT-016",
+        "TEST-INT-017",
+        "TEST-INT-018",
+        "TEST-INT-019",
+        "TEST-INT-020"
+      ],
+      "dependencies": [
+        "FEAT-TST-002"
+      ],
+      "steps": [
+        "tests/integration/data-integrity.test.tsを作成",
+        "トランザクション分離レベルテスト",
+        "並行アクセス競合テスト",
+        "デッドロック検出テスト",
+        "データ一貫性テスト(ACID)"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-TST-010",
+      "category": "test",
+      "module": "tests",
+      "agent": "test-agent",
+      "priority": "P1",
+      "description": "E2Eテスト: 完全ライフサイクル貫通テスト",
+      "spec_refs": [
+        "12-test-specifications.md §7"
+      ],
+      "test_ids": [
+        "TEST-E2E-001",
+        "TEST-E2E-002",
+        "TEST-E2E-003",
+        "TEST-E2E-004"
+      ],
+      "dependencies": [
+        "FEAT-TST-007"
+      ],
+      "steps": [
+        "tests/e2e/*.test.tsを作成",
+        "E2E-001: 仮説→コンテンツ→投稿→計測→分析の完全フロー",
+        "E2E-002: 複数アカウント同時運用",
+        "E2E-003: エラーリカバリーフロー",
+        "E2E-004: サイクル完了→次サイクル開始"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-TST-011",
+      "category": "test",
+      "module": "tests",
+      "agent": "test-agent",
+      "priority": "P1",
+      "description": "E2Eテスト: ダッシュボード統合+パフォーマンス",
+      "spec_refs": [
+        "12-test-specifications.md §7"
+      ],
+      "test_ids": [
+        "TEST-E2E-005",
+        "TEST-E2E-006",
+        "TEST-E2E-007",
+        "TEST-E2E-008"
+      ],
+      "dependencies": [
+        "FEAT-TST-006",
+        "FEAT-TST-010"
+      ],
+      "steps": [
+        "tests/e2e/dashboard-e2e.test.tsを作成",
+        "E2E-005: ダッシュボードからのデータ参照整合性",
+        "E2E-006: 設定変更→反映のE2E",
+        "E2E-007: プロンプト編集→エージェント動作変更",
+        "E2E-008: レスポンスタイム計測 (全APIが2秒以内)"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-TST-012",
+      "category": "test",
+      "module": "tests",
+      "agent": "test-agent",
+      "priority": "P2",
+      "description": "E2Eテスト: スケーラビリティ+障害復旧",
+      "spec_refs": [
+        "12-test-specifications.md §7"
+      ],
+      "test_ids": [
+        "TEST-E2E-009",
+        "TEST-E2E-010",
+        "TEST-E2E-011",
+        "TEST-E2E-012"
+      ],
+      "dependencies": [
+        "FEAT-TST-010"
+      ],
+      "steps": [
+        "tests/e2e/scalability.test.tsを作成",
+        "E2E-009: 50アカウント同時運用シミュレーション",
+        "E2E-010: DB障害→復旧テスト",
+        "E2E-011: ワーカープロセスクラッシュ→自動復旧",
+        "E2E-012: フルサイクル(7日間シミュレーション)"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-TST-013",
+      "category": "test",
+      "module": "tests",
+      "agent": "test-agent",
+      "priority": "P1",
+      "description": "Worker追加テスト: テキスト投稿品質+エラーハンドリング",
+      "spec_refs": [
+        "12-test-specifications.md §3"
+      ],
+      "test_ids": [
+        "TEST-WKR-033",
+        "TEST-WKR-034",
+        "TEST-WKR-035",
+        "TEST-WKR-036"
+      ],
+      "dependencies": [
+        "FEAT-TST-004"
+      ],
+      "steps": [
+        "tests/workers/text-quality.test.tsを作成",
+        "テキスト投稿の文字数制限テスト",
+        "ハッシュタグ生成テスト",
+        "API障害時のリトライテスト",
+        "タイムアウトハンドリングテスト"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-TST-014",
+      "category": "test",
+      "module": "tests",
+      "agent": "test-agent",
+      "priority": "P2",
+      "description": "Worker追加テスト: 動画制作エッジケース+リソース管理",
+      "spec_refs": [
+        "12-test-specifications.md §3"
+      ],
+      "test_ids": [
+        "TEST-WKR-037",
+        "TEST-WKR-038",
+        "TEST-WKR-039",
+        "TEST-WKR-040"
+      ],
+      "dependencies": [
+        "FEAT-TST-004"
+      ],
+      "steps": [
+        "tests/workers/video-edge-cases.test.tsを作成",
+        "3850x3850超過画像の自動リサイズテスト",
+        "fal.ai残高不足時のグレースフル停止テスト",
+        "部分成功(Kling成功+lipsync失敗)のリカバリーテスト",
+        "並列セクション制作の競合テスト"
+      ],
+      "passes": false
+    }
+  ]
+}

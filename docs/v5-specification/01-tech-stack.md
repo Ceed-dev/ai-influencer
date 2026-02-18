@@ -33,7 +33,7 @@
 | Docker: DB | pgvector/pgvector:pg16 | PostgreSQL + pgvectorコンテナ | dev環境用（本番はCloud SQL） |
 | Docker: Pool | edoburu/pgbouncer:1.22 | コネクションプールコンテナ | Phase 5で導入 |
 | 環境分離 | docker-compose.dev.yml / docker-compose.prod.yml | 開発/本番環境の分離 | 設定・シークレット・ポートを環境別に管理 |
-| GCP Project | `video-analytics-hub` | GCE, Cloud SQL, Cloud API等 | 既存プロジェクト再利用 |
+| GCP Project | 新規GCPプロジェクト | GCE, Cloud SQL, Cloud API等 | 人間がGCPコンソールで作成。名称は作成時に決定 |
 | コネクションプール | pgBouncer | Dashboard + MCP Serverの接続共有 | Phase 5で導入 |
 
 ## AIエージェント層

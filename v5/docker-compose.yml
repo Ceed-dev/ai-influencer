@@ -1,0 +1,91 @@
+# v5.0 Development Environment
+# Usage: docker compose up -d
+# Spec: docs/v5-specification/02-architecture.md Section 16
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: v5-postgres
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: dev_ai_influencer
+      POSTGRES_USER: dev
+      POSTGRES_PASSWORD: dev
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dev -d dev_ai_influencer"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - ai-influencer-net
+
+  pgbouncer:
+    image: edoburu/pgbouncer:1.22
+    container_name: v5-pgbouncer
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://dev:dev@postgres:5432/dev_ai_influencer
+      POOL_MODE: transaction
+      DEFAULT_POOL_SIZE: "25"
+      MAX_CLIENT_CONN: "100"
+      SERVER_IDLE_TIMEOUT: "600"
+    ports:
+      - "6432:6432"
+    networks:
+      - ai-influencer-net
+
+  app:
+    image: node:20-slim
+    container_name: v5-app
+    working_dir: /app
+    depends_on:
+      pgbouncer:
+        condition: service_started
+    volumes:
+      - ./src:/app/src
+      - ./types:/app/types
+      - ./prompts:/app/prompts
+      - ./package.json:/app/package.json
+      - ./tsconfig.json:/app/tsconfig.json
+      - ./node_modules:/app/node_modules
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgres://dev:dev@pgbouncer:6432/dev_ai_influencer
+      LOG_LEVEL: debug
+      DRY_RUN: "true"
+    ports:
+      - "3001:3001"
+    command: ["npm", "run", "dev"]
+    networks:
+      - ai-influencer-net
+
+  dashboard:
+    image: node:20-slim
+    container_name: v5-dashboard
+    working_dir: /dashboard
+    depends_on:
+      app:
+        condition: service_started
+    volumes:
+      - ./dashboard:/dashboard
+    environment:
+      NODE_ENV: development
+      NEXT_PUBLIC_API_URL: http://localhost:3001
+    ports:
+      - "3000:3000"
+    command: ["npm", "run", "dev"]
+    networks:
+      - ai-influencer-net
+
+networks:
+  ai-influencer-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
