@@ -81,8 +81,8 @@ v5.0の「アルゴリズム精度」を以下の4指標で定義する。
 #### 予測誤差 (Prediction Error)
 
 ```
-予測誤差 = average( |predicted_kpis - actual_kpis| / actual_kpis )
-                    全confirmed/rejected仮説で計算
+予測誤差 = average( |predicted_kpis - actual_kpis| / NULLIF(actual_kpis, 0) )
+                    全confirmed/rejected仮説で計算（actual=0の場合はNULL、集計から除外）
 ```
 
 - 仮説ごとに「予測したKPI値」と「実際のKPI値」の乖離率を計算
@@ -321,6 +321,21 @@ v5.0の開発スケジュール（Phase 1〜5）と連動した月別精度予�
 | **ニッチ選定** | 15% | 30% | 45% | 遅い（市場変動が大きい） |
 | **プラットフォーム戦略** | 20% | 40% | 55% | 中程度（アルゴリズム変更の影響） |
 
+#### 仮説カテゴリの日英マッピング
+
+ダッシュボード表示（日本語）と DB 保存値（英語 `hypotheses.category`）の対応:
+
+| 日本語（表示） | 英語（DB category） |
+|---|---|
+| フック形式 | `content_format` |
+| 投稿時間 | `timing` |
+| ニッチ | `niche` |
+| ターゲット層 | `audience` |
+| プラットフォーム特性 | `platform_specific` |
+| ナラティブ構造 | `content_format` |
+
+> **注**: 「フック形式」と「ナラティブ構造」は同じ `content_format` カテゴリに分類される。DB上はサブカテゴリで区別（`hypotheses.metadata` JSONB の `subcategory` フィールド）。
+
 
 ## 5. 品質スコアの進化
 
@@ -491,7 +506,7 @@ LIMIT 10;
 
 | 限界 | 影響 | 緩和策 |
 |---|---|---|
-| embedding品質はLLMに依存 | 類似度計算が不正確になる可能性 | text-embedding-3-large使用、定期的な再embedding |
+| embedding品質はLLMに依存 | 類似度計算が不正確になる可能性 | text-embedding-3-small使用（[01-tech-stack.md](01-tech-stack.md)参照）、定期的な再embedding |
 | ニッチ間の「見かけの類似」 | 表面的に似ているが本質が異なる知見の誤適用 | confidenceによるフィルタリング、人間レビュー |
 | ベクトル空間の偏り | 特定ニッチの知見が過剰に参照される | 正規化、多様性スコアの導入 |
 
@@ -1191,17 +1206,18 @@ hypothesis_accuracy = confirmed_count / (confirmed_count + rejected_count)
 ### 12.2 予測誤差 (prediction_error)
 
 ```
-prediction_error = AVG(|predicted_kpis[key] - actual_kpis[key]| / actual_kpis[key])
+prediction_error = AVG(|predicted_kpis[key] - actual_kpis[key]| / NULLIF(actual_kpis[key], 0))
 ```
 
 - `predicted_kpis`, `actual_kpis` は JSONB（複数KPI指標を含む）
 - 各KPI指標（views, engagement_rate, completion_rate等）の相対誤差の平均
+- `NULLIF(actual, 0)` により actual=0 の場合は NULL を返し、ゼロ除算を回避する
 - 記録先: `algorithm_performance.prediction_error`
 
 ### 12.3 仮説判定 (verdict)
 
 ```
-per_kpi_error = |predicted_value - actual_value| / actual_value
+per_kpi_error = |predicted_value - actual_value| / NULLIF(actual_value, 0)
 
 verdict = CASE
     WHEN AVG(per_kpi_error) < HYPOTHESIS_CONFIRM_THRESHOLD     THEN 'confirmed'
@@ -1229,29 +1245,40 @@ confidence = 1.0 - AVG(per_kpi_error)
 ```sql
 -- 基準期間: ANOMALY_DETECTION_WINDOW_DAYS（system_settings、デフォルト: 14日）
 -- 閾値: ANOMALY_DETECTION_SIGMA（system_settings、デフォルト: 2.0）
+-- 最小データポイント: ANOMALY_MIN_DATAPOINTS（system_settings、カテゴリ: agent、デフォルト: 7）
 
 WITH baseline AS (
     SELECT
-        account_id,
-        AVG(engagement_rate) as mean_er,
-        STDDEV(engagement_rate) as std_er,
-        AVG(completion_rate) as mean_cr,
-        STDDEV(completion_rate) as std_cr,
-        AVG(views) as mean_views,
-        STDDEV(views) as std_views
+        p.account_id,
+        AVG(m.engagement_rate) as mean_er,
+        STDDEV(m.engagement_rate) as std_er,
+        AVG(m.completion_rate) as mean_cr,
+        STDDEV(m.completion_rate) as std_cr,
+        AVG(m.views) as mean_views,
+        STDDEV(m.views) as std_views,
+        COUNT(*) as datapoint_count
     FROM metrics m
-    JOIN publications p ON m.publication_id = p.publication_id
-    WHERE m.collected_at >= NOW() - INTERVAL ':window_days days'
-    GROUP BY account_id
+    JOIN publications p ON m.publication_id = p.id
+    WHERE m.measured_at >= (NOW() - make_interval(days => :window_days))
+    GROUP BY p.account_id
+    HAVING COUNT(*) >= :min_datapoints  -- ANOMALY_MIN_DATAPOINTS (デフォルト: 7)
 )
 SELECT m.*, b.*
 FROM metrics m
-JOIN publications p ON m.publication_id = p.publication_id
+JOIN publications p ON m.publication_id = p.id
 JOIN baseline b ON p.account_id = b.account_id
 WHERE ABS(m.engagement_rate - b.mean_er) > :sigma * b.std_er
    OR ABS(m.completion_rate - b.mean_cr) > :sigma * b.std_cr
    OR ABS(m.views - b.mean_views) > :sigma * b.std_views;
 ```
+
+関連する system_settings:
+
+| 設定キー | デフォルト | カテゴリ | 説明 |
+|---|---|---|---|
+| `ANOMALY_DETECTION_WINDOW_DAYS` | 14 | agent | 異常検知の基準期間（日） |
+| `ANOMALY_DETECTION_SIGMA` | 2.0 | agent | 標準偏差閾値 |
+| `ANOMALY_MIN_DATAPOINTS` | 7 | agent | この数未満のデータポイントでは異常検知をスキップ |
 
 異常の分類:
 
@@ -1366,7 +1393,7 @@ concurrent_per_planner = MAX_CONCURRENT_PRODUCTIONS / planner_count
 1. metricsテーブルから対象publicationのデータ取得
 2. 該当contentのhypothesis_idから仮説のpredicted_kpisを取得
 3. 各KPI指標について相対誤差を計算:
-   error[key] = |predicted[key] - actual[key]| / actual[key]
+   error[key] = |predicted[key] - actual[key]| / NULLIF(actual[key], 0)  -- actual=0の場合はNULL
 4. 全KPI指標の平均誤差でverdict判定（セクション12.3参照）
 5. hypotheses.verdict, hypotheses.actual_kpis, hypotheses.confidence を更新
 6. analyses レコードを生成:
@@ -1390,7 +1417,7 @@ concurrent_per_planner = MAX_CONCURRENT_PRODUCTIONS / planner_count
 1. MCP Serverのget_relevant_learningsツールが呼ばれる
 2. 現在のコンテキスト（niche, platform, content_format）をembedding化
 3. pgvectorでcosine similarity >= LEARNING_SIMILARITY_THRESHOLD の知見を検索
-   （system_settings: LEARNING_SIMILARITY_THRESHOLD、デフォルト: 0.7）
+   （system_settings: LEARNING_SIMILARITY_THRESHOLD、デフォルト: 0.8）
 4. confidence >= LEARNING_CONFIDENCE_THRESHOLD のもののみフィルタ
    （system_settings: LEARNING_CONFIDENCE_THRESHOLD、デフォルト: 0.7）
 5. 上位 MAX_LEARNINGS_PER_CONTEXT 件をJSON配列として返却

@@ -559,7 +559,7 @@ COMMENT ON COLUMN components.review_status IS 'キュレーション結果のレ
 
 ### 2.1 content — コンテンツ管理
 
-コンテンツの制作ライフサイクルを管理する中核テーブル。`content_format` でコンテンツ形式 (`short_video` / `text_post` / `image_post`) を区別し、使用するワーカータイプを決定する。`recipe_id` で Tool Specialist が選択した制作レシピ (`production_recipes`) を参照する。制作ステータス (`planned` → `producing` → `ready` → `[pending_review → approved/rejected → revision_needed]` → `posted` → `measured`) を追跡し、LangGraphグラフ間の間接連携ポイントとなる。`HUMAN_REVIEW_ENABLED=true` 時はコンテンツ完成後に `pending_review` で人間のレビューを待ち、`AUTO_APPROVE_SCORE_THRESHOLD` 以上の品質スコアのコンテンツは自動承認される。`review_status` / `quality_score` / `reviewer_comment` で詳細なレビュー管理を行う。
+コンテンツの制作ライフサイクルを管理する中核テーブル。`content_format` でコンテンツ形式 (`short_video` / `text_post` / `image_post`) を区別し、使用するワーカータイプを決定する。`recipe_id` で Tool Specialist が選択した制作レシピ (`production_recipes`) を参照する。制作ステータス (`[pending_approval →] planned` → `producing` → `ready` → `[pending_review → approved/rejected → revision_needed]` → `posted` → `measured` → `analyzed`) を追跡し、LangGraphグラフ間の間接連携ポイントとなる。`cancelled` はいずれのステージからも遷移可能。`HUMAN_REVIEW_ENABLED=true` 時はコンテンツ完成後に `pending_review` で人間のレビューを待ち、`AUTO_APPROVE_SCORE_THRESHOLD` 以上の品質スコアのコンテンツは自動承認される。`review_status` / `quality_score` / `reviewer_comment` で詳細なレビュー管理を行う。
 
 v4.0の production タブ (33カラム) からの移行先。
 
@@ -597,11 +597,14 @@ CREATE TABLE content (
         -- producing:        制作パイプラインが動画生成中
         -- ready:            動画完成。レビュー待ち or 投稿待ち
         -- pending_review:   HUMAN_REVIEW_ENABLED=true時、人間のレビュー待ち
+        -- pending_approval: 戦略サイクルで生成された計画の人間承認待ち
         -- approved:         レビュー承認済み。投稿可能
         -- rejected:         レビュー却下。revision_neededへ遷移
         -- revision_needed:  差し戻し。再制作が必要
         -- posted:           投稿完了
         -- measured:         計測完了。分析待ち
+        -- cancelled:        キャンセル済み。制作・投稿を中止
+        -- analyzed:         分析完了。仮説検証サイクル完了
     planned_post_date DATE,
         -- 投稿予定日。戦略サイクルが設定
         -- 投稿スケジューラーがこの日付+最適時間帯で投稿
@@ -706,8 +709,9 @@ CREATE TABLE content (
     -- 制約
     CONSTRAINT chk_content_status
         CHECK (status IN (
-            'planned', 'producing', 'ready', 'pending_review', 'approved',
-            'rejected', 'revision_needed', 'posted', 'measured'
+            'planned', 'producing', 'ready', 'pending_review', 'pending_approval',
+            'approved', 'rejected', 'revision_needed', 'posted', 'measured',
+            'cancelled', 'analyzed'
         )),
     CONSTRAINT chk_content_review_status
         CHECK (review_status IN ('not_required', 'pending_review', 'approved', 'rejected')),
@@ -724,7 +728,7 @@ CREATE TABLE content (
 );
 
 COMMENT ON TABLE content IS 'コンテンツのライフサイクル管理。4つのLangGraphグラフ間の間接連携ポイント';
-COMMENT ON COLUMN content.status IS 'コンテンツライフサイクル: planned→producing→ready→[pending_review→approved/rejected→revision_needed]→posted→measured。[]内はHUMAN_REVIEW_ENABLED時のみ';
+COMMENT ON COLUMN content.status IS 'コンテンツライフサイクル: [pending_approval→]planned→producing→ready→[pending_review→approved/rejected→revision_needed]→posted→measured→analyzed。cancelled=中止。[]内はHUMAN_REVIEW_ENABLED時のみ';
 COMMENT ON COLUMN content.hypothesis_id IS '仮説駆動サイクルの根拠。NULLは人間の直接指示';
 COMMENT ON COLUMN content.content_format IS 'コンテンツ形式。short_video/text_post/image_post。使用するワーカータイプを決定';
 COMMENT ON COLUMN content.recipe_id IS 'Tool Specialistが選択した制作レシピ。text_postではNULL可 (LLM直接生成)';
@@ -775,6 +779,7 @@ CREATE TABLE content_sections (
 
     -- タイムスタンプ
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
     -- 制約
     CONSTRAINT uq_content_section_order
@@ -852,6 +857,7 @@ CREATE TABLE publications (
 
     -- タイムスタンプ
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
     -- 制約
     CONSTRAINT chk_publications_platform
@@ -1270,6 +1276,7 @@ CREATE TABLE analyses (
 
     -- タイムスタンプ
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
     -- 制約
     CONSTRAINT chk_analyses_type
@@ -1586,6 +1593,8 @@ CREATE TABLE task_queue (
     -- ステータス管理
     status          VARCHAR(20) NOT NULL DEFAULT 'pending',
         -- pending: キュー投入済み。処理待ち
+        -- queued: キューに入り処理順番待ち（優先度ソート済み）
+        -- waiting: 外部依存（前提タスク完了待ち等）で待機中
         -- processing: 処理中。assigned_workerが処理中
         -- retrying: リトライ待ち。MAX_RETRY_ATTEMPTSまで自動リトライ
         -- completed: 処理完了
@@ -1624,7 +1633,7 @@ CREATE TABLE task_queue (
     CONSTRAINT chk_task_type
         CHECK (task_type IN ('produce', 'publish', 'measure', 'curate')),
     CONSTRAINT chk_task_status
-        CHECK (status IN ('pending', 'processing', 'retrying', 'completed', 'failed', 'failed_permanent'))
+        CHECK (status IN ('pending', 'queued', 'waiting', 'processing', 'retrying', 'completed', 'failed', 'failed_permanent'))
 );
 
 COMMENT ON TABLE task_queue IS '制作・投稿・計測・キュレーションのタスクキュー。各LangGraphグラフがポーリングで取得';
@@ -1633,7 +1642,7 @@ COMMENT ON COLUMN task_queue.max_retries IS 'デフォルト3。retry_count >= m
 COMMENT ON COLUMN task_queue.retry_count IS '現在のリトライ回数。MAX_RETRY_ATTEMPTS到達で failed_permanent へ遷移';
 COMMENT ON COLUMN task_queue.error_message IS '最後のエラーメッセージ。ダッシュボードのエラーログ表示に使用';
 COMMENT ON COLUMN task_queue.last_error_at IS '最後のエラー発生日時';
-COMMENT ON COLUMN task_queue.status IS 'pending→processing→[retrying→processing]→completed/failed_permanent。retryはMAX_RETRY_ATTEMPTSまで自動';
+COMMENT ON COLUMN task_queue.status IS 'pending→queued→[waiting→]processing→[retrying→processing]→completed/failed_permanent。retryはMAX_RETRY_ATTEMPTSまで自動';
 ```
 
 ### 4.4 algorithm_performance — アルゴリズム精度追跡
@@ -2020,7 +2029,12 @@ CREATE TABLE agent_individual_learnings (
         -- 各エージェントは自分の学びのみを参照する（他エージェントの学びは見えない）
 
     -- カテゴリ
-    category        TEXT NOT NULL CHECK (category IN ('data_source', 'technique', 'pattern', 'mistake', 'insight')),
+    category        TEXT NOT NULL CHECK (category IN (
+        'data_source', 'technique', 'pattern', 'mistake', 'insight',
+        'tool_characteristics', 'tool_combination', 'tool_failure_pattern', 'tool_update',
+        'data_classification', 'curation_quality', 'source_reliability',
+        'content', 'timing', 'audience', 'platform', 'niche'
+    )),
         -- data_source: データソースに関する学び
         --   例: "TikTok Creative Centerのトレンドデータは24時間遅延がある"
         -- technique: 実践テクニック
@@ -2031,6 +2045,25 @@ CREATE TABLE agent_individual_learnings (
         --   例: "サンプル数3件で仮説をconfirmedにしたが、追加データで覆った"
         -- insight: その他の気づき
         --   例: "人間のhypothesis指示は表面的な記述が多いので、背景を推測して補完すべき"
+        -- tool_characteristics: ツール固有の特性・挙動
+        --   例: "Kling v2.6はアジア人の顔が最も自然で西洋人顔は時々不自然"
+        -- tool_combination: ツール組み合わせの知見
+        --   例: "Fish Audio TTS → fal lipsync の組み合わせで口の動きの自然さが最高"
+        -- tool_failure_pattern: ツール障害パターン
+        --   例: "fal.ai 403は残高不足、422はパラメータ不正（prompt空文字等）"
+        -- tool_update: ツール更新・変更に関する知見
+        --   例: "Kling v2.6→v2.7でcharacter_orientationパラメータが必須に"
+        -- data_classification: データ分類に関する知見
+        --   例: "beautyニッチのシナリオはsubtype=hookとbodyの比率が2:3が最適"
+        -- curation_quality: キュレーション品質に関する知見
+        --   例: "自動生成シナリオのスコア4.0未満は人間レビューでほぼ却下される"
+        -- source_reliability: 情報源の信頼性に関する知見
+        --   例: "Reddit r/videography の情報は公式ドキュメントより早いが精度は80%"
+        -- content: コンテンツ制作に関する学び
+        -- timing: 投稿タイミングに関する学び
+        -- audience: オーディエンスに関する学び
+        -- platform: プラットフォーム固有の学び
+        -- niche: ジャンル固有の学び
 
     -- 学びの内容
     content         TEXT NOT NULL,
@@ -2096,7 +2129,7 @@ CREATE TABLE agent_individual_learnings (
 
 COMMENT ON TABLE agent_individual_learnings IS 'エージェント個別の学習メモリ。各エージェント固有の経験知を蓄積';
 COMMENT ON COLUMN agent_individual_learnings.agent_type IS 'この学びを所有するエージェント。各エージェントは自分の学びのみ参照';
-COMMENT ON COLUMN agent_individual_learnings.category IS 'data_source/technique/pattern/mistake/insight';
+COMMENT ON COLUMN agent_individual_learnings.category IS 'data_source/technique/pattern/mistake/insight/tool_characteristics/tool_combination/tool_failure_pattern/tool_update/data_classification/curation_quality/source_reliability/content/timing/audience/platform/niche';
 COMMENT ON COLUMN agent_individual_learnings.success_rate IS '自動計算。times_successful / times_applied。効果的な学びのソート用';
 COMMENT ON COLUMN agent_individual_learnings.embedding IS '関連する学びの検索用。agent_type + is_activeでフィルタ後にベクトル検索';
 ```
@@ -2226,8 +2259,13 @@ CREATE TABLE tool_catalog (
         -- tts: テキスト読み上げ (Fish Audio等)
         -- lipsync: リップシンク (fal.ai lipsync等)
         -- image_generation: 画像生成 (Flux, DALL-E等)
-        -- music_generation: 音楽生成
-        -- video_editing: 動画編集
+        -- embedding: ベクトル埋め込み (OpenAI text-embedding-3-small等)
+        -- llm: 大規模言語モデル (Claude, GPT等)
+        -- search: 検索API (Google, Bing等)
+        -- social_api: SNSプラットフォームAPI (YouTube Data API, TikTok API等)
+        -- analytics_api: 分析API
+        -- storage: ストレージサービス (fal.storage, Google Drive等)
+        -- other: その他
     provider        VARCHAR(100),
         -- サービスプロバイダー
         -- 例: 'fal.ai', 'runway', 'openai', 'fish_audio'
@@ -2287,7 +2325,15 @@ CREATE TABLE tool_catalog (
 
     -- タイムスタンプ
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    -- 制約
+    CONSTRAINT chk_tool_catalog_tool_type
+        CHECK (tool_type IN (
+            'video_generation', 'tts', 'lipsync', 'image_generation',
+            'embedding', 'llm', 'search', 'social_api', 'analytics_api',
+            'storage', 'other'
+        ))
 );
 
 COMMENT ON TABLE tool_catalog IS 'AIツールのマスターデータ。特性・コスト・クセを管理し、レシピ選定の根拠';
@@ -2395,8 +2441,10 @@ CREATE TABLE tool_external_sources (
         -- official_doc: 公式ドキュメント
         -- press_release: プレスリリース
         -- blog: ブログ記事
-        -- reddit: Reddit投稿
+        -- forum: フォーラム投稿 (Reddit等)
+        -- research_paper: 研究論文・技術レポート
         -- changelog: チェンジログ・リリースノート
+        -- other: その他
     source_url      TEXT NOT NULL,
         -- ソースのURL
         -- 例: 'https://x.com/kling_ai/status/...'
@@ -2439,11 +2487,18 @@ CREATE TABLE tool_external_sources (
     processed_at    TIMESTAMPTZ,
         -- 情報がTool Specialistにより処理された日時
         -- NULLの場合: まだ処理されていない
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    -- 制約
+    CONSTRAINT chk_tool_external_sources_source_type
+        CHECK (source_type IN (
+            'x_post', 'official_doc', 'press_release', 'blog',
+            'forum', 'research_paper', 'changelog', 'other'
+        ))
 );
 
 COMMENT ON TABLE tool_external_sources IS 'ツール関連の外部情報源。X投稿・公式ドキュメント・ブログ等を収集';
-COMMENT ON COLUMN tool_external_sources.source_type IS 'x_post/official_doc/press_release/blog/reddit/changelog';
+COMMENT ON COLUMN tool_external_sources.source_type IS 'x_post/official_doc/press_release/blog/forum/research_paper/changelog/other';
 COMMENT ON COLUMN tool_external_sources.tool_id IS 'NULLable。特定ツールに紐付かない一般情報の場合はNULL';
 COMMENT ON COLUMN tool_external_sources.embedding IS '類似情報の自動発見・重複排除用。1536次元';
 ```
@@ -2579,11 +2634,12 @@ CREATE TABLE prompt_suggestions (
         --   例: 仮説的中率が過去5サイクルで0.65→0.45に低下
         -- repeated_issue: 同じ問題の繰り返し発生
         --   例: 同じ失敗パターンが3回以上連続
-        -- performance_plateau: パフォーマンスの停滞
-        --   例: engagement_rateが10サイクル連続で横ばい
-        -- new_capability: 新機能・新ツールの活用提案
+        -- new_pattern: 新しいパターンの検出
+        --   例: 特定ニッチで新しい成功パターンが発見された
+        -- tool_update: ツール更新に伴う提案
         --   例: 新ツール追加に伴うプロンプト拡張
-        -- human_feedback: 人間のフィードバックに基づく提案
+        -- manual: 人間のフィードバックに基づく提案
+        -- other: その他のトリガー
     trigger_details JSONB NOT NULL,
         -- トリガーの詳細データ
         -- 構造例 (score_decline):
@@ -2632,12 +2688,17 @@ CREATE TABLE prompt_suggestions (
         -- NULLの場合: まだpending
 
     -- 制約
+    CONSTRAINT chk_prompt_suggestions_trigger_type
+        CHECK (trigger_type IN (
+            'score_decline', 'repeated_issue', 'new_pattern',
+            'tool_update', 'manual', 'other'
+        )),
     CONSTRAINT chk_prompt_suggestions_status
         CHECK (status IN ('pending', 'accepted', 'rejected', 'expired'))
 );
 
 COMMENT ON TABLE prompt_suggestions IS 'プロンプト改善の自動提案。トリガー検知→提案生成→人間レビューのフロー';
-COMMENT ON COLUMN prompt_suggestions.trigger_type IS 'score_decline/repeated_issue/performance_plateau/new_capability/human_feedback';
+COMMENT ON COLUMN prompt_suggestions.trigger_type IS 'score_decline/repeated_issue/new_pattern/tool_update/manual/other';
 COMMENT ON COLUMN prompt_suggestions.confidence IS '提案の確信度。0.80以上でデータに基づく明確な改善点';
 COMMENT ON COLUMN prompt_suggestions.status IS 'pending→accepted/rejected/expired。人間がダッシュボードで判断';
 ```
@@ -2674,13 +2735,7 @@ CREATE TABLE system_settings (
     updated_by    VARCHAR(100) DEFAULT 'system'
 );
 
--- トリガー: updated_at 自動更新
-CREATE TRIGGER trg_system_settings_updated
-    BEFORE UPDATE ON system_settings
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
--- インデックス: カテゴリ別検索
-CREATE INDEX idx_system_settings_category ON system_settings (category);
+-- トリガー: updated_at 自動更新は Section 9 に統一（trg_system_settings_updated_at）
 
 COMMENT ON TABLE system_settings IS '全システム設定値を一元管理。ダッシュボードから動的変更可能。ハードコーディング禁止の原則を支えるテーブル';
 COMMENT ON COLUMN system_settings.setting_key IS '設定キー名（例: MAX_CONCURRENT_PRODUCTIONS）。アプリケーションコードではこのキーで参照';
@@ -2693,7 +2748,7 @@ COMMENT ON COLUMN system_settings.updated_by IS '最終更新者。"system"=初�
 
 ### 7.2 デフォルト設定値（初期INSERT）
 
-システム初期化時にINSERTされるデフォルト設定値。全カテゴリの設定を網羅する。
+システム初期化時にINSERTされるデフォルト設定値。全カテゴリの設定を網羅する（合計73件: production 9, posting 4, review 4, agent 38, measurement 6, cost_control 4, dashboard 3, credentials 5）。
 
 ```sql
 -- ========================================
@@ -2706,13 +2761,13 @@ INSERT INTO system_settings (setting_key, setting_value, category, description, 
 ('PRODUCTION_POLL_INTERVAL_SEC', '30', 'production', 'パイプラインのタスクキューポーリング間隔（秒）', '30', 'integer', '{"min": 10, "max": 300}'),
 ('MAX_RETRY_ATTEMPTS', '3', 'production', '外部API呼び出し失敗時の最大リトライ回数', '3', 'integer', '{"min": 1, "max": 10}'),
 ('RETRY_BACKOFF_BASE_SEC', '2', 'production', 'リトライ時の指数バックオフ基準秒数（実際の待機 = base × 2^attempt）', '2', 'integer', '{"min": 1, "max": 30}'),
-('QUALITY_FILTER_THRESHOLD', '4.0', 'production', '品質スコアがこの値未満のスクリプトは制作をスキップ', '4.0', 'float', '{"min": 0, "max": 10}'),
+('QUALITY_FILTER_THRESHOLD', '5.0', 'production', '品質スコアがこの値未満のスクリプトは制作をスキップ', '5.0', 'float', '{"min": 0, "max": 10}'),
 ('VIDEO_SECTION_TIMEOUT_SEC', '600', 'production', '動画セクション1つの制作タイムアウト（秒）。Kling生成〜リップシンクまで', '600', 'integer', '{"min": 120, "max": 1800}'),
 
 -- Posting settings
 ('POSTING_POLL_INTERVAL_SEC', '120', 'posting', '投稿スケジューラーのポーリング間隔（秒）', '120', 'integer', '{"min": 30, "max": 600}'),
 ('MAX_POSTS_PER_ACCOUNT_PER_DAY', '2', 'posting', 'アカウントあたりの1日最大投稿数。BAN回避のため控えめに設定', '2', 'integer', '{"min": 1, "max": 10}'),
-('POSTING_TIME_JITTER_MIN', '15', 'posting', '投稿時刻のランダムずらし幅（分）。Bot検知回避', '15', 'integer', '{"min": 0, "max": 60}'),
+('POSTING_TIME_JITTER_MIN', '5', 'posting', '投稿時刻のランダムずらし幅（分）。Bot検知回避', '5', 'integer', '{"min": 0, "max": 60}'),
 
 -- Review settings
 ('HUMAN_REVIEW_ENABLED', 'true', 'review', 'コンテンツ投稿前に人間のレビューを要求するか', 'true', 'boolean', null),
@@ -2732,7 +2787,7 @@ INSERT INTO system_settings (setting_key, setting_value, category, description, 
 
 -- Measurement settings
 ('METRICS_COLLECTION_DELAY_HOURS', '48', 'measurement', 'コンテンツ投稿後、メトリクス収集開始までの遅延（時間）', '48', 'integer', '{"min": 24, "max": 168}'),
-('METRICS_COLLECTION_RETRY_HOURS', '24', 'measurement', 'メトリクス収集失敗時のリトライ間隔（時間）', '24', 'integer', '{"min": 6, "max": 72}'),
+('METRICS_COLLECTION_RETRY_HOURS', '6', 'measurement', 'メトリクス収集失敗時のリトライ間隔（時間）', '6', 'integer', '{"min": 1, "max": 72}'),
 ('METRICS_MAX_COLLECTION_ATTEMPTS', '5', 'measurement', 'メトリクス収集の最大試行回数', '5', 'integer', '{"min": 1, "max": 20}'),
 
 -- Cost control settings
@@ -2750,7 +2805,53 @@ INSERT INTO system_settings (setting_key, setting_value, category, description, 
 ('CRED_FAL_AI_API_KEY', '""', 'credentials', 'fal.ai APIキー。ダッシュボードの設定画面から入力', '""', 'string', null),
 ('CRED_FISH_AUDIO_API_KEY', '""', 'credentials', 'Fish Audio APIキー。Plus plan ($11/month) 必須', '""', 'string', null),
 ('CRED_OPENAI_API_KEY', '""', 'credentials', 'OpenAI APIキー（Embedding用: text-embedding-3-small）', '""', 'string', null),
-('CRED_ANTHROPIC_API_KEY', '""', 'credentials', 'Anthropic APIキー（Claude Opus/Sonnet）', '""', 'string', null);
+('CRED_ANTHROPIC_API_KEY', '""', 'credentials', 'Anthropic APIキー（Claude Opus/Sonnet）', '""', 'string', null),
+('CRED_GOOGLE_SERVICE_ACCOUNT_KEY', '""', 'credentials', 'Google Cloud サービスアカウントキー（JSON）。Drive・Sheets API用', '""', 'string', null),
+
+-- Production settings (追加)
+('RETRY_JITTER_MAX_SEC', '1', 'production', 'リトライ時のジッター最大秒数。バックオフに加算するランダム遅延', '1', 'integer', '{"min": 0, "max": 10}'),
+('MAX_CONTENT_REVISION_COUNT', '3', 'production', 'コンテンツの最大差し戻し回数。超過時はcancelledに遷移', '3', 'integer', '{"min": 1, "max": 10}'),
+('WORKER_THROUGHPUT_PER_HOUR', '5', 'production', 'ワーカー1インスタンスあたりの1時間処理能力目安', '5', 'integer', '{"min": 1, "max": 20}'),
+
+-- Agent settings (追加)
+('ANOMALY_MIN_DATAPOINTS', '7', 'agent', '異常検知に必要な最小データポイント数。これ未満のメトリクスは異常判定をスキップ', '7', 'integer', '{"min": 3, "max": 30}'),
+('QUALITY_WEIGHT_COMPLETION', '0.35', 'agent', '品質スコア計算: 完視聴率の重み', '0.35', 'float', '{"min": 0, "max": 1}'),
+('QUALITY_WEIGHT_ENGAGEMENT', '0.25', 'agent', '品質スコア計算: エンゲージメント率の重み', '0.25', 'float', '{"min": 0, "max": 1}'),
+('QUALITY_WEIGHT_SHARE', '0.20', 'agent', '品質スコア計算: シェア率の重み', '0.20', 'float', '{"min": 0, "max": 1}'),
+('QUALITY_WEIGHT_RETENTION', '0.15', 'agent', '品質スコア計算: リテンション率の重み', '0.15', 'float', '{"min": 0, "max": 1}'),
+('QUALITY_WEIGHT_SENTIMENT', '0.05', 'agent', '品質スコア計算: センチメント分析の重み', '0.05', 'float', '{"min": 0, "max": 1}'),
+('HYPOTHESIS_CONFIRM_THRESHOLD', '0.3', 'agent', '仮説検証: 予測と実測の誤差がこの値以内ならconfirmed', '0.3', 'float', '{"min": 0.05, "max": 0.5}'),
+('HYPOTHESIS_INCONCLUSIVE_THRESHOLD', '0.5', 'agent', '仮説検証: 誤差がこの値以上ならinconclusive（確信度不足）', '0.5', 'float', '{"min": 0.2, "max": 0.8}'),
+('LEARNING_DEACTIVATE_THRESHOLD', '0.2', 'agent', '学びの信頼度がこの値未満に下がったらis_active=falseに自動更新', '0.2', 'float', '{"min": 0.05, "max": 0.5}'),
+('LEARNING_AUTO_PROMOTE_ENABLED', 'false', 'agent', '学びの自動昇格（グローバル知見化）を有効にするか', 'false', 'boolean', null),
+('LEARNING_SUCCESS_INCREMENT', '0.1', 'agent', '学び適用成功時のconfidence増加量', '0.1', 'float', '{"min": 0.01, "max": 0.3}'),
+('LEARNING_FAILURE_DECREMENT', '0.15', 'agent', '学び適用失敗時のconfidence減少量', '0.15', 'float', '{"min": 0.01, "max": 0.3}'),
+('LEARNING_SIMILARITY_THRESHOLD', '0.8', 'agent', '重複学び検出のコサイン類似度閾値。この値以上で重複とみなす', '0.8', 'float', '{"min": 0.5, "max": 0.99}'),
+('MAX_LEARNINGS_PER_CONTEXT', '20', 'agent', 'タスク実行時にベクトル検索で取得する学びの最大数', '20', 'integer', '{"min": 5, "max": 50}'),
+('EXPLORATION_RATE', '0.15', 'agent', '探索率。この確率で過去の最適解ではなく新しいアプローチを試行', '0.15', 'float', '{"min": 0, "max": 0.5}'),
+('EMBEDDING_MODEL', '"text-embedding-3-small"', 'agent', 'ベクトル埋め込みに使用するモデル', '"text-embedding-3-small"', 'string', null),
+('EMBEDDING_DIMENSION', '1536', 'agent', 'ベクトル埋め込みの次元数', '1536', 'integer', '{"min": 256, "max": 3072}'),
+('RECIPE_FAILURE_THRESHOLD', '3', 'agent', 'レシピの連続失敗回数がこの値に達したら使用を一時停止', '3', 'integer', '{"min": 1, "max": 10}'),
+('RECIPE_MIN_SUCCESS_RATE', '0.8', 'agent', 'レシピの最低成功率。これ未満のレシピは推奨リストから除外', '0.8', 'float', '{"min": 0.5, "max": 1.0}'),
+('RECIPE_MIN_QUALITY', '6.0', 'agent', 'レシピの最低平均品質スコア。これ未満のレシピは改善提案の対象', '6.0', 'float', '{"min": 1, "max": 10}'),
+('CURATION_MIN_QUALITY', '4.0', 'agent', 'キュレーション自動承認の最低品質スコア。未満は人間レビュー', '4.0', 'float', '{"min": 1, "max": 10}'),
+('CURATION_RETRY_VARIANTS', '2', 'agent', 'キュレーション品質不足時の再生成バリエーション数', '2', 'integer', '{"min": 1, "max": 5}'),
+('CURATION_BATCH_SIZE', '10', 'agent', 'キュレーション1バッチあたりの処理件数', '10', 'integer', '{"min": 1, "max": 50}'),
+('RESEARCHER_RETRY_INTERVAL_HOURS', '1', 'agent', 'リサーチャーの情報収集失敗時のリトライ間隔（時間）', '1', 'integer', '{"min": 1, "max": 24}'),
+('HYPOTHESIS_DIVERSITY_WINDOW', '5', 'agent', '仮説多様性チェックの直近サイクル数。この範囲内で同カテゴリの仮説数を制限', '5', 'integer', '{"min": 1, "max": 20}'),
+('HYPOTHESIS_SAME_CATEGORY_MAX', '3', 'agent', 'HYPOTHESIS_DIVERSITY_WINDOW内の同一カテゴリ仮説の最大数', '3', 'integer', '{"min": 1, "max": 10}'),
+('ANALYSIS_MIN_SAMPLE_SIZE', '5', 'agent', '分析に必要な最小サンプルサイズ。未満の場合はinconclusive判定', '5', 'integer', '{"min": 2, "max": 20}'),
+('PROMPT_SUGGEST_LOW_SCORE', '5', 'agent', 'プロンプト改善提案のトリガー: パフォーマンススコアがこの値以下', '5', 'integer', '{"min": 1, "max": 10}'),
+('PROMPT_SUGGEST_HIGH_SCORE', '8', 'agent', 'プロンプト改善提案: この値以上のスコアでは提案しない', '8', 'integer', '{"min": 5, "max": 10}'),
+('PROMPT_SUGGEST_FAILURE_COUNT', '3', 'agent', 'プロンプト改善提案のトリガー: 同一パターンの失敗がこの回数以上', '3', 'integer', '{"min": 1, "max": 10}'),
+
+-- Posting settings (追加)
+('PLATFORM_COOLDOWN_HOURS', '24', 'posting', '同一アカウント・同一プラットフォームの投稿間の最小間隔（時間）', '24', 'integer', '{"min": 1, "max": 72}'),
+
+-- Measurement settings (追加)
+('MEASUREMENT_POLL_INTERVAL_SEC', '300', 'measurement', '計測ジョブのポーリング間隔（秒）', '300', 'integer', '{"min": 60, "max": 900}'),
+('METRICS_BACKFILL_MAX_DAYS', '7', 'measurement', 'メトリクス遡及取得の最大日数', '7', 'integer', '{"min": 1, "max": 30}'),
+('METRICS_FOLLOWUP_DAYS', '[7, 30]', 'measurement', 'フォローアップ計測を実施する日数（投稿後N日目）', '[7, 30]', 'json', null);
 ```
 
 ### 7.3 accounts.auth_credentials JSONB スキーマ定義
@@ -2834,8 +2935,7 @@ CREATE INDEX idx_accounts_platform_status ON accounts(platform, status);
     -- 複合: "activeなYouTubeアカウント一覧" 等
 
 -- characters
-CREATE INDEX idx_characters_character_id ON characters(character_id);
-    -- character_idでの検索 (UNIQUEだが明示的に)
+-- NOTE: idx_characters_character_id は不要 — character_id の UNIQUE 制約が自動的にインデックスを作成する
 
 -- components
 CREATE INDEX idx_components_type ON components(type);
@@ -3236,6 +3336,18 @@ CREATE TRIGGER trg_content_updated_at
     BEFORE UPDATE ON content
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+CREATE TRIGGER trg_content_sections_updated_at
+    BEFORE UPDATE ON content_sections
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER trg_publications_updated_at
+    BEFORE UPDATE ON publications
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER trg_analyses_updated_at
+    BEFORE UPDATE ON analyses
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
 CREATE TRIGGER trg_hypotheses_updated_at
     BEFORE UPDATE ON hypotheses
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -3307,10 +3419,10 @@ CREATE TRIGGER trg_system_settings_updated_at
 ```
 1. 戦略サイクルグラフ
    cycles (INSERT) → hypotheses (INSERT) → content (INSERT, status='pending_approval' or 'planned')
-     ※ REQUIRE_HUMAN_APPROVAL=true → status='pending_approval' (人間の承認待ち)
-     ※ REQUIRE_HUMAN_APPROVAL=false → status='planned' (直接制作待ち)
+     ※ HUMAN_REVIEW_ENABLED=true → status='pending_approval' (人間の承認待ち)
+     ※ HUMAN_REVIEW_ENABLED=false → status='planned' (直接制作待ち)
                                                 │
-1.5 人間承認 (REQUIRE_HUMAN_APPROVAL=true時のみ) │
+1.5 人間承認 (HUMAN_REVIEW_ENABLED=true時のみ) │
    Dashboard上で人間がレビュー                    │
    → 承認: content (UPDATE, status='planned', approved_by, approved_at)
    → 差戻: content (UPDATE, approval_feedback) ※ステータスはpending_approvalのまま
@@ -3343,6 +3455,8 @@ CREATE TRIGGER trg_system_settings_updated_at
 ※ サイクル終了時に agent_reflections (INSERT) が各エージェントから生成される
 ※ 振り返りから agent_individual_learnings (INSERT or UPDATE) が蓄積される
 ※ エージェントが人間に伝えたい内容がある場合 agent_communications (INSERT) が生成される
+※ いずれのステップでも人間の判断またはシステム判断により content (UPDATE, status='cancelled') で中止可能
+   cancelled: 人間がダッシュボードからキャンセル / revision_count > MAX_CONTENT_REVISION_COUNT / 致命的エラー
 
 6. ツール管理サイクル（横断的）
    tool_external_sources (INSERT) ← Tool Specialistが外部情報を収集

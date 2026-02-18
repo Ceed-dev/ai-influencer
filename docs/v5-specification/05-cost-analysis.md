@@ -192,8 +192,10 @@ v5.0ではGoogle Sheetsベースからの移行に伴い、PostgreSQLホステ�
 |-------------|---------|------|
 | GCE VM (本番) | e2-standard-4 (4vCPU, 16GB) | ~$120/月 |
 | PostgreSQL | Cloud SQL (PostgreSQL 16+ / pgvector) | ~$70/月 |
-| Google Drive | Shared Drive (Google Workspace) | 既存契約 ($0追加) |
+| Google Drive | Shared Drive (Google Workspace) | 既存契約 ($0追加) ※1 |
 | Dockerオーバーヘッド | GCE VM上で実行 | **$0** (追加クラウドサービスなし) |
+
+> ※1 Google Driveストレージ: 現在Shared Driveで$0だが、大規模運用時にGoogle Workspace Business Standard ($12/user/month, 2TB)が必要になる可能性あり
 | ドメイン/SSL | 不要 (内部システム) | $0 |
 
 **GCE VMのスペック選定理由**:

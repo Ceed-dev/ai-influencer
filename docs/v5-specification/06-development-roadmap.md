@@ -318,7 +318,7 @@ Step 5: 全体E2Eテスト
 - [ ] LangGraph Agent + MCP Server結合テスト通過
 - [ ] Dashboard + API結合テスト通過
 - [ ] 全体E2Eテスト通過（仮説→計画→[人間承認]→制作→投稿→計測→分析→学習）
-- [ ] 人間承認フロー（`REQUIRE_HUMAN_APPROVAL = true`）がLangGraph interruptで正常動作
+- [ ] 人間承認フロー（`HUMAN_REVIEW_ENABLED = true`）がLangGraph interruptで正常動作
 - [ ] 24時間の無人稼働テスト成功
 
 **M6: 本番Ready**
@@ -382,13 +382,15 @@ Step 5: 全体E2Eテスト
 <details>
 <summary>従来のPhase依存型ロードマップ（クリックで展開）</summary>
 
+> 注: 以下の従来ロードマップはsystem_settingsテーブル追加前の内容を26テーブルに更新して保持している
+
 ### フェーズ概要
 
 v5.0の開発は5フェーズに分割する。各フェーズは前フェーズの成果物に依存するため、基本的に直列で進行する。ただし、プラットフォームAPI審査の申請は Phase 1 から並行して開始する。
 
 | Phase | 名称 | 期間 | 週数 | 目的 | 主要成果物 |
 |-------|------|------|------|------|-----------|
-| 1 | データ基盤 | 2/16 - 3/7 | 3週 | 全データの一元管理基盤を構築 | Docker環境 + PostgreSQL (25テーブル) + pgvector + MCP Server + データ移行完了 |
+| 1 | データ基盤 | 2/16 - 3/7 | 3週 | 全データの一元管理基盤を構築 | Docker環境 + PostgreSQL (26テーブル) + pgvector + MCP Server + データ移行完了 |
 | 2 | ワーカー層 | 3/9 - 3/28 | 3週 | DB駆動のパイプラインを稼働させる | 動画制作・テキスト制作・投稿・計測ワーカーがDB起点で動作 + Docker化 |
 | 3 | インテリジェンス層 | 3/30 - 4/25 | 4週 | AIが自律的に市場調査・分析・学習・データキュレーションする | リサーチャー + アナリスト + ツールスペシャリスト + データキュレーター + 仮説検証 + pgvector検索 + コンポーネント自動生成 + プロンプト自動提案 |
 | 4 | 戦略・計画層 | 4/27 - 5/23 | 4週 | 全自動サイクルを完成させる | 戦略Agent + プランナー + 全プラットフォーム対応 |
@@ -407,7 +409,7 @@ Phase 1: データ基盤
       ████ ████ ████
       Docker スキ  MCP
       +DB    ーマ  Server
-      構築  25tbl
+      構築  26tbl
 
 Phase 2: ワーカー層
                      ████ ████ ████
@@ -436,7 +438,7 @@ Phase 5: ダッシュボード + スケール
       ▲                    ▲              ▲                   ▲                   ▲
       M1                   M2             M3                  M4                  M5
       Docker+DB            DB駆動PL       AI学習+             全自動               Docker
-      25tbl稼働            +Docker化      ツールSP             サイクル              完全移行
+      26tbl稼働            +Docker化      ツールSP             サイクル              完全移行
                                                                                   +本番
 ```
 
@@ -463,7 +465,7 @@ Phase 5: ダッシュボード + スケール
 | 火 | `hypotheses` + `market_intel` テーブル + HNSWインデックス | Intelligence前半 |
 | 水 | `metrics` + `analyses` + `learnings` テーブル | Intelligence後半 |
 | 木 | Operations 4テーブル + Observability 5テーブル | 9テーブル |
-| 金 | Tool Management 5テーブル + 全トリガー + 全インデックス | **25テーブル完成** |
+| 金 | Tool Management 5テーブル + system_settings + 全トリガー + 全インデックス | **26テーブル完成** |
 | 土 | Sheetsデータ → PostgreSQL移行スクリプト作成・実行 | 既存データ移行完了 |
 
 #### Week 3 (3/2 - 3/7): MCP Server構築
@@ -574,7 +576,7 @@ Phase 5: ダッシュボード + スケール
 
 | ID | マイルストーン | 予定日 | 判定基準 |
 |----|-------------|--------|---------|
-| M1 | DB稼働 | 3/7 (W3土) | Docker + PostgreSQL 25テーブル + MCP Server ~33ツール |
+| M1 | DB稼働 | 3/7 (W3土) | Docker + PostgreSQL 26テーブル + MCP Server ~33ツール |
 | M2 | DB駆動パイプライン完成 | 3/28 (W6土) | DB起点でfull status遷移 + Docker化 |
 | M3 | AI学習開始 | 4/25 (W10土) | 4エージェント稼働 + 仮説駆動サイクル |
 | M4 | 全自動サイクル | 5/23 (W14土) | 4PF対応 + 72時間連続稼働 |

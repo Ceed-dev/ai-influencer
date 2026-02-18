@@ -1058,7 +1058,7 @@ interface StrategyCycleState {
 
   // システム設定
   config: {
-    REQUIRE_HUMAN_APPROVAL: boolean; // system_settings、デフォルト: true（初期フェーズは人間承認必須）
+    HUMAN_REVIEW_ENABLED: boolean; // system_settings、デフォルト: true（初期フェーズは人間承認必須）
   };
 
   // セルフリフレクション (reflect_allノード出力)
@@ -1147,7 +1147,7 @@ const strategyCycleGraph = new StateGraph<StrategyCycleState>()
   // 条件分岐: 承認 or 差戻し
   .addConditionalEdges("approve_plan", (state) => {
     if (state.approval.status === 'approved') {
-      if (state.config.REQUIRE_HUMAN_APPROVAL) {
+      if (state.config.HUMAN_REVIEW_ENABLED) {
         return "human_approval"; // 人間承認ステップへ
       }
       return "reflect_all"; // 人間承認不要 → 直接リフレクション
@@ -1321,19 +1321,23 @@ const app = strategyCycleGraph.compile({ checkpointer });
 
 #### レビューステップ
 
-制作完了後のコンテンツは品質評価を経てルーティングされる。HUMAN_REVIEW_ENABLED（system_settings、デフォルト: false）の設定により、人間レビューを必須にするか自動承認するかを切り替える。
+制作完了後のコンテンツは品質評価を経てルーティングされる。HUMAN_REVIEW_ENABLED（system_settings、デフォルト: true）の設定により、人間レビューを必須にするか自動承認するかを切り替える。
 
 ```
 produce_content → assess_quality → route_review
-  → (HUMAN_REVIEW_ENABLED=false) → schedule_posting
-  → (quality_score >= AUTO_APPROVE_SCORE_THRESHOLD) → auto_approve → schedule_posting
-  → (quality_score < threshold) → pending_review → [wait for human]
-    → approved → schedule_posting
-    → rejected → revision_planning → produce_content (再制作)
+  HUMAN_REVIEW_ENABLED=true (デフォルト):
+    → 全コンテンツ → pending_review → [wait for human]
+      → approved → schedule_posting
+      → rejected → revision_planning → produce_content (再制作)
+  HUMAN_REVIEW_ENABLED=false:
+    → (quality_score >= AUTO_APPROVE_SCORE_THRESHOLD) → auto_approve → schedule_posting
+    → (quality_score < AUTO_APPROVE_SCORE_THRESHOLD) → pending_review → [wait for human]
+      → approved → schedule_posting
+      → rejected → revision_planning → produce_content (再制作)
 ```
 
-- `AUTO_APPROVE_SCORE_THRESHOLD`（system_settings、デフォルト: 7.0）— この閾値以上の品質スコアを持つコンテンツは自動承認される
-- `HUMAN_REVIEW_ENABLED`（system_settings、デフォルト: false）— trueの場合、全コンテンツに人間レビューを必須とする（初期フェーズ推奨）
+- `AUTO_APPROVE_SCORE_THRESHOLD`（system_settings、デフォルト: 8.0）— この閾値以上の品質スコアを持つコンテンツは自動承認される
+- `HUMAN_REVIEW_ENABLED`（system_settings、デフォルト: true）— trueの場合、全コンテンツに人間レビューを必須とする（初期フェーズ推奨）
 
 **revision_planningノード**:
 
@@ -1420,7 +1424,7 @@ interface SectionResult {
 
 ### 5.3 グラフ3: 投稿スケジューラーグラフ (Publishing Scheduler Graph)
 
-**実行頻度**: 連続（POSTING_POLL_INTERVAL_SEC（system_settings、デフォルト: 30）秒ポーリング）
+**実行頻度**: 連続（POSTING_POLL_INTERVAL_SEC（system_settings、デフォルト: 120）秒ポーリング）
 **参加エージェント**: 投稿ワーカー (コード)
 **目的**: `ready` ステータスのコンテンツを適切なタイミングで投稿する
 
@@ -4612,12 +4616,12 @@ Phase 4以降 (エージェント運用中):
 
 | 障害シナリオ | リカバリー動作 | 記録先 |
 |------------|--------------|--------|
-| Kling生成失敗 | 共通リトライ。`MAX_RETRY_ATTEMPTS` 回失敗で `task_queue.status='failed_permanent'` | `task_queue.last_error` に詳細記録 |
-| TTS生成失敗 | 共通リトライ。Fish Audio API障害時はタスクを `status='waiting'` で保留 | `task_queue.last_error` に詳細記録 |
+| Kling生成失敗 | 共通リトライ。`MAX_RETRY_ATTEMPTS` 回失敗で `task_queue.status='failed_permanent'` | `task_queue.error_message` に詳細記録 |
+| TTS生成失敗 | 共通リトライ。Fish Audio API障害時はタスクを `status='waiting'` で保留 | `task_queue.error_message` に詳細記録 |
 | リップシンク失敗 | 共通リトライ。失敗時はリップシンクなし版で代替（品質低下を `content.metadata` に記録） | `tool_experiences` に失敗記録 |
-| fal.ai残高不足（HTTP 403） | 即座に全制作タスクを `status='waiting'` に変更。`agent_communications` (message_type='anomaly_alert', priority='urgent') でダッシュボードにアラート | `task_queue.last_error` = 'fal_balance_exhausted' |
+| fal.ai残高不足（HTTP 403） | 即座に全制作タスクを `status='waiting'` に変更。`agent_communications` (message_type='anomaly_alert', priority='urgent') でダッシュボードにアラート | `task_queue.error_message` = 'fal_balance_exhausted' |
 | セクション途中失敗 | 完了済みセクションはチェックポイントに保持。失敗セクションのみ再実行 | チェックポイントDBに保存 |
-| ffmpeg concat失敗 | blackdetect + auto-trim で再試行。再失敗時はCRF値を下げて再エンコード | `task_queue.last_error` に詳細記録 |
+| ffmpeg concat失敗 | blackdetect + auto-trim で再試行。再失敗時はCRF値を下げて再エンコード | `task_queue.error_message` に詳細記録 |
 
 #### 投稿ワーカー (Posting Worker)
 
@@ -4625,7 +4629,7 @@ Phase 4以降 (エージェント運用中):
 |------------|--------------|--------|
 | OAuthトークン期限切れ | トークンリフレッシュ試行。失敗時はアカウントを `accounts.status='suspended'` に変更 | `agent_communications` (message_type='anomaly_alert') |
 | Rate Limit | `POSTING_TIME_JITTER_MIN`（system_settings、デフォルト: 5）分を増やして再スケジュール | `task_queue.scheduled_at` を更新 |
-| 投稿API失敗 | 共通リトライ。永続失敗時は `content.status` を 'ready' に戻す（再投稿可能） | `publications.status` = 'failed'、`task_queue.last_error` に詳細記録 |
+| 投稿API失敗 | 共通リトライ。永続失敗時は `content.status` を 'ready' に戻す（再投稿可能） | `publications.status` = 'failed'、`task_queue.error_message` に詳細記録 |
 | プラットフォーム一時停止 | 該当プラットフォームの全投稿タスクを `PLATFORM_COOLDOWN_HOURS`（system_settings、デフォルト: 24）時間保留 | `agent_communications` (message_type='anomaly_alert') |
 
 #### 計測ワーカー (Measurement Worker)
@@ -4777,6 +4781,25 @@ worker_pool_size = CEIL(daily_production_target / WORKER_THROUGHPUT_PER_HOUR)
 [プラットフォーム] ─────── 48h+ ──────────────────────────────┘
 ```
 
+#### エージェント別データアクセスマトリクス
+
+各エージェントがどのテーブルにWRITE（書き込み）/ READ（読み取り）するかのサマリー。
+
+| Agent | Writes To | Reads From |
+|-------|-----------|------------|
+| Strategist | hypotheses, human_directives | learnings, global_learnings, metrics, analyses |
+| Researcher | market_intel | hypotheses, tool_catalog, tool_external_sources |
+| Analyst | analyses, learnings, content_quality_scores | metrics, hypotheses, market_intel |
+| Planner | content, content_sections, task_queue | hypotheses, accounts, characters, components, learnings |
+| ToolSpecialist | tool_catalog, tool_external_sources, tool_performance_logs | tool_catalog, api_usage_logs |
+| DataCurator | components, prompt_versions, prompt_suggestions, global_learnings | agent_individual_learnings, learnings, content_quality_scores |
+| VideoWorker | content (status update), content_sections | content, content_sections, components, characters |
+| TextWorker | content (text fields) | content, characters, components, hypotheses |
+| PostingWorker | publications | content, accounts |
+| MeasureWorker | metrics | publications, accounts |
+
+> **注**: 全エージェントが共通で `agent_thought_logs`（思考ログ）と `agent_individual_learnings`（個別学習）に書き込む。上表ではドメイン固有のテーブルのみ記載。
+
 ### 18.2 学習の4段階
 
 #### 段階1: データ収集 (Measurement Worker → metrics)
@@ -4793,7 +4816,7 @@ worker_pool_size = CEIL(daily_production_target / WORKER_THROUGHPUT_PER_HOUR)
 |------|------|
 | **仮説の予測値 vs 実績値** | prediction_error = \|predicted - actual\| / actual |
 | **判定基準** | < 0.3 → confirmed、0.3〜0.5 → inconclusive、> 0.5 → rejected（セクション17.1参照） |
-| **異常検知** | 平均 ± `ANOMALY_DETECTION_SIGMA`（デフォルト: 2.0）× 標準偏差（セクション17.3参照） |
+| **異常検知** | 平均 ± `ANOMALY_DETECTION_SIGMA`（system_settings、デフォルト: 2.0）× 標準偏差（セクション17.3参照） |
 
 #### 段階3: 知見抽出 (Analyst → learnings)
 
@@ -4826,15 +4849,15 @@ worker_pool_size = CEIL(daily_production_target / WORKER_THROUGHPUT_PER_HOUR)
 | **自己評価** | self_score（1-10）を自己評価 |
 | **記録内容** | what_went_well, what_to_improve, next_actions |
 
-**自己評価ルーブリック**:
+**自己反省スコア詳細ルーブリック (1-10)**:
 
-| スコア | 基準 |
-|--------|------|
-| 9-10 | 目標を大幅超過。革新的なアプローチを発見した |
-| 7-8 | 目標達成。安定した実行ができた |
-| 5-6 | 部分的な成功。改善余地が明確にある |
-| 3-4 | 目標未達。明確な問題が発生した |
-| 1-2 | 重大な失敗。根本的な見直しが必要 |
+| スコア | レベル | 基準 |
+|--------|--------|------|
+| 1-2 | Critical Failure | トピック/ニッチの完全な誤り、有害・攻撃的なコンテンツ、ブランドからの完全な逸脱、信頼性を損なう事実誤認 |
+| 3-4 | Major Issues | エンゲージメント見込みが低い、ターゲットオーディエンスの不一致、ありきたりでつまらないフック、明確な価値提案の欠如、ブランド一貫性の大きなずれ |
+| 5-6 | Acceptable | オントピックだが汎用的、予測可能な構成、十分だがインスピレーションに欠ける、大きなエラーはないが際立った品質もない、基本的なオーディエンス適合 |
+| 7-8 | Good | 引きのあるフック、明確な価値提案、オーディエンスに適したトーン、独自の角度や新規性がある、良好なブランド適合、ポジティブなエンゲージメントが見込める |
+| 9-10 | Excellent | バイラルポテンシャル、高い独自性、完璧なオーディエンス適合、強い感情的共鳴、卓越なストーリーテリング、革新的なフォーマット活用、シェア/保存を大きく促進する可能性 |
 
 #### 知見抽出 (reflections → individual_learnings)
 
@@ -4891,7 +4914,7 @@ confidence更新ルール:
 - リサーチャーの市場情報（market_intel 要約）
 - 人間の指示（human_directives 未処理分）
 - 前サイクルの反省（agent_reflections）
-- 蓄積された知見（learnings、confidence >= LEARNING_CONFIDENCE_THRESHOLD のもの）
+- 蓄積された知見（learnings、confidence >= LEARNING_CONFIDENCE_THRESHOLD（system_settings、デフォルト: 0.7）のもの）
 
 ## 出力
 1. サイクルポリシー: 今日の重点施策（JSON形式）
@@ -4902,11 +4925,12 @@ confidence更新ルール:
 - KPI達成率が低いアカウント群を優先
 - confirmed仮説に基づく施策を推奨
 - rejected仮説のパターンを回避
-- DAILY_BUDGET_LIMIT_USDを超えない配分
+- DAILY_BUDGET_LIMIT_USD（system_settings、デフォルト: 100）を超えない配分
+- EXPLORATION_RATE（system_settings、デフォルト: 0.15）に基づき、リソースの15%を実験的施策に割り当て、85%を実証済みアプローチに配分する
 
 ## 制約
-- HYPOTHESIS_CYCLE_INTERVAL_HOURS設定に従い実行（デフォルト: 1日1回）
-- 大規模な方針変更はSTRATEGY_APPROVAL_REQUIRED=trueの場合、人間の承認を待つ
+- HYPOTHESIS_CYCLE_INTERVAL_HOURS（system_settings、デフォルト: 24）時間間隔で実行
+- 大規模な方針変更はSTRATEGY_APPROVAL_REQUIRED（system_settings、デフォルト: true）の場合、人間の承認を待つ
 - 全ての判断根拠をagent_thought_logsに記録すること
 ```
 
@@ -4945,7 +4969,7 @@ confidence更新ルール:
 }
 
 ## 制約
-- RESEARCHER_POLL_INTERVAL_HOURS間隔で実行
+- RESEARCHER_POLL_INTERVAL_HOURS（system_settings、デフォルト: 6）時間間隔で実行
 - 重複情報はembedding類似度で検出（cosine >= 0.9は同一とみなす）
 - 全ての調査ログをagent_thought_logsに記録
 ```
@@ -4963,20 +4987,20 @@ confidence更新ルール:
 ## 4つの分析タイプ
 1. cycle_review: サイクル全体の振り返り → algorithm_performance更新
 2. hypothesis_verification: 個別仮説の予測 vs 実績比較 → verdict更新
-3. anomaly_detection: ANOMALY_DETECTION_SIGMA超の変動検知
+3. anomaly_detection: ANOMALY_DETECTION_SIGMA（system_settings、デフォルト: 2.0）超の変動検知
 4. trend_analysis: 中長期パターン分析 → learnings抽出
 
 ## 仮説判定基準
 prediction_error = |predicted - actual| / actual
-- < HYPOTHESIS_CONFIRM_THRESHOLD (デフォルト: 0.3) → confirmed (的中)
-- < HYPOTHESIS_INCONCLUSIVE_THRESHOLD (デフォルト: 0.5) → inconclusive (判定保留)
+- < HYPOTHESIS_CONFIRM_THRESHOLD (system_settings、デフォルト: 0.3) → confirmed (的中)
+- < HYPOTHESIS_INCONCLUSIVE_THRESHOLD (system_settings、デフォルト: 0.5) → inconclusive (判定保留)
 - >= 0.5 → rejected (外れ)
 
 ## 知見抽出基準
 - confirmed仮説から汎化可能なパターンを抽出
 - 知見のcategory: content/timing/audience/platform/niche
 - 初期confidence = 0.5
-- embedding生成して類似既存知見と統合判定 (cosine >= LEARNING_SIMILARITY_THRESHOLD)
+- embedding生成して類似既存知見と統合判定 (cosine >= LEARNING_SIMILARITY_THRESHOLD（system_settings、デフォルト: 0.8）)
 
 ## 出力
 - analyses: findings (JSONB) + recommendations (JSONB)
@@ -4985,8 +5009,8 @@ prediction_error = |predicted - actual| / actual
 - algorithm_performance: 精度メトリクス更新
 
 ## 制約
-- メトリクス到着後に自動トリガー（METRICS_COLLECTION_DELAY_HOURS経過分）
-- サンプルサイズANALYSIS_MIN_SAMPLE_SIZE（デフォルト: 5）未満の場合はinconclusiveと判定
+- メトリクス到着後に自動トリガー（METRICS_COLLECTION_DELAY_HOURS（system_settings、デフォルト: 48）時間経過分）
+- サンプルサイズANALYSIS_MIN_SAMPLE_SIZE（system_settings、デフォルト: 5）未満の場合はinconclusiveと判定
 - 全ての分析ログをagent_thought_logsに記録
 ```
 
@@ -4996,14 +5020,14 @@ prediction_error = |predicted - actual| / actual
 あなたはAIインフルエンサー運用システムのコンテンツ企画担当です。
 
 ## 役割
-- 担当アカウント群（PLANNER_ACCOUNTS_PER_INSTANCE、デフォルト50）のコンテンツを企画します
+- 担当アカウント群（PLANNER_ACCOUNTS_PER_INSTANCE（system_settings、デフォルト: 50））のコンテンツを企画します
 - 戦略エージェントのポリシーに基づき、各アカウントの投稿プランを作成します
 - 仮説を立ててA/Bテストを設計します
 
 ## 入力情報
 - 戦略エージェントのサイクルポリシー
 - 担当アカウント群の最新メトリクス
-- 関連する知見（learnings, confidence >= LEARNING_CONFIDENCE_THRESHOLD）
+- 関連する知見（learnings, confidence >= LEARNING_CONFIDENCE_THRESHOLD（system_settings、デフォルト: 0.7））
 - 利用可能なコンポーネント（components, score >= QUALITY_FILTER_THRESHOLD）
 - 前サイクルの反省（agent_reflections）
 
@@ -5013,19 +5037,20 @@ prediction_error = |predicted - actual| / actual
 3. hypothesesレコード作成（このコンテンツで検証する仮説）
 
 ## コンテンツプラン作成ルール
-- 1アカウント × MAX_POSTS_PER_ACCOUNT_PER_DAY件のプランを作成
+- 1アカウント × MAX_POSTS_PER_ACCOUNT_PER_DAY（system_settings、デフォルト: 2）件のプランを作成
 - 各コンテンツにhypothesis_idを紐付け（何を検証するか明確に）
 - コンポーネント選択はTool Specialistのレシピ推奨に従う
 - 品質スコアが低いアカウントは知見の適用を増やす
+- **探索 vs 活用のバランス**: EXPLORATION_RATE（system_settings、デフォルト: 0.15）の確率で実験的アプローチ（未検証の仮説、新規コンポーネント、新しいフォーマット）を採用し、残り（1 - EXPLORATION_RATE）の確率で実証済み（confirmed仮説ベース）のアプローチを採用する
 
 ## 仮説設計
 - predicted_kpis: 予測値をJSON形式で記載 (例: {"views": 5000, "engagement_rate": 0.03})
 - category: hook_format/posting_time/content_length/hashtags/narrative_structure/niche_selection/platform_strategy
-- 同一仮説カテゴリの連続テストは最大HYPOTHESIS_SAME_CATEGORY_MAX（デフォルト: 3）回まで
+- 同一仮説カテゴリの連続テストは最大HYPOTHESIS_SAME_CATEGORY_MAX（system_settings、デフォルト: 3）回まで
   （結論が出なければinconclusiveで次へ）
 
 ## 制約
-- DAILY_BUDGET_LIMIT_USD / active_account_count の予算内でレシピ選択
+- DAILY_BUDGET_LIMIT_USD（system_settings、デフォルト: 100）/ active_account_count の予算内でレシピ選択
 - 全ての企画ログをagent_thought_logsに記録
 ```
 
@@ -5060,7 +5085,7 @@ prediction_error = |predicted - actual| / actual
 - テスト制作（dry_run）の結果がquality_score >= RECIPE_MIN_QUALITY (デフォルト: 6.0) で本番使用可能
 
 ## 制約
-- 推奨レシピがRECIPE_FAILURE_THRESHOLD（デフォルト: 3）回連続失敗した場合はis_active=falseに変更
+- 推奨レシピがRECIPE_FAILURE_THRESHOLD（system_settings、デフォルト: 3）回連続失敗した場合はis_active=falseに変更
 - ツールAPI仕様変更の検知時はtool_catalog.quirksを即座に更新
 - 全ての判断ログをagent_thought_logsに記録
 ```

@@ -29,18 +29,21 @@
 | ファイルストレージ | Google Drive (Shared Drive) | 動画・画像・音声ファイル保存 | 既存構造を継続 |
 | プロセス管理 | PM2 | Node.jsプロセスの常駐管理・自動再起動 | 既存設定を拡張 |
 | コンテナ化 | Docker + docker-compose | コンテナ化基盤 | 段階的導入（Phase 1からPostgreSQLを開始） |
+| Docker: App | node:20-slim | アプリケーションコンテナのベースイメージ | 軽量Node.js 20 LTS |
+| Docker: DB | pgvector/pgvector:pg16 | PostgreSQL + pgvectorコンテナ | dev環境用（本番はCloud SQL） |
+| Docker: Pool | edoburu/pgbouncer:1.22 | コネクションプールコンテナ | Phase 5で導入 |
 | 環境分離 | docker-compose.dev.yml / docker-compose.prod.yml | 開発/本番環境の分離 | 設定・シークレット・ポートを環境別に管理 |
-| GCP Project | `ai-influencer` | GCE, Cloud SQL, Cloud API等 | 新規専用プロジェクト |
+| GCP Project | `video-analytics-hub` | GCE, Cloud SQL, Cloud API等 | 既存プロジェクト再利用 |
 | コネクションプール | pgBouncer | Dashboard + MCP Serverの接続共有 | Phase 5で導入 |
 
 ## AIエージェント層
 
 | コンポーネント | 技術 | バージョン | 用途 |
 |---|---|---|---|
-| オーケストレーション | LangGraph.js | v1.0 GA | エージェントのグラフ定義・ステート管理・チェックポイント |
-| LLM (戦略) | Claude Opus 4.6 | via Anthropic API | 戦略エージェントの高度な推論 |
-| LLM (計画・実行) | Claude Sonnet 4.5 | via Anthropic API | アナリスト・プランナー・リサーチャー・データキュレーター・ワーカーのコスト効率実行 |
-| ツールスペシャリスト | Claude Sonnet 4.5 | via Anthropic API | AIツール特性の学習・最適ツール選択の推奨 |
+| オーケストレーション | LangGraph.js (@langchain/langgraph) | 0.2.19 | エージェントのグラフ定義・ステート管理・チェックポイント |
+| LLM (戦略) | Claude Opus 4.6 | via @langchain/anthropic 0.3.x | 戦略エージェントの高度な推論 |
+| LLM (計画・実行) | Claude Sonnet 4.5 | via @langchain/anthropic 0.3.x | アナリスト・プランナー・リサーチャー・データキュレーター・ワーカーのコスト効率実行 |
+| ツールスペシャリスト | Claude Sonnet 4.5 | via @langchain/anthropic 0.3.x | AIツール特性の学習・最適ツール選択の推奨 |
 | AI-DB接続 | MCP Server (自作) | Node.js | エージェントがPostgreSQLにアクセスするインターフェース (89 MCPツール + 13 REST API) |
 | MCP Adapters | langchain-mcp-adapters | npm | LangGraphからMCPサーバーを呼び出すアダプター |
 
@@ -133,13 +136,13 @@ X投稿などのテキストコンテンツ生成。動画制作ワーカー（�
 
 | コンポーネント | 技術 | バージョン | 用途 |
 |---|---|---|---|
-| フレームワーク | Next.js | 14+ (App Router) | フルスタックReactフレームワーク |
-| UIライブラリ | Shadcn/ui | latest | UIコンポーネントライブラリ（Tailwind CSS ベース） |
-| CSS | Tailwind CSS | 3.x | ユーティリティファーストCSS |
-| グラフ描画 | Recharts | 2.x | KPIグラフ・チャート描画 |
-| ダッシュボードUI | Tremor | 3.x | ダッシュボード特化UIコンポーネント |
-| DB接続 | Prisma or Drizzle ORM | — | PostgreSQLへの型安全クエリ |
-| マークダウンエディタ | Monaco Editor or MDXEditor | — | プロンプト編集UI |
+| フレームワーク | Next.js | 14.2.18 (App Router) | フルスタックReactフレームワーク |
+| UIライブラリ | Shadcn/ui | latest (CLI生成) | UIコンポーネントライブラリ（Tailwind CSS ベース） |
+| CSS | Tailwind CSS | 3.4.17 | ユーティリティファーストCSS |
+| グラフ描画 | Recharts | 2.12.7 | KPIグラフ・チャート描画 |
+| ダッシュボードUI | Tremor | 3.17.4 | ダッシュボード特化UIコンポーネント |
+| DB接続 | Drizzle ORM | 0.36.x | PostgreSQLへの型安全クエリ。SQL-first、軽量ランタイム、TypeScript型推論に優れ、バイナリエンジン不要 |
+| コードエディタ | Monaco Editor (@monaco-editor/react) | 4.x | プロンプト・設定値の編集UI。フルコード編集・シンタックスハイライト対応 |
 
 ### デザインシステム
 
@@ -160,6 +163,22 @@ Dark/Lightの切り替えは `system_settings.DASHBOARD_THEME` で制御（デ�
 | Warning | `#b58900` (yellow) | `#b58900` | `--status-warning` |
 | Error | `#dc322f` (red) | `#dc322f` | `--status-error` |
 | Info | `#268bd2` (blue) | `#268bd2` | `--status-info` |
+| Border | `#586e75` | `#93a1a1` | `--border` |
+| Border Subtle | `#073642` | `#eee8d5` | `--border-subtle` |
+| Hover | `#073642` | `#eee8d5` | `--hover` |
+| Focus Ring | `#268bd2` | `#268bd2` | `--focus-ring` |
+| Chart 1 | `#268bd2` | `#268bd2` | `--chart-1` |
+| Chart 2 | `#2aa198` | `#2aa198` | `--chart-2` |
+| Chart 3 | `#859900` | `#859900` | `--chart-3` |
+| Chart 4 | `#b58900` | `#b58900` | `--chart-4` |
+| Chart 5 | `#d33682` | `#d33682` | `--chart-5` |
+
+Shadow トークン:
+| トークン | 値 |
+|---------|-----|
+| `--shadow-sm` | `0 1px 2px rgba(0,0,0,0.2)` |
+| `--shadow-md` | `0 4px 6px rgba(0,0,0,0.3)` |
+| `--shadow-lg` | `0 10px 15px rgba(0,0,0,0.3)` |
 
 #### フォント: Nunito
 
@@ -171,6 +190,19 @@ Dark/Lightの切り替えは `system_settings.DASHBOARD_THEME` で制御（デ�
 | 本文 | Nunito | 14px | 400 (Regular) |
 | ラベル | Nunito | 12px | 500 (Medium) |
 | コード・ログ | JetBrains Mono | 13px | 400 (Regular) |
+
+**タイポグラフィ詳細**:
+
+| 要素 | line-height | letter-spacing |
+|------|-------------|----------------|
+| h1 | 1.2 | -0.02em |
+| h2 | 1.3 | 0 |
+| h3 | 1.4 | 0 |
+| body | 1.6 | 0 |
+| label | 1.4 | 0 |
+| code | 1.5 | 0.05em |
+
+**font-family フォールバック**: `'Nunito', 'Segoe UI', system-ui, -apple-system, sans-serif`
 
 選定理由: 丸みを帯びたグリフデザインで親しみやすいUI。Google Fonts提供で無料。
 
@@ -231,7 +263,7 @@ Dark/Lightの切り替えは `system_settings.DASHBOARD_THEME` で制御（デ�
 
 | ツール | 用途 |
 |---|---|
-| Node.js 20+ | ランタイム |
+| Node.js 20.11.1 LTS | ランタイム |
 | TypeScript | 型安全な開発 (v5.0から導入) |
 | Jest | テストフレームワーク |
 | dotenv | 環境変数管理 |
@@ -244,6 +276,6 @@ Dark/Lightの切り替えは `system_settings.DASHBOARD_THEME` で制御（デ�
 
 | 用途 | モデル | 次元数 | 備考 |
 |---|---|---|---|
-| 仮説の類似検索 | text-embedding-3-small (OpenAI) or Voyage-3 (Anthropic) | 1536 | コスト効率重視 |
-| 市場調査の類似検索 | 同上 | 1536 | |
-| 知見の類似検索 | 同上 | 1536 | |
+| 仮説の類似検索 | text-embedding-3-small (OpenAI) | 1536 | $0.02/MTok。広く利用され、十分なドキュメントが存在 |
+| 市場調査の類似検索 | text-embedding-3-small (OpenAI) | 1536 | 同上 |
+| 知見の類似検索 | text-embedding-3-small (OpenAI) | 1536 | 同上 |

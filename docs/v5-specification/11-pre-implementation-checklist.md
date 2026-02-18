@@ -36,11 +36,12 @@ Agent Teamが並列実装を開始する前に、人間（Shungo）が完了し�
 
 | # | 作業 | 詳細 | ステータス |
 |---|------|------|----------|
-| 1 | Cloud SQL インスタンス作成 | PostgreSQL 16 + pgvector 拡張有効化。GCPプロジェクト: `video-analytics-hub` | ☐ |
+| 1 | Cloud SQL インスタンス作成 | PostgreSQL 16 + pgvector 拡張有効化。GCPプロジェクト: `video-analytics-hub` (既存プロジェクト再利用) | ☐ |
 | 2 | Cloud SQL 接続設定 | Private IP or Cloud SQL Proxy 設定。GCE VMからの接続確認 | ☐ |
 | 3 | GCE VM 確認 | 16GB RAM, 4vCPU, 48GB+ disk。Node.js 20+, Docker, Docker Compose インストール確認 | ☐ |
 | 4 | Docker 環境確認 | `docker --version`, `docker compose --version` 正常動作確認 | ☐ |
 | 5 | Git リポジトリ準備 | v5用ブランチ（`develop`）作成、`.gitignore` 更新 | ☐ |
+| 6 | 監視・アラート基盤の準備 | Cloud Monitoring + Error Reporting の有効化 | ☐ |
 
 ### 2.2 AIサービス API キー
 
@@ -50,6 +51,7 @@ Agent Teamが並列実装を開始する前に、人間（Shungo）が完了し�
 | 2 | fal.ai | fal.ai/dashboard → API Keys | 従量課金（$1,000+で40並列） | ☐ |
 | 3 | Fish Audio | fish.audio → API Keys (Plus plan必須) | $11/月 | ☐ |
 | 4 | OpenAI (Embedding) | platform.openai.com → API Keys | 従量課金（微小） | ☐ |
+| 5 | Anthropic APIキー有効性確認 | APIキーの有効性確認 + クレジット残高チェック ($50以上推奨) | - | ☐ |
 
 **注意**: 各サービスのアカウント登録 + クレジットカード登録が必要
 

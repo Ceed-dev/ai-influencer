@@ -88,6 +88,12 @@
 | 9 | dashboard-agent | general-purpose | Next.js ダッシュボード全15画面 |
 | 10 | test-agent | general-purpose | Jest + E2E + CI |
 
+#### 横断的関心事のモジュール担当
+
+**クレデンシャル管理**: text-post-agent (X/IG/TikTok投稿OAuth), measure-agent (YouTube/TikTok/IG Analytics API), infra-agent (Google Service Account, PostgreSQL接続情報)
+
+**エラーリカバリー**: 横断的関心事。各ワーカーエージェントが自モジュール内で02-architecture.md §9のパターンに従い実装。video-worker-agent, text-post-agent, measure-agentが各自のリトライ・チェックポイント処理を担当
+
 ---
 
 ## 3. ディレクトリ構造
@@ -426,7 +432,7 @@ export const getAccountsTool = {
 ### 6.9 dashboard-agent（Week 1-5）
 
 **実装内容**:
-- Next.js 14+ App Router スキャフォールド
+- Next.js 14.2.x App Router スキャフォールド
 - Solarized Dark/Light テーマ（Tailwind CSS）
 - Nunito フォント（Google Fonts）
 - レスポンシブデザイン（Mobile-first）

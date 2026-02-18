@@ -1787,6 +1787,41 @@ Phase 2 (commit `3d4a7ac`): CJKピクセル幅補正
 
 **合計**: 17,254行の仕様書（11ファイル + README）
 
+### 2026-02-18: v5.0仕様書 精度監査 + 全修正 + テスト仕様作成（Session 5）
+
+**目的**: 仕様凍結に向けた精度監査、全問題修正、テスト仕様書+エージェントハーネス仕様の新規作成
+
+**Phase 1: 精度監査** (Agent Team `spec-audit`, 5エージェント並列)
+- schema-auditor: 03 → 85/100 (CHECK制約不足, system_settings 35件欠落)
+- architecture-auditor: 02 → 82/100 (デフォルト値矛盾, テーブル一覧不完全)
+- agent-design-auditor: 04 → 82/100 (設定キー35件不足, カテゴリCHECK不一致)
+- algorithm-auditor: 08→88/100, 01→82/100 (SQL構文エラー, 技術未決定)
+- cross-file-auditor: 05-11→85-92%, クロスファイル整合性82/100
+
+**Phase 2: 全修正** (Agent Team `spec-fix`, Wave 1: 5エージェント)
+正規決定事項を統一適用:
+- HUMAN_REVIEW_ENABLED=true (REQUIRE_HUMAN_APPROVAL廃止)
+- AUTO_APPROVE_SCORE_THRESHOLD=8.0
+- QUALITY_FILTER_THRESHOLD=5.0
+- ORM=Drizzle 0.36.x, Editor=Monaco, Embedding=text-embedding-3-small
+- GCPプロジェクト=video-analytics-hub (既存再利用)
+- 全バージョンピン留め (Next.js 14.2.18, Node 20.11.1等)
+
+修正内容:
+- 03: system_settings 73件 (38件追加), CHECK制約3箇所修正, updated_at 3テーブル追加
+- 02: テーブル一覧26全件, REST API 13ルート定義, プラットフォームrate limit追加
+- 04: デフォルト値統一, 自己反省ルーブリック追加, データフローマトリクス追加
+- 01+08: 全バージョンピン, 技術決定確定, SQL構文修正, 仮説カテゴリマッピング
+- 05-11: コスト相互参照, 26テーブル統一, チェックリスト項目追加
+
+**Phase 3: 新規作成** (Wave 2: 2エージェント)
+- 12-test-specifications.md: 3,482行, 311テスト (DB55/MCP105/Worker40/Agent32/Dashboard47/Integration20/E2E12)
+- 13-agent-harness.md: 2,062行 (Anthropic "Effective Harnesses" ベース, feature_list.json設計, 品質ゲート6段階)
+
+**最終検証**: REQUIRE_HUMAN_APPROVAL=0件, last_error=0件, 25テーブル=0件
+
+**合計**: 23,110行の仕様書（13ファイル + README）, +5,856行増
+
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID
 - `.gsheets_token.json` - OAuth token for Sheets/Drive API

@@ -19,6 +19,7 @@
   - [3.5 グラフ3: 投稿スケジューラーグラフ (Publishing Scheduler)](#35-グラフ3-投稿スケジューラーグラフ-publishing-scheduler)
   - [3.6 グラフ4: 計測ジョブグラフ (Measurement Jobs)](#36-グラフ4-計測ジョブグラフ-measurement-jobs)
   - [3.7 グラフ間のDB連携フロー](#37-グラフ間のdb連携フロー)
+  - [3.8 データキュレーター (Data Curator)](#38-データキュレーター-data-curator)
 - [4. MCP Server層](#4-mcp-server層)
   - [4.1 自作MCP Server (Node.js)](#41-自作mcp-server-nodejs)
   - [4.2 MCP Serverの設計原則](#42-mcp-serverの設計原則)
@@ -43,6 +44,7 @@
   - [6.10 ダッシュボード画面一覧](#610-ダッシュボード画面一覧)
   - [6.11 ダッシュボード機能一覧 (サマリ)](#611-ダッシュボード機能一覧-サマリ)
   - [6.12 キュレーション結果レビュー (Curation Review)](#612-キュレーション結果レビュー-curation-review)
+  - [6.13 Dashboard REST API ルート定義](#613-dashboard-rest-api-ルート定義)
 - [7. データフロー図](#7-データフロー図)
   - [7.1 全体データフロー](#71-全体データフロー)
   - [7.2 エージェント共通のデータアクセスパターン](#72-エージェント共通のデータアクセスパターン)
@@ -62,6 +64,7 @@
   - [11.1 設計原則](#111-設計原則)
   - [11.2 設定値の読み込みパターン](#112-設定値の読み込みパターン)
   - [11.3 ダッシュボードの設定画面](#113-ダッシュボードの設定画面)
+  - [11.4 プラットフォームAPIレート制限](#114-プラットフォームapiレート制限)
 - [12. クレデンシャル管理アーキテクチャ](#12-クレデンシャル管理アーキテクチャ)
   - [12.1 プラットフォーム認証情報](#121-プラットフォーム認証情報)
   - [12.2 ツールAPIキー](#122-ツールapiキー)
@@ -85,7 +88,8 @@
   - [16.2 コンテナ一覧](#162-コンテナ一覧)
   - [16.3 ボリューム](#163-ボリューム)
   - [16.4 ネットワーク](#164-ネットワーク)
-  - [16.5 Phase別の段階的Docker化計画](#165-phase別の段階的docker化計画)
+  - [16.5 pgBouncer接続プール](#165-pgbouncer接続プール)
+  - [16.6 Phase別の段階的Docker化計画](#166-phase別の段階的docker化計画)
 
 ## 1. 全体アーキテクチャ
 
@@ -213,18 +217,23 @@ v5.0は **4層構造** で構成される。上位層が方針を決定し、下
 │                    PostgreSQL 16+                            │
 │                                                              │
 │  ┌─────────────────────────────────────────────────────┐     │
-│  │ Core Tables                                          │    │
+│  │ Entity Layer (3)                                     │    │
 │  │                                                      │    │
 │  │  accounts        アカウント情報 (プラットフォーム別) │         │
 │  │  characters      キャラクター設定 + Drive file_id    │      │
-│  │  components       コンポーネント (シナリオ/モーション等)│      │
+│  │  components      コンポーネント (シナリオ/モーション等)│      │
+│  └─────────────────────────────────────────────────────┘     │
+│                                                              │
+│  ┌─────────────────────────────────────────────────────┐     │
+│  │ Production Layer (3)                                 │    │
+│  │                                                      │    │
 │  │  content         コンテンツ (制作ライフサイクル)    │         │
 │  │  content_sections セクション構成 (動的N件)           │       │
 │  │  publications     投稿記録 (1コンテンツ→N投稿)      │        │
 │  └─────────────────────────────────────────────────────┘     │
 │                                                              │
 │  ┌─────────────────────────────────────────────────────┐     │
-│  │ Intelligence Tables                                  │    │
+│  │ Intelligence Layer (5)                               │    │
 │  │                                                      │    │
 │  │  hypotheses       仮説管理 (embedding付き, pgvector) │      │
 │  │  market_intel     市場情報統合 (embedding付き)       │      │
@@ -234,16 +243,36 @@ v5.0は **4層構造** で構成される。上位層が方針を決定し、下
 │  └─────────────────────────────────────────────────────┘     │
 │                                                              │
 │  ┌─────────────────────────────────────────────────────┐     │
-│  │ Operational Tables                                   │    │
+│  │ Operations Layer (4)                                 │    │
 │  │                                                      │    │
-│  │  cycles              戦略サイクル管理               │        │
-│  │  human_directives    人間指示管理                   │       │
-│  │  task_queue          タスクキュー                   │        │
-│  │  algorithm_performance アルゴリズム精度追跡         │         │
+│  │  task_queue              タスクキュー               │        │
+│  │  human_directives        人間指示管理               │       │
+│  │  agent_individual_learnings エージェント個別学習    │        │
+│  │  global_learnings        グローバル知見             │       │
 │  └─────────────────────────────────────────────────────┘     │
 │                                                              │
 │  ┌─────────────────────────────────────────────────────┐     │
-│  │ System Management Tables                            │     │
+│  │ Observability Layer (5)                              │    │
+│  │                                                      │    │
+│  │  api_usage_logs          API使用量ログ              │       │
+│  │  error_logs              エラーログ                 │      │
+│  │  performance_metrics     パフォーマンスメトリクス   │         │
+│  │  agent_execution_logs    エージェント実行ログ       │       │
+│  │  content_quality_scores  コンテンツ品質スコア       │       │
+│  └─────────────────────────────────────────────────────┘     │
+│                                                              │
+│  ┌─────────────────────────────────────────────────────┐     │
+│  │ Tool Management Layer (5)                            │    │
+│  │                                                      │    │
+│  │  tool_catalog            ツールカタログ             │       │
+│  │  tool_external_sources   外部ツールソース           │       │
+│  │  tool_performance_logs   ツールパフォーマンスログ   │         │
+│  │  prompt_versions         プロンプトバージョン管理   │        │
+│  │  prompt_suggestions      プロンプト改善提案         │       │
+│  └─────────────────────────────────────────────────────┘     │
+│                                                              │
+│  ┌─────────────────────────────────────────────────────┐     │
+│  │ System Layer (1)                                     │    │
 │  │                                                      │    │
 │  │  system_settings       システム設定 (ソフトコーディング) │    │
 │  └─────────────────────────────────────────────────────┘     │
@@ -477,7 +506,7 @@ v5.0は **4つの独立したグラフ** で構成される。各グラフは独
           承認       │         差戻│ (rejection_category)
                      ▼            │
          ┌───────────────────────┐ │
-         │ REQUIRE_HUMAN_APPROVAL│ │
+         │ HUMAN_REVIEW_ENABLED│ │
          │ = true ?              │ │
          └───────────┬───────────┘ │
                      │            │
@@ -681,9 +710,9 @@ v5.0では1日の投稿数が大量になるため、複数のコンテンツを
 | `MAX_CONCURRENT_PRODUCTIONS` | 同時制作可能な動画数の上限 | 10 |
 | `PRODUCTION_POLL_INTERVAL` | タスク取得のポーリング間隔 (秒) | 30 |
 | `MAX_RETRIES_PER_SECTION` | セクション制作失敗時の最大リトライ | 3 |
-| `REQUIRE_HUMAN_APPROVAL` | 人間によるコンテンツ計画の承認を必須にする | `true` (Phase 1) |
+| `HUMAN_REVIEW_ENABLED` | 人間によるコンテンツ計画の承認を必須にする | `true` (Phase 1) |
 
-**REQUIRE_HUMAN_APPROVALについて**:
+**HUMAN_REVIEW_ENABLEDについて**:
 - **Phase 1 (初期)**: `true` — Opus承認後、`pending_approval` ステータスでダッシュボードに表示。人間が最終承認して `planned` に遷移する。AIの判断基準を人間が学習・検証する期間
 - **Phase 2 (安定期)**: `false` — Opusが承認すると直接 `planned` に遷移 (現行フロー)。ただし高コスト案件や新ジャンルは人間承認を維持する運用も可能
 
@@ -858,7 +887,7 @@ v5.0では1日の投稿数が大量になるため、複数のコンテンツを
 
 **ステータス管理の2層構造**:
 - `content.status`: 制作ライフサイクル (`pending_approval` → `planned` → `producing` → `ready`)
-  - 注: `pending_approval` は `REQUIRE_HUMAN_APPROVAL=true` の場合のみ使用。`false` の場合は `planned` から開始
+  - 注: `pending_approval` は `HUMAN_REVIEW_ENABLED=true` の場合のみ使用。`false` の場合は `planned` から開始
 - `publications.status`: 各投稿先のライフサイクル (`scheduled` → `posted` → `measured`)
 
 1つのコンテンツが `ready` になった後、N件の `publications` が作成され、それぞれが独立してステータス遷移する。
@@ -918,12 +947,14 @@ v5.0では1日の投稿数が大量になるため、複数のコンテンツを
 | `content` | `pending_approval` → `planned` → `producing` → `ready` → `analyzed` | 戦略(→Dashboard承認)→制作→(投稿+計測完了後)→戦略 |
 | `publications` | `scheduled` → `posted` → `measured` | 投稿スケジューラー→計測ジョブ |
 
-> **注**: `pending_approval` → `planned` の遷移は `REQUIRE_HUMAN_APPROVAL=true` の場合のみ。`false` の場合、戦略サイクルグラフが直接 `planned` を設定する。
+> **注**: `pending_approval` → `planned` の遷移は `HUMAN_REVIEW_ENABLED=true` の場合のみ。`false` の場合、戦略サイクルグラフが直接 `planned` を設定する。
 
 ### 3.8 データキュレーター (Data Curator)
 
-**実行方式**: 非同期・連続実行 (キューポーリング)
+**実行方式**: スケジュール実行 (独立プロセス)
 **目的**: リサーチャーや人間から受け取った生データを、適切に分解・構造化・分類して `components` テーブル等に保存する
+
+> **注**: データキュレーターはLangGraphのノードではなく、独立したスケジュール実行プロセスとして動作する。`task_queue` (type='curate') をポーリングし、キュレーション済みデータを `components` テーブルに保存する。戦略サイクルグラフはキュレーション結果を参照するが、キュレーター自体はグラフの一部ではない。
 
 v4.0では人間が手動でシナリオ・モーション・音声等のインベントリを作成していたが、KPI 3,500アカウントの規模では非現実的。データキュレーターが生データを自動的にコンポーネントに変換することで、全自動パイプラインを実現する。
 
@@ -1427,7 +1458,7 @@ v4.0 (現行)                          v5.0 (新)
 │  │                                                           │  │
 │  │  ┌────────────────────────────────────────────────────┐   │  │
 │  │  │ コンテンツ計画承認                                 │   │     │
-│  │  │ (REQUIRE_HUMAN_APPROVAL=true 時のみ表示)           │   │    │
+│  │  │ (HUMAN_REVIEW_ENABLED=true 時のみ表示)           │   │    │
 │  │  │                                                    │   │  │
 │  │  │ ・pending_approval 状態の計画一覧                  │   │    │
 │  │  │ ・アカウント/シナリオ/仮説/コスト の詳細表示       │   │        │
@@ -1449,7 +1480,7 @@ v4.0 (現行)                          v5.0 (新)
 |---|---|
 | **DB直結** | MCP Serverを経由せず、Prisma/Drizzle ORMでPostgreSQLに直接接続。ダッシュボードはLLMではないため、MCPプロトコルは不要 |
 | **読み取り中心** | 大半の画面は読み取り専用。AIが自律的に回しているため、人間は基本的に監視のみ |
-| **介入は限定的** | 書き込みは「仮説投入」「参考コンテンツ指定」「設定変更」「コンテンツ計画承認」に限定。日常的な操作は全てAIが行う。計画承認は `REQUIRE_HUMAN_APPROVAL=true` 時のみ |
+| **介入は限定的** | 書き込みは「仮説投入」「参考コンテンツ指定」「設定変更」「コンテンツ計画承認」に限定。日常的な操作は全てAIが行う。計画承認は `HUMAN_REVIEW_ENABLED=true` 時のみ |
 | **リアルタイム性不要** | ポーリング (30秒〜1分) で十分。WebSocketは不要 |
 | **人間-エージェント協働** | AIチームを管理する「マネージャー」としての人間を支援する。エージェントの思考プロセスを可視化し、1on1フィードバック・進化の追跡・プロンプト調整を可能にする |
 
@@ -2386,7 +2417,7 @@ ORDER BY agent_type, count DESC;
 │  │  ├── 参考コンテンツURL指定                                     │     │
 │  │  ├── 設定変更 (計測タイミング, 投稿頻度, コスト上限)           │        │
 │  │  └── コンテンツ計画承認 (pending_approval→planned)      ← NEW  │     │
-│  │       REQUIRE_HUMAN_APPROVAL=true時のみ表示                    │    │
+│  │       HUMAN_REVIEW_ENABLED=true時のみ表示                    │    │
 │  │                                                                │  │
 │  │  6.4 人間↔エージェント対話                                     │     │
 │  │  ├── エージェント個別フィードバック (1on1)                     │       │
@@ -2435,6 +2466,26 @@ ORDER BY agent_type, count DESC;
 | 参考コンテンツ提出 | 介入 | 人間が参考動画URL/参考投稿/ファイルIDを入力 → `task_queue` (type='curate') に投入 |
 | キュレーション統計 | 監視 | 種別ごとの自動生成数、人間レビュー率、承認率の推移グラフ |
 
+### 6.13 Dashboard REST API ルート定義
+
+ダッシュボードの Next.js API Routes として実装する13のREST APIエンドポイント。MCP Serverとは独立し、Prisma/Drizzle ORMでPostgreSQLに直接接続する。
+
+| # | Method | Path | Description | Request Body | Response |
+|---|--------|------|-------------|-------------|----------|
+| 1 | `GET` | `/api/accounts` | アカウント一覧（プラットフォーム/ステータスでフィルター可） | — | `{ accounts: Account[], total: number }` |
+| 2 | `GET` | `/api/accounts/:id` | アカウント詳細（関連characters, publications含む） | — | `{ account: Account }` |
+| 3 | `POST` | `/api/accounts` | アカウント新規作成 | `{ platform, handle, character_id, ... }` | `{ account: Account }` |
+| 4 | `PUT` | `/api/accounts/:id` | アカウント更新 | `{ handle?, status?, ... }` | `{ account: Account }` |
+| 5 | `GET` | `/api/content` | コンテンツ一覧（statusフィルター, ページネーション） | — | `{ content: Content[], total: number }` |
+| 6 | `POST` | `/api/content/:id/approve` | コンテンツ承認（`pending_approval → approved`） | `{ comment?: string }` | `{ content: Content }` |
+| 7 | `POST` | `/api/content/:id/reject` | コンテンツ差し戻し（`pending_approval → rejected`） | `{ comment: string, rejection_category: string }` | `{ content: Content }` |
+| 8 | `GET` | `/api/kpi/summary` | KPIダッシュボードデータ（目標vs実績, 期間別） | — | `{ accounts: number, followers: object, engagement: object }` |
+| 9 | `GET` | `/api/hypotheses` | 仮説一覧（ステータス/カテゴリでフィルター可） | — | `{ hypotheses: Hypothesis[], total: number }` |
+| 10 | `GET` | `/api/learnings` | 知見一覧（信頼度/カテゴリでフィルター可） | — | `{ learnings: Learning[], total: number }` |
+| 11 | `GET` | `/api/settings` | 全system_settingsの取得（カテゴリ別グルーピング） | — | `{ settings: SystemSetting[] }` |
+| 12 | `PUT` | `/api/settings/:key` | system_setting値の更新 | `{ value: any }` | `{ setting: SystemSetting }` |
+| 13 | `GET` | `/api/errors` | エラーログ一覧（期間/タスクタイプでフィルター可） | — | `{ errors: ErrorLog[], total: number }` |
+
 ## 7. データフロー図
 
 ### 7.1 全体データフロー
@@ -2450,7 +2501,7 @@ ORDER BY agent_type, count DESC;
 │  Human Dashboard                                                   │
 │                                                                    │
 │  ・仮説投入 (下方向)  ・KPI確認 (上方向)  ・設定変更 (下方向)             │
-│  ・計画承認 (pending_approval → planned, REQUIRE_HUMAN_APPROVAL時)   │
+│  ・計画承認 (pending_approval → planned, HUMAN_REVIEW_ENABLED時)   │
 └─────────┬────────────────────▲──────────────────┬────────────────  ┘
           │                    │                                 │
     仮説・指示を          KPI進捗・             設定変更を
@@ -2596,19 +2647,22 @@ MCP Server
 
 v5.0では **2層ステータス管理** を採用する。コンテンツの制作ライフサイクル (`content.status`) と、各投稿先のライフサイクル (`publications.status`) を分離する。
 
-**content.status** (制作ライフサイクル):
+**content.status** (制作ライフサイクル — 12ステータス):
 
 ```
-                    REQUIRE_HUMAN_APPROVAL=true の場合:
-pending_approval ──→ planned ──→ producing ──→ ready ──→ analyzed
-       │               │            │           │           │
-       ▼               ▼            ▼           ▼           ▼
-  Dashboard承認    戦略サイクル  制作PL     制作PL    戦略サイクル
-  待ち (人間)      グラフ       グラフ      グラフ    (次サイクル)
+HUMAN_REVIEW_ENABLED=true の場合:
 
-                    REQUIRE_HUMAN_APPROVAL=false の場合:
-                    planned ──→ producing ──→ ready ──→ analyzed
-                    (pending_approval をスキップ)
+planned → producing → ready → pending_review
+  → (quality_score >= AUTO_APPROVE_SCORE_THRESHOLD=8.0 & 自動承認条件を満たす)
+    → approved (自動承認) → posted → measured → analyzed
+  → (quality_score < 8.0 or 自動承認条件を満たさない)
+    → pending_approval → approved → posted → measured → analyzed
+                       → rejected → revision_needed → producing (再制作ループ)
+                                    → cancelled (revision_count > MAX_CONTENT_REVISION_COUNT=3)
+
+HUMAN_REVIEW_ENABLED=false の場合:
+
+planned → producing → ready → approved → posted → measured → analyzed
 ```
 
 **publications.status** (投稿ライフサイクル、contentが `ready` になった後にN件作成):
@@ -2634,11 +2688,12 @@ content.status = 'analyzed'
 
 ```
 content:
-  producing ──→ error (制作失敗)
+  producing ──→ error (制作失敗、リトライ上限超過)
                   │
                   └──→ planned (リトライ対象として再キューイング)
 
-  pending_approval ──→ cancelled (人間が差戻し後に取消)
+  revision_needed ──→ cancelled (revision_count > MAX_CONTENT_REVISION_COUNT=3)
+  pending_approval ──→ rejected ──→ revision_needed ──→ cancelled (人間が差戻し後、リビジョン上限超過)
 
 publications:
   posted ──→ failed (投稿失敗)
@@ -2656,17 +2711,37 @@ publications:
 
 ### 8.2 ステータス定義
 
-**content テーブルのステータス**:
+**content テーブルのステータス** (12種):
 
-| ステータス | 意味 | 設定するグラフ | 主要なカラム |
+| ステータス | 意味 | 設定するグラフ / トリガー | 主要なカラム |
 |---|---|---|---|
-| `pending_approval` | AI承認済み、人間の承認待ち (`REQUIRE_HUMAN_APPROVAL=true` 時のみ) | 戦略サイクル | `planned_post_date`, `character_id` |
 | `planned` | 制作計画が承認済み。制作待ち | 戦略サイクル / Dashboard承認 | `planned_post_date`, `character_id` |
-| `producing` | 動画生成中 | 制作パイプライン | `production_metadata` |
-| `ready` | 動画完成。投稿待ちプール内 | 制作パイプライン | `drive_folder_id`, `video_drive_id` |
+| `producing` | 制作中 (動画生成 or テキスト生成) | 制作パイプライン | `production_metadata` |
+| `ready` | 制作完了。品質評価待ち | 制作パイプライン | `drive_folder_id`, `video_drive_id` |
+| `pending_review` | AI品質評価完了、レビュー判定待ち (`HUMAN_REVIEW_ENABLED=true` 時のみ) | 制作パイプライン | `quality_score` |
+| `pending_approval` | 人間の承認待ち (`HUMAN_REVIEW_ENABLED=true` かつ `quality_score < AUTO_APPROVE_SCORE_THRESHOLD=8.0`) | レビューワークフロー | `quality_score`, `reviewer_comment` |
+| `approved` | 承認済み。投稿待ちプール内 | レビューワークフロー / 自動承認 | — |
+| `rejected` | 人間が差し戻し | レビューワークフロー | `reviewer_comment` |
+| `revision_needed` | 再制作が必要 (差し戻し後) | レビューワークフロー | `revision_count` |
+| `posted` | 全プラットフォームへの投稿完了 | 投稿スケジューラー | — |
+| `measured` | パフォーマンス計測完了 | 計測ジョブ | — |
 | `analyzed` | 全publicationsの計測完了後、分析結果が知見として保存済み | 戦略サイクル (次回) | — |
 | `error` | 制作で回復不能エラー発生 (終端ステータス。リトライ上限超過) | 制作パイプライン | `error_message` |
-| `cancelled` | 人間orエージェントが取消 (終端ステータス) | 任意 | — |
+| `cancelled` | 人間orエージェントが取消 (終端ステータス。`revision_count > MAX_CONTENT_REVISION_COUNT=3` 時に自動遷移) | 任意 | — |
+
+**ステータス遷移ルール**:
+
+| 遷移元 | 遷移先 | 条件 |
+|---|---|---|
+| `approved` | `posted` | 全publicationsの投稿完了 |
+| `pending_review` | `pending_approval` | `HUMAN_REVIEW_ENABLED=true` かつ `quality_score < AUTO_APPROVE_SCORE_THRESHOLD=8.0` |
+| `pending_review` | `approved` | 自動承認条件を満たす場合 (§10.3参照) |
+| `pending_approval` | `approved` | 人間が承認 |
+| `pending_approval` | `rejected` | 人間が差し戻し |
+| `rejected` | `revision_needed` | 差し戻し理由の記録後 |
+| `revision_needed` | `producing` | 再制作ループ (`revision_count` をインクリメント) |
+| `revision_needed` | `cancelled` | `revision_count > MAX_CONTENT_REVISION_COUNT` (デフォルト: 3) |
+| `measured` | `analyzed` | 分析完了後 |
 
 **publications テーブルのステータス**:
 
@@ -2748,6 +2823,11 @@ LangGraph.jsのdurable execution機能を活用:
 - `producing` 中に障害 → 再起動時に `status='producing'` のレコードを検出 → 再開
 - `failed_permanent` → ダッシュボードに表示、人間が判断（リトライ or 破棄）
 
+**自動スケジューラーによるリトライ**:
+- 自動スケジューラーが `task_queue.status = 'failed'` のタスクを検出し、`retry_count < MAX_RETRY_ATTEMPTS` (デフォルト: 3) の場合は自動リトライ
+- `retry_count >= MAX_RETRY_ATTEMPTS` に達した場合、`status → 'failed_permanent'` に遷移し、ダッシュボードのエラーログ画面 (#12) にアラート表示
+- 人間はダッシュボードから「再試行」ボタン (`status → 'pending'`, `retry_count → 0` にリセット) または「破棄」ボタン (`status → 'failed'`, 関連 `content.status → 'cancelled'`) で対応
+
 ### 9.2 エスカレーションフロー
 
 ```
@@ -2775,7 +2855,7 @@ Level 3: task_queue.status → 'failed_permanent'
 
 エラーログビューア（ダッシュボード画面 #12）:
 - `task_queue WHERE status IN ('retrying', 'failed_permanent')` を一覧表示
-- 各タスクの `last_error`, `retry_count`, `last_error_at` を表示
+- 各タスクの `error_message`, `retry_count`, `last_error_at` を表示
 - 「再試行」ボタン: `status → 'pending'`, `retry_count → 0` にリセット
 - 「破棄」ボタン: `status → 'failed'`, 関連 `content.status → 'cancelled'`
 - フィルター: `task_type` 別, 期間別, エラー種類別
@@ -2882,6 +2962,19 @@ async function getSetting(key: string): Promise<any> {
 - 値の型と制約（min/max, options）
 - 最終更新日時と更新者
 - 「リセット」ボタン（デフォルト値に戻す）
+
+### 11.4 プラットフォームAPIレート制限
+
+各プラットフォームAPIのレート制限と、バックオフ戦略の定義。投稿スケジューラーグラフおよび計測ジョブグラフが遵守する。
+
+| Platform | Endpoint | Rate Limit | Backoff Strategy |
+|----------|----------|-----------|-----------------|
+| YouTube | Data API v3 (全体) | 10,000 units/day (upload = 1,600 units) | 指数バックオフ (1min, 5min, 30min) |
+| TikTok | Content Posting API | 300 req/min | 指数バックオフ (10s, 30s, 90s) |
+| Instagram | Graph API | 200 calls/hour | スライディングウィンドウ (残量に応じて間隔を自動調整) |
+| X (Twitter) | Post Tweet | 300 tweets/3hrs, 500 DMs/day | 指数バックオフ (1min, 5min, 30min) |
+
+> **注**: レート制限の具体値は `system_settings` テーブルで管理し、各プラットフォームのAPI仕様変更に応じてダッシュボードから変更可能。
 
 ## 12. クレデンシャル管理アーキテクチャ
 
@@ -3383,7 +3476,18 @@ v4.0からv5.0への移行は一括ではなく段階的に行う。各フェー
 | `internal` | 全アプリコンテナ + postgres (dev) | エージェント間・MCP Server・DBの内部通信。外部から隠蔽 |
 | Cloud SQL (prod) | 全アプリコンテナから接続 (外部マネージドサービス) | 本番DBはCloud SQL Auth Proxy経由。docker networkの外 |
 
-### 16.5 Phase別の段階的Docker化計画
+### 16.5 pgBouncer接続プール
+
+Phase 5 で導入する接続プールマネージャー。複数エージェントコンテナからの同時接続を効率的に管理する。
+
+| 設定項目 | 値 | 説明 |
+|---|---|---|
+| `pool_mode` | `transaction` | トランザクション単位でコネクションを共有。各クエリ後に接続をプールに返却 |
+| `default_pool_size` | `25` | サーバーへの同時接続数の上限 |
+| `max_client_conn` | `100` | クライアント (各エージェントコンテナ) からの最大接続数 |
+| `server_idle_timeout` | `600` | アイドル状態のサーバー接続を切断するまでの秒数 |
+
+### 16.6 Phase別の段階的Docker化計画
 
 全サービスを一括でDocker化するのではなく、開発フェーズに合わせて段階的にコンテナ化する。
 

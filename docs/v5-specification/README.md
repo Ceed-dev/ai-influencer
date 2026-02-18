@@ -40,6 +40,10 @@ v5.0は、AI-Influencerシステムを**完全AIエージェント駆動**に刷
 | 07 | [KPI達成可能性分析 v3](07-kpi-analysis.md) | v5.0仕様での再評価（2026年2月〜6月 + 長期展望） |
 | 08 | [アルゴリズム精度分析](08-algorithm-analysis.md) | 仮説的中率予測、成長曲線、改善戦略 |
 | 09 | [リスク・ボトルネック分析](09-risks-and-bottlenecks.md) | ビジネス・技術・プラットフォーム・運用リスクと緩和策 |
+| 10 | [Agent Team実装ガイド](10-implementation-guide.md) | 10エージェントの役割分担、ディレクトリ構造、ブランチ戦略 |
+| 11 | [実装前チェックリスト](11-pre-implementation-checklist.md) | インフラ・APIキー・OAuth・アカウント作成の準備事項 |
+| 12 | [テスト仕様書](12-test-specifications.md) | 311テスト（DB/MCP/Worker/Agent/Dashboard/Integration/E2E） |
+| 13 | [エージェントハーネス仕様](13-agent-harness.md) | 全自動実装ワークフロー、feature_list.json、品質ゲート |
 
 ## アーキテクチャ概要図
 
