@@ -1822,6 +1822,39 @@ Phase 2 (commit `3d4a7ac`): CJKピクセル幅補正
 
 **合計**: 23,110行の仕様書（13ファイル + README）, +5,856行増
 
+---
+
+## Session: Body Section — Fabric 1.0 Integration (2026-02-18)
+
+### 背景
+チームメイトからの要望: Body セクションのみ「モーション→リップシンク」ではなく、VEED Fabric 1.0 (`veed/fabric-1.0`) を使って「画像と音声から直接リップシンク」に変更。動画として自然になるため。
+
+### 変更内容
+
+**新規ファイル**:
+- `pipeline/media/fabric-generator.js` — Fabric 1.0 API呼び出しモジュール
+
+**変更ファイル**:
+- `pipeline/orchestrator.js` — Body セクションのみ Fabric パスに分岐
+  - Hook/CTA: 従来通り (Kling motion-control + TTS並列 → Sync Lipsync)
+  - Body: TTS → Fabric 1.0 (image + audio → lip-synced video 直接生成)
+- `tests/pipeline.test.js` — Fabric 関連テスト 7件追加 (Test 76-82)
+- `docs/ARCHITECTURE.md` — Body フロー・図・API テーブル更新
+- `README.md` — パイプラインフロー・API テーブル・コスト構造更新
+
+**コスト変更** (1動画3セクション):
+- 旧: Hook $0.77 + Body $0.77 + CTA $0.77 = **$2.31**
+- 新: Hook $0.77 + Body $0.75 (Fabric 720p) + CTA $0.77 = **$2.29**
+
+**技術詳細**:
+- Fabric 1.0 endpoint: `veed/fabric-1.0` (fal.ai partner model)
+- Input: `image_url` + `audio_url` + `resolution: "720p"`
+- Output: `result.video.url` (MP4)
+- 既存の `@fal-ai/client` npm パッケージ + `FAL_KEY` でそのまま使用可能
+- Body ではモーション動画のアップロード不要（Fabric が画像から直接生成）
+
+**テスト**: 全460テスト合格 (12スイート、3回連続安定)
+
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID
 - `.gsheets_token.json` - OAuth token for Sheets/Drive API

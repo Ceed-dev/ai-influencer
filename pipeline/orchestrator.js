@@ -5,6 +5,7 @@ const { uploadToFalStorage, downloadFromDrive } = require('./media/fal-client');
 const { generateVideo } = require('./media/video-generator');
 const { generateSpeech } = require('./media/tts-generator');
 const { syncLips } = require('./media/lipsync');
+const { generateFabricVideo } = require('./media/fabric-generator');
 const { concatVideos, detectBlackFrames, trimBlackStart } = require('./media/concat');
 const { getDrive, uploadToDrive } = require('./sheets/client');
 const { resolveProductionRow, clearCache: clearInventoryCache } = require('./sheets/inventory-reader');
@@ -271,7 +272,11 @@ async function runSingleJob(videoId, resolved, dryRun = false) {
   if (dryRun) {
     log('dry-run', 'Step 1: Upload character image to fal.storage');
     for (const sec of resolved.sections) {
-      log('dry-run', `Step 2: [${sec.name}] Motion upload → Kling + TTS (parallel) → Lipsync`);
+      if (sec.name === 'body') {
+        log('dry-run', `Step 2: [${sec.name}] TTS → Fabric 1.0 (image + audio → lip-synced video)`);
+      } else {
+        log('dry-run', `Step 2: [${sec.name}] Motion upload → Kling + TTS (parallel) → Lipsync`);
+      }
     }
     log('dry-run', 'Step 3: ffmpeg concat 3 sections → final.mp4 + black frame validation');
     log('dry-run', 'Step 4: Upload 4 files to Drive');
@@ -301,32 +306,44 @@ async function runSingleJob(videoId, resolved, dryRun = false) {
         const sName = section.name;
         log(sName, `--- Processing section: ${sName} ---`);
 
-        // 2a: Upload motion video to fal.storage
-        log(sName, `Uploading motion ${section.motion.component_id} to fal.storage...`);
-        const falMotionUrl = await uploadMotionVideo(section.motion);
-        log(sName, `Motion fal.storage URL: ${falMotionUrl}`);
-
-        // 2b: Kling + TTS in PARALLEL ★★
         const scriptText = section.scenario[scriptKey];
         if (!scriptText) {
           throw new Error(`Section ${sName}: ${scriptKey} is empty for scenario ${section.scenario.component_id}. Fill in the ${resolved.scriptLanguage === 'en' ? 'script_en (K column)' : 'script_jp (L column)'} in the Scenarios Inventory.`);
         }
-        log(sName, 'Starting Kling + TTS in parallel...');
-        const [rawVideoUrl, audioUrl] = await Promise.all([
-          generateVideo({ imageUrl: falImageUrl, motionVideoUrl: falMotionUrl }),
-          generateSpeech({ text: scriptText, referenceId: resolved.voice }),
-        ]);
-        log(sName, `Kling done: ${rawVideoUrl}`);
-        log(sName, `TTS done: ${audioUrl}`);
 
-        // 2c: Lipsync (needs both Kling + TTS)
-        log(sName, 'Syncing lips...');
-        const lipsyncVideoUrl = await syncLips({ videoUrl: rawVideoUrl, audioUrl });
-        log(sName, `Lipsync done: ${lipsyncVideoUrl}`);
+        let finalVideoUrl;
 
-        // 2d: Download lipsync result
-        log(sName, 'Downloading lip-synced video...');
-        const buffer = await downloadToBuffer(lipsyncVideoUrl);
+        if (sName === 'body') {
+          // ★ Body: Fabric 1.0 path — image + audio → lip-synced video directly
+          log(sName, 'Starting TTS for Fabric 1.0 path...');
+          const audioUrl = await generateSpeech({ text: scriptText, referenceId: resolved.voice });
+          log(sName, `TTS done: ${audioUrl}`);
+
+          log(sName, 'Generating lip-synced video with Fabric 1.0 (image + audio)...');
+          finalVideoUrl = await generateFabricVideo({ imageUrl: falImageUrl, audioUrl });
+          log(sName, `Fabric 1.0 done: ${finalVideoUrl}`);
+        } else {
+          // Hook / CTA: existing Kling + Lipsync path
+          log(sName, `Uploading motion ${section.motion.component_id} to fal.storage...`);
+          const falMotionUrl = await uploadMotionVideo(section.motion);
+          log(sName, `Motion fal.storage URL: ${falMotionUrl}`);
+
+          log(sName, 'Starting Kling + TTS in parallel...');
+          const [rawVideoUrl, audioUrl] = await Promise.all([
+            generateVideo({ imageUrl: falImageUrl, motionVideoUrl: falMotionUrl }),
+            generateSpeech({ text: scriptText, referenceId: resolved.voice }),
+          ]);
+          log(sName, `Kling done: ${rawVideoUrl}`);
+          log(sName, `TTS done: ${audioUrl}`);
+
+          log(sName, 'Syncing lips...');
+          finalVideoUrl = await syncLips({ videoUrl: rawVideoUrl, audioUrl });
+          log(sName, `Lipsync done: ${finalVideoUrl}`);
+        }
+
+        // Download result
+        log(sName, 'Downloading video...');
+        const buffer = await downloadToBuffer(finalVideoUrl);
         log(sName, `Section ${sName} complete (${buffer.length} bytes)`);
 
         return { buffer, filename: `${section.prefix}.mp4`, name: sName };

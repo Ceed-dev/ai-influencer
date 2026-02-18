@@ -18,7 +18,7 @@ graph TB
     end
 
     subgraph External["外部API"]
-        FAL[fal.ai<br/>Kling / Lipsync]
+        FAL[fal.ai<br/>Kling / Lipsync / Fabric 1.0]
         FISH[Fish Audio TTS]
         YT_API[YouTube Data API]
         IG_API[Instagram Graph API]
@@ -103,9 +103,10 @@ graph TB
 │  watch-pipeline.js ──► 30秒ポーリング (PM2常駐デーモン)         │
 │       │                                                          │
 │       ▼                                                          │
-│  orchestrator.js ──► media/ ──► fal.ai (Kling / Lipsync)        │
+│  orchestrator.js ──► media/ ──► fal.ai (Kling / Lipsync / Fabric 1.0) │
 │                      │     ──► Fish Audio TTS (直接API)          │
 │       │              │         (3セクション並列処理)              │
+│       │              │         ※ Body は Fabric 1.0 (image+audio→lip-synced video) │
 │       │              └──► ffmpeg (3セクション結合 + 黒フレーム検証) │
 │       │                                                          │
 │       ├──► inventory-reader.js ──► Inventory Sheets (4つ)        │
@@ -148,9 +149,15 @@ graph TB
 
 3. 3セクション(hook/body/cta) 並列処理 (Promise.all)
    各セクションで（セクション間は並列、セクション内も一部並列）:
+
+   [Hook / CTA セクション]:
    ┌─ fal.ai Kling motion-control (画像 + モーション参照動画 → 動画) ─┐ 並列
    └─ Fish Audio TTS 直接API (script_language に応じて script_en/jp → 音声MP3 → fal.storage URL) ─┘
    → fal.ai Sync Lipsync v2/pro (動画 + 音声 → 口同期動画)
+
+   [Body セクション]:
+   Fish Audio TTS 直接API (script → 音声MP3 → fal.storage URL)
+   → VEED Fabric 1.0 via fal.ai (画像 + 音声 → lip-synced動画を直接生成、Kling不要)
 
 4. 結合 + 黒フレーム検証
    ffmpeg filter_complex concat (再エンコード方式、H.264 CRF18)
@@ -176,8 +183,7 @@ graph LR
             HT[TTS] --> HL
         end
         subgraph Body["body セクション"]
-            BK[Kling] --> BL[Lipsync]
-            BT[TTS] --> BL
+            BT[TTS] --> BF[Fabric 1.0]
         end
         subgraph CTA["cta セクション"]
             CK[Kling] --> CL[Lipsync]
@@ -185,7 +191,7 @@ graph LR
         end
     end
     HL --> FF[ffmpeg concat<br/>filter_complex再エンコード]
-    BL --> FF
+    BF --> FF
     CL --> FF
     FF --> BV[blackdetect検証<br/>+ 自動トリム]
     BV --> DR[Drive保存]
@@ -215,15 +221,17 @@ graph LR
 
 ### fal.ai（動画生成 + リップシンク）
 
-Kling と Lipsync は fal.ai 経由で呼び出す。TTS は Fish Audio の直接REST API（fal.ai とは別サービス）。
+Kling、Lipsync、Fabric 1.0 は fal.ai 経由で呼び出す。TTS は Fish Audio の直接REST API（fal.ai とは別サービス）。
+Body セクションは Fabric 1.0 が画像+音声から直接lip-synced動画を生成するため、Kling不要。
 
 | サービス | プロバイダー | 用途 | 何をするか | 単価 | 5秒あたり |
 |---|---|---|---|---|---|
-| Kling 2.6 motion-control | fal.ai | AI動画生成 | image_url + video_url → 動画を生成 | [$0.07/秒](https://fal.ai/models/fal-ai/kling-video/v2.6/standard/motion-control) | $0.35 |
+| Kling 2.6 motion-control | fal.ai | AI動画生成 (Hook/CTA) | image_url + video_url → 動画を生成 | [$0.07/秒](https://fal.ai/models/fal-ai/kling-video/v2.6/standard/motion-control) | $0.35 |
 | Fish Audio TTS API（直接REST API） | Fish Audio | テキスト音声合成 (TTS) | スクリプトテキスト → 音声MP3を生成 (reference_id指定) | ~$0.001/セクション | ~$0.001 |
-| Sync Lipsync v2/pro | fal.ai | リップシンク | 動画+音声 → 口の動きを同期させた動画を生成 (sync_mode: "bounce") | [$5.00/分](https://fal.ai/models/fal-ai/sync-lipsync/v2/pro) | $0.42 |
+| Sync Lipsync v2/pro | fal.ai | リップシンク (Hook/CTA) | 動画+音声 → 口の動きを同期させた動画を生成 (sync_mode: "bounce") | [$5.00/分](https://fal.ai/models/fal-ai/sync-lipsync/v2/pro) | $0.42 |
+| VEED Fabric 1.0 | fal.ai | Body lip-sync | image+audio → lip-synced動画を直接生成 | $0.15/秒 (720p) | $0.75 |
 
-**セクション単価: ~$0.77（5秒）/ 1本あたり(3セクション): ~$2.31**
+**セクション単価: Hook/CTA ~$0.77（5秒）、Body ~$0.75（5秒）/ 1本あたり(3セクション): ~$2.29**
 
 ### Google APIs
 
@@ -358,4 +366,4 @@ GAS API エンドポイント詳細は [GAS操作マニュアル](manuals/GAS_MA
 
 > 詳細なコスト構造・月次見積もりは [README.md — コスト構造](../README.md#コスト構造) を参照。
 
-**1動画（3セクション×5秒）あたり: ~$2.31**（fal.ai: Kling $1.05 + Lipsync $1.26 / Fish Audio: TTS ~$0.003）
+**1動画（3セクション×5秒）あたり: ~$2.29**（fal.ai: Hook/CTA Kling $0.70 + Lipsync $0.84 + Body Fabric 1.0 $0.75 / Fish Audio: TTS ~$0.003）

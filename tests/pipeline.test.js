@@ -19,6 +19,7 @@ test('all pipeline modules load without error', () => {
   expect(() => require('../pipeline/media/tts-generator')).not.toThrow();
   expect(() => require('../pipeline/media/lipsync')).not.toThrow();
   expect(() => require('../pipeline/media/concat')).not.toThrow();
+  expect(() => require('../pipeline/media/fabric-generator')).not.toThrow();
   expect(() => require('../pipeline/orchestrator')).not.toThrow();
   expect(() => require('../pipeline/sheets/client')).not.toThrow();
   expect(() => require('../pipeline/sheets/content-manager')).not.toThrow();
@@ -1039,4 +1040,98 @@ test('ig-oauth-setup.js has Facebook OAuth flow for Instagram', () => {
   expect(src).toContain('storeAccountCredentials');
   expect(src).toContain('instagram_business_account');
   expect(src).toContain('localhost:3000/callback');
+});
+
+// ─── Test 76: fabric-generator module exports generateFabricVideo ───
+test('fabric-generator exports generateFabricVideo function', () => {
+  const fabric = require('../pipeline/media/fabric-generator');
+  expect(typeof fabric.generateFabricVideo).toBe('function');
+});
+
+// ─── Test 77: fabric-generator uses correct Fabric 1.0 endpoint ───
+test('fabric-generator uses veed/fabric-1.0 endpoint with 720p default', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '../pipeline/media/fabric-generator.js'), 'utf8');
+  expect(src).toContain("'veed/fabric-1.0'");
+  expect(src).toContain("resolution = '720p'");
+  expect(src).toContain('image_url: imageUrl');
+  expect(src).toContain('audio_url: audioUrl');
+  expect(src).toContain('resolution');
+  expect(src).toContain('result.video.url');
+  // Must use submitAndWait from fal-client (not a different client)
+  expect(src).toContain("require('./fal-client')");
+  expect(src).toContain('submitAndWait');
+});
+
+// ─── Test 78: orchestrator imports fabric-generator ───
+test('orchestrator imports generateFabricVideo from fabric-generator', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '../pipeline/orchestrator.js'), 'utf8');
+  expect(src).toContain("require('./media/fabric-generator')");
+  expect(src).toContain('generateFabricVideo');
+});
+
+// ─── Test 79: orchestrator routes body through Fabric path ───
+test('orchestrator routes body section through Fabric 1.0 and hook/cta through Kling+Lipsync', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '../pipeline/orchestrator.js'), 'utf8');
+
+  // Body section uses Fabric path
+  expect(src).toContain("sName === 'body'");
+  expect(src).toContain('Fabric 1.0');
+  expect(src).toContain('generateFabricVideo');
+
+  // Body path: TTS first, then Fabric (sequential, not parallel with Kling)
+  // The Fabric call must reference imageUrl and audioUrl
+  expect(src).toContain('generateFabricVideo({ imageUrl: falImageUrl, audioUrl })');
+
+  // Hook/CTA still use Kling + Lipsync
+  expect(src).toContain('generateVideo(');
+  expect(src).toContain('syncLips(');
+  expect(src).toContain('uploadMotionVideo(');
+});
+
+// ─── Test 80: orchestrator dry-run distinguishes body from hook/cta ───
+test('orchestrator dry-run log shows Fabric for body and Kling for hook/cta', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '../pipeline/orchestrator.js'), 'utf8');
+
+  // Dry-run must have different messages for body vs hook/cta
+  expect(src).toContain("sec.name === 'body'");
+  expect(src).toContain('Fabric 1.0 (image + audio');
+  expect(src).toContain('Motion upload');
+  expect(src).toContain('Kling + TTS');
+});
+
+// ─── Test 81: fabric-generator does NOT use Kling or Lipsync ───
+test('fabric-generator has no Kling or Lipsync references', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '../pipeline/media/fabric-generator.js'), 'utf8');
+  expect(src).not.toContain('kling');
+  expect(src).not.toContain('motion-control');
+  expect(src).not.toContain('sync-lipsync');
+  expect(src).not.toContain('video_url');
+  expect(src).not.toContain('motionVideoUrl');
+});
+
+// ─── Test 82: orchestrator body path does not upload motion video ───
+test('orchestrator body path does not call uploadMotionVideo', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '../pipeline/orchestrator.js'), 'utf8');
+
+  // The body branch (if sName === 'body') should NOT contain uploadMotionVideo
+  // Extract the body branch code between the if and else
+  const bodyBranch = src.match(/if \(sName === 'body'\) \{([\s\S]*?)\} else \{/);
+  expect(bodyBranch).not.toBeNull();
+  expect(bodyBranch[1]).not.toContain('uploadMotionVideo');
+  expect(bodyBranch[1]).not.toContain('generateVideo');
+  expect(bodyBranch[1]).not.toContain('syncLips');
+  expect(bodyBranch[1]).toContain('generateSpeech');
+  expect(bodyBranch[1]).toContain('generateFabricVideo');
 });

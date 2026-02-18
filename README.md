@@ -86,10 +86,13 @@ v4.0 ではインベントリ実データ投入・パイプライン並列化が
   → [自動] inventory-reader.js: シナリオ・キャラ・モーション・音声のID解決
   → [自動] fal.storage に画像アップロード（一時URL生成）
   → [自動] 3セクション（hook/body/cta）並列処理（Promise.all）:
-      各セクション内:
+      Hook/CTA セクション:
       ┌─ Kling motion-control で動画生成 ─┐ 並列
       └─ Fish Audio TTS で音声生成      ─┘
       → Sync Lipsync v2/pro で口パク同期
+      Body セクション:
+      Fish Audio TTS で音声生成
+      → Fabric 1.0 (画像 + 音声 → リップシンク済み動画を直接生成)
   → [自動] ffmpeg で3セクション結合 → final.mp4
   → [自動] Google Drive に4ファイル保存（3セクション + final）
   → [自動] production タブに記録（production-manager.js）
@@ -102,14 +105,16 @@ v4.0 ではインベントリ実データ投入・パイプライン並列化が
 
 #### Step 1: キャラクター画像の準備
 
-パイプラインは最初に、指定されたDriveフォルダからキャラクター画像を取得する。Google Drive APIでファイルをバイナリとしてダウンロードし、fal.storageにアップロードする。fal.storageは一時的な公開URLを返す。この一時URLは、後続のfal.ai APIコール（Kling, Lipsync）がファイルを読み取るために必要。
+パイプラインは最初に、指定されたDriveフォルダからキャラクター画像を取得する。Google Drive APIでファイルをバイナリとしてダウンロードし、fal.storageにアップロードする。fal.storageは一時的な公開URLを返す。この一時URLは、後続のfal.ai APIコール（Kling, Lipsync, Fabric 1.0）がファイルを読み取るために必要。
 
 - **入力**: Drive フォルダID（`--character-folder` 引数）
 - **出力**: fal.storage の一時公開URL
 
 #### Step 2: 3セクション並列処理
 
-インベントリシートから読み取った3セクション（hook, body, cta）を **Promise.all で並列処理** する。各セクション内ではKlingとTTSも並列実行:
+インベントリシートから読み取った3セクション（hook, body, cta）を **Promise.all で並列処理** する。Hook/CTA と Body でフローが異なる:
+
+**■ Hook / CTA セクション（Kling + Lipsync フロー）**
 
 **Step 2a: モーション動画アップロード**
 - セクションごとのモーション参照動画をDriveからダウンロード
@@ -130,6 +135,18 @@ v4.0 ではインベントリ実データ投入・パイプライン並列化が
 **Step 2d: Sync Lipsync v2/pro（口パク同期）**
 - Step 2b の動画 + Step 2c の音声 → 口の動きを音声に合わせた動画
 - sync_mode: bounce（自然な口パク合成）
+- 処理時間: 1〜3分/セクション
+
+**■ Body セクション（Fabric 1.0 フロー）**
+
+**Step 2e: Fish Audio TTS（音声生成）**
+- Hook/CTA と同様にスクリプトテキストから音声ファイルを生成
+- 生成したMP3を fal.storage にアップロード
+
+**Step 2f: Fabric 1.0（画像 + 音声 → リップシンク済み動画）**
+- キャラクター画像 + TTS音声 → リップシンク済み動画を1ステップで直接生成
+- Kling（動画生成）+ Lipsync（口パク同期）の2ステップが不要
+- VEED Fabric 1.0（fal.ai パートナーモデル）、720p出力
 - 処理時間: 1〜3分/セクション
 
 #### Step 3: ffmpeg 結合
@@ -158,15 +175,15 @@ Master Spreadsheet の `production` タブに1行追加（v4.0、33カラム）�
 
 ### fal.ai（AIモデルホスティング）
 
-[fal.ai](https://fal.ai) はAIモデルをAPI経由で実行できるプラットフォーム。Kling（動画生成）と Sync Lipsync（口パク同期）のAPIを統一的なインターフェースで利用できる。キュー管理、自動ポーリング、一時ファイルストレージ（fal.storage）も提供。
+[fal.ai](https://fal.ai) はAIモデルをAPI経由で実行できるプラットフォーム。Kling（動画生成）、Sync Lipsync（口パク同期）、Fabric 1.0（リップシンク動画生成）のAPIを統一的なインターフェースで利用できる。キュー管理、自動ポーリング、一時ファイルストレージ（fal.storage）も提供。
 
-**なぜ fal.ai を使うのか**: Kling と Lipsync を1箇所で従量課金で利用できる。SDKが統一されているためコードが簡潔。
+**なぜ fal.ai を使うのか**: Kling、Lipsync、Fabric を1箇所で従量課金で利用できる。SDKが統一されているためコードが簡潔。
 
 - `fal-client.js`: fal.ai Node.js SDK のラッパー。リトライ処理、タイムアウト管理、fal.storage アップロード機能を提供。
 
-### Kling v2.6 motion-control（AI動画生成）
+### Kling v2.6 motion-control（AI動画生成 — Hook/CTA用）
 
-[Kling](https://klingai.com) は画像からAI動画を生成するモデル。motion-control モードでは、キャラクター画像と参照モーション動画を入力として、キャラクターがモーションと同じ動きをする動画を出力する。
+[Kling](https://klingai.com) は画像からAI動画を生成するモデル。motion-control モードでは、キャラクター画像と参照モーション動画を入力として、キャラクターがモーションと同じ動きをする動画を出力する。**Hook と CTA セクションで使用**（Body は Fabric 1.0 を使用）。
 
 **なぜ Kling を使うのか**: 画像1枚から自然な動画を生成でき、モーション参照で動きを指定できる。fal.ai 経由で $0.07/秒（5秒で $0.35）と比較的安価。
 
@@ -184,15 +201,25 @@ Master Spreadsheet の `production` タブに1行追加（v4.0、33カラム）�
 - 入力: `text`（スクリプト）, `reference_id`（Fish Audio の32文字16進数ボイスID）
 - 出力: バイナリMP3 → fal.storage にアップロード → 音声URL
 
-### Sync Lipsync v2/pro（口パク同期）
+### Sync Lipsync v2/pro（口パク同期 — Hook/CTA用）
 
-[Sync Labs](https://synclabs.so) のリップシンクAI。動画と音声を入力として、動画内の人物の口の動きを音声に合わせる。
+[Sync Labs](https://synclabs.so) のリップシンクAI。動画と音声を入力として、動画内の人物の口の動きを音声に合わせる。**Hook と CTA セクションで使用**（Body は Fabric 1.0 が直接リップシンク済み動画を生成するため不要）。
 
 **なぜ Lipsync を使うのか**: Kling が生成した動画はキャラが動くだけで喋らない。TTS音声と組み合わせて、口が音声に合わせて動く動画にする必要がある。
 
 - エンドポイント: `fal-ai/sync-lipsync/v2/pro`
 - 入力: `video_url`（動画）, `audio_url`（音声）, `sync_mode`（"bounce"）
 - 出力: リップシンク済み動画URL
+
+### Fabric 1.0（リップシンク動画生成 — Body用）
+
+[VEED](https://www.veed.io) の Fabric 1.0 は、画像と音声から直接リップシンク済み動画を生成するモデル。fal.ai パートナーモデルとして提供される。**Body セクションで使用**。
+
+**なぜ Fabric 1.0 を使うのか**: Kling（動画生成）+ Lipsync（口パク同期）の2ステップを1ステップに統合できる。画像と音声を入力するだけでリップシンク済み動画が直接出力されるため、パイプラインが簡素化される。720p出力で $0.15/秒（5秒で $0.75）。
+
+- エンドポイント: `veed/fabric-1.0`
+- 入力: キャラクター画像 + 音声ファイル
+- 出力: リップシンク済み動画URL（720p）
 
 ### ffmpeg（動画結合）
 
@@ -561,10 +588,10 @@ node scripts/run-pipeline.js --character-folder 1zAZj-Cm3rLZ2oJHZDPUwvDfxL_ufS8g
 [pipeline:image] fal.storage URL: https://v3b.fal.media/files/...
 [pipeline:parallel] Processing 3 sections in parallel...
 [pipeline:hook] Kling done: https://...
-[pipeline:body] Kling done: https://...
+[pipeline:body] TTS done
 [pipeline:cta] Kling done: https://...
 [pipeline:hook] Lipsync done
-[pipeline:body] Lipsync done
+[pipeline:body] Fabric done
 [pipeline:cta] Lipsync done
 [pipeline:concat] Final video: 54010069 bytes
 [pipeline:drive] All files uploaded to Drive folder: ...
@@ -594,13 +621,14 @@ npx jest tests/pipeline.test.js
 
 ### 動画生成パイプライン（有料API）
 
-Kling と Lipsync は [fal.ai](https://fal.ai) 経由、TTS は [Fish Audio](https://fish.audio)（Hanabi AI Inc.）の直接REST APIを利用。fal.ai は**プリペイド課金**（事前にクレジット購入が必要）。
+Kling、Lipsync、Fabric 1.0 は [fal.ai](https://fal.ai) 経由、TTS は [Fish Audio](https://fish.audio)（Hanabi AI Inc.）の直接REST APIを利用。fal.ai は**プリペイド課金**（事前にクレジット購入が必要）。
 
 | サービス | プロバイダー | エンドポイント | 用途 | 入力 → 出力 | 単価 | コスト/セクション(5秒) |
 |---|---|---|---|---|---|---|
-| **Kling 2.6** | fal.ai | `fal-ai/kling-video/v2.6/standard/motion-control` | AI動画生成 | キャラクター画像 + モーション参照動画 → 動画 | [$0.07/秒](https://fal.ai/models/fal-ai/kling-video/v2.6/standard/motion-control) | $0.35 |
+| **Kling 2.6** | fal.ai | `fal-ai/kling-video/v2.6/standard/motion-control` | AI動画生成（Hook/CTA） | キャラクター画像 + モーション参照動画 → 動画 | [$0.07/秒](https://fal.ai/models/fal-ai/kling-video/v2.6/standard/motion-control) | $0.35 |
 | **Fish Audio** | Fish Audio（直接API） | `https://api.fish.audio/v1/tts` | テキスト音声合成 (TTS) | スクリプトテキスト → 音声ファイル(MP3) | ~$0.001/セクション | ~$0.001 |
-| **Sync Lipsync** | fal.ai | `fal-ai/sync-lipsync/v2/pro` | リップシンク（口パク同期） | 動画 + 音声 → 口の動きを同期した動画 | [$5.00/分](https://fal.ai/models/fal-ai/sync-lipsync/v2/pro) | $0.42 |
+| **Sync Lipsync** | fal.ai | `fal-ai/sync-lipsync/v2/pro` | リップシンク（Hook/CTA） | 動画 + 音声 → 口の動きを同期した動画 | [$5.00/分](https://fal.ai/models/fal-ai/sync-lipsync/v2/pro) | $0.42 |
+| **Fabric 1.0** | VEED（fal.ai パートナー） | `veed/fabric-1.0` | リップシンク動画生成（Body） | キャラクター画像 + 音声 → リップシンク済み動画 | $0.15/秒 (720p) | $0.75 |
 
 ### Google Cloud（無料枠内）
 
@@ -623,7 +651,7 @@ Kling と Lipsync は [fal.ai](https://fal.ai) 経由、TTS は [Fish Audio](htt
 
 > **料金参照元**: [fal.ai Pricing](https://fal.ai/pricing) — 2026-02-11時点
 
-### 1セクション（5秒）あたり: $0.77
+### Hook / CTA セクション（5秒）あたり: $0.77
 
 | ステップ | サービス | 単価 | コスト |
 |---|---|---|---|
@@ -632,11 +660,26 @@ Kling と Lipsync は [fal.ai](https://fal.ai) 経由、TTS は [Fish Audio](htt
 | 口パク同期 | Sync Lipsync v2/pro | $5.00/分 × 5秒/60秒 | $0.42 |
 | **セクション計** | | | **$0.77** |
 
-### 1動画（3セクション = 15秒）あたり: ~$2.31
+### Body セクション（5秒）あたり: $0.75
+
+| ステップ | サービス | 単価 | コスト |
+|---|---|---|---|
+| 音声生成 | Fish Audio TTS | ~$0.001/セクション | ~$0.001 |
+| リップシンク動画生成 | Fabric 1.0 (720p) | $0.15/秒 × 5秒 | $0.75 |
+| **セクション計** | | | **$0.75** |
+
+### 1動画（3セクション = 15秒）あたり: ~$2.29
+
+| セクション | 内訳 | コスト |
+|---|---|---|
+| Hook | Kling $0.35 + Lipsync $0.42 + TTS ~$0.001 | $0.77 |
+| Body | Fabric 720p $0.75 + TTS ~$0.001 | $0.75 |
+| CTA | Kling $0.35 + Lipsync $0.42 + TTS ~$0.001 | $0.77 |
+| **合計** | | **~$2.29** |
 
 ffmpeg結合は無料（ローカル処理）。
 
-> **コスト削減オプション**: Lipsync を Standard版（`v2`、$3.00/分）に変更すると ~$1.80/動画。画質は若干低下するが近接ショットでなければ十分。
+> **コスト削減オプション**: Hook/CTA の Lipsync を Standard版（`v2`、$3.00/分）に変更すると ~$1.95/動画。画質は若干低下するが近接ショットでなければ十分。
 >
 > **詳細分析**: [1動画あたりのコスト分析](docs/cost-analysis/per-video-cost.md) / [1分あたりのコスト分析](docs/cost-analysis/per-minute-cost.md)
 
@@ -644,10 +687,10 @@ ffmpeg結合は無料（ローカル処理）。
 
 | 時期 | アカウント数 | 動画/日 | 月間動画 | 月間コスト(Pro) | 月間コスト(Std) |
 |---|---|---|---|---|---|
-| 2月 | 50 | 50 | 1,500 | $3,465 | $2,700 |
-| 3月 | 160 | 160 | 4,800 | $11,088 | $8,640 |
-| 4月 | 340 | 340 | 10,200 | $23,562 | $18,360 |
-| 6月 | 700 | 700 | 21,000 | $48,510 | $37,800 |
+| 2月 | 50 | 50 | 1,500 | $3,435 | $2,925 |
+| 3月 | 160 | 160 | 4,800 | $10,992 | $9,360 |
+| 4月 | 340 | 340 | 10,200 | $23,358 | $19,890 |
+| 6月 | 700 | 700 | 21,000 | $48,090 | $40,950 |
 
 
 ## GAS アナリティクス
