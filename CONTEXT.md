@@ -1540,6 +1540,27 @@ node scripts/generate-digest.js --force               # 既存ファイル上書
 - セクション1〜5: 完了
 - セクション6〜9 + 移行ポイント: 未確認
 
+### 2026-02-18: v5.0仕様書 — 動的レシピアーキテクチャの全仕様書横断検証
+
+セクション5の動的レシピ設計を全9仕様書で横断的に検証し、13件の不整合を修正。
+
+**修正内容**:
+1. `02-architecture.md` Section 3.4: ツールスペシャリストの位置を制作グラフ外（戦略グラフ側）に修正
+2. `02-architecture.md` Section 3.4: content_formatディスパッチノード追加
+3. `02-architecture.md` Section 3.4: MCPツール名を04-agent-design.mdと統一（3件）
+4. `02-architecture.md` Section 5.3: テキストワーカー出力先を `content_sections.script` に修正
+5. `02-architecture.md` Section 5.3: プラットフォーム制約追加
+6. `04-agent-design.md`: ContentPlan interfaceにcontent_formatフィールド追加
+7. `04-agent-design.md`: dispatchノードにimage_post分岐追加
+8-9. `03-database-schema.md`: ER図にcontent_format/recipe_id/FK矢印追加
+10. `03-database-schema.md`: 存在しないcontent.account_idのインデックス定義を削除
+11. `README.md`: 技術的決定テーブルにcontent_format+動的レシピ行追加
+
+**検証済み項目** (全パス):
+- content_format列挙値、recipe_id FK、ワーカー種別、ツールスペシャリスト基準、テキストワーカー定義、MCPツール数(99)、TOC、production_recipesテーブル、plan_contentツール引数、ContentPlan型、ER図、インデックス定義、lifecycle図、migration mapping、クエリパターン
+
+**変更ファイル**: 4ファイル (+92/-76行)
+
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID
 - `.gsheets_token.json` - OAuth token for Sheets/Drive API
