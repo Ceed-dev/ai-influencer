@@ -1,0 +1,93 @@
+==========================================
+ Daily Report 2026-02-19
+==========================================
+
+--- 1. Progress Summary ---
+
+  Overall: 0 / 251 features passed (0.0%)
+
+  By category:
+    dashboard          [....................]   0/ 36 (0%)
+    database           [....................]   0/ 48 (0%)
+    infra              [....................]   0/  5 (0%)
+    intelligence       [....................]   0/ 18 (0%)
+    mcp-core           [....................]   0/ 43 (0%)
+    mcp-intel          [....................]   0/ 29 (0%)
+    measure            [....................]   0/  6 (0%)
+    strategy           [....................]   0/ 10 (0%)
+    test               [....................]   0/ 32 (0%)
+    text-post          [....................]   0/  6 (0%)
+    video-worker       [....................]   0/ 18 (0%)
+
+  By agent:
+    dashboard-agent         0/ 36 (0%)
+    infra-agent             0/ 53 (0%)
+    intelligence-agent      0/ 18 (0%)
+    mcp-core-agent          0/ 43 (0%)
+    mcp-intel-agent         0/ 29 (0%)
+    measure-agent           0/  6 (0%)
+    strategy-agent          0/ 10 (0%)
+    test-agent              0/ 32 (0%)
+    text-post-agent         0/  6 (0%)
+    video-worker-agent      0/ 18 (0%)
+
+--- 2. Recent Activity ---
+
+  [WARN] progress.txt not found — skipping activity summary (expected before implementation starts)
+
+--- 3. Anti-pattern Detection ---
+
+  AP1: One-shotting (multiple FEATs in single commit)
+    None detected
+
+  AP4: E2E Skip (COMPLETE without prior SMOKE)
+    (progress.txt not found — skipped)
+
+  AP9: Config Hardcoding (hardcoded values in src/)
+    (src/ directory not found — skipped)
+
+  AP10: Type Bypass (any type usage)
+    (src/ directory not found — skipped)
+
+  Anti-pattern total: 0 issue(s) found
+
+--- 4. Git Statistics ---
+
+  Commits since 2026-02-18: 15
+
+  By author:
+         15 shungo0222
+
+  Recent commits:
+    da209f7 Spec 100%: Batch API endpoint detail + CONTEXT.md Session 6
+    c5fa5b2 Spec freeze to 99.5%: fill all gaps, generate SQL/seed/env, update feature_list
+    5abfa7d docs: update OPERATIONS.md and cost-analysis for Fabric 1.0 Body section
+    f433035 feat: Body section uses Fabric 1.0 instead of Kling+Lipsync
+    faa8a20 Week 0-1 spec freeze: generate all type definitions, infra files, and feature_list.json
+    2484188 Spec freeze: audit fixes, 311 test cases, agent harness (17K→23K lines)
+    31289fb Comprehensive v5.0 spec update: error recovery, human review, soft-coding, parallel implementation
+    fd997b7 Comprehensive schema fix: CHECK constraints, indexes, column alignment across 03/04/08
+    b710408 Fix cross-file consistency across all v5.0 spec files (8 files, 30+ fixes)
+    ee8e0c2 Fix 03-database-schema.md consistency: 25 tables, agent_type CHECK constraints, FK references
+    e1e2919 Docs: add 02-architecture diagram alignment fix session to CONTEXT.md
+    3d4a7ac Fix ASCII art CJK pixel width compensation in 02-architecture.md
+    12272a7 Fix ASCII art diagram alignment in 02-architecture.md
+    cb0ec49 Fix 28 cross-file inconsistencies in v5.0 spec sections 7-11
+    741f7e4 Fix 28 cross-file inconsistencies in dashboard layer specification
+
+--- 5. Code Quality ---
+
+  Lint: node_modules not installed yet — skipped
+  TypeScript: not configured yet — skipped
+  Tests: node_modules not installed yet — skipped
+
+--- 6. Environment Health Check ---
+
+  Docker: no v5 containers running
+  Database: psql not installed
+  v5/ disk usage: 440K
+  Disk free: 23G
+
+==========================================
+ End of Report
+==========================================
