@@ -11,10 +11,11 @@
 
 ## Required Reading
 
-Before starting any implementation work, read these two documents in order:
+Before starting any implementation work, read these three documents in order:
 
 1. **[10-implementation-guide.md](../docs/v5-specification/10-implementation-guide.md)** - What to do: team structure, task assignments, directory layout, module interfaces
 2. **[13-agent-harness.md](../docs/v5-specification/13-agent-harness.md)** - How to do it: session startup checklist, single-feature workflow, quality gates, recovery procedures
+3. **[12-test-specifications.md](../docs/v5-specification/12-test-specifications.md)** - Test definitions: every feature's test_ids reference this file. Read the relevant TEST-xxx sections when implementing each feature
 
 ## Core Rules
 
