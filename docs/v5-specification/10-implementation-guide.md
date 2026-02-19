@@ -5,7 +5,7 @@
 >
 > **最大同時エージェント**: リーダー1 + チームメイト10
 >
-> **関連ドキュメント**: [06-development-roadmap.md](06-development-roadmap.md) (ロードマップ), [04-agent-design.md](04-agent-design.md) (エージェント設計), [03-database-schema.md](03-database-schema.md) (DBスキーマ), [11-pre-implementation-checklist.md](11-pre-implementation-checklist.md) (実装前チェックリスト)
+> **関連ドキュメント**: [06-development-roadmap.md](06-development-roadmap.md) (ロードマップ), [04-agent-design.md](04-agent-design.md) (エージェント設計), [03-database-schema.md](03-database-schema.md) (DBスキーマ), [11-pre-implementation-checklist.md](11-pre-implementation-checklist.md) (実装前チェックリスト), [13-agent-harness.md](13-agent-harness.md) (ワークフロー・品質ゲート・リカバリー)
 
 ## 目次
 
@@ -44,6 +44,8 @@
 
 本ドキュメントは、v5.0仕様書（01-09）に基づいてClaude Code Agent Teamが並列実装を行うための指示書である。
 人間（Shungo）はコードを一切書かず、指示・レビュー・承認のみを行う。
+
+**重要**: 全エージェントは [13-agent-harness.md](13-agent-harness.md) のワークフローに従って作業すること。本ドキュメント（10）は「何をやるか」（チーム構成・タスク割り振り）を定義し、13は「どうやるか」（セッション起動チェックリスト・単一機能ワークフロー・品質ゲート・リカバリー手順）を定義する。
 
 ### 1.1 前提条件
 

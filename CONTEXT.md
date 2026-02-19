@@ -1937,6 +1937,11 @@ Phase 2 (commit `3d4a7ac`): CJKピクセル幅補正
 - §5.2 Step 1: 作業ディレクトリパス `/home/pochi/workspaces/work/ai-influencer-v5` → `/home/pochi/workspaces/work/ai-influencer/v5`
 - MCPツール数(102)は仕様書全体で一貫しており修正不要と確認
 
+**v5/CLAUDE.md 作成 + 10→13 クロスリファレンス追加**:
+- `v5/CLAUDE.md`: Agent Team起動時の自動読み込みエントリポイント。10 + 13 の必読指示、コアルール、gitルール、クイックリファレンスを記載
+- `10-implementation-guide.md`: 関連ドキュメントに13-agent-harness.mdを追加 + §1概要に「全エージェントは13のワークフローに従え」の明示的指示を追加
+- **運用**: v5実装セッションは `cd v5/` で開始 → CLAUDE.mdが自動読み込み → 10と13を読みに行く導線が確立
+
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID
 - `.gsheets_token.json` - OAuth token for Sheets/Drive API
