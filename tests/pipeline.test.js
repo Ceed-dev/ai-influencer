@@ -1135,3 +1135,19 @@ test('orchestrator body path does not call uploadMotionVideo', () => {
   expect(bodyBranch[1]).toContain('generateSpeech');
   expect(bodyBranch[1]).toContain('generateFabricVideo');
 });
+
+// ─── Test 83: concat normalizes resolution and fps before concatenating ───
+test('concat.js normalizes each input to 720x1280@30fps before concat', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '../pipeline/media/concat.js'), 'utf8');
+
+  // Must scale each input to 720x1280
+  expect(src).toContain('scale=720:1280');
+  // Must normalize fps to 30
+  expect(src).toContain('fps=30');
+  // Must set SAR to 1 (square pixels)
+  expect(src).toContain('setsar=1');
+  // Scale filters must be applied per-input before concat (template: [v${i}])
+  expect(src).toContain('[v${i}]');
+});

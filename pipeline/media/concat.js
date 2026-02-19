@@ -27,10 +27,15 @@ async function concatVideos(clips) {
     // Build ffmpeg args with filter_complex concat filter
     const inputArgs = filePaths.flatMap((p) => ['-i', p]);
 
-    // Build filter_complex string dynamically: [0:v][0:a][1:v][1:a]...concat=n=N:v=1:a=1[outv][outa]
+    // Build filter_complex: normalize each input to 720x1280@30fps before concat.
+    // Fabric 1.0 outputs 736x1312@25fps while Kling+Lipsync outputs 720x1280@30fps,
+    // so we must scale/fps-normalize all inputs to avoid concat dimension mismatch.
     const n = filePaths.length;
-    const streamRefs = Array.from({ length: n }, (_, i) => `[${i}:v][${i}:a]`).join('');
-    const filterComplex = `${streamRefs}concat=n=${n}:v=1:a=1[outv][outa]`;
+    const scaleFilters = Array.from({ length: n }, (_, i) =>
+      `[${i}:v]scale=720:1280,fps=30,setsar=1[v${i}]`
+    ).join(';');
+    const concatInputs = Array.from({ length: n }, (_, i) => `[v${i}][${i}:a]`).join('');
+    const filterComplex = `${scaleFilters};${concatInputs}concat=n=${n}:v=1:a=1[outv][outa]`;
 
     const args = [
       ...inputArgs,

@@ -2256,6 +2256,28 @@ Phase 2 (commit `3d4a7ac`): CJKピクセル幅補正
 
 **最終数値**: 27テーブル, 139 indexes, 87 settings (agent:44), 98 MCP (111 total), 261 features, 459 tests
 
+### 2026-02-19: Session 15 — Fabric 1.0 integration + concat解像度修正
+
+**Fabric 1.0 統合（前セッションからの継続）**:
+- `pipeline/media/fabric-generator.js` 新規作成 — `veed/fabric-1.0` エンドポイント
+- `pipeline/orchestrator.js` — Body セクションを Fabric 1.0 経由に分岐 (Hook/CTA は従来通り Kling+Lipsync)
+- コスト: Pro $2.31→$2.29/本, Std $1.80→$1.95/本
+- ドキュメント7ファイル更新（ARCHITECTURE.md, README.md, OPERATIONS.md, cost-analysis/3ファイル, CONTEXT.md）
+- コミット: `f433035`, `5abfa7d`
+
+**concat 解像度不一致修正**:
+- **問題**: Fabric 1.0 が 736x1312@25fps、Kling+Lipsync が 720x1280@30fps を出力し、ffmpeg concat が解像度不一致で失敗
+- **修正**: `pipeline/media/concat.js` の filter_complex に `scale=720:1280,fps=30,setsar=1` を各入力に適用
+- テスト: 85 pipeline + 343 GAS = 428テスト全パス（Test 83 追加: concat解像度正規化確認）
+
+**本番実行中に発生したエラー群**:
+- Fish Audio 429 (rate limit): 5ジョブ並列で同時TTS → レート制限抵触
+- Sheets API quota exceeded: 5ジョブ並列でインベントリ読み取り → 1分あたり読み取り上限超過
+- fal.ai sync-lipsync fetch failed: 一時的なネットワーク障害
+- **全て一時的エラー。データ修正後のリトライで TTS/Kling/Fabric は成功**
+
+**変更ファイル**: `pipeline/media/concat.js`, `tests/pipeline.test.js`
+
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID
 - `.gsheets_token.json` - OAuth token for Sheets/Drive API
