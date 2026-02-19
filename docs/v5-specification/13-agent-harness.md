@@ -29,7 +29,7 @@
 
 Anthropicの"Effective Harnesses for Long-Running Agents"の核心は、**エージェントを「one-shotで全部やらせる」のではなく、小さな単位に分割して段階的に実行させる**ことにある。
 
-v5.0の実装は300以上の機能から構成される。これを1つのエージェントに一括で依頼すると：
+v5.0の実装は250以上の機能から構成される。これを1つのエージェントに一括で依頼すると：
 - コンテキストウィンドウが枯渇する
 - エラーが蓄積して後半の品質が壊滅的に低下する
 - 進捗の追跡が不可能になる
@@ -87,7 +87,7 @@ Phase B: Coding Agents (10チームメイト)
 
 | 問題 | One-Shot方式 | ハーネス方式 |
 |------|-------------|-------------|
-| コンテキスト枯渇 | 300機能で確実に枯渇 | 1機能ずつで枯渇しない |
+| コンテキスト枯渇 | 250機能で確実に枯渇 | 1機能ずつで枯渇しない |
 | エラー蓄積 | 後半は破綻 | 毎機能でテスト→修復 |
 | 進捗追跡 | 不可能 | progress.txt + feature_list.json |
 | 障害復旧 | 最初からやり直し | 最後のCOMPLETEから再開 |
@@ -226,7 +226,7 @@ NUMBER: 001〜999
 {
   "version": "5.0.0",
   "generated_at": "2026-03-01T00:00:00Z",
-  "total_features": 300,
+  "total_features": 251,
   "features": [
     {
       "id": "FEAT-DB-001",
@@ -1286,7 +1286,7 @@ echo "$(date -u '+%Y-%m-%dT%H:%M:%SZ') | {agent-name} | {EVENT} | {FEATURE_ID} |
 
 ```bash
 pwd
-# → /home/pochi/workspaces/work/ai-influencer-v5 であること
+# → /home/pochi/workspaces/work/ai-influencer/v5 であること
 
 git status
 # → ワーキングツリーがクリーンであること
@@ -1777,7 +1777,7 @@ G6 失敗 → 以前の機能が壊れた。最優先で修復
 ```bash
 # 1. 進捗確認（1分）
 jq '[.features[] | select(.passes==true)] | length' feature_list.json
-# → "85 / 300 features passed" のように表示
+# → "85 / 251 features passed" のように表示
 
 # 2. 最近の活動確認（2分）
 tail -30 progress.txt
@@ -1815,7 +1815,7 @@ npx jest --coverage --passWithNoTests 2>/dev/null | tail -20
 # 全体進捗率
 jq '[.features[] | select(.passes==true)] | length' feature_list.json
 # 出力例: 85
-# → 85 / 300 = 28.3%
+# → 85 / 251 = 33.9%
 
 # カテゴリ別進捗
 jq -r '

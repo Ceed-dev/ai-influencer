@@ -1932,6 +1932,11 @@ Phase 2 (commit `3d4a7ac`): CJKピクセル幅補正
 - §2.2 変更ルール → 付録C（feature_list.json 生成チェックリスト）
 - §8.3 npm scripts → 付録A（完全なscripts定義）
 
+**13-agent-harness.md 数値・パス不整合修正**:
+- §1.1, §1.5, §2.4, §10.2, §11.1: 機能数 300 → 251（feature_list.json実数に合わせる）
+- §5.2 Step 1: 作業ディレクトリパス `/home/pochi/workspaces/work/ai-influencer-v5` → `/home/pochi/workspaces/work/ai-influencer/v5`
+- MCPツール数(102)は仕様書全体で一貫しており修正不要と確認
+
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID
 - `.gsheets_token.json` - OAuth token for Sheets/Drive API
