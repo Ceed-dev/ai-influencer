@@ -31,7 +31,7 @@
       "module": "sql",
       "agent": "infra-agent",
       "priority": "P0",
-      "description": "全26テーブルのDDL作成と存在確認",
+      "description": "全27テーブルのDDL作成と存在確認",
       "spec_refs": [
         "03-database-schema.md §1〜§7"
       ],
@@ -1126,7 +1126,7 @@
         "01-tech-stack.md §サーバー・インフラ",
         "10-implementation-guide.md §4"
       ],
-      "test_ids": [],
+      "test_ids": ["TEST-DB-001"],
       "dependencies": [],
       "steps": [
         "docker-compose.yml設定",
@@ -1145,7 +1145,7 @@
       "spec_refs": [
         "01-tech-stack.md §開発ツール"
       ],
-      "test_ids": [],
+      "test_ids": ["TEST-INT-001"],
       "dependencies": [],
       "steps": [
         ".env.example作成",
@@ -1164,7 +1164,7 @@
       "spec_refs": [
         "03-database-schema.md §8.4"
       ],
-      "test_ids": [],
+      "test_ids": ["TEST-DB-002"],
       "dependencies": [
         "FEAT-INF-001"
       ],
@@ -1185,7 +1185,7 @@
       "spec_refs": [
         "01-tech-stack.md §本番環境"
       ],
-      "test_ids": [],
+      "test_ids": ["TEST-INT-002"],
       "dependencies": [
         "FEAT-INF-001"
       ],
@@ -1205,7 +1205,7 @@
       "spec_refs": [
         "01-tech-stack.md §データアクセス"
       ],
-      "test_ids": [],
+      "test_ids": ["TEST-INT-003"],
       "dependencies": [
         "FEAT-INF-001"
       ],
@@ -6001,7 +6001,7 @@
       "spec_refs": [
         "04-agent-design.md §4.12"
       ],
-      "test_ids": [],
+      "test_ids": ["TEST-MCP-132"],
       "dependencies": [
         "FEAT-DB-049"
       ],
@@ -6022,7 +6022,7 @@
       "spec_refs": [
         "04-agent-design.md §4.12"
       ],
-      "test_ids": [],
+      "test_ids": ["TEST-MCP-133"],
       "dependencies": [
         "FEAT-DB-049"
       ],
@@ -6043,7 +6043,7 @@
       "spec_refs": [
         "04-agent-design.md §4.12"
       ],
-      "test_ids": [],
+      "test_ids": ["TEST-MCP-134"],
       "dependencies": [
         "FEAT-MCI-031"
       ],
@@ -6064,7 +6064,7 @@
       "spec_refs": [
         "04-agent-design.md §4.12"
       ],
-      "test_ids": [],
+      "test_ids": ["TEST-MCP-135"],
       "dependencies": [
         "FEAT-DB-049"
       ],
@@ -6085,7 +6085,7 @@
       "spec_refs": [
         "04-agent-design.md §4.12"
       ],
-      "test_ids": [],
+      "test_ids": ["TEST-MCP-136"],
       "dependencies": [
         "FEAT-DB-049"
       ],
@@ -6106,7 +6106,7 @@
       "spec_refs": [
         "04-agent-design.md §4.12"
       ],
-      "test_ids": [],
+      "test_ids": ["TEST-MCP-137"],
       "dependencies": [
         "FEAT-MCI-031"
       ],

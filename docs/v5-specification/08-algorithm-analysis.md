@@ -382,7 +382,7 @@ v5.0の品質評価は以下のメトリクスで構成される:
 | **3秒離脱率** | 15%（system_settings: `QUALITY_WEIGHT_RETENTION`、デフォルト: 0.15） | Analytics | 40%以下 |
 | **コメント感情** | 5%（system_settings: `QUALITY_WEIGHT_SENTIMENT`、デフォルト: 0.05） | NLP分析 | ポジティブ60%以上 |
 
-> 各メトリクスのスケーリング関数と品質スコア算出式の詳細はセクション12.5を参照。
+> 品質スコア算出式: `quality_score = Σ(weight_i × normalized_metric_i)` where `normalized_metric = min(1.0, actual / platform_niche_median)`。各メトリクスのスケーリング関数と詳細はセクション12.5を参照。
 
 ### 5.2 コンポーネント別スコアリング
 
@@ -1254,20 +1254,31 @@ prediction_error = AVG(|predicted_kpis[key] - actual_kpis[key]| / NULLIF(actual_
 
 ### 12.3 仮説判定 (verdict)
 
-```
-per_kpi_error = |predicted_value - actual_value| / NULLIF(actual_value, 0)
+`predicted_kpis` / `actual_kpis` は JSONB で複数KPI指標を含む。全KPI指標の相対誤差の平均でverdictを判定する。
 
-verdict = CASE
-    WHEN AVG(per_kpi_error) < HYPOTHESIS_CONFIRM_THRESHOLD     THEN 'confirmed'
-    WHEN AVG(per_kpi_error) < HYPOTHESIS_INCONCLUSIVE_THRESHOLD THEN 'inconclusive'
-    ELSE 'rejected'
-END
+```
+verdict判定式:
+  prediction_error = avg(|predicted_kpis[i] - actual_kpis[i]| / actual_kpis[i]) for all KPIs
+    ※ actual_kpis[i] = 0 の場合:
+      predicted_kpis[i] = 0 なら error = 0（両方ゼロなら一致とみなす）
+      predicted_kpis[i] ≠ 0 なら error = 1.0（ゼロに対する非ゼロ予測は最大誤差）
+
+  verdict =
+    IF prediction_error <= HYPOTHESIS_CONFIRM_THRESHOLD (system_settings、デフォルト: 0.3)
+      THEN 'confirmed'
+    ELIF prediction_error >= HYPOTHESIS_INCONCLUSIVE_THRESHOLD (system_settings、デフォルト: 0.5)
+      THEN 'rejected'
+    ELSE 'inconclusive'
+
+  ※ データ不足時 (メトリクス < ANALYSIS_MIN_SAMPLE_SIZE (system_settings、デフォルト: 5) サンプル):
+    verdict = 'inconclusive' を強制（統計的に有意な判定が不可能なため）
 ```
 
 | 設定キー | デフォルト | 意味 |
 |---|---|---|
 | `HYPOTHESIS_CONFIRM_THRESHOLD`（system_settings、デフォルト: 0.3） | 0.3 | 予測精度70%以上で `confirmed` |
-| `HYPOTHESIS_INCONCLUSIVE_THRESHOLD`（system_settings、デフォルト: 0.5） | 0.5 | 予測精度50%以上で `inconclusive`、50%未満で `rejected` |
+| `HYPOTHESIS_INCONCLUSIVE_THRESHOLD`（system_settings、デフォルト: 0.5） | 0.5 | 誤差50%以上で `rejected`、30〜50%は `inconclusive` |
+| `ANALYSIS_MIN_SAMPLE_SIZE`（system_settings、デフォルト: 5） | 5 | この数未満のサンプルでは `inconclusive` を強制 |
 
 判定の信頼度:
 
@@ -1279,6 +1290,19 @@ confidence = 1.0 - AVG(per_kpi_error)
 ```
 
 ### 12.4 異常検知 (anomaly_detection)
+
+```
+異常検知式:
+  anomaly = |metric_value - rolling_mean| > ANOMALY_DETECTION_SIGMA × rolling_stddev
+
+  rolling_mean / rolling_stddev: 直近 ANOMALY_DETECTION_WINDOW_DAYS (system_settings、デフォルト: 14) 日の
+    同プラットフォーム・同ニッチのメトリクス平均/標準偏差
+  ANOMALY_DETECTION_SIGMA: system_settings (デフォルト: 2.0)
+
+  データ不足時:
+    - 利用可能な全期間を使用、最低 ANOMALY_MIN_DATAPOINTS (system_settings、デフォルト: 7) データポイント必要
+    - 7データポイント未満: 異常検知スキップ (ログに WARN)
+```
 
 ```sql
 -- 基準期間: ANOMALY_DETECTION_WINDOW_DAYS（system_settings、デフォルト: 14日）
@@ -1308,15 +1332,16 @@ JOIN baseline b ON p.account_id = b.account_id
 WHERE ABS(m.engagement_rate - b.mean_er) > :sigma * b.std_er
    OR ABS(m.completion_rate - b.mean_cr) > :sigma * b.std_cr
    OR ABS(m.views - b.mean_views) > :sigma * b.std_views;
+-- HAVING句でデータポイント不足時はbaseline CTE が空 → JOINで結果なし → 異常検知スキップ
 ```
 
 関連する system_settings:
 
 | 設定キー | デフォルト | カテゴリ | 説明 |
 |---|---|---|---|
-| `ANOMALY_DETECTION_WINDOW_DAYS` | 14 | agent | 異常検知の基準期間（日） |
-| `ANOMALY_DETECTION_SIGMA` | 2.0 | agent | 標準偏差閾値 |
-| `ANOMALY_MIN_DATAPOINTS` | 7 | agent | この数未満のデータポイントでは異常検知をスキップ |
+| `ANOMALY_DETECTION_WINDOW_DAYS` | 14 | agent | 異常検知の基準期間（日）。不足時は利用可能な全期間を使用 |
+| `ANOMALY_DETECTION_SIGMA` | 2.0 | agent | 標準偏差閾値。大きくすると感度が下がる |
+| `ANOMALY_MIN_DATAPOINTS` | 7 | agent | この数未満のデータポイントでは異常検知をスキップし、WARNログを出力 |
 
 異常の分類:
 
@@ -1326,16 +1351,32 @@ WHERE ABS(m.engagement_rate - b.mean_er) > :sigma * b.std_er
 ### 12.5 コンポーネント品質スコア (quality_score)
 
 ```
-quality_score = Σ(metric_scaled × weight)
+quality_score = Σ(weight_i × normalized_metric_i)
+
+重み (system_settings):
+  QUALITY_WEIGHT_COMPLETION  = 0.35 (完視聴率)
+  QUALITY_WEIGHT_ENGAGEMENT  = 0.25 (エンゲージメント率)
+  QUALITY_WEIGHT_SHARE       = 0.20 (シェア率)
+  QUALITY_WEIGHT_RETENTION   = 0.15 (リテンション率)
+  QUALITY_WEIGHT_SENTIMENT   = 0.05 (センチメント分析)
+
+normalized_metric = min(1.0, actual / platform_niche_median)
+※ platform_niche_median: learningsテーブルの過去データから動的算出
+※ データ不足時 (< ANALYSIS_MIN_SAMPLE_SIZE (system_settings、デフォルト: 5) サンプル):
+   system_settingsのデフォルト中央値（下記スケーリング基準値）を使用
 ```
 
-| メトリクス | ウェイト設定キー | デフォルト | スケーリング関数 | スケーリング基準値 |
+normalized_metric を0.0〜1.0に正規化した後、10倍して0-10点スケールに変換する:
+
+| メトリクス | ウェイト設定キー | デフォルト | スケーリング関数 | スケーリング基準値（デフォルト中央値） |
 |-----------|----------------|-----------|----------------|------------------|
 | completion_rate | `QUALITY_WEIGHT_COMPLETION`（system_settings） | 0.35 | `min(10, rate / 0.07)` | 70%で10点満点（優秀なショート動画の基準） |
 | engagement_rate | `QUALITY_WEIGHT_ENGAGEMENT`（system_settings） | 0.25 | `min(10, rate / 0.003)` | 3%で10点満点（バイラル動画の基準） |
 | share_rate | `QUALITY_WEIGHT_SHARE`（system_settings） | 0.20 | `min(10, rate / 0.005)` | 0.5%で10点満点 |
 | 3秒離脱率 | `QUALITY_WEIGHT_RETENTION`（system_settings） | 0.15 | `min(10, (1 - rate) / 0.06)` | 40%以下で10点満点（40%は業界平均） |
 | ポジティブ感情比率 | `QUALITY_WEIGHT_SENTIMENT`（system_settings） | 0.05 | `min(10, ratio / 0.06)` | 60%以上で10点満点 |
+
+> **動的中央値**: 十分なデータ（>= `ANALYSIS_MIN_SAMPLE_SIZE`）が蓄積された後は、上記の固定基準値の代わりにlearningsテーブルの同プラットフォーム・同ニッチの実績中央値を `platform_niche_median` として動的に算出し、より正確なスコアリングを行う。
 
 **計算例**:
 
@@ -1354,43 +1395,59 @@ quality_score = 10.0×0.35 + 8.33×0.25 + 6.0×0.20 + 10.0×0.15 + 9.17×0.05
 ### 12.6 学習信頼度の更新ルール
 
 ```
--- 個別学習 (agent_individual_learnings)
-初期confidence = 0.5
+confidence更新式:
+  初期confidence = 0.5
 
-適用成功時:
-    new_confidence = MIN(1.0, old_confidence + LEARNING_SUCCESS_INCREMENT)
+  verdict = 'confirmed':
+    confidence_new = min(0.95, confidence_old + (1 - confidence_old) × LEARNING_SUCCESS_INCREMENT)
+    ※ LEARNING_SUCCESS_INCREMENT = 0.10 (system_settings)
+    ※ 上限0.95: 完全な確信（1.0）は許容しない（常に改善余地を残す）
+    ※ 減衰項 (1 - confidence_old) により、高confidence時の増加幅が自然に縮小する
     times_successful += 1
 
-適用失敗時:
-    new_confidence = MAX(0.0, old_confidence - LEARNING_FAILURE_DECREMENT)
+  verdict = 'inconclusive':
+    confidence_new = confidence_old + CONFIDENCE_INCREMENT_INCONCLUSIVE
+    ※ CONFIDENCE_INCREMENT_INCONCLUSIVE = 0.02 (system_settings)
+    ※ データ不足でも「検証を試みた」こと自体に微小な正の評価
+
+  verdict = 'rejected':
+    confidence_new = max(0.05, confidence_old - LEARNING_FAILURE_DECREMENT)
+    ※ LEARNING_FAILURE_DECREMENT = 0.15 (system_settings)
+    ※ 下限0.05: 完全なゼロにはしない（復活の余地を残す）
+
+  ※ evidence_count >= LEARNING_AUTO_PROMOTE_COUNT (system_settings、デフォルト: 10) で "mature" 判定
+  ※ mature learnings は confidence >= LEARNING_CONFIDENCE_THRESHOLD (0.7) のものだけが
+    プランナーに推奨される
+  ※ confidence < LEARNING_DEACTIVATE_THRESHOLD (0.2) で自動非活性化 (is_active=false)
 ```
 
 | 設定キー | デフォルト | 説明 |
 |---|---|---|
-| `LEARNING_SUCCESS_INCREMENT`（system_settings） | 0.1 | 適用成功時のconfidence増分 |
-| `LEARNING_FAILURE_DECREMENT`（system_settings） | 0.15 | 適用失敗時のconfidence減分（失敗の方が影響大） |
+| `LEARNING_SUCCESS_INCREMENT`（system_settings） | 0.1 | confirmed時のconfidence増分ベース値 |
+| `CONFIDENCE_INCREMENT_INCONCLUSIVE`（system_settings） | 0.02 | inconclusive時のconfidence微増量 |
+| `LEARNING_FAILURE_DECREMENT`（system_settings） | 0.15 | rejected時のconfidence減分（失敗の方が影響大） |
 | `LEARNING_CONFIDENCE_THRESHOLD`（system_settings） | 0.7 | この値以上で「有効」として積極参照 |
-| `LEARNING_DEACTIVATE_THRESHOLD`（system_settings） | 0.2 | この値未満で参照対象から除外 |
+| `LEARNING_DEACTIVATE_THRESHOLD`（system_settings） | 0.2 | この値未満で自動非活性化 (is_active=false) |
 
 有効判定:
 
 ```
-confidence >= LEARNING_CONFIDENCE_THRESHOLD (0.7) → 積極的に参照
+confidence >= LEARNING_CONFIDENCE_THRESHOLD (0.7) → 積極的に参照（mature learningsとしてプランナーに推奨）
 confidence 0.2〜0.7 → 参照はするが優先度低
-confidence < LEARNING_DEACTIVATE_THRESHOLD (0.2) → 参照対象から除外
+confidence < LEARNING_DEACTIVATE_THRESHOLD (0.2) → is_active=false に自動変更、参照対象から除外
 ```
 
 自動昇格条件:
 
 ```
-times_successful >= LEARNING_AUTO_PROMOTE_COUNT
+evidence_count >= LEARNING_AUTO_PROMOTE_COUNT (デフォルト: 10)
 AND confidence >= 0.8
 → learningsテーブルに昇格（全エージェント参照可能）
 ```
 
 | 設定キー | デフォルト | 説明 |
 |---|---|---|
-| `LEARNING_AUTO_PROMOTE_COUNT`（system_settings） | 10 | 昇格に必要な成功適用回数 |
+| `LEARNING_AUTO_PROMOTE_COUNT`（system_settings） | 10 | 昇格に必要なevidence_count（検証回数） |
 | `LEARNING_AUTO_PROMOTE_ENABLED`（system_settings） | false | trueの場合は自動昇格、falseの場合はアナリストの月次レビューで承認 |
 
 ### 12.7 リソース配分計算

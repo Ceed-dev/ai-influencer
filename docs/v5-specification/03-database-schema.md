@@ -49,7 +49,13 @@
 - [7. System Management Tables (システム管理テーブル)](#7-system-management-tables-システム管理テーブル)
   - [7.1 system_settings — システム設定](#71-system_settings--システム設定)
   - [7.2 デフォルト設定値（初期INSERT）](#72-デフォルト設定値初期insert)
-  - [7.3 accounts.auth_credentials JSONB スキーマ定義](#73-accountsauth_credentials-jsonb-スキーマ定義)
+  - [7.3 JSONB 内部スキーマ定義](#73-jsonb-内部スキーマ定義)
+    - [7.3.1 accounts.auth_credentials](#731-accountsauth_credentials)
+    - [7.3.2 components.data](#732-componentsdata)
+    - [7.3.3 metrics.platform_data / raw_data](#733-metricsplatform_data--raw_data)
+    - [7.3.4 production_recipes.steps](#734-production_recipessteps)
+    - [7.3.5 hypotheses.predicted_kpis / actual_kpis](#735-hypothesespredicted_kpis--actual_kpis)
+    - [7.3.6 verdict 判定式](#736-verdict-判定式)
 - [8. インデックス定義](#8-インデックス定義)
   - [8.1 Entity Tables のインデックス](#81-entity-tables-のインデックス)
   - [8.2 Production Tables のインデックス](#82-production-tables-のインデックス)
@@ -2884,7 +2890,7 @@ COMMENT ON COLUMN system_settings.updated_by IS '最終更新者。"system"=初�
 
 ### 7.2 デフォルト設定値（初期INSERT）
 
-システム初期化時にINSERTされるデフォルト設定値。全カテゴリの設定を網羅する（合計86件: production 13, posting 8, review 4, agent 43, measurement 6, cost_control 4, dashboard 3, credentials 5）。
+システム初期化時にINSERTされるデフォルト設定値。全カテゴリの設定を網羅する（合計87件: production 13, posting 8, review 4, agent 44, measurement 6, cost_control 4, dashboard 3, credentials 5）。
 
 ```sql
 -- ========================================
@@ -3009,17 +3015,25 @@ INSERT INTO system_settings (setting_key, setting_value, category, description, 
 ('METRICS_FOLLOWUP_DAYS', '[7, 30]', 'measurement', 'フォローアップ計測を実施する日数（投稿後N日目）', '[7, 30]', 'json', null);
 ```
 
-### 7.3 accounts.auth_credentials JSONB スキーマ定義
+### 7.3 JSONB 内部スキーマ定義
 
-`accounts.auth_credentials` カラムのプラットフォーム別JSONBスキーマ定義。ダッシュボードのアカウント管理画面から入力する。
+JSONBカラムの内部構造を定義する。各スキーマの正規型定義は `v5/types/database.ts` に凍結されている。実装時はTypeScript型をSSOTとし、本セクションは仕様理解・レビュー用のリファレンスである。
+
+#### 7.3.1 accounts.auth_credentials
+
+プラットフォームごとに異なるOAuth認証情報を格納する。ダッシュボードのアカウント管理画面から入力する。
+
+**型定義**: `v5/types/database.ts` — `AuthCredentials` (union of `YouTubeOAuthCredentials` | `TikTokOAuthCredentials` | `InstagramOAuthCredentials` | `XOAuthCredentials`)
+
+| プラットフォーム | 必須フィールド | 備考 |
+|---|---|---|
+| YouTube | `channel_id`, `oauth.client_id`, `oauth.client_secret`, `oauth.refresh_token`, `oauth.access_token`, `oauth.token_expiry` | Google OAuth 2.0。token_expiryはISO 8601形式 |
+| TikTok | `open_id`, `oauth.client_key`, `oauth.client_secret`, `oauth.access_token`, `oauth.refresh_token`, `oauth.token_expiry` | 24時間トークン有効期限。refresh_tokenで自動更新 |
+| Instagram | `ig_user_id`, `page_id`, `oauth.app_id`, `oauth.app_secret`, `oauth.long_lived_token`, `oauth.token_expiry` | Facebook OAuth経由。long_lived_tokenは60日間有効 |
+| X | `user_id`, `oauth.api_key`, `oauth.api_secret`, `oauth.access_token`, `oauth.access_token_secret` | OAuth 1.0a。token_expiryなし（永続トークン） |
 
 ```sql
--- ========================================
--- accounts.auth_credentials JSONB スキーマ定義
--- ========================================
--- プラットフォーム別のOAuth認証情報をJSONBで格納。
--- ダッシュボードのアカウント管理画面から入力。
---
+-- accounts.auth_credentials JSONB 構造例
 -- YouTube:
 -- {
 --   "channel_id": "UCxxxxxxx",
@@ -3067,6 +3081,256 @@ INSERT INTO system_settings (setting_key, setting_value, category, description, 
 --   }
 -- }
 ```
+
+#### 7.3.2 components.data
+
+`components.type` の値に応じて異なる構造を持つ。
+
+**型定義**: `v5/types/database.ts` — `ComponentData` (union of `ComponentScenarioData` | `ComponentMotionData` | `ComponentAudioData` | `Record<string, unknown>`)
+
+**type='scenario'** (`ComponentScenarioData`):
+
+| フィールド | 型 | 説明 |
+|---|---|---|
+| `script_en` | string | 英語スクリプト |
+| `script_jp` | string | 日本語スクリプト |
+| `scenario_prompt` | string | Klingへの入力プロンプト (映像生成用) |
+| `duration_seconds` | number | セクション想定秒数 |
+| `emotion` | string | 表情・感情指定 (excited, calm, surprised 等) |
+| `camera_angle` | string | カメラアングル (close-up, medium, wide 等) |
+
+```json
+{
+  "script_en": "Hey everyone! Today I'm going to show you...",
+  "script_jp": "みんな〜！今日は最強のスキンケアを紹介するよ！",
+  "scenario_prompt": "Young woman excitedly showing skincare products",
+  "duration_seconds": 5,
+  "emotion": "excited",
+  "camera_angle": "close-up"
+}
+```
+
+**type='motion'** (`ComponentMotionData`):
+
+| フィールド | 型 | 説明 |
+|---|---|---|
+| `duration_seconds` | number | モーション秒数 |
+| `motion_type` | string | モーション種別 (talking_head, reaction, dance 等) |
+| `character_orientation` | string | キャラクター向き (front, left, right)。Kling APIの必須パラメータ |
+| `movement` | string | 動きの詳細 (subtle_nod, hand_wave 等) |
+
+```json
+{
+  "duration_seconds": 5,
+  "motion_type": "talking_head",
+  "character_orientation": "front",
+  "movement": "subtle_nod"
+}
+```
+
+**type='audio'** (`ComponentAudioData`):
+
+| フィールド | 型 | 説明 |
+|---|---|---|
+| `duration_seconds` | number | 音声ファイルの長さ (秒) |
+| `genre` | string | ジャンル (upbeat_pop, lo_fi, cinematic 等) |
+| `bpm` | number | テンポ (beats per minute) |
+| `license` | string | ライセンス種別 (royalty_free, creative_commons 等) |
+
+```json
+{
+  "duration_seconds": 30,
+  "genre": "upbeat_pop",
+  "bpm": 120,
+  "license": "royalty_free"
+}
+```
+
+> **注**: type='image' は現時点で固定スキーマを持たない。`Record<string, unknown>` として拡張可能。
+
+> **拡張性**: 全型に `[key: string]: unknown` インデックスシグネチャがあるため、上記フィールド以外も自由に追加可能。
+
+#### 7.3.3 metrics.platform_data / raw_data
+
+`metrics.platform_data` はプラットフォーム固有の詳細メトリクスを構造化して格納する。`metrics.raw_data` はAPIの生レスポンスをそのまま保存する (デバッグ・再分析用、スキーマ定義なし)。
+
+**型定義**: `v5/types/database.ts` — `PlatformData` (union of `YouTubePlatformData` | `InstagramPlatformData` | `XPlatformData` | `Record<string, unknown>`)
+
+**YouTube** (`YouTubePlatformData`):
+
+| フィールド | 型 | 説明 |
+|---|---|---|
+| `estimated_minutes_watched` | number | 推定総再生時間 (分) |
+| `average_view_duration` | number | 平均視聴時間 (秒) |
+| `average_view_percentage` | number | 平均視聴率 (%) |
+| `audience_watch_ratio` | number[] | 秒単位の視聴維持率カーブ ([1.0, 0.95, 0.88, ...]) |
+| `impressions` | number | インプレッション数 |
+| `impression_click_through_rate` | number | インプレッションCTR (0.0〜1.0) |
+| `traffic_source_type` | Record<string, number> | トラフィックソース別の割合 ({"SUGGESTED": 60, "SEARCH": 25}) |
+| `subscribers_gained` | number | 登録者獲得数 |
+| `subscribers_lost` | number | 登録者喪失数 |
+| `demographics` | Record<string, Record<string, number>> | 年齢・性別の人口統計 |
+| `estimated_revenue` | number | 推定収益 (USD) |
+
+**Instagram** (`InstagramPlatformData`):
+
+| フィールド | 型 | 説明 |
+|---|---|---|
+| `avg_watch_time_ms` | number | 平均視聴時間 (ミリ秒) |
+| `completion_rate` | number | 完視聴率 (0.0〜1.0) |
+| `forward_taps` | number | 次へタップ数 |
+| `backward_taps` | number | 前へタップ数 |
+| `drop_off` | number | 離脱数 |
+| `skip_rate` | number | スキップ率 (0.0〜1.0) |
+| `repost_count` | number | リポスト数 |
+| `crossposted_views` | number | クロスポスト再生数 |
+| `facebook_views` | number | Facebook経由の再生数 |
+
+**X** (`XPlatformData`):
+
+| フィールド | 型 | 説明 |
+|---|---|---|
+| `url_link_clicks` | number | URLリンククリック数 |
+| `user_profile_clicks` | number | プロフィールクリック数 |
+| `video_view_count` | number | 動画再生回数 (X独自カウント) |
+| `quote_count` | number | 引用リポスト数 |
+| `bookmark_count` | number | ブックマーク数 |
+
+**TikTok**: TikTok APIでは基本指標 (views, likes, comments, shares) のみ提供されるため、`platform_data` は空オブジェクトまたはNULL。TikTok固有のplatform_dataインターフェース (`TikTokPlatformData`) はTikTok API v2の詳細メトリクス提供開始時に `database.ts` へ追加する。
+
+> **拡張性**: 全型に `[key: string]: unknown` インデックスシグネチャがあるため、APIの新フィールド追加に追従可能。
+
+#### 7.3.4 production_recipes.steps
+
+制作レシピの各ステップを定義するJSONB配列。各要素が1つの制作工程を表す。
+
+**型定義**: `v5/types/database.ts` — `RecipeStep`
+
+| フィールド | 型 | 必須 | 説明 |
+|---|---|---|---|
+| `order` | number | YES | 実行順序 (1, 2, 3, ...) |
+| `step_name` | string | YES | ステップ名 (video_generation, tts, lipsync, concat 等) |
+| `tool_id` | number | YES | FK to `tool_catalog.id` — 使用するツールのID |
+| `tool_name` | string | YES | ツール名 (denormalized for readability: kling_v2.6, fish_audio_tts 等) |
+| `params` | Record<string, unknown> | no | ツール固有パラメータ (duration, aspect_ratio, format 等) |
+| `parallel_group` | string | no | 同一グループ名のステップは並列実行される (例: "section") |
+| `depends_on` | number[] | no | 依存する先行ステップのorder番号配列。指定されたステップ全てが完了後に実行 |
+
+```json
+[
+  {
+    "order": 1,
+    "step_name": "video_generation",
+    "tool_id": 1,
+    "tool_name": "kling_v2.6",
+    "params": { "duration": "5", "aspect_ratio": "9:16" },
+    "parallel_group": "section"
+  },
+  {
+    "order": 2,
+    "step_name": "tts",
+    "tool_id": 3,
+    "tool_name": "fish_audio_tts",
+    "params": { "format": "mp3" },
+    "parallel_group": "section"
+  },
+  {
+    "order": 3,
+    "step_name": "lipsync",
+    "tool_id": 5,
+    "tool_name": "fal_lipsync",
+    "params": {},
+    "depends_on": [1, 2]
+  }
+]
+```
+
+> **実行ルール**: `parallel_group` が同じステップはPromise.allで並列実行。`depends_on` が指定されたステップは依存先の完了を待つ。どちらも未指定の場合は `order` 順に逐次実行。
+
+#### 7.3.5 hypotheses.predicted_kpis / actual_kpis
+
+仮説の予測KPIと実測KPIを同一構造で格納する。`predicted_kpis` は仮説生成時にアナリストが設定し、`actual_kpis` は計測ジョブが計測完了後に集計して更新する。
+
+**型定義**: `v5/types/database.ts` — `HypothesisKpis`
+
+| フィールド | 型 | 説明 |
+|---|---|---|
+| `views` | number | 予測/実測の再生回数 |
+| `engagement_rate` | number | 予測/実測のエンゲージメント率 (0.0〜1.0) |
+| `completion_rate` | number | 予測/実測の完視聴率 (0.0〜1.0) |
+| `follower_delta` | number | 予測/実測のフォロワー増減数 |
+
+```json
+// predicted_kpis の例
+{
+  "views": 5000,
+  "engagement_rate": 0.05,
+  "completion_rate": 0.7,
+  "follower_delta": 50
+}
+
+// actual_kpis の例 (計測後に更新)
+{
+  "views": 4800,
+  "engagement_rate": 0.0598,
+  "completion_rate": 0.72,
+  "follower_delta": 43
+}
+```
+
+> **拡張性**: `[key: string]: unknown` インデックスシグネチャにより、将来的に `watch_time_seconds` や `shares` 等のKPIを追加可能。追加KPIはverdict判定式 (§7.3.6) にも自動的に含まれる。
+
+> **content_learnings との関係**: `content_learnings.predicted_kpis` / `actual_kpis` も同一の `HypothesisKpis` 構造を使用する。content_learningsはコンテンツ単位のマイクロ判定、hypothesesは仮説全体の集約判定。
+
+#### 7.3.6 verdict 判定式
+
+`hypotheses.verdict` および `content_learnings.micro_verdict` の判定に使用する計算式。アナリストエージェントが `hypothesis_verification` 分析時にこの式を適用する。
+
+```
+verdict判定式:
+  prediction_error = avg(|predicted_kpis[i] - actual_kpis[i]| / actual_kpis[i]) for all KPIs
+    ※ actual_kpis[i] = 0 の場合: predicted_kpis[i] = 0 なら error=0, それ以外は error=1.0
+
+  verdict =
+    IF prediction_error <= HYPOTHESIS_CONFIRM_THRESHOLD (default: 0.3)
+      THEN 'confirmed'
+    ELIF prediction_error >= HYPOTHESIS_INCONCLUSIVE_THRESHOLD (default: 0.5)
+      THEN 'rejected'
+    ELSE 'inconclusive'
+
+  ※ 閾値は system_settings テーブルから動的取得 (§7.2 参照):
+    - HYPOTHESIS_CONFIRM_THRESHOLD: default 0.3, constraints {"min": 0.05, "max": 0.5}
+    - HYPOTHESIS_INCONCLUSIVE_THRESHOLD: default 0.5, constraints {"min": 0.2, "max": 0.8}
+```
+
+**実装擬似コード** (TypeScript):
+
+```typescript
+function computeVerdict(
+  predicted: HypothesisKpis,
+  actual: HypothesisKpis,
+  confirmThreshold: number,   // from system_settings
+  inconclusiveThreshold: number // from system_settings
+): HypothesisVerdict {
+  const kpiKeys = Object.keys(predicted).filter(k => k in actual);
+  if (kpiKeys.length === 0) return 'inconclusive';
+
+  const errors = kpiKeys.map(k => {
+    const p = predicted[k] as number;
+    const a = actual[k] as number;
+    if (a === 0) return p === 0 ? 0 : 1.0;
+    return Math.abs(p - a) / a;
+  });
+
+  const avgError = errors.reduce((s, e) => s + e, 0) / errors.length;
+
+  if (avgError <= confirmThreshold) return 'confirmed';
+  if (avgError >= inconclusiveThreshold) return 'rejected';
+  return 'inconclusive';
+}
+```
+
+> **判定閾値の意味**: `prediction_error <= 0.3` は「予測と実測の平均誤差が30%以内」を意味する。例えば views を 5000 と予測し、実測が 3500〜6500 の範囲なら confirmed と判定される。
 
 ## 8. インデックス定義
 

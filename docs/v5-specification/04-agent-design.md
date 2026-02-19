@@ -5301,24 +5301,31 @@ Phase 4以降 (エージェント運用中):
 
 ### 17.1 仮説判定 (verdict)
 
-アナリストが仮説のpredicted_kpis と actual_kpis を比較して判定する際の基準。
+アナリストが仮説のpredicted_kpis と actual_kpis を比較して判定する際の基準。`predicted_kpis` / `actual_kpis` は JSONB で複数KPI指標を含むため、全KPI指標の相対誤差の平均で判定する。
 
 ```
-prediction_error = |predicted_kpis.target_value - actual_kpis.actual_value| / actual_kpis.actual_value
+verdict判定式:
+  prediction_error = avg(|predicted_kpis[i] - actual_kpis[i]| / actual_kpis[i]) for all KPIs
+    ※ actual_kpis[i] = 0 の場合:
+      predicted_kpis[i] = 0 なら error = 0（両方ゼロなら一致とみなす）
+      predicted_kpis[i] ≠ 0 なら error = 1.0（ゼロに対する非ゼロ予測は最大誤差）
 
-if prediction_error < HYPOTHESIS_CONFIRM_THRESHOLD (system_settings、デフォルト: 0.3):
-    verdict = 'confirmed'   # 予測精度70%以上
-elif prediction_error < HYPOTHESIS_INCONCLUSIVE_THRESHOLD (system_settings、デフォルト: 0.5):
-    verdict = 'inconclusive' # 判定保留
-else:
-    verdict = 'rejected'     # 外れ
+  verdict =
+    IF prediction_error <= HYPOTHESIS_CONFIRM_THRESHOLD (system_settings、デフォルト: 0.3)
+      THEN 'confirmed'      — 予測精度70%以上
+    ELIF prediction_error >= HYPOTHESIS_INCONCLUSIVE_THRESHOLD (system_settings、デフォルト: 0.5)
+      THEN 'rejected'       — 外れ
+    ELSE 'inconclusive'     — 判定保留
+
+  ※ データ不足時 (メトリクス < ANALYSIS_MIN_SAMPLE_SIZE (system_settings、デフォルト: 5) サンプル):
+    verdict = 'inconclusive' を強制（統計的に有意な判定が不可能なため）
 ```
 
 | 判定 | prediction_error | 意味 | アクション |
 |------|-----------------|------|----------|
-| `confirmed` | < 0.3 | 予測精度70%以上。仮説は支持された | confidence上昇、learningsに知見抽出 |
+| `confirmed` | <= 0.3 | 予測精度70%以上。仮説は支持された | confidence上昇、learningsに知見抽出 |
 | `inconclusive` | 0.3〜0.5 | 判定保留。データ不足 or 外部要因の影響 | 次サイクルで追加データ収集して再検証 |
-| `rejected` | > 0.5 | 予測が大幅に外れた | 仮説のアプローチを見直し、rejectedパターンを記録 |
+| `rejected` | >= 0.5 | 予測が大幅に外れた | 仮説のアプローチを見直し、rejectedパターンを記録 |
 
 ### 17.2 仮説的中率の算出
 
@@ -5335,30 +5342,83 @@ hypothesis_accuracy = confirmed_count / (confirmed_count + rejected_count)
 
 ### 17.3 異常検知
 
+```
+異常検知式:
+  anomaly = |metric_value - rolling_mean| > ANOMALY_DETECTION_SIGMA × rolling_stddev
+
+  rolling_mean / rolling_stddev: 直近 ANOMALY_DETECTION_WINDOW_DAYS (system_settings、デフォルト: 14) 日の
+    同プラットフォーム・同ニッチのメトリクス平均/標準偏差
+  ANOMALY_DETECTION_SIGMA: system_settings (デフォルト: 2.0)
+
+  データ不足時:
+    - 利用可能な全期間を使用、最低 ANOMALY_MIN_DATAPOINTS (system_settings、デフォルト: 7) データポイント必要
+    - 7データポイント未満: 異常検知スキップ (ログに WARN)
+```
+
 ```sql
--- ANOMALY_DETECTION_WINDOW_DAYS (system_settings、デフォルト: 14) の期間で基準値算出
+-- 基準期間: ANOMALY_DETECTION_WINDOW_DAYS (system_settings、デフォルト: 14) 日
+-- 閾値: ANOMALY_DETECTION_SIGMA (system_settings、デフォルト: 2.0)
+-- 最小データポイント: ANOMALY_MIN_DATAPOINTS (system_settings、デフォルト: 7)
+
 WITH baseline AS (
     SELECT
         AVG(engagement_rate) as avg_er,
-        STDDEV(engagement_rate) as std_er
-    FROM metrics
-    WHERE account_id = :account_id
-    AND collected_at >= NOW() - INTERVAL ':window_days days'
+        STDDEV(engagement_rate) as std_er,
+        AVG(completion_rate) as avg_cr,
+        STDDEV(completion_rate) as std_cr,
+        AVG(views) as avg_views,
+        STDDEV(views) as std_views,
+        COUNT(*) as datapoint_count
+    FROM metrics m
+    JOIN publications p ON m.publication_id = p.id
+    WHERE p.account_id = :account_id
+    AND m.measured_at >= NOW() - INTERVAL ':window_days days'
+    HAVING COUNT(*) >= :min_datapoints  -- ANOMALY_MIN_DATAPOINTS (デフォルト: 7)
 )
-SELECT * FROM metrics
-WHERE engagement_rate > (SELECT avg_er + :sigma * std_er FROM baseline)
-   OR engagement_rate < (SELECT avg_er - :sigma * std_er FROM baseline);
+SELECT m.* FROM metrics m
+JOIN publications p ON m.publication_id = p.id
+JOIN baseline b ON TRUE
+WHERE p.account_id = :account_id
+AND (
+    ABS(m.engagement_rate - b.avg_er) > :sigma * b.std_er
+    OR ABS(m.completion_rate - b.avg_cr) > :sigma * b.std_cr
+    OR ABS(m.views - b.avg_views) > :sigma * b.std_views
+);
+-- HAVING句でデータポイント不足時はbaseline CTE が空 → JOINで結果なし → 異常検知スキップ
 ```
+
+**異常の分類**:
+
+- **正の異常（バイラル）**: 値が mean + sigma × std を超過 → 成功パターン分析を優先実行
+- **負の異常（急落）**: 値が mean - sigma × std を下回る → 問題調査タスクを自動生成
 
 | 設定キー | デフォルト値 | 説明 |
 |---------|------------|------|
 | `ANOMALY_DETECTION_SIGMA` | 2.0 | 基準値からの標準偏差倍数。大きくすると感度が下がる |
 | `ANOMALY_DETECTION_WINDOW_DAYS` | 14 | 基準値算出の対象期間（日数） |
-| `ANOMALY_MIN_DATAPOINTS` | 7 | この数未満のデータポイントでは異常検知を実行しない |
+| `ANOMALY_MIN_DATAPOINTS` | 7 | この数未満のデータポイントでは異常検知をスキップし、WARNログを出力 |
 
 ### 17.4 コンポーネント品質スコア
 
-コンテンツのパフォーマンスメトリクスから品質スコアを算出する式。各メトリクスを0-10にスケーリングし、重み付き加重平均を取る。
+コンテンツのパフォーマンスメトリクスから品質スコアを算出する式。
+
+```
+quality_score = Σ(weight_i × normalized_metric_i)
+
+重み (system_settings):
+  QUALITY_WEIGHT_COMPLETION  = 0.35 (完視聴率)
+  QUALITY_WEIGHT_ENGAGEMENT  = 0.25 (エンゲージメント率)
+  QUALITY_WEIGHT_SHARE       = 0.20 (シェア率)
+  QUALITY_WEIGHT_RETENTION   = 0.15 (リテンション率)
+  QUALITY_WEIGHT_SENTIMENT   = 0.05 (センチメント分析)
+
+normalized_metric = min(1.0, actual / platform_niche_median)
+※ platform_niche_median: learningsテーブルの過去データから動的算出
+※ データ不足時 (< ANALYSIS_MIN_SAMPLE_SIZE (system_settings、デフォルト: 5) サンプル):
+   system_settingsのデフォルト中央値（下記スケーリング基準値）を使用
+```
+
+各メトリクスの `normalized_metric` を0.0〜1.0に正規化した後、10倍して0-10点スケールに変換する:
 
 ```
 quality_score =
@@ -5371,13 +5431,15 @@ quality_score =
 
 **スケーリング関数**（各メトリクスを0-10に正規化）:
 
-| メトリクス | スケーリング式 | 10点の基準 |
+| メトリクス | スケーリング式 | 10点の基準（デフォルト中央値） |
 |-----------|-------------|-----------|
 | completion_rate | `min(10, completion_rate / 0.07)` | 70%完視聴で10点 |
 | engagement_rate | `min(10, engagement_rate / 0.003)` | 3%エンゲージメントで10点 |
 | share_rate | `min(10, share_rate / 0.005)` | 0.5%シェア率で10点 |
 | three_sec_retention | `min(10, (1 - three_sec_dropoff) / 0.06)` | 40%離脱（60%残留）で10点 |
 | sentiment_positive | `min(10, sentiment_positive_ratio / 0.06)` | 60%ポジティブで10点 |
+
+> **動的中央値**: 十分なデータ（>= `ANALYSIS_MIN_SAMPLE_SIZE`）が蓄積された後は、上記の固定基準値の代わりにlearningsテーブルの同プラットフォーム・同ニッチの実績中央値を `platform_niche_median` として動的に算出し、より正確なスコアリングを行う。
 
 ### 17.5 リソース配分ルール
 
@@ -5538,17 +5600,39 @@ worker_pool_size = CEIL(daily_production_target / WORKER_THROUGHPUT_PER_HOUR)
 反省からパターンを識別し、個別学習メモリに記録する。
 
 ```
-confidence更新ルール:
+confidence更新式:
 
   初期値 = 0.5
-  適用→成功 で confidence += LEARNING_SUCCESS_INCREMENT (system_settings、デフォルト: 0.1)  ※ max 1.0
-  適用→失敗 で confidence -= LEARNING_FAILURE_DECREMENT (system_settings、デフォルト: 0.15) ※ min 0.0
 
-  confidence < LEARNING_CONFIDENCE_THRESHOLD (system_settings、デフォルト: 0.7) の知見
+  verdict = 'confirmed':
+    confidence_new = min(0.95, confidence_old + (1 - confidence_old) × LEARNING_SUCCESS_INCREMENT)
+    ※ LEARNING_SUCCESS_INCREMENT = 0.10 (system_settings)
+    ※ 上限0.95: 完全な確信（1.0）は許容しない（常に改善余地を残す）
+    ※ 減衰項 (1 - confidence_old) により、高confidence時の増加幅が自然に縮小する
+
+  verdict = 'inconclusive':
+    confidence_new = confidence_old + CONFIDENCE_INCREMENT_INCONCLUSIVE
+    ※ CONFIDENCE_INCREMENT_INCONCLUSIVE = 0.02 (system_settings)
+    ※ データ不足でも「検証を試みた」こと自体に微小な正の評価
+
+  verdict = 'rejected':
+    confidence_new = max(0.05, confidence_old - LEARNING_FAILURE_DECREMENT)
+    ※ LEARNING_FAILURE_DECREMENT = 0.15 (system_settings)
+    ※ 下限0.05: 完全なゼロにはしない（復活の余地を残す）
+
+  ※ evidence_count >= LEARNING_AUTO_PROMOTE_COUNT (system_settings、デフォルト: 10) で "mature" 判定
+  ※ mature learnings は confidence >= LEARNING_CONFIDENCE_THRESHOLD (system_settings、デフォルト: 0.7)
+    のものだけがプランナーに推奨される
+  ※ confidence < LEARNING_DEACTIVATE_THRESHOLD (system_settings、デフォルト: 0.2) で
+    自動非活性化 (is_active=false)
+
+参照優先度:
+  confidence >= LEARNING_CONFIDENCE_THRESHOLD (0.7) の知見
+    → 積極的に参照（get_individual_learningsの結果で上位に配置）
+  confidence 0.2〜0.7 の知見
     → 参照頻度を下げる（get_individual_learningsの結果で後方に配置）
-
-  confidence < LEARNING_DEACTIVATE_THRESHOLD (system_settings、デフォルト: 0.2) の知見
-    → is_active = false に自動変更
+  confidence < LEARNING_DEACTIVATE_THRESHOLD (0.2) の知見
+    → is_active = false に自動変更、参照対象から除外
 ```
 
 #### 知見の昇格 (individual → global learnings)

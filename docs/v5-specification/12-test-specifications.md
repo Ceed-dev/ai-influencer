@@ -14,7 +14,7 @@ TEST-{LAYER}-{NUMBER}
 | Layer | Prefix | 対象 |
 |-------|--------|------|
 | Database | DB | PostgreSQL スキーマ・制約・トリガー・インデックス |
-| MCP Server | MCP | 98 MCP ツールの入出力・バリデーション |
+| MCP Server | MCP | 98 MCP ツールの入出力・バリデーション (137テスト) |
 | Worker | WKR | タスクキュー処理・動画制作・投稿・計測ワーカー |
 | LangGraph Agent | AGT | 4グラフのノード遷移・状態管理・チェックポイント |
 | Dashboard | DSH | Next.js 15ページ・13 REST API・テーマ・レスポンシブ |
@@ -553,15 +553,15 @@ TEST-{LAYER}-{NUMBER}
 - **Pass Criteria**: 6値成功 AND 不正値が拒否
 - **Fail Indicators**: 不正値が成功
 
-### TEST-DB-046: system_settings 初期データ件数 (86件)
+### TEST-DB-046: system_settings 初期データ件数 (87件)
 - **Category**: database
 - **Priority**: P0
 - **Prerequisites**: 初期INSERTマイグレーション実行済み
 - **Steps**:
   1. `SELECT COUNT(*) FROM system_settings;`
-- **Expected Result**: `count = 86`
-- **Pass Criteria**: COUNT = 86
-- **Fail Indicators**: COUNT ≠ 86
+- **Expected Result**: `count = 87`
+- **Pass Criteria**: COUNT = 87
+- **Fail Indicators**: COUNT ≠ 87
 
 ### TEST-DB-047: system_settings カテゴリ別件数
 - **Category**: database
@@ -572,7 +572,7 @@ TEST-{LAYER}-{NUMBER}
 - **Expected Result**:
   | category | count |
   |----------|-------|
-  | agent | 43 |
+  | agent | 44 |
   | cost_control | 4 |
   | credentials | 5 |
   | dashboard | 3 |
@@ -2139,6 +2139,66 @@ TEST-{LAYER}-{NUMBER}
 - **Pass Criteria**: 返却件数 <= 5 AND 全件の self_score が 1-10 の範囲内
 - **Fail Indicators**: キーの欠如、または self_score が範囲外
 
+### TEST-MCP-132: search_content_learnings — ベクトル検索+nicheフィルタ
+- **Category**: mcp
+- **Priority**: P1
+- **Prerequisites**: content_learnings に niche='beauty' のレコード3件（embedding設定済み）
+- **Steps**:
+  1. `search_content_learnings({ query_embedding: [0.1, ...], niche: "beauty", limit: 5 })` を呼び出し
+- **Expected Result**: 配列を返却。各要素に `content_id` (string), `micro_verdict` (enum: confirmed/inconclusive/rejected), `key_insight` (string|null), `confidence` (number 0-1), `prediction_error` (number) を含む
+- **Pass Criteria**: 返却件数 <= 5 AND 全件の niche = 'beauty' AND confidence が 0-1 の範囲内
+- **Fail Indicators**: niche フィルタ未適用、またはベクトル検索エラー
+
+### TEST-MCP-133: create_micro_analysis — マイクロ分析結果の保存
+- **Category**: mcp
+- **Priority**: P1
+- **Prerequisites**: content テーブルに content_id='CNT_TEST_001' のレコード、hypotheses にpredicted_kpis設定済みレコード
+- **Steps**:
+  1. `create_micro_analysis({ content_id: "CNT_TEST_001", hypothesis_id: 1, predicted_kpis: { views: 1000, engagement_rate: 0.05 }, actual_kpis: { views: 800, engagement_rate: 0.04 } })` を呼び出し
+- **Expected Result**: content_learnings に新レコード挿入。prediction_error が自動計算（MAPE）。micro_verdict が HYPOTHESIS_CONFIRM_THRESHOLD / HYPOTHESIS_INCONCLUSIVE_THRESHOLD に基づき自動判定
+- **Pass Criteria**: レコード存在 AND prediction_error > 0 AND micro_verdict IN ('confirmed', 'inconclusive', 'rejected')
+- **Fail Indicators**: INSERT失敗、prediction_error未計算、verdict未判定
+
+### TEST-MCP-134: save_micro_reflection — マイクロ反省の保存
+- **Category**: mcp
+- **Priority**: P1
+- **Prerequisites**: content_learnings に TEST-MCP-133 で作成したレコード
+- **Steps**:
+  1. `save_micro_reflection({ content_learning_id: "<uuid>", what_worked: ["hook was attention-grabbing"], what_didnt_work: ["CTA too long"], key_insight: "Short CTAs perform 20% better" })` を呼び出し
+- **Expected Result**: content_learnings の対象行が更新。what_worked, what_didnt_work, key_insight が設定される
+- **Pass Criteria**: UPDATE成功 AND 各フィールドが正しく保存
+- **Fail Indicators**: UUID不一致エラー、フィールド未更新
+
+### TEST-MCP-135: get_content_metrics — 実測KPI取得
+- **Category**: mcp
+- **Priority**: P1
+- **Prerequisites**: publications + metrics テーブルにテストデータ（content_id='CNT_TEST_001', measurement_point='48h'）
+- **Steps**:
+  1. `get_content_metrics({ content_id: "CNT_TEST_001" })` を呼び出し
+- **Expected Result**: publications→metrics を JOIN し、views, likes, comments, shares, completion_rate, engagement_rate を返却
+- **Pass Criteria**: 返却オブジェクトに必須KPIフィールドが全て存在 AND 値が数値型
+- **Fail Indicators**: JOINエラー、NULL返却（データ存在時）
+
+### TEST-MCP-136: get_content_prediction — 仮説predicted_kpis取得
+- **Category**: mcp
+- **Priority**: P1
+- **Prerequisites**: content テーブルに hypothesis_id 設定済み、hypotheses に predicted_kpis 設定済み
+- **Steps**:
+  1. `get_content_prediction({ content_id: "CNT_TEST_001" })` を呼び出し
+- **Expected Result**: content→hypotheses の predicted_kpis (JSONB) を返却。views, engagement_rate 等のKPIフィールドを含む
+- **Pass Criteria**: predicted_kpis が non-null AND views フィールドが数値型
+- **Fail Indicators**: hypothesis_id が NULL の場合にエラーではなく空オブジェクト返却であること
+
+### TEST-MCP-137: get_daily_micro_analyses_summary — 日次サマリー取得
+- **Category**: mcp
+- **Priority**: P1
+- **Prerequisites**: content_learnings に当日作成のレコード5件（micro_verdict混在: confirmed×2, rejected×2, inconclusive×1）
+- **Steps**:
+  1. `get_daily_micro_analyses_summary({ date: "2026-03-01" })` を呼び出し
+- **Expected Result**: サマリーオブジェクト: total_analyzed (5), verdict_breakdown ({ confirmed: 2, rejected: 2, inconclusive: 1 }), avg_prediction_error (number), top_insights (string[])
+- **Pass Criteria**: total_analyzed = 5 AND verdict_breakdown の合計 = total_analyzed AND avg_prediction_error > 0
+- **Fail Indicators**: カウント不一致、日付フィルタ未適用
+
 ## 3. Worker Layer Tests (TEST-WKR)
 
 ### TEST-WKR-001: タスクキューポーリング — 空キュー
@@ -3084,11 +3144,11 @@ TEST-{LAYER}-{NUMBER}
 ### TEST-DSH-015: GET /api/settings — 全設定取得
 - **Category**: dashboard
 - **Priority**: P0
-- **Prerequisites**: system_settings に86件のデータ
+- **Prerequisites**: system_settings に87件のデータ
 - **Steps**:
   1. `GET /api/settings` を呼び出し
-- **Expected Result**: HTTP 200。`{ settings: SystemSetting[] }`。86件。カテゴリ別にグルーピング
-- **Pass Criteria**: settings の件数 = 86
+- **Expected Result**: HTTP 200。`{ settings: SystemSetting[] }`。87件。カテゴリ別にグルーピング
+- **Pass Criteria**: settings の件数 = 87
 - **Fail Indicators**: 件数が 86 でない
 
 ### TEST-DSH-016: PUT /api/settings/:key — 設定更新
@@ -3399,7 +3459,7 @@ TEST-{LAYER}-{NUMBER}
 ### TEST-DSH-045: REST API — レスポンスタイム
 - **Category**: dashboard
 - **Priority**: P2
-- **Prerequisites**: system_settings に86件のデータ
+- **Prerequisites**: system_settings に87件のデータ
 - **Steps**:
   1. `GET /api/settings` を10回呼び出し、レスポンスタイムを計測
 - **Expected Result**: 平均レスポンスタイム < 500ms
@@ -5481,7 +5541,7 @@ TEST-{LAYER}-{NUMBER}
 - **Priority**: P0
 - **Prerequisites**: クリーンインストール完了
 - **Steps**:
-  1. PostgreSQL マイグレーション実行 (27テーブル + 86設定値)
+  1. PostgreSQL マイグレーション実行 (27テーブル + 87設定値)
   2. MCP Server 起動
   3. LangGraph 4グラフ起動
   4. ダッシュボード起動
@@ -5520,15 +5580,15 @@ TEST-{LAYER}-{NUMBER}
 | Section | Layer | Tests | P0 | P1 | P2 | P3 |
 |---------|-------|-------|----|----|----|----|
 | 1 | Database | 59 | 21 | 35 | 3 | 0 |
-| 2 | MCP Server | 131 | 46 | 72 | 13 | 0 |
+| 2 | MCP Server | 137 | 46 | 78 | 13 | 0 |
 | 3 | Worker | 40 | 18 | 18 | 4 | 0 |
 | 4 | LangGraph Agent | 35 | 11 | 19 | 5 | 0 |
 | 5 | Dashboard | 156 | 30 | 92 | 32 | 2 |
 | 6 | Integration | 20 | 7 | 11 | 2 | 0 |
 | 7 | E2E | 12 | 4 | 8 | 0 | 0 |
-| **Total** | | **453** | **137** | **255** | **59** | **2** |
+| **Total** | | **459** | **137** | **261** | **59** | **2** |
 
-> 全453テスト。各テストは AI エージェントが Pass/Fail を判定可能な精度で記述。
+> 全459テスト。各テストは AI エージェントが Pass/Fail を判定可能な精度で記述。
 > P0 テスト (137件) は初回リリース前に全件パス必須。
 > ※ TEST-AGT-033〜039 は欠番 (将来の拡張用に予約)。実テスト数は TEST-AGT-001〜032 + 040〜042 = 35件。
 

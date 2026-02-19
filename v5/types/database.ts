@@ -2097,6 +2097,7 @@ export type TableName =
   | 'metrics'
   | 'analyses'
   | 'learnings'
+  | 'content_learnings'
   // Operations Layer
   | 'cycles'
   | 'human_directives'
@@ -2130,6 +2131,7 @@ export interface AllRowTypes {
   metrics: MetricRow;
   analyses: AnalysisRow;
   learnings: LearningRow;
+  content_learnings: ContentLearningRow;
   cycles: CycleRow;
   human_directives: HumanDirectiveRow;
   task_queue: TaskQueueRow;

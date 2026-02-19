@@ -1,8 +1,8 @@
 -- ============================================================
--- AI-Influencer v5.0 — Default System Settings (86 entries)
+-- AI-Influencer v5.0 — Default System Settings (87 entries)
 -- Generated from docs/v5-specification/03-database-schema.md Section 7.2
 -- ============================================================
--- Categories: production (13), posting (8), review (4), agent (43),
+-- Categories: production (13), posting (8), review (4), agent (44),
 --             measurement (6), cost_control (4), dashboard (3), credentials (5)
 -- ============================================================
 
@@ -42,7 +42,7 @@ INSERT INTO system_settings (setting_key, setting_value, category, description, 
 ('STRATEGY_APPROVAL_REQUIRED', 'true', 'review', '戦略サイクルのポリシー決定に人間の承認を要求するか', 'true', 'boolean', null),
 ('RECIPE_APPROVAL_REQUIRED', 'true', 'review', '新しいプロダクションレシピの使用に人間の承認を要求するか', 'true', 'boolean', null);
 
--- Agent settings (43: 38 base + 3 character auto-generation + 2 micro-cycle learning)
+-- Agent settings (44: 38 base + 3 character auto-generation + 2 micro-cycle learning + 1 confidence inconclusive)
 INSERT INTO system_settings (setting_key, setting_value, category, description, default_value, value_type, constraints) VALUES
 ('HYPOTHESIS_CYCLE_INTERVAL_HOURS', '24', 'agent', '仮説駆動サイクルの実行間隔（時間）。日次=24', '24', 'integer', '{"min": 6, "max": 168}'),
 ('RESEARCHER_POLL_INTERVAL_HOURS', '6', 'agent', 'リサーチャーの市場情報収集間隔（時間）', '6', 'integer', '{"min": 1, "max": 48}'),
@@ -64,6 +64,7 @@ INSERT INTO system_settings (setting_key, setting_value, category, description, 
 ('LEARNING_AUTO_PROMOTE_ENABLED', 'false', 'agent', '学びの自動昇格（グローバル知見化）を有効にするか', 'false', 'boolean', null),
 ('LEARNING_SUCCESS_INCREMENT', '0.1', 'agent', '学び適用成功時のconfidence増加量', '0.1', 'float', '{"min": 0.01, "max": 0.3}'),
 ('LEARNING_FAILURE_DECREMENT', '0.15', 'agent', '学び適用失敗時のconfidence減少量', '0.15', 'float', '{"min": 0.01, "max": 0.3}'),
+('CONFIDENCE_INCREMENT_INCONCLUSIVE', '0.02', 'agent', '仮説検証inconclusive時のconfidence微増量', '0.02', 'float', '{"min": 0.0, "max": 0.1}'),
 ('LEARNING_SIMILARITY_THRESHOLD', '0.8', 'agent', '重複学び検出のコサイン類似度閾値。この値以上で重複とみなす', '0.8', 'float', '{"min": 0.5, "max": 0.99}'),
 ('MAX_LEARNINGS_PER_CONTEXT', '20', 'agent', 'タスク実行時にベクトル検索で取得する学びの最大数', '20', 'integer', '{"min": 5, "max": 50}'),
 ('EXPLORATION_RATE', '0.15', 'agent', '探索率。この確率で過去の最適解ではなく新しいアプローチを試行', '0.15', 'float', '{"min": 0, "max": 0.5}'),

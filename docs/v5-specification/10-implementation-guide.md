@@ -129,7 +129,7 @@ ai-influencer/v5/
 │   ├── 001_create_tables.sql  # DDL（27テーブル）
 │   ├── 002_create_indexes.sql # インデックス（139件）
 │   ├── 003_create_triggers.sql # トリガー（13件）
-│   ├── 004_seed_settings.sql  # system_settings初期データ（86件）
+│   ├── 004_seed_settings.sql  # system_settings初期データ（87件）
 │   └── 005_seed_prompts.sql   # agent_prompt_versions初期データ（6エージェント分）
 │
 │ ─── 実装コード ───
@@ -326,7 +326,8 @@ Week 0-1でリーダーが生成し凍結。全エージェントはこの型定
 | 項目 | 内容 |
 |------|------|
 | 通信方式 | Next.js API Routes → PostgreSQL直接（ダッシュボードはMCP経由ではなくDB直結。[02-architecture.md §6.1](02-architecture.md) 参照） |
-| 契約 | `types/api-schemas.ts` |
+| 契約 | `types/api-schemas.ts`（13エンドポイント詳細は§6.9参照） |
+| エンドポイント数 | 13（GET x8, POST x3, PUT x2） |
 
 ### 4.4 エージェント ↔ DB
 
@@ -374,7 +375,7 @@ LangGraphの各ノード（Strategist, Researcher, Analyst, Planner, Tool Specia
 |------|------|
 | 通信方式 | `src/lib/settings.ts` → PostgreSQL直接クエリ（MCP非経由） |
 | 呼び出し元 | 全エージェント、全ワーカー、ダッシュボード |
-| テーブル | `system_settings`（86件、8カテゴリ: production(13), posting(8), review(4), agent(43), measurement(6), cost_control(4), dashboard(3), credentials(5)） |
+| テーブル | `system_settings`（87件、8カテゴリ: production(13), posting(8), review(4), agent(44), measurement(6), cost_control(4), dashboard(3), credentials(5)） |
 | 契約 | `getSetting(key: string): Promise<string>` — 初期実装は infra-agent（[02-architecture.md §10](02-architecture.md) 参照） |
 | ルール | 全設定値はこのユーティリティ経由で取得する。ハードコーディング禁止 |
 
@@ -639,6 +640,26 @@ export const getAccountsTool = {
 - Nunito フォント（Google Fonts）
 - レスポンシブデザイン（Mobile-first）
 - 13 REST APIエンドポイント（`dashboard/app/api/` — §4.9の10 + §4.11の3）
+
+**13 REST APIエンドポイント一覧**（型定義: `types/api-schemas.ts`）:
+
+| # | Method | Path | Request型 | Response型 | 説明 |
+|---|--------|------|-----------|------------|------|
+| 1 | GET | `/api/accounts` | `ListAccountsRequest` | `ListAccountsResponse` | アカウント一覧。platform/status/page/limitでフィルター |
+| 2 | GET | `/api/accounts/:id` | `GetAccountRequest` | `GetAccountResponse` | アカウント詳細。関連character・recent_publications含む |
+| 3 | POST | `/api/accounts` | `CreateAccountRequest` | `CreateAccountResponse` | アカウント新規作成。platform/handle/character_id必須 |
+| 4 | PUT | `/api/accounts/:id` | `UpdateAccountRequest` | `UpdateAccountResponse` | アカウント更新。handle/status/niche/cluster/character_id変更可 |
+| 5 | GET | `/api/content` | `ListContentRequest` | `ListContentResponse` | コンテンツ一覧。status/content_format/character_idでフィルター |
+| 6 | POST | `/api/content/:id/approve` | `ApproveContentRequest` | `ApproveContentResponse` | コンテンツ承認（pending_approval → approved） |
+| 7 | POST | `/api/content/:id/reject` | `RejectContentRequest` | `RejectContentResponse` | コンテンツ差し戻し。rejection_category必須（plan_revision/data_insufficient/hypothesis_weak） |
+| 8 | GET | `/api/kpi/summary` | `GetKpiSummaryRequest` | `GetKpiSummaryResponse` | KPIサマリー。period（7d/30d/90d）指定可。accounts/followers/engagement/content/monetization |
+| 9 | GET | `/api/hypotheses` | `ListHypothesesRequest` | `ListHypothesesResponse` | 仮説一覧。verdict/categoryでフィルター |
+| 10 | GET | `/api/learnings` | `ListLearningsRequest` | `ListLearningsResponse` | 知見一覧。min_confidence/categoryでフィルター |
+| 11 | GET | `/api/settings` | `ListSettingsRequest` | `ListSettingsResponse` | system_settings一覧。categoryでフィルター |
+| 12 | PUT | `/api/settings/:key` | `UpdateSettingRequest` | `UpdateSettingResponse` | system_setting値の更新。key（パスパラメータ）+ value |
+| 13 | GET | `/api/errors` | `ListErrorsRequest` | `ListErrorsResponse` | エラーログ一覧。period（24h/7d/30d）/task_type（production/publishing/measurement/curation）でフィルター |
+
+> **実装パス**: 各エンドポイントは `dashboard/app/api/{resource}/route.ts` に Next.js Route Handler として実装する。DB接続は Prisma/Drizzle ORM → PostgreSQL 直接（MCP Server経由ではない。§4.3参照）。型は `types/api-schemas.ts` の `ApiRouteMap` で一括マッピングされており、`ApiRequest<T>` / `ApiResponse<T>` ユーティリティ型でルート別の型を取得可能。
 
 **15画面の実装（優先度順、画面×サブ機能マッピングは§3参照）**:
 
