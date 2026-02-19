@@ -45,7 +45,7 @@ Phase A: Initializer (リーダーAgent)
   ├── init.sh を生成（環境セットアップ）
   ├── progress.txt を初期化
   ├── types/ を生成・凍結（TypeScript型定義）
-  └── 10エージェントを起動・タスク割り当て
+  └── 10エージェントを起動・タスク割り当て（→ 付録B のテンプレートを使用）
 
 Phase B: Coding Agents (10チームメイト)
   ├── セッション起動チェックリストを毎回実行
@@ -196,6 +196,8 @@ Phase B: Coding Agents (10チームメイト)
 | `passes` | **変更可** | 担当エージェントのみ。`false` → `true` の一方向のみ |
 
 **理由**: JSON形式を採用することで、Markdown形式よりもエージェントが「内容を改変して楽をする」リスクを低減する。`passes` 以外のフィールドが変更されていた場合、`git diff` で即座に検出可能。
+
+**初期生成時の検証**: リーダーは feature_list.json の初期生成後、**付録C** のチェックリストで全項目を検証すること。
 
 ### 2.3 機能IDの命名規則
 
@@ -1625,6 +1627,8 @@ Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
 | E2Eテスト時 (Week 5-7) | G1 + G2 + G3 + G4 + G5 + G6 | test-agent + リーダー |
 
 ### 8.3 npm scripts 定義
+
+テスト・品質ゲートで使用する主要コマンド（完全な定義は **付録A** を参照）：
 
 ```json
 {
