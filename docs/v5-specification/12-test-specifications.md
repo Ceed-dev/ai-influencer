@@ -14,7 +14,7 @@ TEST-{LAYER}-{NUMBER}
 | Layer | Prefix | 対象 |
 |-------|--------|------|
 | Database | DB | PostgreSQL スキーマ・制約・トリガー・インデックス |
-| MCP Server | MCP | 92 MCP ツールの入出力・バリデーション |
+| MCP Server | MCP | 98 MCP ツールの入出力・バリデーション |
 | Worker | WKR | タスクキュー処理・動画制作・投稿・計測ワーカー |
 | LangGraph Agent | AGT | 4グラフのノード遷移・状態管理・チェックポイント |
 | Dashboard | DSH | Next.js 15ページ・13 REST API・テーマ・レスポンシブ |
@@ -42,16 +42,16 @@ TEST-{LAYER}-{NUMBER}
 - **Pass Criteria**: 行数 = 1 AND extname = 'vector'
 - **Fail Indicators**: 0行返却、またはERROR
 
-### TEST-DB-002: 全26テーブルの存在確認
+### TEST-DB-002: 全27テーブルの存在確認
 - **Category**: database
 - **Priority**: P0
 - **Prerequisites**: マイグレーション実行済み
 - **Steps**:
   1. `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE' ORDER BY table_name;` を実行
-- **Expected Result**: 以下26テーブルが全て存在:
-  `accounts`, `agent_communications`, `agent_individual_learnings`, `agent_prompt_versions`, `agent_reflections`, `agent_thought_logs`, `algorithm_performance`, `analyses`, `characters`, `components`, `content`, `content_sections`, `cycles`, `human_directives`, `hypotheses`, `learnings`, `market_intel`, `metrics`, `production_recipes`, `prompt_suggestions`, `publications`, `system_settings`, `task_queue`, `tool_catalog`, `tool_experiences`, `tool_external_sources`
-- **Pass Criteria**: 返却行数 = 26 AND 全テーブル名が一致
-- **Fail Indicators**: 行数 ≠ 26、またはテーブル名の不一致
+- **Expected Result**: 以下27テーブルが全て存在:
+  `accounts`, `agent_communications`, `agent_individual_learnings`, `agent_prompt_versions`, `agent_reflections`, `agent_thought_logs`, `algorithm_performance`, `analyses`, `characters`, `components`, `content`, `content_learnings`, `content_sections`, `cycles`, `human_directives`, `hypotheses`, `learnings`, `market_intel`, `metrics`, `production_recipes`, `prompt_suggestions`, `publications`, `system_settings`, `task_queue`, `tool_catalog`, `tool_experiences`, `tool_external_sources`
+- **Pass Criteria**: 返却行数 = 27 AND 全テーブル名が一致
+- **Fail Indicators**: 行数 ≠ 27、またはテーブル名の不一致
 
 ### TEST-DB-003: accounts.platform CHECK制約
 - **Category**: database
@@ -553,15 +553,15 @@ TEST-{LAYER}-{NUMBER}
 - **Pass Criteria**: 6値成功 AND 不正値が拒否
 - **Fail Indicators**: 不正値が成功
 
-### TEST-DB-046: system_settings 初期データ件数 (84件)
+### TEST-DB-046: system_settings 初期データ件数 (86件)
 - **Category**: database
 - **Priority**: P0
 - **Prerequisites**: 初期INSERTマイグレーション実行済み
 - **Steps**:
   1. `SELECT COUNT(*) FROM system_settings;`
-- **Expected Result**: `count = 84`
-- **Pass Criteria**: COUNT = 84
-- **Fail Indicators**: COUNT ≠ 84
+- **Expected Result**: `count = 86`
+- **Pass Criteria**: COUNT = 86
+- **Fail Indicators**: COUNT ≠ 86
 
 ### TEST-DB-047: system_settings カテゴリ別件数
 - **Category**: database
@@ -572,7 +572,7 @@ TEST-{LAYER}-{NUMBER}
 - **Expected Result**:
   | category | count |
   |----------|-------|
-  | agent | 41 |
+  | agent | 43 |
   | cost_control | 4 |
   | credentials | 5 |
   | dashboard | 3 |
@@ -690,9 +690,9 @@ TEST-{LAYER}-{NUMBER}
      Layer 1: `characters`, `cycles`, `system_settings`, `tool_catalog`
      Layer 2: `accounts`, `hypotheses`, `components`, `production_recipes`
      Layer 3: `content`, `market_intel`, `learnings`, `human_directives`, `task_queue`, `algorithm_performance`, `agent_prompt_versions`, `agent_thought_logs`, `tool_external_sources`
-     Layer 4: `content_sections`, `publications`, `analyses`, `agent_reflections`, `agent_communications`, `tool_experiences`, `prompt_suggestions`
+     Layer 4: `content_learnings`, `content_sections`, `publications`, `analyses`, `agent_reflections`, `agent_communications`, `tool_experiences`, `prompt_suggestions`
      Layer 5: `metrics`, `agent_individual_learnings`
-- **Expected Result**: 全26テーブルがエラーなく作成される
+- **Expected Result**: 全27テーブルがエラーなく作成される
 - **Pass Criteria**: 全 CREATE TABLE が成功
 - **Fail Indicators**: いずれかのテーブル作成でFK依存エラー
 
@@ -734,15 +734,15 @@ TEST-{LAYER}-{NUMBER}
 - **Pass Criteria**: デフォルト = NULL AND 有効なJSONBが保存される
 - **Fail Indicators**: デフォルトが NULL でない、または JSONB挿入が失敗
 
-### TEST-DB-059: 全インデックス数の確認 (135個)
+### TEST-DB-059: 全インデックス数の確認 (139個)
 - **Category**: database
 - **Priority**: P1
 - **Prerequisites**: インデックスマイグレーション実行済み
 - **Steps**:
   1. `SELECT COUNT(*) FROM pg_indexes WHERE schemaname = 'public' AND indexname LIKE 'idx_%';`
-- **Expected Result**: `count = 135`
-- **Pass Criteria**: COUNT = 135
-- **Fail Indicators**: COUNT ≠ 135
+- **Expected Result**: `count = 139`
+- **Pass Criteria**: COUNT = 139
+- **Fail Indicators**: COUNT ≠ 139
 
 ## 2. MCP Server Layer Tests (TEST-MCP)
 
@@ -1706,7 +1706,7 @@ TEST-{LAYER}-{NUMBER}
 - **Prerequisites**: MCP Server 起動済み
 - **Steps**:
   1. MCP Server のツール一覧を取得 (list_tools プロトコル)
-- **Expected Result**: ツール総数 = 92 (戦略10 + リサーチャー12 + アナリスト14 + プランナー9 + ツールスペシャリスト5 + 制作ワーカー12 + 投稿ワーカー6 + 計測ワーカー7 + ダッシュボード10 + キュレーター9 + キュレーションダッシュボード3 + 自己学習8 - 重複13ダッシュボードREST)
+- **Expected Result**: ツール総数 = 98 (戦略10 + リサーチャー12 + アナリスト14 + プランナー9 + ツールスペシャリスト5 + 制作ワーカー12 + 投稿ワーカー6 + 計測ワーカー7 + ダッシュボード10 + キュレーター9 + キュレーションダッシュボード3 + 自己学習14 - 重複13ダッシュボードREST)
 - **Pass Criteria**: MCP ツール数が仕様と一致
 - **Fail Indicators**: ツール数が不一致
 
@@ -3084,12 +3084,12 @@ TEST-{LAYER}-{NUMBER}
 ### TEST-DSH-015: GET /api/settings — 全設定取得
 - **Category**: dashboard
 - **Priority**: P0
-- **Prerequisites**: system_settings に84件のデータ
+- **Prerequisites**: system_settings に86件のデータ
 - **Steps**:
   1. `GET /api/settings` を呼び出し
-- **Expected Result**: HTTP 200。`{ settings: SystemSetting[] }`。84件。カテゴリ別にグルーピング
-- **Pass Criteria**: settings の件数 = 84
-- **Fail Indicators**: 件数が 84 でない
+- **Expected Result**: HTTP 200。`{ settings: SystemSetting[] }`。86件。カテゴリ別にグルーピング
+- **Pass Criteria**: settings の件数 = 86
+- **Fail Indicators**: 件数が 86 でない
 
 ### TEST-DSH-016: PUT /api/settings/:key — 設定更新
 - **Category**: dashboard
@@ -3399,7 +3399,7 @@ TEST-{LAYER}-{NUMBER}
 ### TEST-DSH-045: REST API — レスポンスタイム
 - **Category**: dashboard
 - **Priority**: P2
-- **Prerequisites**: system_settings に84件のデータ
+- **Prerequisites**: system_settings に86件のデータ
 - **Steps**:
   1. `GET /api/settings` を10回呼び出し、レスポンスタイムを計測
 - **Expected Result**: 平均レスポンスタイム < 500ms
@@ -5481,7 +5481,7 @@ TEST-{LAYER}-{NUMBER}
 - **Priority**: P0
 - **Prerequisites**: クリーンインストール完了
 - **Steps**:
-  1. PostgreSQL マイグレーション実行 (26テーブル + 84設定値)
+  1. PostgreSQL マイグレーション実行 (27テーブル + 86設定値)
   2. MCP Server 起動
   3. LangGraph 4グラフ起動
   4. ダッシュボード起動

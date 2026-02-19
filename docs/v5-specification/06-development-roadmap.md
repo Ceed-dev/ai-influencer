@@ -100,7 +100,7 @@ Week  W0   W1        W2        W3        W4        W5        W6        W7
 
 1. **全仕様書（01-11）の最終レビュー完了**
 2. **TypeScript型定義ファイル生成**:
-   - `types/database.ts`: 全26テーブルのRow型
+   - `types/database.ts`: 全27テーブルのRow型
    - `types/mcp-tools.ts`: 全MCPツールの入出力型
    - `types/langgraph-state.ts`: 全4グラフのステート型
    - `types/api-schemas.ts`: ダッシュボードAPIのリクエスト/レスポンス型
@@ -121,7 +121,7 @@ Week  W0   W1        W2        W3        W4        W5        W6        W7
 | # | エージェント名 | 担当モジュール | 主要成果物 |
 |---|-------------|--------------|----------|
 | 1 | infra-agent | Docker + PostgreSQL + DDL | docker-compose.yml, DDL適用, マイグレーションスクリプト |
-| 2 | mcp-core-agent | MCP Server（コアツール） | 全105ツールのうちCRUD系〜50ツール |
+| 2 | mcp-core-agent | MCP Server（コアツール） | 全111ツールのうちCRUD系〜50ツール |
 | 3 | mcp-intel-agent | MCP Server（インテリジェンス系） | 分析・学習・仮説関連〜52ツール |
 | 4 | video-worker-agent | 動画制作ワーカー | fal.ai連携, ffmpeg concat, リトライ処理 |
 | 5 | text-post-agent | テキスト制作 + 投稿ワーカー | X/IG/TikTok/YTテキスト生成, 投稿アダプター |
@@ -166,7 +166,7 @@ infra-agent ─── Docker + DDL（Week 1-2で完成 → 他エージェント
 
 | エージェント | 作業内容 | 成果物 |
 |-------------|---------|--------|
-| infra-agent | 全26テーブルDDL完了 + インデックス + トリガー + 初期データ投入 | **26テーブル完成、M1達成** |
+| infra-agent | 全27テーブルDDL完了 + インデックス + トリガー + 初期データ投入 | **27テーブル完成、M1達成** |
 | mcp-core-agent | Production系 + Operations系CRUDツール | content/publications/task_queue CRUD |
 | mcp-intel-agent | 仮説検索 + 知見検索 + 異常検知ツール | pgvector検索対応ツール |
 | video-worker-agent | Sync Lipsync連携 + ffmpeg concat + リトライ処理 | 動画制作E2Eフロー完成 |
@@ -196,7 +196,7 @@ infra-agent ─── Docker + DDL（Week 1-2で完成 → 他エージェント
 
 | エージェント | 作業内容 | 成果物 |
 |-------------|---------|--------|
-| mcp-core-agent + mcp-intel-agent | 全105ツール完成 + テスト | **M4: MCP Server 100%** |
+| mcp-core-agent + mcp-intel-agent | 全111ツール完成 + テスト | **M4: MCP Server 100%** |
 | video-worker-agent | E2Eテスト（1動画の完全制作） | 動画制作ワーカー完成 |
 | text-post-agent | E2Eテスト（1投稿の完全フロー） | テキスト制作+投稿ワーカー完成 |
 | measure-agent | E2Eテスト（メトリクス収集→DB保存） | 計測ワーカー完成 |
@@ -222,7 +222,7 @@ infra-agent ─── Docker + DDL（Week 1-2で完成 → 他エージェント
 
 ```
 Step 1: DB + MCP Server接続テスト
-        └─ 26テーブル + 105ツールの実DB動作確認
+        └─ 27テーブル + 111ツールの実DB動作確認
 
 Step 2: Worker + MCP Server結合テスト
         └─ 動画制作WK、テキスト制作WK、投稿WK、計測WKがMCP経由でDB操作
@@ -265,10 +265,10 @@ Step 5: 全体E2Eテスト
 | ID | 時期 | 名称 | 判定基準 |
 |----|------|------|---------|
 | M0 | Week 0 | 仕様凍結 | 全仕様書（01-11）承認完了。型定義ファイル4種の生成・凍結完了。全プロンプトファイル作成完了 |
-| M1 | Week 2 | DB稼働 | 26テーブルDDL適用完了。インデックス・トリガー動作確認。Cloud SQL接続テスト通過 |
+| M1 | Week 2 | DB稼働 | 27テーブルDDL適用完了。インデックス・トリガー動作確認。Cloud SQL接続テスト通過 |
 | M2 | Week 3 | MCP Server 70% | 70+ツール実装完了。ユニットテスト通過。pgvector検索動作確認 |
 | M3 | Week 4 | モジュール単体完成 | 全モジュール（Worker/Agent/Dashboard）の単体テスト通過 |
-| M4 | Week 5 | MCP Server 100% + Worker完成 | 105ツール完成。全Worker E2Eテスト通過。ダッシュボード全15画面完成 |
+| M4 | Week 5 | MCP Server 100% + Worker完成 | 111ツール完成。全Worker E2Eテスト通過。ダッシュボード全15画面完成 |
 | M5 | Week 6 | E2E通過 | 全体フロー（仮説→計画→制作→投稿→計測→分析→学習）のE2Eテスト通過 |
 | M6 | Week 7 | 本番Ready | Docker本番設定完了。初期データ投入完了。バックアップ検証完了。チェックリスト全項目クリア |
 
@@ -276,8 +276,8 @@ Step 5: 全体E2Eテスト
 
 **M0: 仕様凍結**
 - [ ] 全仕様書（01-11）の最終レビュー完了・承認済み
-- [ ] `types/database.ts` — 全26テーブルのRow型が定義済み
-- [ ] `types/mcp-tools.ts` — 全105ツールの入出力型が定義済み
+- [ ] `types/database.ts` — 全27テーブルのRow型が定義済み
+- [ ] `types/mcp-tools.ts` — 全111ツールの入出力型が定義済み
 - [ ] `types/langgraph-state.ts` — 全4グラフのステート型が定義済み
 - [ ] `types/api-schemas.ts` — ダッシュボードAPIスキーマが定義済み
 - [ ] `prompts/*.md` — 全エージェントのプロンプト全文が作成済み
@@ -288,7 +288,7 @@ Step 5: 全体E2Eテスト
 - [ ] Docker環境構築完了（`docker-compose.yml` + dev/prod分離）
 - [ ] PostgreSQL 16+ が稼働（Cloud SQL本番 + Docker開発環境）
 - [ ] pgvector拡張が有効
-- [ ] 26テーブル全て作成済み（Entity 3 + Production 3 + Intelligence 5 + Operations 4 + Observability 5 + Tool Management 5 + system_settings 1）
+- [ ] 27テーブル全て作成済み（Entity 3 + Production 3 + Intelligence 6 + Operations 4 + Observability 5 + Tool Management 5 + System Management 1）
 - [ ] 全インデックス・トリガー作成済み・動作確認済み
 - [ ] 既存Sheetsデータの移行完了（accounts, characters, components, content）
 
@@ -364,7 +364,7 @@ Step 5: 全体E2Eテスト
 <details>
 <summary>従来のPhase依存型ロードマップ（クリックで展開）</summary>
 
-> 注: 以下の従来ロードマップはsystem_settingsテーブル追加前の内容を26テーブルに更新して保持している
+> 注: 以下の従来ロードマップはsystem_settingsテーブル追加前の内容を27テーブルに更新して保持している
 
 ### フェーズ概要
 
@@ -372,7 +372,7 @@ v5.0の開発は5フェーズに分割する。各フェーズは前フェーズ
 
 | Phase | 名称 | 期間 | 週数 | 目的 | 主要成果物 |
 |-------|------|------|------|------|-----------|
-| 1 | データ基盤 | 2/16 - 3/7 | 3週 | 全データの一元管理基盤を構築 | Docker環境 + PostgreSQL (26テーブル) + pgvector + MCP Server + データ移行完了 |
+| 1 | データ基盤 | 2/16 - 3/7 | 3週 | 全データの一元管理基盤を構築 | Docker環境 + PostgreSQL (27テーブル) + pgvector + MCP Server + データ移行完了 |
 | 2 | ワーカー層 | 3/9 - 3/28 | 3週 | DB駆動のパイプラインを稼働させる | 動画制作・テキスト制作・投稿・計測ワーカーがDB起点で動作 + Docker化 |
 | 3 | インテリジェンス層 | 3/30 - 4/25 | 4週 | AIが自律的に市場調査・分析・学習・データキュレーションする | リサーチャー + アナリスト + ツールスペシャリスト + データキュレーター + 仮説検証 + pgvector検索 + コンポーネント自動生成 + プロンプト自動提案 |
 | 4 | 戦略・計画層 | 4/27 - 5/23 | 4週 | 全自動サイクルを完成させる | 戦略Agent + プランナー + 全プラットフォーム対応 |
@@ -447,7 +447,7 @@ Phase 5: ダッシュボード + スケール
 | 火 | `hypotheses` + `market_intel` テーブル + HNSWインデックス | Intelligence前半 |
 | 水 | `metrics` + `analyses` + `learnings` テーブル | Intelligence後半 |
 | 木 | Operations 4テーブル + Observability 5テーブル | 9テーブル |
-| 金 | Tool Management 5テーブル + system_settings + 全トリガー + 全インデックス | **26テーブル完成** |
+| 金 | Tool Management 5テーブル + system_settings + content_learnings + 全トリガー + 全インデックス | **27テーブル完成** |
 | 土 | Sheetsデータ → PostgreSQL移行スクリプト作成・実行 | 既存データ移行完了 |
 
 #### Week 3 (3/2 - 3/7): MCP Server構築
@@ -558,7 +558,7 @@ Phase 5: ダッシュボード + スケール
 
 | ID | マイルストーン | 予定日 | 判定基準 |
 |----|-------------|--------|---------|
-| M1 | DB稼働 | 3/7 (W3土) | Docker + PostgreSQL 26テーブル + MCP Server ~33ツール |
+| M1 | DB稼働 | 3/7 (W3土) | Docker + PostgreSQL 27テーブル + MCP Server ~33ツール |
 | M2 | DB駆動パイプライン完成 | 3/28 (W6土) | DB起点でfull status遷移 + Docker化 |
 | M3 | AI学習開始 | 4/25 (W10土) | 4エージェント稼働 + 仮説駆動サイクル |
 | M4 | 全自動サイクル | 5/23 (W14土) | 4PF対応 + 72時間連続稼働 |

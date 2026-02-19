@@ -117,6 +117,16 @@ CREATE INDEX idx_learnings_embedding ON learnings
     USING hnsw (embedding vector_cosine_ops)
     WITH (m = 16, ef_construction = 64);
 
+-- content_learnings
+CREATE INDEX idx_content_learnings_niche ON content_learnings(niche);
+CREATE INDEX idx_content_learnings_micro_verdict ON content_learnings(micro_verdict);
+CREATE INDEX idx_content_learnings_created_at ON content_learnings(created_at);
+
+-- content_learnings vector index (HNSW)
+CREATE INDEX idx_content_learnings_embedding ON content_learnings
+    USING hnsw (embedding vector_cosine_ops)
+    WITH (m = 16, ef_construction = 64);
+
 -- ========================================
 -- 8.4 Operations Tables
 -- ========================================

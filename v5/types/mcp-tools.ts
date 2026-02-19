@@ -1391,6 +1391,105 @@ export interface MarkLearningAppliedOutput {
 }
 
 // ============================================================================
+// 4.13 Micro-Cycle Learning Tools (per-content) — 6 tools
+// ============================================================================
+
+/** #1 — content_learningsベクトル検索 + nicheフィルタ */
+export interface SearchContentLearningsInput {
+  query_embedding: number[];
+  niche?: string;
+  limit?: number; // default: 10
+  min_confidence?: number; // default: 0.5
+}
+export interface SearchContentLearningsOutput {
+  learnings: Array<{
+    id: string;
+    content_id: string;
+    micro_verdict: 'confirmed' | 'inconclusive' | 'rejected';
+    key_insight: string | null;
+    confidence: number;
+    similarity: number;
+    niche: string | null;
+    created_at: string;
+  }>;
+}
+
+/** #2 — per-contentマイクロ分析結果の保存 */
+export interface CreateMicroAnalysisInput {
+  content_id: string;
+  hypothesis_id?: number | null;
+  predicted_kpis: Record<string, number>;
+  actual_kpis: Record<string, number>;
+  micro_verdict: 'confirmed' | 'inconclusive' | 'rejected';
+  contributing_factors?: string[];
+  detractors?: string[];
+  niche?: string;
+}
+export interface CreateMicroAnalysisOutput {
+  id: string;
+  content_id: string;
+  prediction_error: number;
+  micro_verdict: 'confirmed' | 'inconclusive' | 'rejected';
+}
+
+/** #3 — マイクロ反省の保存 */
+export interface SaveMicroReflectionInput {
+  content_learning_id: string;
+  what_worked: string[];
+  what_didnt_work: string[];
+  key_insight: string;
+  applicable_to?: string[];
+  confidence?: number;
+  embedding?: number[];
+}
+export interface SaveMicroReflectionOutput {
+  success: boolean;
+  promoted_to_learning_id: string | null; // NULL if not promoted yet
+}
+
+/** #4 — publications→metrics経由で実測KPI取得 */
+export interface GetContentMetricsInput {
+  content_id: string;
+}
+export interface GetContentMetricsOutput {
+  content_id: string;
+  publications: Array<{
+    publication_id: number;
+    platform: string;
+    metrics: Record<string, number> | null; // null if not yet measured
+    measured_at: string | null;
+  }>;
+  aggregated_kpis: Record<string, number>; // avg across platforms
+}
+
+/** #5 — 仮説のpredicted_kpis取得 */
+export interface GetContentPredictionInput {
+  content_id: string;
+}
+export interface GetContentPredictionOutput {
+  content_id: string;
+  hypothesis_id: number | null;
+  predicted_kpis: Record<string, number> | null; // null if no hypothesis
+  hypothesis_category: string | null;
+}
+
+/** #6 — 日次マイクロ分析サマリー */
+export interface GetDailyMicroAnalysesSummaryInput {
+  date?: string; // ISO date, default: today
+  niche?: string;
+}
+export interface GetDailyMicroAnalysesSummaryOutput {
+  date: string;
+  total_analyses: number;
+  confirmed: number;
+  inconclusive: number;
+  rejected: number;
+  avg_prediction_error: number;
+  top_insights: string[];
+  promoted_count: number; // how many were promoted to learnings
+}
+
+// ============================================================================
 // Tool Registry — maps tool names to their Input/Output types
 // ============================================================================
 
@@ -1523,6 +1622,14 @@ export interface McpToolMap {
   submit_agent_message: { input: SubmitAgentMessageInput; output: SubmitAgentMessageOutput };
   get_human_responses: { input: GetHumanResponsesInput; output: GetHumanResponsesOutput };
   mark_learning_applied: { input: MarkLearningAppliedInput; output: MarkLearningAppliedOutput };
+
+  // 4.13 Micro-Cycle Learning (6)
+  search_content_learnings: { input: SearchContentLearningsInput; output: SearchContentLearningsOutput };
+  create_micro_analysis: { input: CreateMicroAnalysisInput; output: CreateMicroAnalysisOutput };
+  save_micro_reflection: { input: SaveMicroReflectionInput; output: SaveMicroReflectionOutput };
+  get_content_metrics: { input: GetContentMetricsInput; output: GetContentMetricsOutput };
+  get_content_prediction: { input: GetContentPredictionInput; output: GetContentPredictionOutput };
+  get_daily_micro_analyses_summary: { input: GetDailyMicroAnalysesSummaryInput; output: GetDailyMicroAnalysesSummaryOutput };
 }
 
 /** Union type of all MCP tool names */

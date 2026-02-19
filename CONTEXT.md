@@ -2154,7 +2154,7 @@ Phase 2 (commit `3d4a7ac`): CJKピクセル幅補正
 
 **Task #7 (editor-foundational): クロスファイル整合性検証**
 - 9項目の検証すべてパス:
-  - 数値一致: 26テーブル, 135インデックス, 84設定, 92MCP, 453テスト, 254機能
+  - 数値一致: 27テーブル, 135インデックス, 86設定, 98MCP, 453テスト, 254機能
   - 精度一致: 6月70-82%, 12月88-93% (04, 07, 08で整合)
   - Drizzle ORM統一 (Prisma参照ゼロ)
   - per-content学習 (04, 07, 08で整合、02のStrategy Cycleは正しく日次)
@@ -2165,6 +2165,71 @@ Phase 2 (commit `3d4a7ac`): CJKピクセル幅補正
 
 **v5.0仕様レビュー完了ステータス**:
 全13ファイルのレビューが完了。次のステップは GCE VM + Cloud SQL セットアップ → Week 1 並列実装開始。
+
+## Session 14 (2026-02-19): 全仕様ファイルレビュー + per-content学習アーキテクチャ再設計
+
+### 概要
+残りの10ファイル (01-09, 11) の全セクションレビューを実施。最大の変更はアルゴリズム学習サイクルを「日次」から「per-content（コンテンツ単位）」に再設計し、精度上限を65-70%→92%に引き上げたこと。
+
+### 主要変更
+
+**1. Per-Content マイクロサイクル学習の導入 (04-agent-design.md)**
+- 2層学習アーキテクチャ: マイクロサイクル (per-content, ~30秒) + マクロサイクル (日次集約)
+- 新テーブル: `content_learnings` (per-contentマイクロ学習結果)
+- 6つの新MCPツール: search_content_learnings, create_micro_analysis, save_micro_reflection, get_content_metrics, get_content_prediction, get_daily_micro_analyses_summary
+- 2つの新system_settings: MICRO_ANALYSIS_MAX_DURATION_SEC (30), CROSS_NICHE_LEARNING_THRESHOLD (0.75)
+
+**2. アルゴリズム精度の再計算 (08-algorithm-analysis.md)**
+- 精度上限: 65-70% → 92%
+- 12ヶ月後予測: 88-93%
+- スケール優位性: 6月 = 3,000+コンテンツ/日 = 90,000+学習イベント/月
+
+**3. KPI再計算 (07-kpi-analysis.md)**
+- 月間精度予測をper-content学習ボリュームで再計算
+- 学習イベント数 (日次サイクル数ではなく) で効果を計算
+
+**4. 6エージェントプロンプト全面書き換え (04-agent-design.md §19)**
+- YouTube, X, Zenn, Qiita等のプロンプトエンジニアリングリサーチを反映
+- Chain-of-thought, few-shot, self-reflection, structured outputパターン適用
+- ~220行 → ~800行 (全6エージェント合計)
+
+**5. ORM統一 (01, 02, 03)**
+- Prisma/Drizzle混在を全てDrizzle ORMに統一
+
+**6. 水平線削除**
+- 全5ファイル (06, 10, 11, 12, 13) から45本の `---` 水平線を削除
+
+### 更新された数値
+| 項目 | 旧値 | 新値 |
+|------|------|------|
+| テーブル数 | 26 | 27 (+content_learnings) |
+| MCPツール数 | 92 | 98 (+6 micro-cycle) |
+| 総ツール数 (MCP+REST) | 105 | 111 |
+| system_settings数 | 84 | 86 (+2 micro-cycle) |
+| 精度上限 | 65-70% | 92% |
+| 機能数 (feature_list) | 254 | 261 (+7 new) |
+
+### 変更ファイル一覧
+- 01-tech-stack.md: Prisma→Drizzle統一
+- 02-architecture.md: Prisma→Drizzle統一、テーブル数・MCP数更新
+- 03-database-schema.md: content_learnings CREATE TABLE追加、seed設定数更新
+- 04-agent-design.md: per-content学習設計、6 MCPツール追加、プロンプト全面書き換え
+- 06-development-roadmap.md: テーブル数・ツール数更新
+- 07-kpi-analysis.md: KPI再計算
+- 08-algorithm-analysis.md: 精度再計算
+- 09-risks-and-bottlenecks.md: MCP数更新
+- 10-implementation-guide.md: テーブル数・MCP数・設定数更新
+- 11-pre-implementation-checklist.md: 水平線削除
+- 12-test-specifications.md: テーブル数・設定数・MCP数更新、水平線削除
+- 13-agent-harness.md: 水平線削除、テストIDマッピング表追加
+- README.md: MCP数更新
+- v5/sql/001_create_tables.sql: content_learnings追加 (27テーブル)
+- v5/sql/002_create_indexes.sql: content_learnings 4インデックス追加
+- v5/sql/004_seed_settings.sql: 2新設定追加 (86件)
+- v5/types/database.ts: ContentLearningRow/Create/Update型追加
+- v5/types/mcp-tools.ts: 6 micro-cycle MCPツール型定義追加
+- v5/feature_list.json: 7新機能追加 (261件)
+- CONTEXT.md: Session 14追記
 
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID

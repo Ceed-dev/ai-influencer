@@ -1,12 +1,12 @@
 -- ============================================================
--- AI-Influencer v5.0 — Database Schema (26 tables)
+-- AI-Influencer v5.0 — Database Schema (27 tables)
 -- Generated from docs/v5-specification/03-database-schema.md
 -- ============================================================
 -- Execution order respects FK dependencies:
 --   Layer 0 (no deps): characters, cycles, tool_catalog, system_settings
 --   Layer 1: accounts, hypotheses, production_recipes, agent_prompt_versions, agent_reflections
 --   Layer 2: components, content, market_intel, learnings, human_directives, task_queue, algorithm_performance
---   Layer 3: content_sections, publications, agent_thought_logs, agent_individual_learnings, agent_communications
+--   Layer 3: content_sections, content_learnings, publications, agent_thought_logs, agent_individual_learnings, agent_communications
 --   Layer 4: metrics, analyses, tool_experiences, tool_external_sources, prompt_suggestions
 -- ============================================================
 
@@ -522,6 +522,39 @@ COMMENT ON COLUMN content_sections.component_id IS 'このセクションで使�
 COMMENT ON COLUMN content_sections.section_order IS 'セクションの結合順序。ffmpeg concatの順序を決定';
 COMMENT ON COLUMN content_sections.section_label IS 'セクション名。hook/body/cta等の自由タグ';
 COMMENT ON COLUMN content_sections.script IS '実際に使用されたスクリプト。LLMが調整した最終版';
+
+-- 4.6 content_learnings (→ content, hypotheses, learnings)
+CREATE TABLE content_learnings (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    content_id      VARCHAR(20) NOT NULL REFERENCES content(content_id),
+    hypothesis_id   INTEGER REFERENCES hypotheses(id),
+    predicted_kpis  JSONB NOT NULL,
+    actual_kpis     JSONB NOT NULL,
+    prediction_error FLOAT NOT NULL,
+    micro_verdict   TEXT NOT NULL CHECK (micro_verdict IN ('confirmed', 'inconclusive', 'rejected')),
+    contributing_factors TEXT[],
+    detractors      TEXT[],
+    what_worked     TEXT[],
+    what_didnt_work TEXT[],
+    key_insight     TEXT,
+    applicable_to   TEXT[],
+    confidence      FLOAT NOT NULL DEFAULT 0.5 CHECK (confidence BETWEEN 0.0 AND 1.0),
+    promoted_to_learning_id UUID REFERENCES learnings(id),
+    similar_past_learnings_referenced INTEGER NOT NULL DEFAULT 0,
+    embedding       vector(1536),
+    niche           VARCHAR(50),
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE content_learnings IS 'per-contentマイクロ学習。各コンテンツ制作後の即時分析結果を蓄積';
+COMMENT ON COLUMN content_learnings.content_id IS '対象コンテンツ。1コンテンツにつき1レコード (1:1)';
+COMMENT ON COLUMN content_learnings.predicted_kpis IS '仮説のpredicted_kpisのコピー。{"views": 5000, "engagement_rate": 0.05}';
+COMMENT ON COLUMN content_learnings.actual_kpis IS '実測メトリクス。{"views": 4800, "engagement_rate": 0.0598}';
+COMMENT ON COLUMN content_learnings.prediction_error IS '|predicted - actual| / actual (主要KPIの平均)';
+COMMENT ON COLUMN content_learnings.micro_verdict IS 'per-content判定。confirmed/inconclusive/rejected';
+COMMENT ON COLUMN content_learnings.confidence IS '学習の信頼度。単一コンテンツでは0.5〜0.8程度';
+COMMENT ON COLUMN content_learnings.promoted_to_learning_id IS '3回以上confirmedされたらlearningsテーブルに昇格';
+COMMENT ON COLUMN content_learnings.embedding IS '類似学習検索用。1536次元。HNSW index使用';
 
 -- 2.3 publications (→ content, accounts)
 CREATE TABLE publications (

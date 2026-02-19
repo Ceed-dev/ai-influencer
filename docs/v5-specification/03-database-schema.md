@@ -822,7 +822,90 @@ COMMENT ON COLUMN content_sections.drive_file_id IS '完成セクション動画
 COMMENT ON COLUMN content_sections.duration_seconds IS 'セクションの長さ（秒）。NUMERIC(8,2)';
 ```
 
-### 2.3 publications — 投稿記録
+### 2.3 content_learnings — コンテンツ単位マイクロサイクル学習
+
+コンテンツ単位のマイクロサイクル学習を保存するテーブル。v5.0のper-content学習の核心データストア。投稿後の計測完了時にアナリストが `create_micro_analysis` MCPツールで生成し、プランナーが `search_content_learnings` で類似コンテンツの過去学習をベクトル検索して次のコンテンツ計画に活用する。
+
+```sql
+CREATE TABLE content_learnings (
+    -- 主キー
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    -- コンテンツ紐付け
+    content_id      VARCHAR(20) NOT NULL REFERENCES content(content_id),
+        -- このマイクロ学習の対象コンテンツ
+        -- 1コンテンツにつき1レコード (1:1)
+    hypothesis_id   INTEGER REFERENCES hypotheses(id),
+        -- このコンテンツに紐づく仮説
+
+    -- マイクロ分析結果
+    predicted_kpis  JSONB NOT NULL,
+        -- 仮説のpredicted_kpis のコピー
+        -- { "views": 5000, "engagement_rate": 0.05 }
+    actual_kpis     JSONB NOT NULL,
+        -- 実測メトリクス
+        -- { "views": 4800, "engagement_rate": 0.0598, "completion_rate": 0.72 }
+    prediction_error FLOAT NOT NULL,
+        -- |predicted - actual| / actual (主要KPIの平均)
+    micro_verdict   TEXT NOT NULL CHECK (micro_verdict IN ('confirmed', 'inconclusive', 'rejected')),
+        -- per-content判定
+    contributing_factors TEXT[],
+        -- 成功に寄与した要因
+        -- 例: {'朝7時投稿タイミング', 'リアクション形式Hook'}
+    detractors      TEXT[],
+        -- マイナス要因
+        -- 例: {'BGM音量バランスが大きすぎる'}
+
+    -- マイクロ反省
+    what_worked     TEXT[],
+        -- 効果があった点 (定量データ付き)
+    what_didnt_work TEXT[],
+        -- 効果がなかった点 (定量データ付き)
+    key_insight     TEXT,
+        -- このコンテンツから得られた最も重要な知見
+    applicable_to   TEXT[],
+        -- クロスニッチ適用可能性 (ニッチ名の配列)
+    confidence      FLOAT NOT NULL DEFAULT 0.5 CHECK (confidence BETWEEN 0.0 AND 1.0),
+        -- この学習の信頼度 (単一コンテンツでは0.5〜0.8程度)
+
+    -- 昇格管理
+    promoted_to_learning_id UUID REFERENCES learnings(id),
+        -- 共有知見 (learningsテーブル) に昇格した場合のID
+        -- NULLの場合: まだ昇格していない
+    similar_past_learnings_referenced INTEGER NOT NULL DEFAULT 0,
+        -- マイクロ分析時に参照した過去学習の数
+
+    -- ベクトル検索
+    embedding       vector(1536),
+        -- key_insight + contributing_factors + what_worked を結合したembedding
+        -- text-embedding-3-small で生成
+    niche           VARCHAR(50),
+        -- このコンテンツのニッチ (検索フィルタ用)
+
+    -- タイムスタンプ
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ベクトル検索用インデックス
+CREATE INDEX idx_content_learnings_embedding ON content_learnings
+    USING hnsw (embedding vector_cosine_ops)
+    WITH (m = 16, ef_construction = 64);
+-- 注意: 10,000件超でIVFFlatへの移行を検討
+
+-- ニッチ別フィルタ用
+CREATE INDEX idx_content_learnings_niche ON content_learnings (niche);
+-- micro_verdict別集計用
+CREATE INDEX idx_content_learnings_verdict ON content_learnings (micro_verdict);
+-- 日次集計用
+CREATE INDEX idx_content_learnings_created ON content_learnings (created_at);
+
+COMMENT ON TABLE content_learnings IS 'コンテンツ単位のマイクロサイクル学習。per-content学習の核心データストア';
+COMMENT ON COLUMN content_learnings.embedding IS 'ベクトル検索用。次のコンテンツ計画時にsearch_content_learningsで即座に検索';
+COMMENT ON COLUMN content_learnings.micro_verdict IS 'confirmed/inconclusive/rejected';
+COMMENT ON COLUMN content_learnings.promoted_to_learning_id IS '共有知見への昇格追跡。昇格済みならlearnings.idを格納';
+```
+
+### 2.4 publications — 投稿記録
 
 コンテンツの実際の投稿記録を管理する。1つのコンテンツが複数プラットフォームに投稿される可能性があるため、content テーブルから分離する。投稿スケジューラーグラフが書き込み、計測ジョブグラフが `measure_after` を参照して計測タイミングを判定する。
 
@@ -2800,7 +2883,7 @@ COMMENT ON COLUMN system_settings.updated_by IS '最終更新者。"system"=初�
 
 ### 7.2 デフォルト設定値（初期INSERT）
 
-システム初期化時にINSERTされるデフォルト設定値。全カテゴリの設定を網羅する（合計84件: production 13, posting 8, review 4, agent 41, measurement 6, cost_control 4, dashboard 3, credentials 5）。
+システム初期化時にINSERTされるデフォルト設定値。全カテゴリの設定を網羅する（合計86件: production 13, posting 8, review 4, agent 43, measurement 6, cost_control 4, dashboard 3, credentials 5）。
 
 ```sql
 -- ========================================
@@ -2902,6 +2985,13 @@ INSERT INTO system_settings (setting_key, setting_value, category, description, 
 ('PROMPT_SUGGEST_LOW_SCORE', '5', 'agent', 'プロンプト改善提案のトリガー: パフォーマンススコアがこの値以下', '5', 'integer', '{"min": 1, "max": 10}'),
 ('PROMPT_SUGGEST_HIGH_SCORE', '8', 'agent', 'プロンプト改善提案: この値以上のスコアでは提案しない', '8', 'integer', '{"min": 5, "max": 10}'),
 ('PROMPT_SUGGEST_FAILURE_COUNT', '3', 'agent', 'プロンプト改善提案のトリガー: 同一パターンの失敗がこの回数以上', '3', 'integer', '{"min": 1, "max": 10}'),
+-- Character auto-generation settings (3)
+('CHARACTER_AUTO_GENERATION_ENABLED', 'false', 'agent', 'データキュレーターによるキャラクター自動生成の有効化', 'false', 'boolean', null),
+('CHARACTER_REVIEW_REQUIRED', 'true', 'agent', 'キュレーター生成キャラクターの人間レビュー必須フラグ', 'true', 'boolean', null),
+('CHARACTER_GENERATION_CONFIDENCE_THRESHOLD', '0.8', 'agent', 'キャラクター自動生成の自信度閾値（これ以上で自動承認）', '0.8', 'float', '{"min": 0.0, "max": 1.0}'),
+-- Micro-cycle learning settings (2)
+('MICRO_ANALYSIS_MAX_DURATION_SEC', '30', 'agent', 'マイクロサイクル分析の最大所要時間（秒）。超過時はタイムアウトしてスキップ', '30', 'integer', '{"min": 10, "max": 120}'),
+('CROSS_NICHE_LEARNING_THRESHOLD', '0.75', 'agent', 'クロスニッチ学習のコサイン類似度閾値。この値以上で他ニッチの学習を適用可能と判定', '0.75', 'float', '{"min": 0.5, "max": 1.0}'),
 
 -- Posting settings (追加)
 ('PLATFORM_COOLDOWN_HOURS', '24', 'posting', '同一アカウント・同一プラットフォームの投稿間の最小間隔（時間）', '24', 'integer', '{"min": 1, "max": 72}'),

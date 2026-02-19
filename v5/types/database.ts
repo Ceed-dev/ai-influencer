@@ -992,6 +992,59 @@ export interface LearningUpdateInput {
   embedding?: number[] | null;
 }
 
+// --- content_learnings ---
+
+export type MicroVerdict = 'confirmed' | 'inconclusive' | 'rejected';
+
+export interface ContentLearningRow {
+  id: string; // UUID
+  content_id: string;
+  hypothesis_id: number | null;
+  predicted_kpis: Record<string, number>;
+  actual_kpis: Record<string, number>;
+  prediction_error: number;
+  micro_verdict: MicroVerdict;
+  contributing_factors: string[] | null;
+  detractors: string[] | null;
+  what_worked: string[] | null;
+  what_didnt_work: string[] | null;
+  key_insight: string | null;
+  applicable_to: string[] | null;
+  confidence: number;
+  promoted_to_learning_id: string | null; // UUID
+  similar_past_learnings_referenced: number;
+  embedding: number[] | null;
+  niche: string | null;
+  created_at: string; // ISO 8601
+}
+
+export interface ContentLearningCreateInput {
+  content_id: string;
+  hypothesis_id?: number | null;
+  predicted_kpis: Record<string, number>;
+  actual_kpis: Record<string, number>;
+  prediction_error: number;
+  micro_verdict: MicroVerdict;
+  contributing_factors?: string[] | null;
+  detractors?: string[] | null;
+  what_worked?: string[] | null;
+  what_didnt_work?: string[] | null;
+  key_insight?: string | null;
+  applicable_to?: string[] | null;
+  confidence?: number;
+  embedding?: number[] | null;
+  niche?: string | null;
+}
+
+export interface ContentLearningUpdateInput {
+  what_worked?: string[] | null;
+  what_didnt_work?: string[] | null;
+  key_insight?: string | null;
+  applicable_to?: string[] | null;
+  confidence?: number;
+  promoted_to_learning_id?: string | null;
+}
+
 // ============================================================================
 // 4. Operations Layer — cycles, human_directives, task_queue,
 //                        algorithm_performance

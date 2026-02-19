@@ -1050,10 +1050,10 @@ if [[ -n "${DATABASE_URL:-}" ]]; then
 
         # テーブル数確認
         TABLE_COUNT=$(psql "${DATABASE_URL}" -t -c "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public'" 2>/dev/null | tr -d ' ')
-        if [[ "$TABLE_COUNT" -ge 26 ]]; then
-            ok "テーブル数: ${TABLE_COUNT} (26テーブル以上)"
+        if [[ "$TABLE_COUNT" -ge 27 ]]; then
+            ok "テーブル数: ${TABLE_COUNT} (27テーブル以上)"
         else
-            warn "テーブル数: ${TABLE_COUNT} (目標: 26テーブル)"
+            warn "テーブル数: ${TABLE_COUNT} (目標: 27テーブル)"
         fi
     else
         fail "PostgreSQL 接続失敗: ${DATABASE_URL}"
@@ -2040,7 +2040,7 @@ echo "=== Detection Complete ==="
 
 | # | 確認項目 | 完了 |
 |---|---------|------|
-| 1 | 全26テーブルに対応する FEAT-DB-xxx が存在 | ☐ |
+| 1 | 全27テーブルに対応する FEAT-DB-xxx が存在 | ☐ |
 | 2 | 全102 MCPツールに対応する FEAT-MCC-xxx / FEAT-MCI-xxx が存在 | ☐ |
 | 3 | 全4 LangGraphグラフに対応する FEAT-INT-xxx / FEAT-STR-xxx が存在 | ☐ |
 | 4 | 全15 ダッシュボード画面に対応する FEAT-DSH-xxx が存在 | ☐ |

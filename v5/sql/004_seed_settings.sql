@@ -1,8 +1,8 @@
 -- ============================================================
--- AI-Influencer v5.0 — Default System Settings (84 entries)
+-- AI-Influencer v5.0 — Default System Settings (86 entries)
 -- Generated from docs/v5-specification/03-database-schema.md Section 7.2
 -- ============================================================
--- Categories: production (13), posting (8), review (4), agent (41),
+-- Categories: production (13), posting (8), review (4), agent (43),
 --             measurement (6), cost_control (4), dashboard (3), credentials (5)
 -- ============================================================
 
@@ -42,7 +42,7 @@ INSERT INTO system_settings (setting_key, setting_value, category, description, 
 ('STRATEGY_APPROVAL_REQUIRED', 'true', 'review', '戦略サイクルのポリシー決定に人間の承認を要求するか', 'true', 'boolean', null),
 ('RECIPE_APPROVAL_REQUIRED', 'true', 'review', '新しいプロダクションレシピの使用に人間の承認を要求するか', 'true', 'boolean', null);
 
--- Agent settings (41: 38 base + 3 character auto-generation)
+-- Agent settings (43: 38 base + 3 character auto-generation + 2 micro-cycle learning)
 INSERT INTO system_settings (setting_key, setting_value, category, description, default_value, value_type, constraints) VALUES
 ('HYPOTHESIS_CYCLE_INTERVAL_HOURS', '24', 'agent', '仮説駆動サイクルの実行間隔（時間）。日次=24', '24', 'integer', '{"min": 6, "max": 168}'),
 ('RESEARCHER_POLL_INTERVAL_HOURS', '6', 'agent', 'リサーチャーの市場情報収集間隔（時間）', '6', 'integer', '{"min": 1, "max": 48}'),
@@ -85,7 +85,10 @@ INSERT INTO system_settings (setting_key, setting_value, category, description, 
 -- Character auto-generation settings (3)
 ('CHARACTER_AUTO_GENERATION_ENABLED', 'false', 'agent', 'データキュレーターによるキャラクター自動生成の有効化', 'false', 'boolean', null),
 ('CHARACTER_REVIEW_REQUIRED', 'true', 'agent', 'キュレーター生成キャラクターの人間レビュー必須フラグ', 'true', 'boolean', null),
-('CHARACTER_GENERATION_CONFIDENCE_THRESHOLD', '0.8', 'agent', 'キャラクター自動生成の自信度閾値（これ以上で自動承認）', '0.8', 'float', '{"min": 0.0, "max": 1.0}');
+('CHARACTER_GENERATION_CONFIDENCE_THRESHOLD', '0.8', 'agent', 'キャラクター自動生成の自信度閾値（これ以上で自動承認）', '0.8', 'float', '{"min": 0.0, "max": 1.0}'),
+-- Micro-cycle learning settings (2)
+('MICRO_ANALYSIS_MAX_DURATION_SEC', '30', 'agent', 'マイクロサイクル分析の最大所要時間（秒）。超過時はタイムアウトしてスキップ', '30', 'integer', '{"min": 10, "max": 120}'),
+('CROSS_NICHE_LEARNING_THRESHOLD', '0.75', 'agent', 'クロスニッチ学習のコサイン類似度閾値。この値以上で他ニッチの学習を適用可能と判定', '0.75', 'float', '{"min": 0.5, "max": 1.0}');
 
 -- Measurement settings (6)
 INSERT INTO system_settings (setting_key, setting_value, category, description, default_value, value_type, constraints) VALUES

@@ -1,7 +1,7 @@
 {
   "version": "5.0.0",
   "generated_at": "2026-02-18T10:24:32.665Z",
-  "total_features": 254,
+  "total_features": 261,
   "features": [
     {
       "id": "FEAT-DB-001",
@@ -5963,6 +5963,157 @@
         "12-test-specifications.md §6.1 を読み、E2Eテスト仕様を確認",
         "制作コスト累積→予算超過→制作停止→アラートのE2Eテストを実装",
         "TEST-E2E-012 を実行"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-DB-049",
+      "category": "database",
+      "module": "sql",
+      "agent": "infra-agent",
+      "priority": "P0",
+      "description": "content_learnings テーブル作成 + 4インデックス (HNSW embedding含む)",
+      "spec_refs": [
+        "03-database-schema.md §4.6",
+        "04-agent-design.md §11.3.1"
+      ],
+      "test_ids": [
+        "TEST-DB-002"
+      ],
+      "dependencies": [
+        "FEAT-DB-001"
+      ],
+      "steps": [
+        "001_create_tables.sql に content_learnings CREATE TABLE追加",
+        "002_create_indexes.sql に4インデックス追加",
+        "マイグレーション実行",
+        "TEST-DB-002 (27テーブル存在確認) 実行"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCI-030",
+      "category": "mcp-intel",
+      "module": "mcp-server/tools/micro-cycle",
+      "agent": "mcp-intel-agent",
+      "priority": "P1",
+      "description": "search_content_learnings — content_learningsベクトル検索 + nicheフィルタ",
+      "spec_refs": [
+        "04-agent-design.md §4.12"
+      ],
+      "test_ids": [],
+      "dependencies": [
+        "FEAT-DB-049"
+      ],
+      "steps": [
+        "§4.12 search_content_learnings仕様を読み取り",
+        "ツール実装 (pgvector cosine similarity + niche filter)",
+        "テスト実行"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCI-031",
+      "category": "mcp-intel",
+      "module": "mcp-server/tools/micro-cycle",
+      "agent": "mcp-intel-agent",
+      "priority": "P1",
+      "description": "create_micro_analysis — per-contentマイクロ分析結果の保存",
+      "spec_refs": [
+        "04-agent-design.md §4.12"
+      ],
+      "test_ids": [],
+      "dependencies": [
+        "FEAT-DB-049"
+      ],
+      "steps": [
+        "§4.12 create_micro_analysis仕様を読み取り",
+        "ツール実装 (predicted_kpis/actual_kpis/prediction_error計算)",
+        "テスト実行"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCI-032",
+      "category": "mcp-intel",
+      "module": "mcp-server/tools/micro-cycle",
+      "agent": "mcp-intel-agent",
+      "priority": "P1",
+      "description": "save_micro_reflection — マイクロ反省 (what_worked/what_didnt_work/key_insight) の保存",
+      "spec_refs": [
+        "04-agent-design.md §4.12"
+      ],
+      "test_ids": [],
+      "dependencies": [
+        "FEAT-MCI-031"
+      ],
+      "steps": [
+        "§4.12 save_micro_reflection仕様を読み取り",
+        "ツール実装",
+        "テスト実行"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCI-033",
+      "category": "mcp-intel",
+      "module": "mcp-server/tools/micro-cycle",
+      "agent": "mcp-intel-agent",
+      "priority": "P1",
+      "description": "get_content_metrics — publications→metrics経由で実測KPI取得",
+      "spec_refs": [
+        "04-agent-design.md §4.12"
+      ],
+      "test_ids": [],
+      "dependencies": [
+        "FEAT-DB-049"
+      ],
+      "steps": [
+        "§4.12 get_content_metrics仕様を読み取り",
+        "ツール実装 (content_id → publications → metrics JOIN)",
+        "テスト実行"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCI-034",
+      "category": "mcp-intel",
+      "module": "mcp-server/tools/micro-cycle",
+      "agent": "mcp-intel-agent",
+      "priority": "P1",
+      "description": "get_content_prediction — 仮説のpredicted_kpis取得",
+      "spec_refs": [
+        "04-agent-design.md §4.12"
+      ],
+      "test_ids": [],
+      "dependencies": [
+        "FEAT-DB-049"
+      ],
+      "steps": [
+        "§4.12 get_content_prediction仕様を読み取り",
+        "ツール実装",
+        "テスト実行"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-MCI-035",
+      "category": "mcp-intel",
+      "module": "mcp-server/tools/micro-cycle",
+      "agent": "mcp-intel-agent",
+      "priority": "P1",
+      "description": "get_daily_micro_analyses_summary — 日次マイクロ分析サマリー取得",
+      "spec_refs": [
+        "04-agent-design.md §4.12"
+      ],
+      "test_ids": [],
+      "dependencies": [
+        "FEAT-MCI-031"
+      ],
+      "steps": [
+        "§4.12 get_daily_micro_analyses_summary仕様を読み取り",
+        "ツール実装 (集計クエリ: confirmed/inconclusive/rejected件数)",
+        "テスト実行"
       ],
       "passes": false
     }
