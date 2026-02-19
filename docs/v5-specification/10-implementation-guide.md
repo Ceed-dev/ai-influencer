@@ -490,6 +490,8 @@ main ── 本番ブランチ（直接コミット禁止）
 
 ### 6.1 infra-agent（Week 1-2 集中、Week 3以降はサポート）
 
+**参照仕様**: [03-database-schema.md](03-database-schema.md)（26テーブル定義）, `v5/sql/`（DDL・シード・トリガー）, `v5/docker-compose.yml`
+
 **Week 1:**
 - Docker Compose作成 (PostgreSQL 16 + pgvector, Node.js app)
 - Cloud SQL接続設定
@@ -550,7 +552,7 @@ export const getAccountsTool = {
 
 ### 6.4 video-worker-agent（Week 1-4）
 
-**参照仕様**: [04-agent-design.md](04-agent-design.md) のVideo Production Worker + README.md のv4.0パイプライン
+**参照仕様**: [04-agent-design.md §4.6](04-agent-design.md)（制作ワーカー用 12ツール）+ README.md のv4.0パイプライン
 
 **実装内容**:
 - fal.ai Kling v2.6 連携 (motion-control, image-to-video)
@@ -559,10 +561,14 @@ export const getAccountsTool = {
 - ffmpeg concat (filter_complex, CRF18)
 - fal.storage アップロード
 - Google Drive 保存
-- エラーリカバリー（3段階）
-- `production_recipes.steps` の実行エンジン
+- エラーリカバリー（3段階: リトライ→代替パラメータ→failed_permanent）
+- `production_recipes.steps` の実行エンジン（ツールスペシャリスト設計のレシピに従う）
+
+> **境界**: 動画の「制作」のみ担当。「投稿」は text-post-agent が担当する（§6.5参照）。
 
 ### 6.5 text-post-agent（Week 1-4）
+
+**参照仕様**: [04-agent-design.md §4.7](04-agent-design.md)（投稿ワーカー用 6ツール）
 
 > **注**: 本エージェントは [04-agent-design.md](04-agent-design.md) で定義される「テキスト制作ワーカー」（テキスト生成）と「投稿ワーカー」（全プラットフォームへの投稿実行）の2つの責務を統合する。動画投稿（YouTube Shorts等）もこのエージェントが担当する（動画の**制作**は video-worker-agent、**投稿**は text-post-agent）。
 
@@ -571,50 +577,81 @@ export const getAccountsTool = {
 - 4プラットフォーム投稿アダプター (YouTube, TikTok, Instagram, X) — 動画・テキスト両方の投稿
 - OAuth トークンリフレッシュ（認証情報の定義は [02-architecture.md §12](02-architecture.md) を参照）
 - 投稿スケジューラー (`POSTING_POLL_INTERVAL_SEC`, `POSTING_TIME_JITTER_MIN`)
-- Rate Limit対応
+- Rate Limit対応 (`DAILY_POST_LIMIT`, `PLATFORM_COOLDOWN_HOURS`)
+- publicationsレコード作成 + `measure_after` 自動設定
 
 ### 6.6 measure-agent（Week 1-4）
 
+**参照仕様**: [04-agent-design.md §4.8](04-agent-design.md)（計測ワーカー用 7ツール）
+
 **実装内容**:
-- YouTube Analytics API v2
-- TikTok Analytics API
-- Instagram Insights API
-- X Analytics API
+- 5つの計測API連携:
+  - YouTube Analytics API v2
+  - TikTok Analytics API
+  - Instagram Insights API
+  - X Analytics API
+  - アカウント全体メトリクス (`collect_account_metrics` — follower_count, follower_delta)
 - メトリクス収集スケジューラー (`METRICS_COLLECTION_DELAY_HOURS`)
-- 異常検知ワーカー (`ANOMALY_DETECTION_SIGMA`)
+- フォローアップ計測スケジュール（24h / 72h / 168h の複数時点計測）
+- リトライ（指数バックオフ + 最大試行回数）
+- コンポーネント抽出（高パフォーマンスコンテンツからの再利用可能部品作成 + 重複検出）
+
+> **注**: 異常検知（`detect_anomalies`）は Analyst サブエージェントの責務であり、戦略サイクルグラフ内で実行される（§6.7, §6.8参照）。
 
 ### 6.7 intelligence-agent（Week 1-5）
 
-**最も複雑なモジュール**:
-- LangGraph.js セットアップ (@langchain/langgraph 0.2.19)
-- 4つの独立グラフ定義
-- langchain-mcp-adapters 連携
-- Researcher Agent実装
-- Analyst Agent実装
-- Tool Specialist Agent実装
-- Data Curator Agent実装
+**参照仕様**: [04-agent-design.md §5](04-agent-design.md)（LangGraphグラフ設計）, §1（エージェント階層）
+
+**最も複雑なモジュール**。3つのグラフ定義 + 4つのLLMサブエージェント + 横断機能を担当する。
+
+**グラフ定義**（3グラフ — 戦略サイクルグラフは strategy-agent が定義。§6.8参照）:
+- 制作パイプライングラフ（§5.2）— content_formatによるワーカー振り分け + recipe_id参照
+- 投稿スケジューラーグラフ（§5.3）— 投稿タスク生成 + スケジューリング
+- 計測ジョブグラフ（§5.4）— measure_after到達検出 + 計測ディスパッチ
+- グラフ間通信はPostgreSQLステータス変更のみ（§4.8参照）
 - チェックポイント設定（PostgreSQL保存）
-- プロンプト読み込み（`prompts/*.md`）
+
+**LLMサブエージェント実装**（4体）:
+- Researcher (Sonnet) — 市場データ収集・整理（§1.2, §4.2）
+- Analyst (Sonnet) — 仮説検証・知見抽出・品質スコア計算（§1.3, §4.3）
+- Tool Specialist (Sonnet) — 制作レシピ最適化・ツール組み合わせ提案（§1.4, §4.5）
+- Data Curator (Sonnet) — コンポーネント抽出・知見重複検出・グローバル知見昇格（§1.5, §4.10）
+
+**横断機能**:
+- LangGraph.js セットアップ (@langchain/langgraph 0.2.19) + langchain-mcp-adapters
+- プロンプト読み込み（`prompts/*.md`, [04-agent-design.md §8](04-agent-design.md)）
+- エージェント個別学習メカニズム — confidence更新・自動無効化・自動昇格（§10-11）
+- 仮説検証ロジック（`HYPOTHESIS_CONFIRM_THRESHOLD`, `HYPOTHESIS_INCONCLUSIVE_THRESHOLD`）
+- 異常検知（`ANOMALY_DETECTION_SIGMA`）+ 探索率制御（`EXPLORATION_RATE`）
+- エージェント間コミュニケーション（`agent_communications` テーブル経由）
+- 戦略サイクルへのデータキュレーター統合
 
 ### 6.8 strategy-agent（Week 1-5）
 
+**参照仕様**: [04-agent-design.md §5.1](04-agent-design.md)（戦略サイクルグラフ）, §1.1（戦略エージェント）, §1.6（プランナー）
+
 **実装内容**:
-- Strategy Cycle Graph (日次実行)
-- Planner実装（水平スケーリング対応）
-- 人間承認ゲート（`STRATEGY_APPROVAL_REQUIRED`）
+- 戦略サイクルグラフの定義と全ノード実装（§5.1 — 日次cron実行、ノード順: analyze→plan→approve→execute→reflect）
+- 社長ノード (Opus) — サイクル方針決定 + リソース配分
+- Planner ノード (Sonnet x N) — 水平スケーリング対応（`MAX_PLANNER_INSTANCES`）
+- 人間承認ゲート（`STRATEGY_APPROVAL_REQUIRED`）+ 差戻しルーティング（rejection_category→適切ノード）
+- 最大リビジョンループ（`MAX_STRATEGY_REVISIONS`）
 - `human_directives` 処理
-- リソース配分ロジック
 - KPI監視 + エスカレーション
+- `agent_thought_logs` 記録 + エージェントリフレクション（self_score 1-10）
 
 ### 6.9 dashboard-agent（Week 1-5）
+
+**参照仕様**: [04-agent-design.md §4.9](04-agent-design.md)（ダッシュボード用 10ツール）, §4.11（キュレーション用 3ツール）, [02-architecture.md §6](02-architecture.md)（ダッシュボード設計）
 
 **実装内容**:
 - Next.js 14.2.x App Router スキャフォールド
 - Solarized Dark/Light テーマ（Tailwind CSS）
 - Nunito フォント（Google Fonts）
 - レスポンシブデザイン（Mobile-first）
+- 13 REST APIエンドポイント（`dashboard/app/api/` — §4.9の10 + §4.11の3）
 
-**15画面の実装（優先度順）**:
+**15画面の実装（優先度順、画面×サブ機能マッピングは§3参照）**:
 
 | Week | 画面 |
 |------|------|
@@ -626,11 +663,14 @@ export const getAccountsTool = {
 
 ### 6.10 test-agent（Week 1-7）
 
+**参照仕様**: [12-test-specifications.md](12-test-specifications.md)（全テスト定義）, [13-agent-harness.md §8](13-agent-harness.md)（品質ゲート G1-G6）
+
 **実装内容**:
-- Jest設定（TypeScript対応）
-- ユニットテスト（各モジュール）
+- Jest設定（TypeScript対応、ts-jest）
+- ユニットテスト（各モジュール — feature_list.json の `test_ids` が参照する TEST-xxx を実装）
 - 統合テスト（MCP Server ↔ DB, Worker ↔ MCP）
 - E2Eテスト（全サイクルフロー）
+- スモークテスト（`npm run test:smoke` — 各機能実装後に必ず実行）
 - GitHub Actions CI設定
 - テストカバレッジ目標: 80%+
 
@@ -638,13 +678,24 @@ export const getAccountsTool = {
 
 ## 7. 人間（Shungo）の作業
 
-開発期間中の人間の作業。詳細は [11-pre-implementation-checklist.md](11-pre-implementation-checklist.md) を参照。
+開発期間中の人間の作業。詳細チェックリストは [11-pre-implementation-checklist.md](11-pre-implementation-checklist.md) を参照。
+
+### 前提条件（実装開始前に必須）
+
+以下は実装開始のブロッカーとなるため、最優先で完了すること（11-pre-implementation-checklist.md §2.1-2.2）:
+
+- GCE VM プロビジョニング + Cloud SQL PostgreSQL 16 インスタンス作成
+- VPCネットワーク + ファイアウォール設定
+- Docker + Docker Compose インストール
+- AIサービスAPIキー取得（Anthropic, fal.ai, Fish Audio, OpenAI Embedding）
 
 ### 日次（〜30分）
 
+- Daily Report確認（`v5/logs/daily-report-YYYY-MM-DD.txt` — GitHubアプリでスマホから閲覧可能）
 - Agent Teamの進捗確認（TaskList, メッセージ確認）
 - ブロッカーの解消（判断が必要な質問への回答）
 - コードレビュー承認（リーダーが準備したPR）
+- `human_directives` でエージェントへ方針指示（必要に応じて）
 
 ### 週次（〜2時間）
 
@@ -654,7 +705,9 @@ export const getAccountsTool = {
 
 ### 並行作業（開発と同時進行）
 
-- プラットフォームアカウント作成
+⚠️ プラットフォームAPI審査は2-4週間かかるため、実装開始と同時に申請すること（11-pre-implementation-checklist.md §2.3）
+
+- プラットフォームAPI審査申請（YouTube, TikTok, Instagram, X）
+- プラットフォームアカウント作成（初期50アカウント）
 - OAuth認証フロー完了
-- APIキー取得・設定
-- キャラクターアセット準備
+- キャラクターアセット準備（画像・音声サンプル）
