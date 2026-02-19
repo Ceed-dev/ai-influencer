@@ -1,8 +1,8 @@
 -- ============================================================
--- AI-Influencer v5.0 — Default System Settings (81 entries)
+-- AI-Influencer v5.0 — Default System Settings (84 entries)
 -- Generated from docs/v5-specification/03-database-schema.md Section 7.2
 -- ============================================================
--- Categories: production (13), posting (8), review (4), agent (38),
+-- Categories: production (13), posting (8), review (4), agent (41),
 --             measurement (6), cost_control (4), dashboard (3), credentials (5)
 -- ============================================================
 
@@ -81,7 +81,11 @@ INSERT INTO system_settings (setting_key, setting_value, category, description, 
 ('ANALYSIS_MIN_SAMPLE_SIZE', '5', 'agent', '分析に必要な最小サンプルサイズ。未満の場合はinconclusive判定', '5', 'integer', '{"min": 2, "max": 20}'),
 ('PROMPT_SUGGEST_LOW_SCORE', '5', 'agent', 'プロンプト改善提案のトリガー: パフォーマンススコアがこの値以下', '5', 'integer', '{"min": 1, "max": 10}'),
 ('PROMPT_SUGGEST_HIGH_SCORE', '8', 'agent', 'プロンプト改善提案: この値以上のスコアでは提案しない', '8', 'integer', '{"min": 5, "max": 10}'),
-('PROMPT_SUGGEST_FAILURE_COUNT', '3', 'agent', 'プロンプト改善提案のトリガー: 同一パターンの失敗がこの回数以上', '3', 'integer', '{"min": 1, "max": 10}');
+('PROMPT_SUGGEST_FAILURE_COUNT', '3', 'agent', 'プロンプト改善提案のトリガー: 同一パターンの失敗がこの回数以上', '3', 'integer', '{"min": 1, "max": 10}'),
+-- Character auto-generation settings (3)
+('CHARACTER_AUTO_GENERATION_ENABLED', 'false', 'agent', 'データキュレーターによるキャラクター自動生成の有効化', 'false', 'boolean', null),
+('CHARACTER_REVIEW_REQUIRED', 'true', 'agent', 'キュレーター生成キャラクターの人間レビュー必須フラグ', 'true', 'boolean', null),
+('CHARACTER_GENERATION_CONFIDENCE_THRESHOLD', '0.8', 'agent', 'キャラクター自動生成の自信度閾値（これ以上で自動承認）', '0.8', 'float', '{"min": 0.0, "max": 1.0}');
 
 -- Measurement settings (6)
 INSERT INTO system_settings (setting_key, setting_value, category, description, default_value, value_type, constraints) VALUES

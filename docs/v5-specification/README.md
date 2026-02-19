@@ -64,7 +64,7 @@ v5.0は、AI-Influencerシステムを**完全AIエージェント駆動**に刷
 |                        MCP Protocol                         |
 |                              |                              |
 |              Custom MCP Server (Node.js)                    |
-|       Business Logic + Queries (89 MCP + 13 REST API)       |
+|       Business Logic + Queries (92 MCP + 13 REST API)       |
 |                              |                              |
 |  Video    Text     Posting        Measurement               |
 |  Worker   Worker   Worker         Worker                    |

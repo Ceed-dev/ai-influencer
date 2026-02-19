@@ -17,6 +17,8 @@ CREATE INDEX idx_accounts_platform_status ON accounts(platform, status);
 
 -- characters
 -- NOTE: character_id UNIQUE constraint auto-creates an index
+CREATE INDEX idx_characters_status ON characters(status);
+CREATE INDEX idx_characters_created_by ON characters(created_by);
 
 -- components
 CREATE INDEX idx_components_type ON components(type);

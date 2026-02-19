@@ -226,7 +226,7 @@ NUMBER: 001〜999
 {
   "version": "5.0.0",
   "generated_at": "2026-03-01T00:00:00Z",
-  "total_features": 251,
+  "total_features": 254,
   "features": [
     {
       "id": "FEAT-DB-001",
@@ -1777,7 +1777,7 @@ G6 失敗 → 以前の機能が壊れた。最優先で修復
 ```bash
 # 1. 進捗確認（1分）
 jq '[.features[] | select(.passes==true)] | length' feature_list.json
-# → "85 / 251 features passed" のように表示
+# → "85 / 254 features passed" のように表示
 
 # 2. 最近の活動確認（2分）
 tail -30 progress.txt
@@ -1815,7 +1815,7 @@ npx jest --coverage --passWithNoTests 2>/dev/null | tail -20
 # 全体進捗率
 jq '[.features[] | select(.passes==true)] | length' feature_list.json
 # 出力例: 85
-# → 85 / 251 = 33.9%
+# → 85 / 254 = 33.9%
 
 # カテゴリ別進捗
 jq -r '

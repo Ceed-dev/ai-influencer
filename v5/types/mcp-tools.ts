@@ -1,6 +1,6 @@
 // AUTO-GENERATED from 04-agent-design.md Section 4 — DO NOT EDIT MANUALLY
 //
-// MCP Server Tool interfaces for all 102 tools
+// MCP Server Tool interfaces for all 105 tools
 // Organized by agent role (12 categories)
 
 import type {
@@ -1134,8 +1134,8 @@ export interface UpdatePromptSuggestionStatusOutput {
 }
 
 // ============================================================================
-// 4.10 Data Curator Tools (6 tools)
-// 生データの取得・構造化・コンポーネント生成・重複チェックのためのツール群
+// 4.10 Data Curator Tools (9 tools)
+// 生データの取得・構造化・コンポーネント生成・重複チェック・キャラクター自動生成のためのツール群
 // ============================================================================
 
 /** #1 — キュレーション待ちデータ取得 */
@@ -1203,6 +1203,45 @@ export interface SubmitForHumanReviewInput {
 }
 export interface SubmitForHumanReviewOutput {
   success: boolean;
+}
+
+/** #7 — キャラクタープロフィール自動生成 */
+export interface CreateCharacterProfileInput {
+  niche: string;
+  target_market: string;
+  personality_traits?: string[];
+  name_suggestion?: string;
+}
+export interface CreateCharacterProfileOutput {
+  character_id: string;
+  name: string;
+  personality: Record<string, unknown>;
+  status: 'draft';
+}
+
+/** #8 — キャラクター画像自動生成 */
+export interface GenerateCharacterImageInput {
+  character_id: string;
+  appearance_description: string;
+  style?: 'anime' | 'realistic' | '3d';
+}
+export interface GenerateCharacterImageOutput {
+  image_drive_id: string;
+  image_url: string;
+}
+
+/** #9 — 音声プロフィール自動選定 */
+export interface SelectVoiceProfileInput {
+  character_id: string;
+  personality: Record<string, unknown>;
+  gender?: string;
+  age_range?: string;
+  language: string;
+}
+export interface SelectVoiceProfileOutput {
+  voice_id: string;
+  voice_name: string;
+  sample_url: string;
 }
 
 // ============================================================================
@@ -1459,13 +1498,16 @@ export interface McpToolMap {
   rollback_agent_prompt: { input: RollbackAgentPromptInput; output: RollbackAgentPromptOutput };
   update_prompt_suggestion_status: { input: UpdatePromptSuggestionStatusInput; output: UpdatePromptSuggestionStatusOutput };
 
-  // 4.10 Data Curator (6)
+  // 4.10 Data Curator (9)
   get_curation_queue: { input: GetCurationQueueInput; output: GetCurationQueueOutput };
   create_component: { input: CreateComponentInput; output: CreateComponentOutput };
   update_component_data: { input: UpdateComponentDataInput; output: UpdateComponentDataOutput };
   mark_curation_complete: { input: MarkCurationCompleteInput; output: MarkCurationCompleteOutput };
   get_similar_components: { input: GetSimilarComponentsInput; output: GetSimilarComponentsOutput };
   submit_for_human_review: { input: SubmitForHumanReviewInput; output: SubmitForHumanReviewOutput };
+  create_character_profile: { input: CreateCharacterProfileInput; output: CreateCharacterProfileOutput };
+  generate_character_image: { input: GenerateCharacterImageInput; output: GenerateCharacterImageOutput };
+  select_voice_profile: { input: SelectVoiceProfileInput; output: SelectVoiceProfileOutput };
 
   // 4.11 Dashboard Curation (3)
   get_curated_components_for_review: { input: GetCuratedComponentsForReviewInput; output: GetCuratedComponentsForReviewOutput };
@@ -1549,6 +1591,7 @@ export interface AgentToolAccess {
   data_curator: [
     'get_curation_queue', 'create_component', 'update_component_data',
     'mark_curation_complete', 'get_similar_components', 'submit_for_human_review',
+    'create_character_profile', 'generate_character_image', 'select_voice_profile',
     // + self-learning tools
     'save_reflection', 'get_recent_reflections', 'save_individual_learning',
     'get_individual_learnings', 'peek_other_agent_learnings',

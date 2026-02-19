@@ -30,6 +30,9 @@ CREATE TABLE characters (
     personality     JSONB,
     voice_id        VARCHAR(32) NOT NULL,
     image_drive_id  VARCHAR(100),
+    status          VARCHAR(20) NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'pending_review', 'active', 'archived')),
+    created_by      VARCHAR(30) NOT NULL DEFAULT 'human' CHECK (created_by IN ('human', 'curator')),
+    generation_metadata JSONB DEFAULT NULL,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

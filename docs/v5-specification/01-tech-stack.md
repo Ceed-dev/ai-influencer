@@ -44,7 +44,7 @@
 | LLM (戦略) | Claude Opus 4.6 | via @langchain/anthropic 0.3.x | 戦略エージェントの高度な推論 |
 | LLM (計画・実行) | Claude Sonnet 4.5 | via @langchain/anthropic 0.3.x | アナリスト・プランナー・リサーチャー・データキュレーター・ワーカーのコスト効率実行 |
 | ツールスペシャリスト | Claude Sonnet 4.5 | via @langchain/anthropic 0.3.x | AIツール特性の学習・最適ツール選択の推奨 |
-| AI-DB接続 | MCP Server (自作) | Node.js | エージェントがPostgreSQLにアクセスするインターフェース (89 MCPツール + 13 REST API) |
+| AI-DB接続 | MCP Server (自作) | Node.js | エージェントがPostgreSQLにアクセスするインターフェース (92 MCPツール + 13 REST API) |
 | MCP Adapters | langchain-mcp-adapters | npm | LangGraphからMCPサーバーを呼び出すアダプター |
 
 ### フレームワーク選定の比較結果

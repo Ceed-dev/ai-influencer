@@ -84,7 +84,7 @@
 | # | エージェント名 | subagent_type | 担当モジュール |
 |---|-------------|--------------|-------------|
 | 1 | infra-agent | general-purpose | Docker + PostgreSQL + DDL + マイグレーション |
-| 2 | mcp-core-agent | general-purpose | MCP Server コアCRUDツール 42ツール（§3マッピング表参照、詳細は [04-agent-design.md §4](04-agent-design.md)） |
+| 2 | mcp-core-agent | general-purpose | MCP Server コアCRUDツール 45ツール（§3マッピング表参照、詳細は [04-agent-design.md §4](04-agent-design.md)） |
 | 3 | mcp-intel-agent | general-purpose | MCP Server インテリジェンスツール 47ツール（§3マッピング表参照、詳細は [04-agent-design.md §4](04-agent-design.md)） |
 | 4 | video-worker-agent | general-purpose | 動画制作ワーカー + fal.ai連携 |
 | 5 | text-post-agent | general-purpose | テキスト制作 + 4PF投稿アダプター |
@@ -133,16 +133,16 @@ ai-influencer/v5/
 │ ─── SQL（infra-agentのみ実行・変更可） ───
 ├── sql/
 │   ├── 001_create_tables.sql  # DDL（26テーブル）
-│   ├── 002_create_indexes.sql # インデックス（133件）
+│   ├── 002_create_indexes.sql # インデックス（135件）
 │   ├── 003_create_triggers.sql # トリガー（13件）
-│   ├── 004_seed_settings.sql  # system_settings初期データ（81件）
+│   ├── 004_seed_settings.sql  # system_settings初期データ（84件）
 │   └── 005_seed_prompts.sql   # agent_prompt_versions初期データ（6エージェント分）
 │
 │ ─── 実装コード ───
 ├── src/
 │   ├── mcp-server/            # mcp-core-agent + mcp-intel-agent（ツール分担は§6.2/6.3を参照）
 │   │   ├── index.ts           # MCP Server エントリポイント（mcp-core-agentが作成）
-│   │   ├── tools/             # 89 MCPツール → 8ディレクトリ（詳細マッピングは後述の表を参照）
+│   │   ├── tools/             # 92 MCPツール → 8ディレクトリ（詳細マッピングは後述の表を参照）
 │   │   │   ├── entity/        # accounts, characters, components (11ツール) ── mcp-core-agent
 │   │   │   ├── production/    # content, publications, 外部API連携 (15ツール) ── mcp-core-agent
 │   │   │   ├── intelligence/  # hypotheses, market_intel, metrics, analyses, learnings (34ツール) ── mcp-intel-agent
@@ -263,15 +263,15 @@ ai-influencer/v5/
 - 各エージェントは `src/lib/` のファイルを import して使用するが、直接変更してはならない
 - 機能追加が必要な場合はリーダーに申請し、infra-agent が対応する
 
-#### MCPツールのディレクトリマッピング（89ツール）
+#### MCPツールのディレクトリマッピング（92ツール）
 
-全89 MCPツール（[04-agent-design.md §4](04-agent-design.md) 定義）を8ディレクトリに分類する。分類基準は**操作するデータドメイン**（主にアクセスするDBテーブル群）。ツールを呼び出すエージェントではなく、ツールが操作するデータの種類で分類する。
+全92 MCPツール（[04-agent-design.md §4](04-agent-design.md) 定義）を8ディレクトリに分類する。分類基準は**操作するデータドメイン**（主にアクセスするDBテーブル群）。ツールを呼び出すエージェントではなく、ツールが操作するデータの種類で分類する。
 
 > **注**: 13 Dashboard REST APIツール（[04-agent-design.md §4.9](04-agent-design.md) の10ツール + [§4.11](04-agent-design.md) の3ツール）は `dashboard/app/api/` に Next.js API Routes として実装する（[02-architecture.md §6.13](02-architecture.md) 参照）。`src/mcp-server/tools/` には含めない。
 
 | ディレクトリ | 担当 | ツール数 | ツール名（§4.x参照元） |
 |-------------|------|:-------:|----------------------|
-| `entity/` | mcp-core | 11 | get_assigned_accounts(§4.4), get_account_performance(§4.4), get_available_components(§4.4), get_character_info(§4.6), get_component_data(§4.6), get_component_scores(§4.3), update_component_score(§4.3), create_component(§4.10), update_component_data(§4.10), get_similar_components(§4.10), submit_for_human_review(§4.10) |
+| `entity/` | mcp-core | 14 | get_assigned_accounts(§4.4), get_account_performance(§4.4), get_available_components(§4.4), get_character_info(§4.6), get_component_data(§4.6), get_component_scores(§4.3), update_component_score(§4.3), create_component(§4.10), update_component_data(§4.10), get_similar_components(§4.10), submit_for_human_review(§4.10), create_character_profile(§4.10), generate_character_image(§4.10), select_voice_profile(§4.10) |
 | `production/` | mcp-core | 15 | plan_content(§4.4), schedule_content(§4.4), get_content_pool_status(§4.4), generate_script(§4.6), start_video_generation(§4.6), check_video_status(§4.6), start_tts(§4.6), start_lipsync(§4.6), upload_to_drive(§4.6), update_content_status(§4.6), run_quality_check(§4.6), publish_to_youtube(§4.7), publish_to_tiktok(§4.7), publish_to_instagram(§4.7), publish_to_x(§4.7) |
 | `intelligence/` | mcp-intel | 34 | get_top_learnings(§4.1), get_active_hypotheses(§4.1), get_algorithm_performance(§4.1), save_trending_topic(§4.2), save_competitor_post(§4.2), save_competitor_account(§4.2), save_audience_signal(§4.2), save_platform_update(§4.2), get_recent_intel(§4.2), search_similar_intel(§4.2), get_niche_trends(§4.2), get_competitor_analysis(§4.2), get_platform_changes(§4.2), mark_intel_expired(§4.2), get_intel_gaps(§4.2), get_metrics_for_analysis(§4.3), get_hypothesis_results(§4.3), verify_hypothesis(§4.3), create_analysis(§4.3), extract_learning(§4.3), update_learning_confidence(§4.3), search_similar_learnings(§4.3), detect_anomalies(§4.3), calculate_algorithm_performance(§4.3), get_niche_performance_trends(§4.3), compare_hypothesis_predictions(§4.3), generate_improvement_suggestions(§4.3), create_hypothesis(§4.4), get_niche_learnings(§4.4), collect_youtube_metrics(§4.8), collect_tiktok_metrics(§4.8), collect_instagram_metrics(§4.8), collect_x_metrics(§4.8), collect_account_metrics(§4.8) |
 | `operations/` | mcp-core | 14 | get_pending_directives(§4.1), create_cycle(§4.1), set_cycle_plan(§4.1), allocate_resources(§4.1), send_planner_directive(§4.1), request_production(§4.4), get_production_task(§4.6), report_production_complete(§4.6), get_publish_task(§4.7), report_publish_result(§4.7), get_measurement_tasks(§4.8), report_measurement_complete(§4.8), get_curation_queue(§4.10), mark_curation_complete(§4.10) |
@@ -279,7 +279,7 @@ ai-influencer/v5/
 | `tool-mgmt/` | mcp-intel | 5 | get_tool_knowledge(§4.5), save_tool_experience(§4.5), search_similar_tool_usage(§4.5), get_tool_recommendations(§4.5), update_tool_knowledge_from_external(§4.5) |
 | `system/` | mcp-core | 0 | ―（system_settings CRUDは13 REST APIに含まれる。エージェントの設定読み込みは `src/lib/settings.ts` を使用） |
 | `dashboard/` | mcp-core | 2 | get_portfolio_kpi_summary(§4.1), get_cluster_performance(§4.1) |
-| **合計** | | **89** | |
+| **合計** | | **92** | |
 
 > **分類の判断基準**: ツールが主にCRUD操作するテーブルで分類する。例: `collect_youtube_metrics`は外部APIを呼び出すが、書き込み先が`metrics`テーブルなので`intelligence/`に配置。`get_production_task`は`task_queue`を読むが、制作ワークフローの一部なので`operations/`に配置（task_queue操作は全て`operations/`）。
 
@@ -382,7 +382,7 @@ LangGraphの各ノード（Strategist, Researcher, Analyst, Planner, Tool Specia
 |------|------|
 | 通信方式 | `src/lib/settings.ts` → PostgreSQL直接クエリ（MCP非経由） |
 | 呼び出し元 | 全エージェント、全ワーカー、ダッシュボード |
-| テーブル | `system_settings`（81件、8カテゴリ: production(13), posting(8), review(4), agent(38), measurement(6), cost_control(4), dashboard(3), credentials(5)） |
+| テーブル | `system_settings`（84件、8カテゴリ: production(13), posting(8), review(4), agent(41), measurement(6), cost_control(4), dashboard(3), credentials(5)） |
 | 契約 | `getSetting(key: string): Promise<string>` — 初期実装は infra-agent（[02-architecture.md §10](02-architecture.md) 参照） |
 | ルール | 全設定値はこのユーティリティ経由で取得する。ハードコーディング禁止 |
 
@@ -510,9 +510,9 @@ main ── 本番ブランチ（直接コミット禁止）
 
 ### 6.2 mcp-core-agent（Week 1-4）
 
-**担当**: 42 MCPツール（entity/production/operations/system/dashboard ディレクトリ。§3マッピング表参照）
+**担当**: 45 MCPツール（entity/production/operations/system/dashboard ディレクトリ。§3マッピング表参照）
 
-- Entity系 (11ツール): accounts, characters, components CRUD（[04-agent-design.md §4.3](04-agent-design.md), §4.4, §4.6, §4.10）
+- Entity系 (14ツール): accounts, characters, components CRUD + キャラクター自動生成（[04-agent-design.md §4.3](04-agent-design.md), §4.4, §4.6, §4.10）
 - Production系 (15ツール): content, publications CRUD + 外部API連携（§4.4, §4.6, §4.7）
 - Operations系 (14ツール): cycles, human_directives, task_queue CRUD（§4.1, §4.4, §4.6, §4.7, §4.8, §4.10）
 - System系 (0 MCPツール): system_settings CRUDは13 REST APIに含まれる。エージェントは `src/lib/settings.ts` で読み取り
@@ -615,7 +615,7 @@ export const getAccountsTool = {
 - Researcher (Sonnet) — 市場データ収集・整理（§1.2, §4.2）
 - Analyst (Sonnet) — 仮説検証・知見抽出・品質スコア計算（§1.3, §4.3）
 - Tool Specialist (Sonnet) — 制作レシピ最適化・ツール組み合わせ提案（§1.4, §4.5）
-- Data Curator (Sonnet) — コンポーネント抽出・知見重複検出・グローバル知見昇格（§1.5, §4.10）
+- Data Curator (Sonnet) — コンポーネント抽出・キャラクター自動生成・知見重複検出・グローバル知見昇格（§1.5, §4.10）
 
 **横断機能**:
 - LangGraph.js セットアップ (@langchain/langgraph 0.2.19) + langchain-mcp-adapters
@@ -710,4 +710,4 @@ export const getAccountsTool = {
 - プラットフォームAPI審査申請（YouTube, TikTok, Instagram, X）
 - プラットフォームアカウント作成（初期50アカウント）
 - OAuth認証フロー完了
-- キャラクターアセット準備（画像・音声サンプル）
+- キャラクターアセットレビュー（Data Curatorが自動生成、人間はダッシュボードでレビュー・修正。初期フェーズでは手動作成も可能）

@@ -413,6 +413,29 @@ CREATE TABLE characters (
         -- 制作パイプラインがfal.storageにアップロードする際の元画像
         -- Kling制限: 3850x3850px以下（超過時はorchestrator.jsが自動リサイズ）
 
+    -- キャラクター状態管理
+    status          VARCHAR(20) NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'pending_review', 'active', 'archived')),
+        -- キャラクターの状態
+        -- draft: 下書き（自動生成直後）
+        -- pending_review: レビュー待ち（人間の確認が必要）
+        -- active: 運用中（コンテンツ制作に使用可能）
+        -- archived: アーカイブ（使用停止）
+    created_by      VARCHAR(30) NOT NULL DEFAULT 'human' CHECK (created_by IN ('human', 'curator')),
+        -- 作成者
+        -- human: 人間が手動作成
+        -- curator: データキュレーターが自動生成
+    generation_metadata JSONB DEFAULT NULL,
+        -- 自動生成時のパラメータ
+        -- 構造例:
+        -- {
+        --   "niche": "beauty",
+        --   "target_market": "jp_female_20s",
+        --   "generation_model": "claude-sonnet-4-5",
+        --   "confidence": 0.85,
+        --   "image_model": "fal-ai/flux",
+        --   "voice_selection_criteria": { "gender": "female", "age_range": "20s", "language": "jp" }
+        -- }
+
     -- タイムスタンプ
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -421,6 +444,9 @@ CREATE TABLE characters (
 COMMENT ON TABLE characters IS 'AIキャラクター定義。外見・性格・声の設定を一元管理';
 COMMENT ON COLUMN characters.voice_id IS 'Fish Audio 32-char hex reference_id。TTS生成時に必須';
 COMMENT ON COLUMN characters.image_drive_id IS 'Google DriveファイルID。制作パイプラインが参照';
+COMMENT ON COLUMN characters.status IS 'キャラクター状態。draft→pending_review→active→archived';
+COMMENT ON COLUMN characters.created_by IS '作成者。human=手動, curator=データキュレーター自動生成';
+COMMENT ON COLUMN characters.generation_metadata IS '自動生成時のパラメータ（ニッチ、ターゲット市場、生成モデル等）';
 ```
 
 ### 1.3 components — コンポーネント管理
@@ -2774,7 +2800,7 @@ COMMENT ON COLUMN system_settings.updated_by IS '最終更新者。"system"=初�
 
 ### 7.2 デフォルト設定値（初期INSERT）
 
-システム初期化時にINSERTされるデフォルト設定値。全カテゴリの設定を網羅する（合計81件: production 13, posting 8, review 4, agent 38, measurement 6, cost_control 4, dashboard 3, credentials 5）。
+システム初期化時にINSERTされるデフォルト設定値。全カテゴリの設定を網羅する（合計84件: production 13, posting 8, review 4, agent 41, measurement 6, cost_control 4, dashboard 3, credentials 5）。
 
 ```sql
 -- ========================================
@@ -2974,6 +3000,10 @@ CREATE INDEX idx_accounts_platform_status ON accounts(platform, status);
 
 -- characters
 -- NOTE: idx_characters_character_id は不要 — character_id の UNIQUE 制約が自動的にインデックスを作成する
+CREATE INDEX idx_characters_status ON characters(status);
+    -- draft/pending_review/active/archived でフィルタ（ダッシュボードレビュー用）
+CREATE INDEX idx_characters_created_by ON characters(created_by);
+    -- human/curator でフィルタ（自動生成キャラクターの一覧表示用）
 
 -- components
 CREATE INDEX idx_components_type ON components(type);

@@ -1,7 +1,7 @@
 {
   "version": "5.0.0",
   "generated_at": "2026-02-18T10:24:32.665Z",
-  "total_features": 251,
+  "total_features": 254,
   "features": [
     {
       "id": "FEAT-DB-001",
@@ -4060,6 +4060,75 @@
       "steps": [
         "§2.1読み取り",
         "キュレーション結果参照実装",
+        "テスト実行"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-INT-019",
+      "category": "agent-intelligence",
+      "module": "agents/nodes/data-curator",
+      "agent": "intelligence-agent",
+      "priority": "P1",
+      "description": "データキュレーター — キャラクタープロフィール自動生成（ニッチ・ターゲット市場からpersonality JSONB自動設計）",
+      "spec_refs": [
+        "04-agent-design.md §4.10"
+      ],
+      "test_ids": [
+        "TEST-AGT-040"
+      ],
+      "dependencies": [
+        "FEAT-INT-018"
+      ],
+      "steps": [
+        "create_character_profile MCPツール実装",
+        "characters テーブルへのINSERT",
+        "テスト実行"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-INT-020",
+      "category": "agent-intelligence",
+      "module": "agents/nodes/data-curator",
+      "agent": "intelligence-agent",
+      "priority": "P1",
+      "description": "データキュレーター — キャラクター画像自動生成/選定（fal.ai or Drive素材からappearance設定に基づく画像生成）",
+      "spec_refs": [
+        "04-agent-design.md §4.10"
+      ],
+      "test_ids": [
+        "TEST-AGT-041"
+      ],
+      "dependencies": [
+        "FEAT-INT-019"
+      ],
+      "steps": [
+        "generate_character_image MCPツール実装",
+        "画像生成→Drive保存→characters.image_drive_id更新",
+        "テスト実行"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-INT-021",
+      "category": "agent-intelligence",
+      "module": "agents/nodes/data-curator",
+      "agent": "intelligence-agent",
+      "priority": "P1",
+      "description": "データキュレーター — 音声プロフィール自動選定（Fish Audioカタログからpersonalityに基づくvoice_id選定）",
+      "spec_refs": [
+        "04-agent-design.md §4.10"
+      ],
+      "test_ids": [
+        "TEST-AGT-042"
+      ],
+      "dependencies": [
+        "FEAT-INT-019"
+      ],
+      "steps": [
+        "select_voice_profile MCPツール実装",
+        "Fish Audio API連携→voice_id選定→characters.voice_id更新",
         "テスト実行"
       ],
       "passes": false

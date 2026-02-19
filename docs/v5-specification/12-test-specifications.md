@@ -14,7 +14,7 @@ TEST-{LAYER}-{NUMBER}
 | Layer | Prefix | 対象 |
 |-------|--------|------|
 | Database | DB | PostgreSQL スキーマ・制約・トリガー・インデックス |
-| MCP Server | MCP | 89 MCP ツールの入出力・バリデーション |
+| MCP Server | MCP | 92 MCP ツールの入出力・バリデーション |
 | Worker | WKR | タスクキュー処理・動画制作・投稿・計測ワーカー |
 | LangGraph Agent | AGT | 4グラフのノード遷移・状態管理・チェックポイント |
 | Dashboard | DSH | Next.js 15ページ・13 REST API・テーマ・レスポンシブ |
@@ -555,15 +555,15 @@ TEST-{LAYER}-{NUMBER}
 - **Pass Criteria**: 6値成功 AND 不正値が拒否
 - **Fail Indicators**: 不正値が成功
 
-### TEST-DB-046: system_settings 初期データ件数 (81件)
+### TEST-DB-046: system_settings 初期データ件数 (84件)
 - **Category**: database
 - **Priority**: P0
 - **Prerequisites**: 初期INSERTマイグレーション実行済み
 - **Steps**:
   1. `SELECT COUNT(*) FROM system_settings;`
-- **Expected Result**: `count = 81`
-- **Pass Criteria**: COUNT = 81
-- **Fail Indicators**: COUNT ≠ 81
+- **Expected Result**: `count = 84`
+- **Pass Criteria**: COUNT = 84
+- **Fail Indicators**: COUNT ≠ 84
 
 ### TEST-DB-047: system_settings カテゴリ別件数
 - **Category**: database
@@ -574,7 +574,7 @@ TEST-{LAYER}-{NUMBER}
 - **Expected Result**:
   | category | count |
   |----------|-------|
-  | agent | 38 |
+  | agent | 41 |
   | cost_control | 4 |
   | credentials | 5 |
   | dashboard | 3 |
@@ -1439,7 +1439,7 @@ TEST-{LAYER}-{NUMBER}
 - **Pass Criteria**: status が 'accepted' に更新
 - **Fail Indicators**: status が 'pending' のまま
 
-### 2.10 データキュレーター用ツール (6ツール)
+### 2.10 データキュレーター用ツール (9ツール)
 
 ### TEST-MCP-071: get_curation_queue — 正常系
 - **Category**: mcp
@@ -1662,7 +1662,7 @@ TEST-{LAYER}-{NUMBER}
 - **Prerequisites**: MCP Server 起動済み
 - **Steps**:
   1. MCP Server のツール一覧を取得 (list_tools プロトコル)
-- **Expected Result**: ツール総数 = 89 (戦略10 + リサーチャー12 + アナリスト14 + プランナー9 + ツールスペシャリスト5 + 制作ワーカー12 + 投稿ワーカー6 + 計測ワーカー7 + ダッシュボード10 + キュレーター6 + キュレーションダッシュボード3 + 自己学習8 - 重複13ダッシュボードREST)
+- **Expected Result**: ツール総数 = 92 (戦略10 + リサーチャー12 + アナリスト14 + プランナー9 + ツールスペシャリスト5 + 制作ワーカー12 + 投稿ワーカー6 + 計測ワーカー7 + ダッシュボード10 + キュレーター9 + キュレーションダッシュボード3 + 自己学習8 - 重複13ダッシュボードREST)
 - **Pass Criteria**: MCP ツール数が仕様と一致
 - **Fail Indicators**: ツール数が不一致
 
@@ -2576,6 +2576,36 @@ TEST-{LAYER}-{NUMBER}
 - **Pass Criteria**: 重複が検出される
 - **Fail Indicators**: 重複内容が別行として保存される
 
+### TEST-AGT-040: データキュレーター — キャラクタープロフィール自動生成
+- **Category**: agent
+- **Priority**: P1
+- **Prerequisites**: CHARACTER_AUTO_GENERATION_ENABLED='true', ニッチ='crypto_education', ターゲット市場='JP_20-30'
+- **Steps**:
+  1. create_character_profile ツールを `{ niche: 'crypto_education', target_market: 'JP_20-30' }` で呼び出し
+- **Expected Result**: characters テーブルに新レコード作成。status='draft', created_by='curator'。name, personality が非空
+- **Pass Criteria**: character_id が返却され、characters テーブルに status='draft' のレコードが存在
+- **Fail Indicators**: character_id が null、またはテーブルにレコードなし
+
+### TEST-AGT-041: データキュレーター — キャラクター画像生成
+- **Category**: agent
+- **Priority**: P1
+- **Prerequisites**: TEST-AGT-040 で作成した character_id が存在
+- **Steps**:
+  1. generate_character_image ツールを `{ character_id, appearance_description: 'anime style, blue hair' }` で呼び出し
+- **Expected Result**: image_drive_id と image_url が返却される。characters テーブルの該当レコードに画像情報が保存
+- **Pass Criteria**: image_drive_id が非空の文字列
+- **Fail Indicators**: image_drive_id が null、またはDriveにファイルが存在しない
+
+### TEST-AGT-042: データキュレーター — 音声プロフィール選定
+- **Category**: agent
+- **Priority**: P1
+- **Prerequisites**: TEST-AGT-040 で作成した character_id が存在
+- **Steps**:
+  1. select_voice_profile ツールを `{ character_id, personality: 'cheerful', language: 'ja' }` で呼び出し
+- **Expected Result**: voice_id (32文字hex), voice_name, sample_url が返却される
+- **Pass Criteria**: voice_id が32文字の16進数文字列
+- **Fail Indicators**: voice_id が空、または32文字hexでない
+
 ---
 
 ## 5. Dashboard Layer Tests (TEST-DSH)
@@ -2728,12 +2758,12 @@ TEST-{LAYER}-{NUMBER}
 ### TEST-DSH-015: GET /api/settings — 全設定取得
 - **Category**: dashboard
 - **Priority**: P0
-- **Prerequisites**: system_settings に81件のデータ
+- **Prerequisites**: system_settings に84件のデータ
 - **Steps**:
   1. `GET /api/settings` を呼び出し
-- **Expected Result**: HTTP 200。`{ settings: SystemSetting[] }`。81件。カテゴリ別にグルーピング
-- **Pass Criteria**: settings の件数 = 81
-- **Fail Indicators**: 件数が 81 でない
+- **Expected Result**: HTTP 200。`{ settings: SystemSetting[] }`。84件。カテゴリ別にグルーピング
+- **Pass Criteria**: settings の件数 = 84
+- **Fail Indicators**: 件数が 84 でない
 
 ### TEST-DSH-016: PUT /api/settings/:key — 設定更新
 - **Category**: dashboard
@@ -3043,7 +3073,7 @@ TEST-{LAYER}-{NUMBER}
 ### TEST-DSH-045: REST API — レスポンスタイム
 - **Category**: dashboard
 - **Priority**: P2
-- **Prerequisites**: system_settings に81件のデータ
+- **Prerequisites**: system_settings に84件のデータ
 - **Steps**:
   1. `GET /api/settings` を10回呼び出し、レスポンスタイムを計測
 - **Expected Result**: 平均レスポンスタイム < 500ms

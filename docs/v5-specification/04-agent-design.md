@@ -4,7 +4,7 @@
 >
 > **エージェント総数**: 社長1 + 専門職4〜5 + 部長N + ワーカープール = 可変
 >
-> **MCPツール数**: 102ツール (89 MCPツール + 13 Dashboard REST API, 12カテゴリ)
+> **MCPツール数**: 105ツール (92 MCPツール + 13 Dashboard REST API, 12カテゴリ)
 >
 > **LangGraphグラフ数**: 4グラフ (戦略サイクル / 制作パイプライン / 投稿スケジューラー / 計測ジョブ)
 >
@@ -27,7 +27,7 @@
 - [3. エージェント通信パターン](#3-エージェント通信パターン)
   - [3.1 上位層 (社長・部長・専門職): LLM対話](#31-上位層-社長部長専門職-llm対話)
   - [3.2 下位層 (部長→ワーカー): DBタスクキュー](#32-下位層-部長ワーカー-dbタスクキュー)
-- [4. MCP Server ツール一覧 (102ツール)](#4-mcp-server-ツール一覧-102ツール)
+- [4. MCP Server ツール一覧 (105ツール)](#4-mcp-server-ツール一覧-105ツール)
   - [4.1 戦略エージェント用 (10ツール)](#41-戦略エージェント用-10ツール)
   - [4.2 リサーチャー用 (12ツール)](#42-リサーチャー用-12ツール)
   - [4.3 アナリスト用 (14ツール)](#43-アナリスト用-14ツール)
@@ -37,7 +37,7 @@
   - [4.7 投稿ワーカー用 (6ツール)](#47-投稿ワーカー用-6ツール)
   - [4.8 計測ワーカー用 (7ツール)](#48-計測ワーカー用-7ツール)
   - [4.9 ダッシュボード用 (10ツール)](#49-ダッシュボード用-10ツール)
-  - [4.10 データキュレーター用 (6ツール)](#410-データキュレーター用-6ツール)
+  - [4.10 データキュレーター用 (9ツール)](#410-データキュレーター用-9ツール)
   - [4.11 ダッシュボード キュレーション用 (3ツール)](#411-ダッシュボード-キュレーション用-3ツール)
   - [4.12 エージェント自己学習・コミュニケーション用 (8ツール)](#412-エージェント自己学習コミュニケーション用-8ツール)
 - [5. LangGraphグラフ設計詳細](#5-langgraphグラフ設計詳細)
@@ -160,7 +160,7 @@ v5.0のエージェントは **4層階層型** で構成される。上位層が
 │  ┌─────────────────────────────────────────────────────────────────┐  │
 │  │  データキュレーター (Data Curator)                                  │  │
 │  │  Claude Sonnet 4.5                                                │  │
-│  │  生データの構造化 / コンポーネント自動生成 / 重複チェック・品質判定   │  │
+│  │  生データの構造化 / コンポーネント自動生成 / キャラクター自動生成 / 重複チェック・品質判定  │  │
 │  │  トリガー: 連続実行 (キューポーリング)                              │  │
 │  │  × 1体                                                           │  │
 │  └─────────────────────────────────────────────────────────────────┘  │
@@ -330,16 +330,16 @@ v5.0のエージェントは **4層階層型** で構成される。上位層が
 
 ### 1.5 Layer 2: 専門職 — データキュレーター (Data Curator) x 1体
 
-リサーチャーや人間から受け取った生データを、適切に分解・構造化・分類して `components` テーブルに保存する「データ整理の専門家」。v4.0では人間が手動でインベントリを作成していたが、KPI 3,500アカウント規模では非現実的であるため、このエージェントが自動化する。
+リサーチャーや人間から受け取った生データを、適切に分解・構造化・分類して `components` テーブルおよび `characters` テーブルに保存する「データ整理の専門家」。v4.0では人間が手動でインベントリを作成していたが、KPI 3,500アカウント規模では非現実的であるため、このエージェントが自動化する。さらに、新規アカウント追加時にはキャラクター（性格プロファイル・画像・音声）の自動生成も担当する。
 
 | 項目 | 詳細 |
 |------|------|
 | **LLM** | Claude Sonnet 4.5 |
 | **体数** | 1体 |
 | **トリガー** | 連続実行 (`task_queue` の type='curate' をポーリング) |
-| **入力** | リサーチャーが収集した市場データ (トレンド、競合投稿、参考コンテンツ)、人間がダッシュボードから提供する参考動画・参考投稿、アナリストのスコア分析に基づく既存コンポーネント改良指示 |
-| **出力** | `components` テーブルに構造化データとして保存 (type=scenario/motion/audio/image)、品質スコア初期値設定 |
-| **System Prompt概要** | 「あなたはデータキュレーションの専門家です。生の市場データや参考コンテンツを分析し、制作パイプラインで使用できる構造化されたコンポーネント (シナリオ、モーション参照、音声設定、画像素材) に変換してください。既存コンポーネントとの重複を避け、品質スコアの初期値を適切に設定してください。」 |
+| **入力** | リサーチャーが収集した市場データ (トレンド、競合投稿、参考コンテンツ)、人間がダッシュボードから提供する参考動画・参考投稿、アナリストのスコア分析に基づく既存コンポーネント改良指示、新規アカウント追加時のキャラクター生成要求（ニッチ・ターゲット市場情報） |
+| **出力** | `components` テーブルに構造化データとして保存 (type=scenario/motion/audio/image)、品質スコア初期値設定。`characters` テーブルにキャラクターデータを保存 (personality, image, voice_id) |
+| **System Prompt概要** | 「あなたはデータキュレーションの専門家です。生の市場データや参考コンテンツを分析し、制作パイプラインで使用できる構造化されたコンポーネント (シナリオ、モーション参照、音声設定、画像素材) に変換してください。既存コンポーネントとの重複を避け、品質スコアの初期値を適切に設定してください。また、新規アカウント用のキャラクター（性格プロファイル・外見・音声）を自動生成し、ターゲット市場とニッチに最適化したキャラクター設計を行ってください。」 |
 | **プロンプト管理** | `agent_prompt_versions` テーブル (DB管理) — 人間がダッシュボードからキュレーション基準をチューニング可能 |
 
 **Sonnet 4.5を使用する理由**:
@@ -359,17 +359,23 @@ v5.0のエージェントは **4層階層型** で構成される。上位層が
 4. **重複チェック**: pgvectorを使った類似コンポーネント検索で、既存データとの重複を防止する
 5. **品質スコア初期設定**: 元データの品質・完成度に基づいて `score` の初期値を設定する
 6. **人間レビュー送信**: 自信度が低い結果を人間レビュー用にマークする (`review_status = 'pending_review'`)
+7. **キャラクタープロフィール生成**: ニッチ・ターゲット市場・プラットフォーム特性から、personality (JSONB) を自動設計する
+8. **キャラクター画像生成/選定**: fal.aiまたはDrive内素材から、appearance設定に基づくキャラクター画像を生成・登録する
+9. **音声プロフィール選定**: キャラクターの性格・性別・年齢・言語設定に基づき、最適なFish Audio voice_idを選定する
 
 **人間レビューフロー (初期フェーズ)**:
 - `REQUIRE_AUTO_CURATION = true` (デフォルト) — キュレーション結果はダッシュボードのレビューパネルに表示
 - 人間が結果を確認して、修正・承認・削除が可能
 - キュレーター自信度 (`curation_confidence`) が閾値以上の場合は自動承認 (`review_status = 'auto_approved'`)
 - 信頼度が十分に高まれば、人間レビューなしでの自動承認に段階的に移行
+- キャラクター生成時は `CHARACTER_REVIEW_REQUIRED` (デフォルト: true) により、生成結果をダッシュボードのキャラクター管理画面でレビュー可能
+- キャラクター自動生成は `CHARACTER_AUTO_GENERATION_ENABLED` (デフォルト: false) で制御。初期フェーズでは無効化し、段階的に有効化
 
 **個別学習メモリのカテゴリ**:
 - `data_classification`: データ種別の判定精度 (例: 「トレンド動画はmotion typeに分類が最適」)
 - `curation_quality`: 人間レビューでの承認/却下パターン (例: 「beauty系シナリオの自信度が実際の承認率と乖離」)
 - `source_reliability`: データソースの信頼性 (例: 「リサーチャーのtrending_topicは高品質」)
+- `character_design`: キャラクター設計の精度 (例: 「beauty系ニッチでは年齢20代女性キャラが最もエンゲージメント高い」)
 
 ### 1.6 Layer 3: 部長 — プランナーエージェント (Planner) x N体
 
@@ -706,7 +712,7 @@ COMMIT;
 | ログファイル (stdout/stderr) | English | 標準的なログ管理ツールとの互換性 |
 | ダッシュボードエラー表示 | Japanese (UIラベル) + English (技術詳細) | 運用者が理解しやすい形式 |
 
-## 4. MCP Server ツール一覧 (102ツール)
+## 4. MCP Server ツール一覧 (105ツール)
 
 全エージェントはMCP Server経由でPostgreSQLにアクセスする。ツールはエージェントの役割ごとにグループ化されており、各エージェントのSystem Promptで使用可能なツール群を制限する。
 
@@ -860,9 +866,9 @@ AIツール知識の管理・検索・制作レシピ設計のためのツール
 | 9 | `rollback_agent_prompt` | `{ agent_type, version }` | `{ success }` | 指定バージョンをactive化 |
 | 10 | `update_prompt_suggestion_status` | `{ suggestion_id, status }` | `{ success }` | prompt_suggestionsの状態更新 (accepted/rejected/on_hold) |
 
-### 4.10 データキュレーター用 (6ツール)
+### 4.10 データキュレーター用 (9ツール)
 
-生データの取得・構造化・コンポーネント生成・重複チェックのためのツール群。
+生データの取得・構造化・コンポーネント生成・重複チェック、およびキャラクター自動生成のためのツール群。
 
 | # | ツール名 | 引数 | 戻り値 | 用途 |
 |---|---------|------|--------|------|
@@ -872,6 +878,9 @@ AIツール知識の管理・検索・制作レシピ設計のためのツール
 | 4 | `mark_curation_complete` | `{ queue_id, result_component_ids[] }` | `{ success }` | キュレーション完了マーク |
 | 5 | `get_similar_components` | `{ type, query_text, limit: 5 }` | `[{ component_id, similarity }]` | 重複チェック用の類似検索 |
 | 6 | `submit_for_human_review` | `{ component_ids[], summary }` | `{ success }` | 人間レビュー用に送信 |
+| 7 | `create_character_profile` | `{ niche, target_market, personality_traits?, name_suggestion? }` | `{ character_id, name, personality, status: 'draft' }` | ニッチ・ターゲット市場からキャラクタープロフィールを自動生成 |
+| 8 | `generate_character_image` | `{ character_id, appearance_description, style? }` | `{ image_drive_id, image_url }` | fal.aiまたはDrive素材からキャラクター画像を生成/選定 |
+| 9 | `select_voice_profile` | `{ character_id, personality, gender?, age_range?, language }` | `{ voice_id, voice_name, sample_url }` | Fish Audioカタログから最適な音声プロフィールを選定 |
 
 ### 4.11 ダッシュボード キュレーション用 (3ツール)
 
@@ -4888,7 +4897,9 @@ Phase 4以降 (エージェント運用中):
 | コンポーネント生成失敗 | 入力データを変えて再試行（最大`CURATION_RETRY_VARIANTS`（system_settings、デフォルト: 2）回の別パターン生成） | `task_queue.retry_count` 更新 |
 | 重複検知の高コスト | バッチ処理に切り替え（pgvectorクエリを集約。`CURATION_BATCH_SIZE`（system_settings、デフォルト: 10）件単位） | `agent_thought_logs` にバッチ切替記録 |
 | 品質スコア初期評価の精度低下 | 人間レビューの承認/却下パターンを学習し、`curation_confidence` の校正を実行 | `agent_individual_learnings` に校正結果を記録 |
-| リカバリー後アクション | 低品質コンポーネント（initial_score < `CURATION_MIN_QUALITY`（system_settings、デフォルト: 4.0））は自動的に `review_status='pending'` にフラグ | — |
+| キャラクター画像生成失敗 | fal.aiリトライ (最大3回) → 全リトライ失敗時はデフォルト画像を使用し人間レビューに送信 (`characters.status='pending_review'`) | `agent_thought_logs` に失敗詳細を記録、`agent_communications` (message_type='anomaly_alert') |
+| voice_id選定失敗 | Fish Audioカタログ再検索（条件を緩和して再試行）→ 失敗時はvoice_id=nullで保存し人間に選定依頼 | `agent_communications` (message_type='struggle') で人間に通知 |
+| リカバリー後アクション | 低品質コンポーネント（initial_score < `CURATION_MIN_QUALITY`（system_settings、デフォルト: 4.0））は自動的に `review_status='pending'` にフラグ。キャラクター生成失敗時は `characters.status='pending_review'` で保存 | — |
 
 #### 動画制作ワーカー (Video Production Worker)
 
@@ -5070,7 +5081,7 @@ worker_pool_size = CEIL(daily_production_target / WORKER_THROUGHPUT_PER_HOUR)
 | Analyst | analyses, learnings, content_quality_scores | metrics, hypotheses, market_intel |
 | Planner | content, content_sections, task_queue | hypotheses, accounts, characters, components, learnings |
 | ToolSpecialist | tool_catalog, tool_external_sources, tool_performance_logs | tool_catalog, api_usage_logs |
-| DataCurator | components, prompt_versions, prompt_suggestions, global_learnings | agent_individual_learnings, learnings, content_quality_scores |
+| DataCurator | components, characters, prompt_versions, prompt_suggestions, global_learnings | agent_individual_learnings, learnings, content_quality_scores |
 | VideoWorker | content (status update), content_sections | content, content_sections, components, characters |
 | TextWorker | content (text fields) | content, characters, components, hypotheses |
 | PostingWorker | publications | content, accounts |
@@ -5418,6 +5429,16 @@ motion:
 - >= COMPONENT_DUPLICATE_THRESHOLD (system_settings、デフォルト: 0.9): 重複とみなし既存を更新
 - >= 0.7 かつ < 0.9: 類似品としてフラグ（人間判断を推奨）
 - < 0.7: 新規コンポーネントとして保存
+
+## キャラクター自動生成ルール
+- 入力: ニッチ情報、ターゲット市場、プラットフォーム特性
+- personality JSONB構造: { traits: string[], speaking_style: string, language_preference: string, emoji_usage: string, catchphrase: string }
+- appearance JSONB構造: { style: "anime" | "realistic" | "3d", gender: string, age_range: string, features: string[] }
+- voice_id: Fish Audioカタログから、personality.speaking_styleとgender/age_rangeに基づいて選定
+- 自信度が CHARACTER_GENERATION_CONFIDENCE_THRESHOLD (system_settings、デフォルト: 0.8) 未満の場合は status='pending_review' に設定
+- CHARACTER_AUTO_GENERATION_ENABLED (system_settings、デフォルト: false) が true の場合のみ自動生成を実行
+- CHARACTER_REVIEW_REQUIRED (system_settings、デフォルト: true) が true の場合、生成結果は必ず人間レビューに送信
+- generation_metadata JSONB に生成パラメータ（ニッチ、ターゲット市場、使用モデル等）を記録
 
 ## 制約
 - task_queue (type='curate') のポーリングで実行

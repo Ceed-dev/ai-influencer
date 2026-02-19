@@ -2032,6 +2032,41 @@ Phase 2 (commit `3d4a7ac`): CJKピクセル幅補正
 
 **10-implementation-guide.md 全セクションレビュー完了 (§1〜§7)**。次のステップ: GCE VM + Cloud SQL構築 → v5並列実装開始。
 
+#### Session 12 (2026-02-19): Data Curatorの責務拡張 — キャラクターアセット自動生成
+
+**設計判断**: 3,500アカウント規模ではキャラクター手動作成が追いつかないため、Data Curatorの責務を`components`テーブルのみから`components` + `characters`テーブルに拡張。キャラクターのプロフィール生成・画像生成・音声選定を自動化する。
+
+**変更内容** (18ファイル, 291挿入, 69削除):
+
+1. **新規MCPツール (3件)**: `create_character_profile`, `generate_character_image`, `select_voice_profile`
+   - 配置: `mcp-server/tools/entity/` (mcp-core-agent担当) — 分類基準「ツールが主にCRUD操作するテーブルで分類」に従い`characters`テーブル操作のためentity/
+   - MCP合計: 89→92, 総ツール数: 102→105 (REST 13は変更なし)
+
+2. **新規system_settings (3件)**: `CHARACTER_AUTO_GENERATION_ENABLED` (bool, false), `CHARACTER_REVIEW_REQUIRED` (bool, true), `CHARACTER_GENERATION_CONFIDENCE_THRESHOLD` (float, 0.8)
+   - 合計: 81→84 (agent: 38→41)
+
+3. **DBスキーマ拡張** (`characters`テーブル):
+   - 3新列: `status` (draft/pending_review/active/archived), `created_by` (human/curator), `generation_metadata` (JSONB)
+   - 2新インデックス: `idx_characters_status`, `idx_characters_created_by`
+   - 合計インデックス: 133→135
+
+4. **新規機能 (3件)**: FEAT-INT-019 (create_character_profile), FEAT-INT-020 (generate_character_image), FEAT-INT-021 (select_voice_profile)
+   - 全てP1, intelligence-agent, module: agents/nodes/data-curator
+   - 機能合計: 251→254
+
+5. **新規テストケース (3件)**: TEST-AGT-040, TEST-AGT-041, TEST-AGT-042
+
+**更新ファイル一覧**:
+- 仕様書: 01-tech-stack, 02-architecture, 03-database-schema, 04-agent-design, 06-development-roadmap, 09-risks, 10-implementation-guide, 11-pre-implementation-checklist, 12-test-specifications, 13-agent-harness, README.md
+- 実装基盤: v5/CLAUDE.md, feature_list.json, sql/001_create_tables.sql, sql/002_create_indexes.sql, sql/004_seed_settings.sql, types/database.ts, types/mcp-tools.ts
+
+**段階的ロールアウト設計**:
+- `CHARACTER_AUTO_GENERATION_ENABLED` デフォルト: false（初期は人間が作成、信頼度向上後にtrue化）
+- `CHARACTER_REVIEW_REQUIRED` デフォルト: true（自動生成されたキャラクターは人間レビュー必須）
+- 04-agent-design.md §1.5: Curatorの入力にキャラクター生成トリガー追加、出力にcharactersデータ追加、責務#7-9追加（プロフィール/画像/音声）、学習メモリにcharacter_designカテゴリ追加
+
+**作業方式**: Agent Team (5エージェント: researcher, editor-core, editor-impl, verifier, team-lead) で並列作業。verifierが全ファイルの旧数値を検索し残存なしを確認。
+
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID
 - `.gsheets_token.json` - OAuth token for Sheets/Drive API

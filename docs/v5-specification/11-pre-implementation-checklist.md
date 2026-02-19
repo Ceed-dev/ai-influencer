@@ -94,6 +94,8 @@ Agent Teamが並列実装を開始する前に、人間（Shungo）が完了し�
 | 2 | 音声サンプル準備 | Fish Audio `voice_id` の確認。各キャラクターの voice_id を accounts inventory に記録 | ☐ |
 | 3 | キャラクター設定 | Drive `キャラクター情報/01_キャラクター設定/` の .md ファイル更新 | ☐ |
 
+> **Phase 2以降**: `CHARACTER_AUTO_GENERATION_ENABLED=true` に設定することで、Data Curatorがキャラクタープロフィール・画像・音声を自動生成。人間はダッシュボードでレビュー・修正のみ。初期フェーズでは人間が上記作業を手動で実施する。
+
 ### 2.6 仕様書最終確認
 
 | # | ファイル | 確認事項 | ステータス |

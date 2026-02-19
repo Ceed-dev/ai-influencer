@@ -190,6 +190,12 @@ export interface CharacterRow {
   voice_id: string;
   /** Google Drive file ID for character image (PNG) */
   image_drive_id: string | null;
+  /** draft / pending_review / active / archived (default: 'draft') */
+  status: 'draft' | 'pending_review' | 'active' | 'archived';
+  /** human / curator (default: 'human') */
+  created_by: 'human' | 'curator';
+  /** Curator generation metadata (JSONB, null for human-created) */
+  generation_metadata: Record<string, unknown> | null;
   /** ISO 8601 timestamp */
   created_at: string;
   /** ISO 8601 timestamp */
@@ -204,6 +210,9 @@ export interface CharacterCreateInput {
   personality?: CharacterPersonality | null;
   voice_id: string;
   image_drive_id?: string | null;
+  status?: 'draft' | 'pending_review' | 'active' | 'archived';
+  created_by?: 'human' | 'curator';
+  generation_metadata?: Record<string, unknown> | null;
 }
 
 export interface CharacterUpdateInput {
@@ -215,6 +224,9 @@ export interface CharacterUpdateInput {
   personality?: CharacterPersonality | null;
   voice_id?: string;
   image_drive_id?: string | null;
+  status?: 'draft' | 'pending_review' | 'active' | 'archived';
+  created_by?: 'human' | 'curator';
+  generation_metadata?: Record<string, unknown> | null;
 }
 
 // --- components ---

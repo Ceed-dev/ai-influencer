@@ -5,7 +5,7 @@
 - **Implementation root**: this directory (`v5/`)
 - **Git repository root**: parent directory (`../`)
 - **Spec files**: `../docs/v5-specification/` (01-13, read-only during implementation)
-- **Feature tracking**: `feature_list.json` (251 features, 10 agents, 11 categories)
+- **Feature tracking**: `feature_list.json` (254 features, 10 agents, 11 categories)
 - **Progress log**: `progress.txt` (append-only)
 - **Type definitions**: `types/` (frozen, do not modify without leader approval)
 
