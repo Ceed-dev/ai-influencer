@@ -1986,6 +1986,52 @@ Phase 2 (commit `3d4a7ac`): CJKピクセル幅補正
   - §4.10 データキュレーターツールの分類を正しく entity/ + operations/ に修正
 - **§2 チーム構成表**: mcp-core/mcp-intel の担当ツール数 (42/47) を明記
 
+#### Session 10 (2026-02-19): §4 モジュール間インターフェース + §5 開発プロトコル
+
+**10-implementation-guide.md §4 の修正**:
+- **§4.5-4.8 新規追加**: 元々3パターンだったモジュール間通信を8パターンに拡張
+  - §4.5 Agent → LLM（モデル割り当て: Strategist=Opus, 他=Sonnet）
+  - §4.6 Worker → External API（3カテゴリ: fal.ai/Fish Audio/プラットフォーム）
+  - §4.7 Settings Access（81 settings, 8 DBカテゴリの正確な内訳表）
+  - §4.8 Graph Trigger & Inter-Graph Coordination（4トリガー方式、ステータス遷移フロー）
+- **§4.3 見出し修正**: 「ダッシュボード ↔ MCP Server」→「ダッシュボード ↔ PostgreSQL」（実態に合わせ）
+- **§4.4 例外注記追加**: settings.ts DB直接アクセスの例外ルール明記
+- **波及修正**:
+  - 02-architecture.md §6.14: UIタブ名をDBカテゴリ名に整合（production/posting/review/agent/measurement/cost_control/dashboard/credentials）
+  - 12-test-specifications.md: system_settings件数 73→81 に修正（TEST-DB-046/047, TEST-DSH-015/045の5箇所）
+- **コミット**: `6be051c`(§4), `23ca9b9`(02-arch), `3b0fe32`(12-test)
+
+**10-implementation-guide.md §5 の修正**:
+- クロスリファレンスブロック追加（13-agent-harness.md §7/§8, 12-test-specifications.md）
+- フルコミットメッセージ形式明記、FEAT-INF/FEAT-MCIブランチ例追加
+- Git禁止操作サマリー + 品質ゲート(G1-G6)参照追加
+- §5.3.1 テストDB分離戦略にセクション番号付与
+- **波及修正**:
+  - v5/package.json: prettier 3.4.2 をdevDependenciesに追加
+  - 13-agent-harness.md: FEAT-INF-003の module: commonjs → Node16 に修正
+- **コミット**: `39ed81f`
+
+#### Session 11 (2026-02-19): §6 各エージェント詳細タスク + §7 人間の作業 — 全セクション完了
+
+**10-implementation-guide.md §6 の修正**:
+- **§6.7 intelligence-agent**: 「4つの独立グラフ定義」→「3つのグラフ定義」に修正（Strategy Cycle Graphはstrategy-agentが所有）
+- **§6.7 サブエージェント責務追加**: Researcher/Analyst/ToolSpecialist/DataCuratorの各責務を明記
+- **§6.7 横断機能追加**: 個別学習メカニズム、仮説検証ロジック、探索率制御、エージェント間コミュニケーション
+- **§6.6 measure-agent**: 異常検知を削除（Analystの責務）、collect_account_metrics追加、フォローアップ計測追加
+- **§6.8 strategy-agent**: グラフ所有権明確化（「戦略サイクルグラフの定義と全ノード実装」）、ノード順序・リビジョンループ追加
+- **全§6.1-6.10に参照仕様追加**: 04-agent-design.md の該当セクション番号を明記
+- **§6.4/6.5**: 制作vs投稿の境界ノート、Rate Limit設定名追加
+- **§6.9**: REST APIエンドポイント数(13)、§3画面マッピング参照
+- **§6.10**: 12-test-specifications.md + 13-agent-harness.md参照、スモークテスト追加
+
+**10-implementation-guide.md §7 の修正**:
+- 「前提条件（実装開始前に必須）」セクション新設（GCE VM, Cloud SQL, APIキー）
+- 日次タスクにDaily Report確認 + human_directives追加
+- 並行作業にプラットフォームAPI審査リードタイム警告（2-4週間）追加
+- **コミット**: `253e1c1`
+
+**10-implementation-guide.md 全セクションレビュー完了 (§1〜§7)**。次のステップ: GCE VM + Cloud SQL構築 → v5並列実装開始。
+
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID
 - `.gsheets_token.json` - OAuth token for Sheets/Drive API
