@@ -4,7 +4,7 @@
 >
 > **データベース**: PostgreSQL 16+ with pgvector extension
 >
-> **テーブル数**: 26テーブル (Entity 3 / Production 3 / Intelligence 5 / Operations 4 / Observability 5 / Tool Management 5 / System Management 1)
+> **テーブル数**: 27テーブル (Entity 3 / Production 3 / Intelligence 6 / Operations 4 / Observability 5 / Tool Management 5 / System Management 1)
 >
 > **関連ドキュメント**: [02-architecture.md](02-architecture.md) (データ基盤層の設計思想), [01-tech-stack.md](01-tech-stack.md) (pgvector・ORM選定)
 
@@ -74,7 +74,7 @@
 
 ## 概要
 
-v5.0のPostgreSQLスキーマは、AI-Influencerシステムの全構造化データを一元管理する。v4.0で5つのGoogle Spreadsheet + 33列productionタブに散在していたデータを、リレーショナルDBの正規化された26テーブルに集約する。
+v5.0のPostgreSQLスキーマは、AI-Influencerシステムの全構造化データを一元管理する。v4.0で5つのGoogle Spreadsheet + 33列productionタブに散在していたデータを、リレーショナルDBの正規化された27テーブルに集約する。
 
 ### テーブルカテゴリ
 
@@ -82,7 +82,7 @@ v5.0のPostgreSQLスキーマは、AI-Influencerシステムの全構造化デ�
 |---------|----------|------|------------|
 | **Entity** | 3 | システムの基本エンティティ定義 | accounts, characters, components |
 | **Production** | 3 | コンテンツ制作から投稿までのライフサイクル | content, content_sections, publications |
-| **Intelligence** | 5 | 仮説駆動サイクルの知的資産 | hypotheses, market_intel, metrics, analyses, learnings |
+| **Intelligence** | 6 | 仮説駆動サイクルの知的資産 | hypotheses, market_intel, metrics, analyses, learnings, content_learnings |
 | **Operations** | 4 | システム運用・タスク管理 | cycles, human_directives, task_queue, algorithm_performance |
 | **Observability** | 5 | エージェントの運用可視化・自己学習・デバッグ | agent_prompt_versions, agent_thought_logs, agent_reflections, agent_individual_learnings, agent_communications |
 | **Tool Management** | 5 | AIツールの知識管理・制作レシピ・プロンプト改善 | tool_catalog, tool_experiences, tool_external_sources, production_recipes, prompt_suggestions |
