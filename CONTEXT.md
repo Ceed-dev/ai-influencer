@@ -1926,6 +1926,12 @@ Phase 2 (commit `3d4a7ac`): CJKピクセル幅補正
 - progress.txt/src/ が未存在でもエラーにならない（実装フェーズ前の現時点で動作確認済み）
 - feature_list.json は251件（10エージェント、11カテゴリ）を正しく読み取り
 
+**13-agent-harness.md 付録クロスリファレンス追加**:
+- 付録A/B/Cが本文から一度も参照されておらず、エージェントが存在に気付けない問題を修正
+- §1.2 Phase A → 付録B（エージェント起動テンプレート）
+- §2.2 変更ルール → 付録C（feature_list.json 生成チェックリスト）
+- §8.3 npm scripts → 付録A（完全なscripts定義）
+
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID
 - `.gsheets_token.json` - OAuth token for Sheets/Drive API
