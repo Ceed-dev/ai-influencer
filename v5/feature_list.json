@@ -935,7 +935,7 @@
       "module": "sql",
       "agent": "infra-agent",
       "priority": "P0",
-      "description": "system_settings初期データ73件INSERT + カテゴリ別件数確認",
+      "description": "system_settings初期データ86件INSERT + カテゴリ別件数確認",
       "spec_refs": [
         "03-database-schema.md §7.2",
         "03-database-schema.md §7.3"
