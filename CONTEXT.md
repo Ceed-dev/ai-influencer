@@ -1943,6 +1943,16 @@ Phase 2 (commit `3d4a7ac`): CJKピクセル幅補正
 - 12-test-specifications.md を Required Reading に追加（全機能がtest_idsで参照するため全エージェント必須）
 - **運用**: v5実装セッションは `cd v5/` で開始 → CLAUDE.mdが自動読み込み → 10, 13, 12を読みに行く導線が確立
 
+**10-implementation-guide.md 全面整合性修正** (Session 8):
+- §ヘッダー + §1: 仕様書範囲 `01-09` → `01-13`（2箇所）
+- §1.1 前提条件: `01-11` → `01-13`
+- §3 ディレクトリ構造: パス `ai-influencer-v5/` → `ai-influencer/v5/`、`docker-compose.dev.yml` + `Dockerfile` → 実態に合わせ `docker-compose.prod.yml` + `init.sh` に修正
+- §2.2 チーム表: MCPツール数の曖昧な概数（~50, ~52）を削除し、05-mcp-tools.mdへの参照に置換
+- §5.2 ブランチ戦略: 13-agent-harness.md §7と整合させ `feat/{agent-name}/{feature-id}` パターンに統一、命名規則とマージフロー説明を追加
+- §5.2 ブランチ例: feature IDプレフィックスを feature_list.json と整合（FEAT-IN→FEAT-INT, FEAT-ST→FEAT-STR, FEAT-TE→FEAT-TST）
+- §6.2/6.3: ツール数の概数を削除し、05-mcp-tools.mdへの詳細参照に修正
+- §6.7: LangGraph.js バージョン表記を `v1.0` → `@langchain/langgraph 0.2.19`（01-tech-stack.md + package.jsonと整合）
+
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID
 - `.gsheets_token.json` - OAuth token for Sheets/Drive API

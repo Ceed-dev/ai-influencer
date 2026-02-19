@@ -1,6 +1,6 @@
 # 10. 実装ガイド: Claude Code Agent Team 並列実装
 
-> v5.0仕様書（01-09）に基づいてClaude Code Agent Teamが並列実装を行うための指示書。
+> v5.0仕様書（01-13）に基づいてClaude Code Agent Teamが並列実装を行うための指示書。
 > 人間（Shungo）はコードを一切書かず、指示・レビュー・承認のみを行う。
 >
 > **最大同時エージェント**: リーダー1 + チームメイト10
@@ -42,7 +42,7 @@
 
 ## 1. 概要
 
-本ドキュメントは、v5.0仕様書（01-09）に基づいてClaude Code Agent Teamが並列実装を行うための指示書である。
+本ドキュメントは、v5.0仕様書（01-13）に基づいてClaude Code Agent Teamが並列実装を行うための指示書である。
 人間（Shungo）はコードを一切書かず、指示・レビュー・承認のみを行う。
 
 **重要**: 全エージェントは [13-agent-harness.md](13-agent-harness.md) のワークフローに従って作業すること。本ドキュメント（10）は「何をやるか」（チーム構成・タスク割り振り）を定義し、13は「どうやるか」（セッション起動チェックリスト・単一機能ワークフロー・品質ゲート・リカバリー手順）を定義する。
@@ -51,7 +51,7 @@
 
 | 項目 | 要件 |
 |------|------|
-| 仕様書 | 全仕様書（01-11）が最終承認済み |
+| 仕様書 | 全仕様書（01-13）が最終承認済み |
 | 型定義 | TypeScript型定義ファイルが生成・凍結済み |
 | プロンプト | 全プロンプトファイル（prompts/*.md）が作成済み |
 | VM環境 | GCE 16GB RAM, 4vCPU |
@@ -80,8 +80,8 @@
 | # | エージェント名 | subagent_type | 担当モジュール |
 |---|-------------|--------------|-------------|
 | 1 | infra-agent | general-purpose | Docker + PostgreSQL + DDL + マイグレーション |
-| 2 | mcp-core-agent | general-purpose | MCP Server コアCRUDツール（~50ツール） |
-| 3 | mcp-intel-agent | general-purpose | MCP Server インテリジェンスツール（~52ツール） |
+| 2 | mcp-core-agent | general-purpose | MCP Server コアCRUDツール（詳細は [05-mcp-tools.md](05-mcp-tools.md)） |
+| 3 | mcp-intel-agent | general-purpose | MCP Server インテリジェンスツール（詳細は [05-mcp-tools.md](05-mcp-tools.md)） |
 | 4 | video-worker-agent | general-purpose | 動画制作ワーカー + fal.ai連携 |
 | 5 | text-post-agent | general-purpose | テキスト制作 + 4PF投稿アダプター |
 | 6 | measure-agent | general-purpose | 計測ワーカー + 4PF APIアダプター |
@@ -101,10 +101,10 @@
 ## 3. ディレクトリ構造
 
 ```
-ai-influencer-v5/
-├── docker-compose.yml          # infra-agent
-├── docker-compose.dev.yml      # infra-agent (dev overrides)
-├── Dockerfile                  # infra-agent
+ai-influencer/v5/
+├── docker-compose.yml          # infra-agent (dev環境)
+├── docker-compose.prod.yml     # infra-agent (Cloud SQL本番)
+├── init.sh                    # infra-agent (環境セットアップ)
 ├── .env.example               # infra-agent
 ├── package.json               # リーダーが初期生成
 ├── tsconfig.json              # リーダーが初期生成
@@ -285,19 +285,21 @@ Week 0-1でリーダーが生成し凍結。全エージェントはこの型定
 ```
 main ── 本番ブランチ（直接コミット禁止）
   └── develop ── 開発統合ブランチ
-       ├── feat/infra ── infra-agent
-       ├── feat/mcp-core ── mcp-core-agent
-       ├── feat/mcp-intel ── mcp-intel-agent
-       ├── feat/video-worker ── video-worker-agent
-       ├── feat/text-post ── text-post-agent
-       ├── feat/measure ── measure-agent
-       ├── feat/intelligence ── intelligence-agent
-       ├── feat/strategy ── strategy-agent
-       ├── feat/dashboard ── dashboard-agent
-       └── feat/tests ── test-agent
+       ├── feat/infra-agent/FEAT-DB-001
+       ├── feat/infra-agent/FEAT-DB-002
+       ├── feat/mcp-core-agent/FEAT-MCC-001
+       ├── feat/video-worker-agent/FEAT-VW-001
+       ├── feat/text-post-agent/FEAT-TP-001
+       ├── feat/measure-agent/FEAT-MS-001
+       ├── feat/intelligence-agent/FEAT-INT-001
+       ├── feat/strategy-agent/FEAT-STR-001
+       ├── feat/dashboard-agent/FEAT-DSH-001
+       └── feat/test-agent/FEAT-TST-001
 ```
 
-**マージフロー**: 各エージェントが担当ブランチで作業 → リーダーがdevelopにマージ → テスト通過後mainにマージ
+**ブランチ命名規則**: `feat/{agent-name}/{feature-id}` — 1機能=1ブランチ（詳細は [13-agent-harness.md §7](13-agent-harness.md) を参照）
+
+**マージフロー**: 各エージェントが `feat/{agent}/{feature}` ブランチで作業 → テスト全通過 → リーダーがdevelopにマージ → 全機能完了後mainにマージ（人間承認）
 
 ### 5.3 コンフリクト回避
 
@@ -352,7 +354,7 @@ main ── 本番ブランチ（直接コミット禁止）
 
 ### 6.2 mcp-core-agent（Week 1-4）
 
-**担当**: 約50ツール
+**担当**: Entity/Production/Operations/System/Dashboard系ツール（全89 MCPツールのうちコアCRUD担当分。詳細は [05-mcp-tools.md](05-mcp-tools.md)）
 
 - Entity系: accounts, characters, components CRUD
 - Production系: content, content_sections, publications CRUD
@@ -376,7 +378,7 @@ export const getAccountsTool = {
 
 ### 6.3 mcp-intel-agent（Week 1-4）
 
-**担当**: 約52ツール
+**担当**: Intelligence/Observability/ToolManagement/学習系ツール（全89 MCPツールのうちインテリジェンス担当分。詳細は [05-mcp-tools.md](05-mcp-tools.md)）
 
 - Intelligence系: hypotheses, market_intel, metrics, analyses, learnings CRUD + 検索
 - Observability系: thought_logs, reflections, individual_learnings, communications
@@ -425,7 +427,7 @@ export const getAccountsTool = {
 ### 6.7 intelligence-agent（Week 1-5）
 
 **最も複雑なモジュール**:
-- LangGraph.js v1.0 セットアップ
+- LangGraph.js セットアップ (@langchain/langgraph 0.2.19)
 - 4つの独立グラフ定義
 - langchain-mcp-adapters 連携
 - Researcher Agent実装
