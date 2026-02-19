@@ -1967,6 +1967,25 @@ Phase 2 (commit `3d4a7ac`): CJKピクセル幅補正
   - tests/ の各テストファイルに説明を追加
   - 各セクションにコメント見出し追加（ハーネス/インフラ/型定義/SQL/実装コード）
 
+#### Session 9 (2026-02-19): §3 MCPツールマッピング + ダッシュボードサブ機能マッピング
+
+**10-implementation-guide.md §3 の追加修正**:
+- **MCPツールのディレクトリマッピング表追加**: 全89 MCPツール → 8ディレクトリの完全マッピング表を追加
+  - entity/(11), production/(15), intelligence/(34), operations/(14), observability/(8), tool-mgmt/(5), system/(0), dashboard/(2) = 89合計
+  - 分類基準を「操作するデータドメイン」と明記
+  - 13 REST API (§4.9+§4.11) は `dashboard/app/api/` に実装する旨を明記
+- **ダッシュボード画面とサブ機能のマッピング表追加**: 15画面×サブ機能の対応表を追加
+  - agents/ (画面#8) に7サブ機能 (§6.3〜§6.9) のマッピング明記
+  - tools/ (画面#11) にキュレーションレビュー (§6.12) 含む旨を明記
+- **ディレクトリツリー更新**: mcp-server/tools/ 8サブディレクトリにツール数を追記
+- **dashboard/app/api/ 追加**: 13 REST API Routes のディレクトリをツリーに追加
+- **§6.2/§6.3 修正**:
+  - `05-mcp-tools.md` (存在しないファイル) への参照を全て `04-agent-design.md §4` に修正
+  - mcp-core-agent: "42 MCPツール" と明記、ディレクトリ別の正確なツール数を追記
+  - mcp-intel-agent: "47 MCPツール" と明記、pgvectorツール名を実際のツール名に修正
+  - §4.10 データキュレーターツールの分類を正しく entity/ + operations/ に修正
+- **§2 チーム構成表**: mcp-core/mcp-intel の担当ツール数 (42/47) を明記
+
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID
 - `.gsheets_token.json` - OAuth token for Sheets/Drive API

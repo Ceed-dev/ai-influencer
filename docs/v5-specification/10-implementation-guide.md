@@ -80,8 +80,8 @@
 | # | エージェント名 | subagent_type | 担当モジュール |
 |---|-------------|--------------|-------------|
 | 1 | infra-agent | general-purpose | Docker + PostgreSQL + DDL + マイグレーション |
-| 2 | mcp-core-agent | general-purpose | MCP Server コアCRUDツール（詳細は [05-mcp-tools.md](05-mcp-tools.md)） |
-| 3 | mcp-intel-agent | general-purpose | MCP Server インテリジェンスツール（詳細は [05-mcp-tools.md](05-mcp-tools.md)） |
+| 2 | mcp-core-agent | general-purpose | MCP Server コアCRUDツール 42ツール（§3マッピング表参照、詳細は [04-agent-design.md §4](04-agent-design.md)） |
+| 3 | mcp-intel-agent | general-purpose | MCP Server インテリジェンスツール 47ツール（§3マッピング表参照、詳細は [04-agent-design.md §4](04-agent-design.md)） |
 | 4 | video-worker-agent | general-purpose | 動画制作ワーカー + fal.ai連携 |
 | 5 | text-post-agent | general-purpose | テキスト制作 + 4PF投稿アダプター |
 | 6 | measure-agent | general-purpose | 計測ワーカー + 4PF APIアダプター |
@@ -138,15 +138,15 @@ ai-influencer/v5/
 ├── src/
 │   ├── mcp-server/            # mcp-core-agent + mcp-intel-agent（ツール分担は§6.2/6.3を参照）
 │   │   ├── index.ts           # MCP Server エントリポイント（mcp-core-agentが作成）
-│   │   ├── tools/
-│   │   │   ├── entity/        # accounts, characters, components CRUD ── mcp-core-agent
-│   │   │   ├── production/    # content, sections, publications CRUD ── mcp-core-agent
-│   │   │   ├── intelligence/  # hypotheses, market_intel, metrics, analyses, learnings ── mcp-intel-agent
-│   │   │   ├── operations/    # cycles, human_directives, task_queue ── mcp-core-agent
-│   │   │   ├── observability/ # thought_logs, reflections, individual_learnings ── mcp-intel-agent
-│   │   │   ├── tool-mgmt/     # tool_catalog, tool_experiences, production_recipes ── mcp-intel-agent
-│   │   │   ├── system/        # system_settings CRUD ── mcp-core-agent
-│   │   │   └── dashboard/     # KPI集計, アルゴリズム精度, コスト集計 ── mcp-core-agent
+│   │   ├── tools/             # 89 MCPツール → 8ディレクトリ（詳細マッピングは後述の表を参照）
+│   │   │   ├── entity/        # accounts, characters, components (11ツール) ── mcp-core-agent
+│   │   │   ├── production/    # content, publications, 外部API連携 (15ツール) ── mcp-core-agent
+│   │   │   ├── intelligence/  # hypotheses, market_intel, metrics, analyses, learnings (34ツール) ── mcp-intel-agent
+│   │   │   ├── operations/    # cycles, directives, task_queue (14ツール) ── mcp-core-agent
+│   │   │   ├── observability/ # reflections, individual_learnings, communications (8ツール) ── mcp-intel-agent
+│   │   │   ├── tool-mgmt/     # tool_catalog, tool_experiences, recipes (5ツール) ── mcp-intel-agent
+│   │   │   ├── system/        # system_settings参照 (※CRUDは13 REST APIに含まれる) ── mcp-core-agent
+│   │   │   └── dashboard/     # KPI集計クエリ (2ツール) ── mcp-core-agent
 │   │   ├── utils/
 │   │   │   └── embedding.ts   # pgvector embedding生成（04-agent-design.md §6.3準拠）── mcp-intel-agent
 │   │   └── db.ts              # PostgreSQL接続管理 ── mcp-core-agent
@@ -212,14 +212,15 @@ ai-influencer/v5/
 │   │   ├── content/           # コンテンツ一覧（5/15）
 │   │   ├── accounts/          # アカウント管理（6/15）
 │   │   ├── characters/        # キャラクター管理（7/15）
-│   │   ├── agents/            # エージェント（8/15）
+│   │   ├── agents/            # エージェント（8/15）— 7サブ機能: 思考ログ/対話/進化/プロンプト/改善提案/個別成長/受信トレイ
 │   │   ├── hypotheses/        # 仮説ブラウザ（9/15）
 │   │   ├── learnings/         # 知見ブラウザ（10/15）
-│   │   ├── tools/             # ツール管理（11/15）
+│   │   ├── tools/             # ツール管理（11/15）— キュレーションレビュー(§6.12)含む
 │   │   ├── errors/            # エラーログ（12/15）
 │   │   ├── costs/             # コスト管理（13/15）
-│   │   ├── settings/          # 設定（14/15）
-│   │   └── directives/        # 人間指示（15/15）
+│   │   ├── settings/          # 設定（14/15）— 8カテゴリタブ
+│   │   ├── directives/        # 人間指示（15/15）
+│   │   └── api/               # 13 REST API Routes（02-architecture.md §6.13参照）
 │   ├── components/
 │   │   ├── ui/               # Shadcn/ui components
 │   │   ├── charts/           # Recharts wrappers
@@ -257,6 +258,50 @@ ai-influencer/v5/
 - 初期実装後の変更は「変更申請 → リーダー承認 → 全チーム通知」（`types/` と同じルール）
 - 各エージェントは `src/lib/` のファイルを import して使用するが、直接変更してはならない
 - 機能追加が必要な場合はリーダーに申請し、infra-agent が対応する
+
+#### MCPツールのディレクトリマッピング（89ツール）
+
+全89 MCPツール（[04-agent-design.md §4](04-agent-design.md) 定義）を8ディレクトリに分類する。分類基準は**操作するデータドメイン**（主にアクセスするDBテーブル群）。ツールを呼び出すエージェントではなく、ツールが操作するデータの種類で分類する。
+
+> **注**: 13 Dashboard REST APIツール（[04-agent-design.md §4.9](04-agent-design.md) の10ツール + [§4.11](04-agent-design.md) の3ツール）は `dashboard/app/api/` に Next.js API Routes として実装する（[02-architecture.md §6.13](02-architecture.md) 参照）。`src/mcp-server/tools/` には含めない。
+
+| ディレクトリ | 担当 | ツール数 | ツール名（§4.x参照元） |
+|-------------|------|:-------:|----------------------|
+| `entity/` | mcp-core | 11 | get_assigned_accounts(§4.4), get_account_performance(§4.4), get_available_components(§4.4), get_character_info(§4.6), get_component_data(§4.6), get_component_scores(§4.3), update_component_score(§4.3), create_component(§4.10), update_component_data(§4.10), get_similar_components(§4.10), submit_for_human_review(§4.10) |
+| `production/` | mcp-core | 15 | plan_content(§4.4), schedule_content(§4.4), get_content_pool_status(§4.4), generate_script(§4.6), start_video_generation(§4.6), check_video_status(§4.6), start_tts(§4.6), start_lipsync(§4.6), upload_to_drive(§4.6), update_content_status(§4.6), run_quality_check(§4.6), publish_to_youtube(§4.7), publish_to_tiktok(§4.7), publish_to_instagram(§4.7), publish_to_x(§4.7) |
+| `intelligence/` | mcp-intel | 34 | get_top_learnings(§4.1), get_active_hypotheses(§4.1), get_algorithm_performance(§4.1), save_trending_topic(§4.2), save_competitor_post(§4.2), save_competitor_account(§4.2), save_audience_signal(§4.2), save_platform_update(§4.2), get_recent_intel(§4.2), search_similar_intel(§4.2), get_niche_trends(§4.2), get_competitor_analysis(§4.2), get_platform_changes(§4.2), mark_intel_expired(§4.2), get_intel_gaps(§4.2), get_metrics_for_analysis(§4.3), get_hypothesis_results(§4.3), verify_hypothesis(§4.3), create_analysis(§4.3), extract_learning(§4.3), update_learning_confidence(§4.3), search_similar_learnings(§4.3), detect_anomalies(§4.3), calculate_algorithm_performance(§4.3), get_niche_performance_trends(§4.3), compare_hypothesis_predictions(§4.3), generate_improvement_suggestions(§4.3), create_hypothesis(§4.4), get_niche_learnings(§4.4), collect_youtube_metrics(§4.8), collect_tiktok_metrics(§4.8), collect_instagram_metrics(§4.8), collect_x_metrics(§4.8), collect_account_metrics(§4.8) |
+| `operations/` | mcp-core | 14 | get_pending_directives(§4.1), create_cycle(§4.1), set_cycle_plan(§4.1), allocate_resources(§4.1), send_planner_directive(§4.1), request_production(§4.4), get_production_task(§4.6), report_production_complete(§4.6), get_publish_task(§4.7), report_publish_result(§4.7), get_measurement_tasks(§4.8), report_measurement_complete(§4.8), get_curation_queue(§4.10), mark_curation_complete(§4.10) |
+| `observability/` | mcp-intel | 8 | save_reflection(§4.12), get_recent_reflections(§4.12), save_individual_learning(§4.12), get_individual_learnings(§4.12), peek_other_agent_learnings(§4.12), submit_agent_message(§4.12), get_human_responses(§4.12), mark_learning_applied(§4.12) |
+| `tool-mgmt/` | mcp-intel | 5 | get_tool_knowledge(§4.5), save_tool_experience(§4.5), search_similar_tool_usage(§4.5), get_tool_recommendations(§4.5), update_tool_knowledge_from_external(§4.5) |
+| `system/` | mcp-core | 0 | ―（system_settings CRUDは13 REST APIに含まれる。エージェントの設定読み込みは `src/lib/settings.ts` を使用） |
+| `dashboard/` | mcp-core | 2 | get_portfolio_kpi_summary(§4.1), get_cluster_performance(§4.1) |
+| **合計** | | **89** | |
+
+> **分類の判断基準**: ツールが主にCRUD操作するテーブルで分類する。例: `collect_youtube_metrics`は外部APIを呼び出すが、書き込み先が`metrics`テーブルなので`intelligence/`に配置。`get_production_task`は`task_queue`を読むが、制作ワークフローの一部なので`operations/`に配置（task_queue操作は全て`operations/`）。
+
+#### ダッシュボード画面とサブ機能のマッピング
+
+各ルートフォルダに含まれるサブ機能の一覧。機能仕様の詳細は [02-architecture.md §6](02-architecture.md) を参照。
+
+| # | ルート | 画面名 | サブ機能（02-architecture.md 参照セクション） |
+|---|--------|--------|----------------------------------------------|
+| 1 | `page.tsx` | ホーム | KPI概要, 本日の制作状況, 直近のアラート (§6.1) |
+| 2 | `kpi/` | KPI | アカウント別/期間別KPI進捗, 目標vs実績グラフ (§6.1) |
+| 3 | `production/` | 制作キュー | task_queue一覧, ステータス別フィルター, 優先度変更 |
+| 4 | `review/` | コンテンツレビュー | pending_review一覧, プレビュー+承認/差戻し |
+| 5 | `content/` | コンテンツ一覧 | 全content検索, ステータス別フィルター, 投稿別パフォーマンス (§6.1) |
+| 6 | `accounts/` | アカウント管理 | accounts CRUD, OAuth設定, 認証情報入力 |
+| 7 | `characters/` | キャラクター管理 | characters CRUD, アセットアップロード |
+| 8 | `agents/` | エージェント | **7サブ機能**: 思考ログビューア(§6.3), 人間↔エージェント対話(§6.4), エージェント進化(§6.5), プロンプト管理(§6.6), 改善提案パネル(§6.7), 個別成長トラッキング(§6.8), 受信トレイ(§6.9) |
+| 9 | `hypotheses/` | 仮説ブラウザ | hypotheses一覧, 的中率推移, カテゴリ別分析 |
+| 10 | `learnings/` | 知見ブラウザ | learnings一覧, 信頼度別フィルター, 類似知見検索 |
+| 11 | `tools/` | ツール管理 | tool_catalog, レシピ管理, ツール経験一覧, **キュレーションレビュー(§6.12)** |
+| 12 | `errors/` | エラーログ | failed/retryingタスク一覧, リトライ/破棄操作 (§9.4) |
+| 13 | `costs/` | コスト管理 | 日次/月次API支出, 予算消化率, アラート |
+| 14 | `settings/` | 設定 | system_settings全項目の**8カテゴリタブ**表示+編集 (§11.3) |
+| 15 | `directives/` | 人間指示 | human_directives作成, 履歴閲覧 |
+
+> **注**: 画面#8「エージェント」は最もサブ機能が多い画面。実装者は [02-architecture.md §6.3〜§6.9](02-architecture.md) の各セクションを参照して、タブまたはサブページとして実装すること。
 
 ---
 
@@ -384,15 +429,15 @@ main ── 本番ブランチ（直接コミット禁止）
 
 ### 6.2 mcp-core-agent（Week 1-4）
 
-**担当**: Entity/Production/Operations/System/Dashboard系ツール（全89 MCPツールのうちコアCRUD担当分）
+**担当**: 42 MCPツール（entity/production/operations/system/dashboard ディレクトリ。§3マッピング表参照）
 
-- Entity系: accounts, characters, components CRUD（[04-agent-design.md §4.1](04-agent-design.md) 戦略エージェント用の一部 + §4.6 制作ワーカー用の一部）
-- Production系: content, content_sections, publications CRUD（§4.6, §4.7）
-- Operations系: cycles, human_directives, task_queue CRUD（§4.4 プランナー用）
-- System系: system_settings CRUD
-- Dashboard系: KPI集計, コスト集計（§4.9 ダッシュボード用 + §4.11 ダッシュボードキュレーション）
+- Entity系 (11ツール): accounts, characters, components CRUD（[04-agent-design.md §4.3](04-agent-design.md), §4.4, §4.6, §4.10）
+- Production系 (15ツール): content, publications CRUD + 外部API連携（§4.4, §4.6, §4.7）
+- Operations系 (14ツール): cycles, human_directives, task_queue CRUD（§4.1, §4.4, §4.6, §4.7, §4.8, §4.10）
+- System系 (0 MCPツール): system_settings CRUDは13 REST APIに含まれる。エージェントは `src/lib/settings.ts` で読み取り
+- Dashboard系 (2ツール): KPI集計クエリ（§4.1 get_portfolio_kpi_summary, get_cluster_performance）
 
-各ツールの入出力型は [05-mcp-tools.md](05-mcp-tools.md) および `types/mcp-tools.ts` を参照。
+各ツールの入出力型は [04-agent-design.md §4](04-agent-design.md) および `types/mcp-tools.ts` を参照。
 
 **各ツールの実装パターン**:
 
@@ -410,20 +455,19 @@ export const getAccountsTool = {
 
 ### 6.3 mcp-intel-agent（Week 1-4）
 
-**担当**: Intelligence/Observability/ToolManagement/学習系ツール（全89 MCPツールのうちインテリジェンス担当分）
+**担当**: 47 MCPツール（intelligence/observability/tool-mgmt ディレクトリ。§3マッピング表参照）
 
-- Intelligence系: hypotheses, market_intel, metrics, analyses, learnings CRUD + 検索（[04-agent-design.md §4.2](04-agent-design.md) リサーチャー用 + §4.3 アナリスト用）
-- Observability系: thought_logs, reflections, individual_learnings, communications（§4.12 自己学習・コミュニケーション用）
-- Tool Management系: tool_catalog, tool_experiences, production_recipes（§4.5 ツールスペシャリスト用）
-- 学習系: get_relevant_learnings, save_reflection, promote_learning（§4.10 データキュレーター用）
+- Intelligence系 (34ツール): hypotheses, market_intel, metrics, analyses, learnings, algorithm_performance CRUD + ベクトル検索 + メトリクス収集（[04-agent-design.md §4.1](04-agent-design.md) 一部, §4.2 リサーチャー用, §4.3 アナリスト用, §4.4 一部, §4.8 計測ワーカー用）
+- Observability系 (8ツール): reflections, individual_learnings, agent_communications（§4.12 自己学習・コミュニケーション用）
+- Tool Management系 (5ツール): tool_catalog, tool_experiences, tool_external_sources（§4.5 ツールスペシャリスト用）
 
-**pgvector関連ツール**:
-- `similar_hypotheses_search` (cosine similarity)
-- `similar_learnings_search`
-- `similar_components_search`
-- `duplicate_detection`
+**pgvector関連ツール**（コサイン類似度検索）:
+- `search_similar_intel` (§4.2) — market_intel類似検索
+- `search_similar_learnings` (§4.3) — learnings類似検索
+- `get_similar_components` (§4.10) — components類似検索（※実装ファイルはentity/に配置するが、embedding生成ロジックはmcp-intel-agentが実装）
+- `search_similar_tool_usage` (§4.5) — tool_experiences類似検索
 
-各ツールの入出力型は [05-mcp-tools.md](05-mcp-tools.md) および `types/mcp-tools.ts` を参照。
+各ツールの入出力型は [04-agent-design.md §4](04-agent-design.md) および `types/mcp-tools.ts` を参照。
 
 ### 6.4 video-worker-agent（Week 1-4）
 
