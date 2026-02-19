@@ -349,7 +349,7 @@ NUMBER: 001〜999
       "dependencies": [],
       "steps": [
         "package.json を作成（name, scripts: build/test/lint/format）",
-        "tsconfig.json を作成（strict: true, target: ES2022, module: commonjs）",
+        "tsconfig.json を作成（strict: true, target: ES2022, module: Node16）",
         ".eslintrc.json を作成（recommended config）",
         ".prettierrc を作成（default config）",
         "npm install で依存関係インストール",

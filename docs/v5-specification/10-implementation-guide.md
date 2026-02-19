@@ -415,6 +415,8 @@ LangGraphの各ノード（Strategist, Researcher, Analyst, Planner, Tool Specia
 
 ## 5. 実装プロトコル
 
+> **詳細ワークフロー**: 本セクションは実装ルールの概要を定義する。具体的な作業フロー・品質ゲート・Git操作手順は [13-agent-harness.md](13-agent-harness.md) を参照。テスト定義は [12-test-specifications.md](12-test-specifications.md) を参照。
+
 ### 5.1 コーディング規約
 
 | 項目 | 設定 |
@@ -425,7 +427,7 @@ LangGraphの各ノード（Strategist, Researcher, Analyst, Planner, Tool Specia
 | フォーマッタ | Prettier (default config) |
 | リンター | ESLint (recommended config) |
 | テスト | Jest |
-| コミットメッセージ | Conventional Commits (`feat:`, `fix:`, `docs:`, `test:`, `chore:`) |
+| コミットメッセージ | `{type}({module}): {description} ({feature-id}, tests: {test-ids})`（詳細は [13-agent-harness.md §7.3](13-agent-harness.md) 参照） |
 
 ### 5.2 ブランチ戦略
 
@@ -433,8 +435,9 @@ LangGraphの各ノード（Strategist, Researcher, Analyst, Planner, Tool Specia
 main ── 本番ブランチ（直接コミット禁止）
   └── develop ── 開発統合ブランチ
        ├── feat/infra-agent/FEAT-DB-001
-       ├── feat/infra-agent/FEAT-DB-002
+       ├── feat/infra-agent/FEAT-INF-001
        ├── feat/mcp-core-agent/FEAT-MCC-001
+       ├── feat/mcp-intel-agent/FEAT-MCI-001
        ├── feat/video-worker-agent/FEAT-VW-001
        ├── feat/text-post-agent/FEAT-TP-001
        ├── feat/measure-agent/FEAT-MS-001
@@ -448,6 +451,8 @@ main ── 本番ブランチ（直接コミット禁止）
 
 **マージフロー**: 各エージェントが `feat/{agent}/{feature}` ブランチで作業 → テスト全通過 → リーダーがdevelopにマージ → 全機能完了後mainにマージ（人間承認）
 
+**禁止事項**（詳細は [13-agent-harness.md §7.5](13-agent-harness.md) 参照）: `git push --force`, push後の `--amend`, 共有ブランチでの `rebase -i`, mainへの直接コミット, 1コミットに複数機能
+
 ### 5.3 コンフリクト回避
 
 | ルール | 内容 |
@@ -456,7 +461,9 @@ main ── 本番ブランチ（直接コミット禁止）
 | 共有ファイル管理 | 共通ファイル（`package.json`, `docker-compose.yml`, `types/`）はリーダーのみが変更 |
 | 型定義変更 | `types/` の変更は「変更申請→リーダー承認→全チーム通知」 |
 
-### テストDB分離戦略
+**品質ゲート**: 全機能は6つの自動品質ゲート（G1-G6）を通過する必要がある。詳細は [13-agent-harness.md §8](13-agent-harness.md) を参照。
+
+### 5.3.1 テストDB分離戦略
 
 並列開発時のDB競合を防ぐための戦略:
 
