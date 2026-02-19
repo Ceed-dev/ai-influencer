@@ -2067,6 +2067,56 @@ Phase 2 (commit `3d4a7ac`): CJKピクセル幅補正
 
 **作業方式**: Agent Team (5エージェント: researcher, editor-core, editor-impl, verifier, team-lead) で並列作業。verifierが全ファイルの旧数値を検索し残存なしを確認。
 
+#### Session 13 (2026-02-19): 12-test-specifications.md 全セクションレビュー + Playwrightテスト大幅拡充
+
+**テスト総数**: 314 → **453** (+139テスト, +2,078行)
+
+**Agent Team構成** (4エージェント + team-lead):
+- editor-db-mcp: §1 DB + §2 MCP
+- editor-worker-agent: §3 Worker + §4 Agent + §6 Integration + §7 E2E
+- editor-dashboard: §5 Dashboard (Playwrightテスト大量追加)
+- verifier: 全体整合性検証
+
+**§1 DB Layer (TEST-DB: 55→59, +4)**:
+- TEST-DB-056〜058: Session 12追加のcharacters新列 (status/created_by/generation_metadata) テスト追加
+- TEST-DB-059: 全インデックス数=135の確認テスト追加
+- TEST-DB-043: カラム数修正 (8→9)
+
+**§2 MCP Layer (TEST-MCP: 105→131, +26)**:
+- 04-agent-design.md §4の92ツールのうち26ツールがテスト未カバーだった
+- Session 12追加の3新ツール (create_character_profile, generate_character_image, select_voice_profile) のMCPレベルテスト追加
+- リサーチャー5、アナリスト6、プランナー3、ツールスペシャリスト2、ダッシュボード3、キュレーター5、自己学習1、戦略1
+
+**§3/§4/§6/§7 (修正のみ、テスト数変更なし)**:
+- TEST-AGT-001: set_strategyノード欠落修正（Strategy Cycle Graphの8ノード正確に反映）
+- TEST-AGT-006: tool_specialist欠落修正（リフレクション対象5エージェント）
+- TEST-AGT-028: Data Curatorは戦略サイクルグラフのノードではなく独立エージェントと明記
+- TEST-E2E-001: 仮説生成はプランナーの責務（アナリストではない）に修正
+- TEST-E2E-010: settings 73→84
+
+**§5 Dashboard (TEST-DSH: 47→156, +109)** — Playwrightテスト大幅拡充:
+- §5.4 ナビゲーション (6): 全15画面レンダリング、サイドバー遷移
+- §5.5 テーマ切替 (7): Solarized Dark/Light、localStorage永続化、CSS変数検証
+- §5.6 レスポンシブ (6): mobile 375px / tablet 768px / desktop 1280px
+- §5.7 フォーム操作 (12): CRUD、バリデーション、トースト通知
+- §5.8 テーブル操作 (6): ソート、フィルター、ページネーション
+- §5.9 モーダル/ダイアログ (6): overlay外クリック、ESCキー閉じ
+- §5.10 エージェント管理 (21): 7タブ切替、思考ログ、プロンプト編集/ロールバック
+- §5.11 キャラクター管理 (6): statusフィルタ、承認/却下フロー
+- §5.12 未カバー画面 (13): 制作キュー、仮説ブラウザ、知見ブラウザ等
+- §5.13 ローディング/エラー (4): ローディング、APIエラー、empty state
+- §5.14 エッジケース (6): 空データ、大量データ1000行、XSS防止、同時操作
+- §5.15 アクセシビリティ (4): Tab移動、ARIAラベル、フォーカス可視性
+- §5.16-5.19 コンポーネント別テスト (12): KPI、レビュー、設定、エラーログ
+
+**追加修正** (team-lead):
+- langgraph-state.ts: verdict型 'validated'/'invalidated' → 'pending'/'confirmed'/'rejected'/'inconclusive' (DB CHECK制約と整合)
+- feature_list.json: FEAT-DB-001のtest_ids TEST-DB-000(存在しない) → TEST-DB-001に修正
+- 004_seed_settings.sql: コメント更新
+
+**既知の未解決事項**:
+- 13-agent-harness.md 付録BのテストID (TEST-INF/MCC/MCI) が12のレイヤーベースID (TEST-DB/MCP) と異なる命名規則 → 13の次回レビューで修正予定
+
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID
 - `.gsheets_token.json` - OAuth token for Sheets/Drive API

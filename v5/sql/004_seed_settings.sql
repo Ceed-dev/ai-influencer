@@ -42,7 +42,7 @@ INSERT INTO system_settings (setting_key, setting_value, category, description, 
 ('STRATEGY_APPROVAL_REQUIRED', 'true', 'review', '戦略サイクルのポリシー決定に人間の承認を要求するか', 'true', 'boolean', null),
 ('RECIPE_APPROVAL_REQUIRED', 'true', 'review', '新しいプロダクションレシピの使用に人間の承認を要求するか', 'true', 'boolean', null);
 
--- Agent settings (38)
+-- Agent settings (41: 38 base + 3 character auto-generation)
 INSERT INTO system_settings (setting_key, setting_value, category, description, default_value, value_type, constraints) VALUES
 ('HYPOTHESIS_CYCLE_INTERVAL_HOURS', '24', 'agent', '仮説駆動サイクルの実行間隔（時間）。日次=24', '24', 'integer', '{"min": 6, "max": 168}'),
 ('RESEARCHER_POLL_INTERVAL_HOURS', '6', 'agent', 'リサーチャーの市場情報収集間隔（時間）', '6', 'integer', '{"min": 1, "max": 48}'),

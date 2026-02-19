@@ -528,9 +528,9 @@ TEST-{LAYER}-{NUMBER}
 - **Prerequisites**: system_settings テーブル作成済み
 - **Steps**:
   1. `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'system_settings' ORDER BY ordinal_position;`
-- **Expected Result**: 以下8カラムが存在:
+- **Expected Result**: 以下9カラムが存在:
   `setting_key` (character varying), `setting_value` (jsonb), `category` (character varying), `description` (text), `default_value` (jsonb), `value_type` (character varying), `constraints` (jsonb), `updated_at` (timestamp with time zone), `updated_by` (character varying)
-- **Pass Criteria**: 全カラム名とデータ型が一致
+- **Pass Criteria**: 全9カラム名とデータ型が一致
 - **Fail Indicators**: カラムの欠如または型の不一致
 
 ### TEST-DB-044: system_settings.category CHECK制約 (8値)
@@ -697,6 +697,54 @@ TEST-{LAYER}-{NUMBER}
 - **Expected Result**: 全26テーブルがエラーなく作成される
 - **Pass Criteria**: 全 CREATE TABLE が成功
 - **Fail Indicators**: いずれかのテーブル作成でFK依存エラー
+
+### TEST-DB-056: characters.status CHECK制約 (4値) とデフォルト値
+- **Category**: database
+- **Priority**: P0
+- **Prerequisites**: characters テーブル作成済み
+- **Steps**:
+  1. status 省略で INSERT (`INSERT INTO characters (character_id, name, voice_id) VALUES ('CHR_STAT1', 'Test', 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6');`)
+  2. `SELECT status FROM characters WHERE character_id = 'CHR_STAT1';`
+  3. `'draft'`, `'pending_review'`, `'active'`, `'archived'` で各 INSERT — 成功
+  4. `'deleted'` で INSERT — 失敗
+- **Expected Result**: デフォルト = `'draft'`。4値成功。`'deleted'` は CHECK制約違反
+- **Pass Criteria**: デフォルト = 'draft' AND 4値全て成功 AND 'deleted' がCHECK制約違反エラー
+- **Fail Indicators**: デフォルトが 'draft' でない、または 'deleted' が成功する
+
+### TEST-DB-057: characters.created_by CHECK制約 (2値) とデフォルト値
+- **Category**: database
+- **Priority**: P0
+- **Prerequisites**: characters テーブル作成済み
+- **Steps**:
+  1. created_by 省略で INSERT
+  2. `SELECT created_by FROM characters WHERE ...`
+  3. `'human'`, `'curator'` で各 INSERT — 成功
+  4. `'system'` で INSERT — 失敗
+- **Expected Result**: デフォルト = `'human'`。2値成功。`'system'` は CHECK制約違反
+- **Pass Criteria**: デフォルト = 'human' AND 'curator' 成功 AND 'system' がCHECK制約違反
+- **Fail Indicators**: デフォルトが 'human' でない、または 'system' が成功する
+
+### TEST-DB-058: characters.generation_metadata JSONB デフォルト NULL
+- **Category**: database
+- **Priority**: P1
+- **Prerequisites**: characters テーブル作成済み
+- **Steps**:
+  1. generation_metadata 省略で INSERT
+  2. `SELECT generation_metadata FROM characters WHERE ...`
+  3. `'{"model": "claude-opus", "confidence": 0.85}'::jsonb` で INSERT — 成功
+- **Expected Result**: デフォルト = `NULL`。JSONB値の挿入が成功
+- **Pass Criteria**: デフォルト = NULL AND 有効なJSONBが保存される
+- **Fail Indicators**: デフォルトが NULL でない、または JSONB挿入が失敗
+
+### TEST-DB-059: 全インデックス数の確認 (135個)
+- **Category**: database
+- **Priority**: P1
+- **Prerequisites**: インデックスマイグレーション実行済み
+- **Steps**:
+  1. `SELECT COUNT(*) FROM pg_indexes WHERE schemaname = 'public' AND indexname LIKE 'idx_%';`
+- **Expected Result**: `count = 135`
+- **Pass Criteria**: COUNT = 135
+- **Fail Indicators**: COUNT ≠ 135
 
 ---
 
@@ -1807,6 +1855,294 @@ TEST-{LAYER}-{NUMBER}
 - **Pass Criteria**: 3つのスクリプトが全て空でない文字列
 - **Fail Indicators**: いずれかが空文字または NULL
 
+### 2.14 不足ツールの補完テスト
+
+> 以下は04-agent-design.md §4に定義されているが、§2.1〜§2.13でカバーされていなかったツールの補完テスト。
+
+#### 戦略エージェント (1ツール不足)
+
+### TEST-MCP-106: get_algorithm_performance — 正常系
+- **Category**: mcp
+- **Priority**: P1
+- **Prerequisites**: algorithm_performance テーブルにデータあり
+- **Steps**:
+  1. `get_algorithm_performance({ period: "weekly", limit: 12 })` を呼び出し
+- **Expected Result**: 配列を返却 (最大12件)。各要素に `measured_at` (timestamptz), `hypothesis_accuracy` (float 0.0-1.0), `prediction_error` (float), `improvement_rate` (float) を含む
+- **Pass Criteria**: 返却件数 <= 12 AND 全件の hypothesis_accuracy が 0.0-1.0
+- **Fail Indicators**: キーの欠如、または hypothesis_accuracy が範囲外
+
+#### リサーチャー (5ツール不足)
+
+### TEST-MCP-107: save_competitor_account — 正常系
+- **Category**: mcp
+- **Priority**: P1
+- **Prerequisites**: MCP Server 起動済み
+- **Steps**:
+  1. `save_competitor_account({ username: "@beauty_guru", followers: 500000, posting_frequency: "daily", platform: "tiktok" })` を呼び出し
+- **Expected Result**: `{ id: integer }` を返却。market_intel テーブルに intel_type = 'competitor_account' の行が INSERT
+- **Pass Criteria**: id が正の整数 AND market_intel に該当行が存在
+- **Fail Indicators**: id が返らない、またはDB未挿入
+
+### TEST-MCP-108: save_audience_signal — 正常系
+- **Category**: mcp
+- **Priority**: P1
+- **Prerequisites**: MCP Server 起動済み
+- **Steps**:
+  1. `save_audience_signal({ signal_type: "engagement_spike", topic: "morning routine", sentiment: "positive", sample_data: { comments: ["love this!", "more please"] } })` を呼び出し
+- **Expected Result**: `{ id: integer }` を返却。market_intel テーブルに intel_type = 'audience_signal' の行が INSERT
+- **Pass Criteria**: id が正の整数
+- **Fail Indicators**: id が返らない
+
+### TEST-MCP-109: save_platform_update — 正常系
+- **Category**: mcp
+- **Priority**: P1
+- **Prerequisites**: MCP Server 起動済み
+- **Steps**:
+  1. `save_platform_update({ platform: "youtube", update_type: "algorithm_change", description: "Shorts algorithm now favors 30-60s content", effective_date: "2026-03-01" })` を呼び出し
+- **Expected Result**: `{ id: integer }` を返却。market_intel テーブルに intel_type = 'platform_update' の行が INSERT
+- **Pass Criteria**: id が正の整数
+- **Fail Indicators**: id が返らない
+
+### TEST-MCP-110: get_competitor_analysis — 正常系
+- **Category**: mcp
+- **Priority**: P2
+- **Prerequisites**: market_intel に competitor_account + competitor_post のデータあり
+- **Steps**:
+  1. `get_competitor_analysis({ platform: "tiktok", niche: "beauty" })` を呼び出し
+- **Expected Result**: 配列を返却。各要素に `username` (string), `followers` (integer), `avg_views` (number), `content_strategy` (string) を含む
+- **Pass Criteria**: 返却が配列 AND 各要素に4キーが存在
+- **Fail Indicators**: キーの欠如
+
+### TEST-MCP-111: get_platform_changes — 正常系
+- **Category**: mcp
+- **Priority**: P2
+- **Prerequisites**: market_intel に platform_update のデータあり
+- **Steps**:
+  1. `get_platform_changes({ platform: "youtube", since: "30d" })` を呼び出し
+- **Expected Result**: 配列を返却。各要素に `update_type` (string), `description` (string), `effective_date` (string) を含む
+- **Pass Criteria**: 返却が配列 AND 各要素に3キーが存在
+- **Fail Indicators**: キーの欠如
+
+#### アナリスト (6ツール不足)
+
+### TEST-MCP-112: get_hypothesis_results — 正常系
+- **Category**: mcp
+- **Priority**: P0
+- **Prerequisites**: hypotheses に id=1 のデータあり、関連 content + metrics データあり
+- **Steps**:
+  1. `get_hypothesis_results({ hypothesis_id: 1 })` を呼び出し
+- **Expected Result**: `{ predicted_kpis: object, actual_kpis: object, content_count: integer, raw_metrics: array }` を返却
+- **Pass Criteria**: 全4キーが存在 AND content_count >= 0
+- **Fail Indicators**: キーの欠如
+
+### TEST-MCP-113: get_component_scores — 正常系
+- **Category**: mcp
+- **Priority**: P1
+- **Prerequisites**: components に type='scenario' のデータあり
+- **Steps**:
+  1. `get_component_scores({ type: "scenario", subtype: "hook", limit: 20 })` を呼び出し
+- **Expected Result**: 配列を返却 (最大20件)。各要素に `component_id` (string), `name` (string), `score` (number|null), `usage_count` (integer) を含む
+- **Pass Criteria**: 返却件数 <= 20 AND 全件の type = 'scenario'
+- **Fail Indicators**: キーの欠如、または type が不一致
+
+### TEST-MCP-114: update_component_score — 正常系
+- **Category**: mcp
+- **Priority**: P1
+- **Prerequisites**: components にデータあり (component_id='SCN_0001', score=NULL)
+- **Steps**:
+  1. `update_component_score({ component_id: "SCN_0001", new_score: 75.5 })` を呼び出し
+  2. `SELECT score FROM components WHERE component_id = 'SCN_0001';`
+- **Expected Result**: Step 1: `{ success: true }`。Step 2: score = 75.50
+- **Pass Criteria**: score が 75.50 に更新されている
+- **Fail Indicators**: score が NULL のまま
+
+### TEST-MCP-115: get_niche_performance_trends — 正常系
+- **Category**: mcp
+- **Priority**: P2
+- **Prerequisites**: publications + metrics に beauty ニッチのデータあり
+- **Steps**:
+  1. `get_niche_performance_trends({ niche: "beauty", period: "30d" })` を呼び出し
+- **Expected Result**: 配列を返却。各要素に `date` (string), `avg_views` (number), `avg_engagement` (number), `content_count` (integer) を含む
+- **Pass Criteria**: 返却が配列 AND 各要素に4キーが存在
+- **Fail Indicators**: キーの欠如
+
+### TEST-MCP-116: compare_hypothesis_predictions — 正常系
+- **Category**: mcp
+- **Priority**: P2
+- **Prerequisites**: hypotheses に predicted_kpis + actual_kpis が設定済みのデータ3件以上
+- **Steps**:
+  1. `compare_hypothesis_predictions({ hypothesis_ids: [1, 2, 3] })` を呼び出し
+- **Expected Result**: 配列を返却 (3件)。各要素に `hypothesis_id` (integer), `predicted` (object), `actual` (object), `error_rate` (float) を含む
+- **Pass Criteria**: 返却件数 = 3 AND 全件に error_rate が存在
+- **Fail Indicators**: 返却件数が不一致、またはキーの欠如
+
+### TEST-MCP-117: generate_improvement_suggestions — 正常系
+- **Category**: mcp
+- **Priority**: P2
+- **Prerequisites**: learnings + metrics にデータあり
+- **Steps**:
+  1. `generate_improvement_suggestions({ niche: "beauty", account_id: "ACC_0013" })` を呼び出し
+- **Expected Result**: 配列を返却。各要素に `suggestion` (string), `rationale` (string), `expected_impact` (string), `priority` (string) を含む
+- **Pass Criteria**: 返却が配列 AND 各要素に4キーが存在
+- **Fail Indicators**: キーの欠如
+
+#### プランナー (3ツール不足)
+
+### TEST-MCP-118: get_account_performance — 正常系
+- **Category**: mcp
+- **Priority**: P1
+- **Prerequisites**: accounts + publications + metrics にデータあり
+- **Steps**:
+  1. `get_account_performance({ account_id: "ACC_0013", period: "7d" })` を呼び出し
+- **Expected Result**: `{ avg_views: number, avg_engagement: number, top_content: array, trend: string }` を返却
+- **Pass Criteria**: 全4キーが存在 AND avg_views >= 0
+- **Fail Indicators**: キーの欠如
+
+### TEST-MCP-119: get_available_components — 正常系
+- **Category**: mcp
+- **Priority**: P1
+- **Prerequisites**: components に type='scenario', niche='beauty' のデータあり
+- **Steps**:
+  1. `get_available_components({ type: "scenario", niche: "beauty", subtype: "hook" })` を呼び出し
+- **Expected Result**: 配列を返却。各要素に `component_id` (string), `name` (string), `score` (number|null), `usage_count` (integer), `data` (object) を含む
+- **Pass Criteria**: 返却が配列 AND 全件の type = 'scenario'
+- **Fail Indicators**: type が不一致の件が混入
+
+### TEST-MCP-120: get_niche_learnings — 正常系
+- **Category**: mcp
+- **Priority**: P1
+- **Prerequisites**: learnings テーブルに beauty ニッチのデータあり
+- **Steps**:
+  1. `get_niche_learnings({ niche: "beauty", min_confidence: 0.5, limit: 10 })` を呼び出し
+- **Expected Result**: 配列を返却 (最大10件)。各要素に `insight` (string), `confidence` (float, >= 0.5), `category` (string) を含む
+- **Pass Criteria**: 返却件数 <= 10 AND 全件の confidence >= 0.5
+- **Fail Indicators**: confidence < 0.5 の件が混入
+
+#### ツールスペシャリスト (2ツール不足)
+
+### TEST-MCP-121: search_similar_tool_usage — 正常系
+- **Category**: mcp
+- **Priority**: P1
+- **Prerequisites**: tool_experiences にデータ5件以上
+- **Steps**:
+  1. `search_similar_tool_usage({ requirements: { character_type: "asian_female", niche: "beauty", content_type: "short_video", quality_priority: 0.8 }, limit: 5 })` を呼び出し
+- **Expected Result**: 配列を返却 (最大5件)。各要素に `tool_combination` (string[]), `avg_quality_score` (number), `usage_count` (integer), `notes` (string) を含む
+- **Pass Criteria**: 返却件数 <= 5 AND 各要素に4キーが存在
+- **Fail Indicators**: キーの欠如
+
+### TEST-MCP-122: update_tool_knowledge_from_external — 正常系
+- **Category**: mcp
+- **Priority**: P1
+- **Prerequisites**: tool_catalog にデータあり
+- **Steps**:
+  1. `update_tool_knowledge_from_external({ tool_name: "kling_v2.6", update_type: "capability", description: "Added portrait mode support", source_url: "https://docs.kling.ai/updates" })` を呼び出し
+- **Expected Result**: `{ id: integer }` を返却。tool_external_sources テーブルに1行 INSERT
+- **Pass Criteria**: id が正の整数
+- **Fail Indicators**: id が返らない
+
+#### ダッシュボード (3ツール不足)
+
+### TEST-MCP-123: submit_learning_guidance — 正常系
+- **Category**: mcp
+- **Priority**: P1
+- **Prerequisites**: MCP Server 起動済み
+- **Steps**:
+  1. `submit_learning_guidance({ target_agent_type: "analyst", guidance: "Focus on completion rate as primary KPI", category: "content" })` を呼び出し
+  2. `SELECT directive_type, content FROM human_directives ORDER BY created_at DESC LIMIT 1;`
+- **Expected Result**: Step 1: `{ id: integer }`。Step 2: directive_type='learning_guidance', content に guidance 内容が含まれる
+- **Pass Criteria**: human_directives に行が挿入されている
+- **Fail Indicators**: 挿入されていない
+
+### TEST-MCP-124: get_learning_directives — 正常系
+- **Category**: mcp
+- **Priority**: P1
+- **Prerequisites**: human_directives に directive_type='learning_guidance' のデータあり
+- **Steps**:
+  1. `get_learning_directives({ agent_type: "analyst" })` を呼び出し
+- **Expected Result**: 配列を返却。各要素に `guidance` (string), `category` (string), `created_at` (string) を含む
+- **Pass Criteria**: 返却が配列 AND 各要素に3キーが存在
+- **Fail Indicators**: キーの欠如
+
+### TEST-MCP-125: rollback_agent_prompt — 正常系
+- **Category**: mcp
+- **Priority**: P1
+- **Prerequisites**: agent_prompt_versions に analyst の version=1,2 あり (version=2 が active)
+- **Steps**:
+  1. `rollback_agent_prompt({ agent_type: "analyst", version: 1 })` を呼び出し
+  2. `SELECT version, active FROM agent_prompt_versions WHERE agent_type = 'analyst' ORDER BY version;`
+- **Expected Result**: Step 1: `{ success: true }`。Step 2: version=1 が active=true、version=2 が active=false
+- **Pass Criteria**: version=1 が active に切り替わっている
+- **Fail Indicators**: version=2 が active のまま
+
+#### データキュレーター (5ツール不足)
+
+### TEST-MCP-126: update_component_data — 正常系
+- **Category**: mcp
+- **Priority**: P1
+- **Prerequisites**: components にデータあり (component_id='SCN_0001')
+- **Steps**:
+  1. `update_component_data({ component_id: "SCN_0001", data: { script_en: "Updated hook!", script_jp: "更新されたフック！" }, tags: ["beauty", "updated"] })` を呼び出し
+  2. `SELECT data, tags FROM components WHERE component_id = 'SCN_0001';`
+- **Expected Result**: Step 1: `{ success: true }`。Step 2: data と tags が更新されている
+- **Pass Criteria**: data->>'script_en' = 'Updated hook!' AND tags に 'updated' が含まれる
+- **Fail Indicators**: data が更新されていない
+
+### TEST-MCP-127: mark_curation_complete — 正常系
+- **Category**: mcp
+- **Priority**: P1
+- **Prerequisites**: task_queue に task_type='curate' のタスクあり (id=1)
+- **Steps**:
+  1. `mark_curation_complete({ queue_id: 1, result_component_ids: ["SCN_0001", "SCN_0002"] })` を呼び出し
+  2. `SELECT status FROM task_queue WHERE id = 1;`
+- **Expected Result**: Step 1: `{ success: true }`。Step 2: status = 'completed'
+- **Pass Criteria**: task_queue.status が 'completed' に更新
+- **Fail Indicators**: status が変更されていない
+
+### TEST-MCP-128: create_character_profile — 正常系
+- **Category**: mcp
+- **Priority**: P0
+- **Prerequisites**: MCP Server 起動済み、CHARACTER_AUTO_GENERATION_ENABLED='true'
+- **Steps**:
+  1. `create_character_profile({ niche: "crypto_education", target_market: "JP_20-30", personality_traits: ["cheerful", "knowledgeable"], name_suggestion: "CryptoMiku" })` を呼び出し
+  2. `SELECT character_id, name, status, created_by, generation_metadata FROM characters ORDER BY created_at DESC LIMIT 1;`
+- **Expected Result**: Step 1: `{ character_id: string, name: string, personality: object, status: 'draft' }`。Step 2: status='draft', created_by='curator', generation_metadata IS NOT NULL
+- **Pass Criteria**: character_id が CHR_ 形式 AND status = 'draft' AND created_by = 'curator' AND generation_metadata に niche と target_market が含まれる
+- **Fail Indicators**: character_id が返らない、または status/created_by が不正
+
+### TEST-MCP-129: generate_character_image — 正常系
+- **Category**: mcp
+- **Priority**: P0
+- **Prerequisites**: characters にデータあり (character_id='CHR_TEST1')、fal.ai APIキー設定済み
+- **Steps**:
+  1. `generate_character_image({ character_id: "CHR_TEST1", appearance_description: "anime style, blue hair, cheerful expression", style: "anime" })` を呼び出し
+  2. `SELECT image_drive_id FROM characters WHERE character_id = 'CHR_TEST1';`
+- **Expected Result**: Step 1: `{ image_drive_id: string, image_url: string }`。Step 2: image_drive_id が設定されている
+- **Pass Criteria**: image_drive_id が非空 AND image_url が https:// で始まる
+- **Fail Indicators**: image_drive_id が NULL、またはエラー
+
+### TEST-MCP-130: select_voice_profile — 正常系
+- **Category**: mcp
+- **Priority**: P0
+- **Prerequisites**: characters にデータあり、Fish Audio APIキー設定済み
+- **Steps**:
+  1. `select_voice_profile({ character_id: "CHR_TEST1", personality: "cheerful", gender: "female", age_range: "20-25", language: "ja" })` を呼び出し
+  2. `SELECT voice_id FROM characters WHERE character_id = 'CHR_TEST1';`
+- **Expected Result**: Step 1: `{ voice_id: string (32 chars), voice_name: string, sample_url: string }`。Step 2: voice_id が32文字hexで設定されている
+- **Pass Criteria**: voice_id.length = 32 AND /^[0-9a-f]{32}$/ にマッチ AND voice_name が非空
+- **Fail Indicators**: voice_id が32文字hexでない
+
+#### 自己学習・コミュニケーション (1ツール不足)
+
+### TEST-MCP-131: get_recent_reflections — 正常系
+- **Category**: mcp
+- **Priority**: P1
+- **Prerequisites**: agent_reflections に analyst の振り返りデータ3件
+- **Steps**:
+  1. `get_recent_reflections({ agent_type: "analyst", limit: 5 })` を呼び出し
+- **Expected Result**: 配列を返却 (最大5件)。各要素に `self_score` (integer 1-10), `score_reasoning` (string), `next_actions` (string[]), `created_at` (string) を含む
+- **Pass Criteria**: 返却件数 <= 5 AND 全件の self_score が 1-10 の範囲内
+- **Fail Indicators**: キーの欠如、または self_score が範囲外
+
 ---
 
 ## 3. Worker Layer Tests (TEST-WKR)
@@ -2081,7 +2417,7 @@ TEST-{LAYER}-{NUMBER}
 ### TEST-WKR-026: ワーカー — HUMAN_REVIEW_ENABLED=true 時の遷移
 - **Category**: worker
 - **Priority**: P0
-- **Prerequisites**: HUMAN_REVIEW_ENABLED='true', content に status='ready' の行あり
+- **Prerequisites**: HUMAN_REVIEW_ENABLED='true', AUTO_APPROVE_SCORE_THRESHOLD='8.0', content に status='ready' かつ quality_score=7.0 (閾値未満) の行あり
 - **Steps**:
   1. 制作完了後の content ステータスを確認
 - **Expected Result**: status が 'ready' → 'pending_review' に遷移
@@ -2244,8 +2580,8 @@ TEST-{LAYER}-{NUMBER}
 - **Steps**:
   1. 戦略サイクルグラフを1回実行
   2. agent_thought_logs から各ノードの実行順序を取得
-- **Expected Result**: ノード実行順序: collect_intel → analyze_cycle → plan_content → select_tools → approve_plan → (human_approval or reflect_all) → reflect_all
-- **Pass Criteria**: collect_intel が最初 AND reflect_all が最後
+- **Expected Result**: ノード実行順序: collect_intel → analyze_cycle → set_strategy → plan_content → select_tools → approve_plan → (human_approval or reflect_all) → reflect_all
+- **Pass Criteria**: collect_intel が最初 AND set_strategy が analyze_cycle の直後 AND reflect_all が最後
 - **Fail Indicators**: ノード順序が仕様と異なる
 
 ### TEST-AGT-002: 戦略サイクルグラフ — cycles テーブル更新
@@ -2299,9 +2635,9 @@ TEST-{LAYER}-{NUMBER}
 - **Prerequisites**: グラフが reflect_all ノードに到達
 - **Steps**:
   1. reflect_all ノード実行後、agent_reflections テーブルを確認
-- **Expected Result**: strategist, researcher, analyst, planner の各エージェントのリフレクションが INSERT (最低4行)
-- **Pass Criteria**: `SELECT COUNT(DISTINCT agent_type) FROM agent_reflections WHERE cycle_id = ...` >= 4
-- **Fail Indicators**: リフレクション行が 4 未満
+- **Expected Result**: strategist, researcher, analyst, planner, tool_specialist の各エージェントのリフレクションが INSERT (最低5行)
+- **Pass Criteria**: `SELECT COUNT(DISTINCT agent_type) FROM agent_reflections WHERE cycle_id = ...` >= 5
+- **Fail Indicators**: リフレクション行が 5 未満
 
 ### TEST-AGT-007: 戦略サイクルグラフ — self_score 1-10 の範囲
 - **Category**: agent
@@ -2417,9 +2753,9 @@ TEST-{LAYER}-{NUMBER}
 - **Prerequisites**: グラフ1回実行
 - **Steps**:
   1. `SELECT COUNT(*) FROM agent_thought_logs WHERE cycle_id = 1;`
-- **Expected Result**: 各ノードの実行ログが記録 (最低6行: collect_intel, analyze_cycle, plan_content, select_tools, approve_plan, reflect_all)
-- **Pass Criteria**: COUNT >= 6
-- **Fail Indicators**: COUNT < 6
+- **Expected Result**: 各ノードの実行ログが記録 (最低7行: collect_intel, analyze_cycle, set_strategy, plan_content, select_tools, approve_plan, reflect_all)
+- **Pass Criteria**: COUNT >= 7
+- **Fail Indicators**: COUNT < 7
 
 ### TEST-AGT-018: グラフ間通信 — PostgreSQL ステータス変更のみ
 - **Category**: agent
@@ -2525,12 +2861,12 @@ TEST-{LAYER}-{NUMBER}
 - **Pass Criteria**: 4箇所のチェックポイントが確認可能
 - **Fail Indicators**: チェックポイントが存在しない
 
-### TEST-AGT-028: 戦略サイクルグラフ — データキュレーター統合
+### TEST-AGT-028: データキュレーター — task_queue コンポーネント作成
 - **Category**: agent
 - **Priority**: P1
 - **Prerequisites**: task_queue に task_type='curate' のタスクあり
 - **Steps**:
-  1. データキュレーターノードがキュレーションタスクを処理
+  1. データキュレーターがキュレーションタスクを取得・処理
   2. components テーブルを確認
 - **Expected Result**: 新コンポーネントが作成され、review_status が適切に設定
 - **Pass Criteria**: components に新行が存在
@@ -3100,6 +3436,1706 @@ TEST-{LAYER}-{NUMBER}
 - **Pass Criteria**: HTTP 404
 - **Fail Indicators**: HTTP 200 または 500
 
+
+### 5.4 Playwright ナビゲーションテスト
+
+### TEST-DSH-048: 全15画面レンダリング確認
+- **Category**: dashboard / playwright
+- **Priority**: P0
+- **Prerequisites**: ダッシュボード起動済み、各テーブルにシードデータあり
+- **Steps**:
+  1. 以下の各URLに `await page.goto()` でアクセスし、HTTP 200 かつ主要コンテンツが表示されることを確認:
+     - `/` (ホーム), `/kpi`, `/production`, `/review`, `/content`, `/accounts`, `/characters`, `/agents`, `/hypotheses`, `/learnings`, `/tools`, `/errors`, `/costs`, `/settings`, `/directives`
+  2. 各ページで `await expect(page.locator('main')).toBeVisible()`
+  3. 各ページで `await expect(page).not.toHaveTitle(/404|Error/)`
+- **Expected Result**: 全15画面がエラーなくレンダリングされる
+- **Pass Criteria**: 15画面全てで main 要素が visible AND タイトルに 404/Error を含まない
+- **Fail Indicators**: いずれかの画面で main が非表示、またはエラーページが表示
+
+### TEST-DSH-049: サイドバーナビゲーション — 全画面遷移
+- **Category**: dashboard / playwright
+- **Priority**: P0
+- **Prerequisites**: ダッシュボード起動済み (viewport: 1280px)
+- **Steps**:
+  1. `await page.goto('/')`
+  2. サイドバーの各リンクを順にクリック:
+     ```
+     const pages = ['KPI', '制作キュー', 'コンテンツレビュー', 'コンテンツ一覧', 'アカウント管理', 'キャラクター管理', 'エージェント', '仮説ブラウザ', '知見ブラウザ', 'ツール管理', 'エラーログ', 'コスト管理', '設定', '人間指示'];
+     for (const name of pages) {
+       await page.getByRole('navigation').getByText(name).click();
+       await expect(page).toHaveURL(new RegExp('/(kpi|production|review|content|accounts|characters|agents|hypotheses|learnings|tools|errors|costs|settings|directives)'));
+     }
+     ```
+  3. 各遷移後に `await expect(page.locator('main')).toBeVisible()`
+- **Expected Result**: サイドバーから全14画面（ホーム除く）に遷移可能
+- **Pass Criteria**: 全遷移でURLが正しく変化 AND main が表示
+- **Fail Indicators**: リンクが見つからない、遷移しない、エラーページが表示
+
+### TEST-DSH-050: サイドバーアクティブ状態ハイライト
+- **Category**: dashboard / playwright
+- **Priority**: P2
+- **Prerequisites**: ダッシュボード起動済み (viewport: 1280px)
+- **Steps**:
+  1. `await page.goto('/kpi')`
+  2. `await expect(page.getByRole('navigation').getByText('KPI')).toHaveAttribute('aria-current', 'page')`
+  3. `await page.goto('/settings')`
+  4. `await expect(page.getByRole('navigation').getByText('設定')).toHaveAttribute('aria-current', 'page')`
+  5. KPI のリンクが aria-current を持たないことを確認
+- **Expected Result**: 現在のページに対応するサイドバーリンクがアクティブ状態
+- **Pass Criteria**: アクティブページのリンクに aria-current='page' が設定
+- **Fail Indicators**: アクティブ状態のハイライトがない
+
+### TEST-DSH-051: ページタイトル表示
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: ダッシュボード起動済み
+- **Steps**:
+  1. `await page.goto('/kpi')` → `await expect(page).toHaveTitle(/KPI/)`
+  2. `await page.goto('/accounts')` → `await expect(page).toHaveTitle(/アカウント/)`
+  3. `await page.goto('/settings')` → `await expect(page).toHaveTitle(/設定/)`
+  4. `await page.goto('/agents')` → `await expect(page).toHaveTitle(/エージェント/)`
+  5. `await page.goto('/errors')` → `await expect(page).toHaveTitle(/エラー/)`
+- **Expected Result**: 各ページに適切な `<title>` が設定されている
+- **Pass Criteria**: ページタイトルに画面名が含まれる
+- **Fail Indicators**: タイトルが空、デフォルト値のまま、または不一致
+
+### TEST-DSH-052: ブラウザバック/フォワードナビゲーション
+- **Category**: dashboard / playwright
+- **Priority**: P2
+- **Prerequisites**: ダッシュボード起動済み
+- **Steps**:
+  1. `await page.goto('/')`
+  2. `await page.getByRole('navigation').getByText('KPI').click()`
+  3. `await expect(page).toHaveURL(/\/kpi/)`
+  4. `await page.getByRole('navigation').getByText('設定').click()`
+  5. `await expect(page).toHaveURL(/\/settings/)`
+  6. `await page.goBack()` → `await expect(page).toHaveURL(/\/kpi/)`
+  7. `await page.goForward()` → `await expect(page).toHaveURL(/\/settings/)`
+- **Expected Result**: ブラウザの戻る/進むボタンが正常に動作
+- **Pass Criteria**: 履歴に基づいた正しいURLに遷移
+- **Fail Indicators**: 戻る/進む後に想定外のページが表示
+
+### TEST-DSH-053: URL直打ちアクセス — 正常ルート
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: ダッシュボード起動済み
+- **Steps**:
+  1. `await page.goto('/agents')`
+  2. `await expect(page.locator('main')).toBeVisible()`
+  3. `await expect(page.locator('h1, h2').first()).toContainText('エージェント')`
+- **Expected Result**: URL直打ちで正しいページが表示される（CSR/SSRどちらでも動作）
+- **Pass Criteria**: main 要素が表示 AND ページ見出しが正しい
+- **Fail Indicators**: 白画面、404、またはホームにリダイレクト
+
+### 5.5 Playwright テーマ切替テスト
+
+### TEST-DSH-054: Dark → Light テーマ切替
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: ダッシュボードをDarkテーマ（デフォルト）で起動
+- **Steps**:
+  1. `await page.goto('/')`
+  2. `const bgBefore = await page.locator('body').evaluate(el => getComputedStyle(el).backgroundColor)`
+  3. Assert bgBefore corresponds to `#002b36` (rgb(0, 43, 54))
+  4. `await page.getByRole('button', { name: /テーマ|theme/i }).click()`
+  5. `const bgAfter = await page.locator('body').evaluate(el => getComputedStyle(el).backgroundColor)`
+  6. Assert bgAfter corresponds to `#fdf6e3` (rgb(253, 246, 227))
+- **Expected Result**: 背景色が Dark (#002b36) から Light (#fdf6e3) に変更
+- **Pass Criteria**: bgAfter = rgb(253, 246, 227)
+- **Fail Indicators**: 背景色が変わらない
+
+### TEST-DSH-055: Light → Dark テーマ切替
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: ダッシュボードをLightテーマで起動
+- **Steps**:
+  1. `await page.goto('/')`
+  2. `await page.evaluate(() => localStorage.setItem('theme', 'light'))`
+  3. `await page.reload()`
+  4. `await page.getByRole('button', { name: /テーマ|theme/i }).click()`
+  5. `const bgAfter = await page.locator('body').evaluate(el => getComputedStyle(el).backgroundColor)`
+  6. Assert bgAfter corresponds to `#002b36` (rgb(0, 43, 54))
+- **Expected Result**: 背景色が Light (#fdf6e3) から Dark (#002b36) に変更
+- **Pass Criteria**: bgAfter = rgb(0, 43, 54)
+- **Fail Indicators**: 背景色が変わらない
+
+### TEST-DSH-056: テーマの localStorage 永続化
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: ダッシュボードをDarkテーマで起動
+- **Steps**:
+  1. `await page.goto('/')`
+  2. `await page.getByRole('button', { name: /テーマ|theme/i }).click()` (Dark → Light)
+  3. `const stored = await page.evaluate(() => localStorage.getItem('theme'))`
+  4. `expect(stored).toBe('light')`
+- **Expected Result**: テーマ設定が localStorage に保存される
+- **Pass Criteria**: localStorage.theme = 'light'
+- **Fail Indicators**: localStorage にテーマが保存されない
+
+### TEST-DSH-057: リロード後のテーマ維持
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: ダッシュボードをDarkテーマで起動
+- **Steps**:
+  1. `await page.goto('/')`
+  2. `await page.getByRole('button', { name: /テーマ|theme/i }).click()` (Dark → Light)
+  3. `await page.reload()`
+  4. `const bg = await page.locator('body').evaluate(el => getComputedStyle(el).backgroundColor)`
+  5. Assert bg corresponds to `#fdf6e3` (rgb(253, 246, 227))
+- **Expected Result**: リロード後も Light テーマが維持される
+- **Pass Criteria**: リロード後の背景色 = rgb(253, 246, 227)
+- **Fail Indicators**: リロード後に Dark テーマに戻る
+
+### TEST-DSH-058: Dark テーマ CSS変数 全値検証 (Playwright版)
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: ダッシュボードをDarkテーマで起動
+- **Steps**:
+  1. `await page.goto('/')`
+  2. CSS 変数をルート要素から取得・検証:
+     ```
+     const vars = await page.locator(':root').evaluate(el => {
+       const s = getComputedStyle(el);
+       return { base03: s.getPropertyValue('--base03').trim(), base02: s.getPropertyValue('--base02').trim(), base01: s.getPropertyValue('--base01').trim(), base00: s.getPropertyValue('--base00').trim(), base0: s.getPropertyValue('--base0').trim(), base1: s.getPropertyValue('--base1').trim(), base2: s.getPropertyValue('--base2').trim(), base3: s.getPropertyValue('--base3').trim() };
+     });
+     expect(vars.base03).toBe('#002b36'); expect(vars.base02).toBe('#073642');
+     expect(vars.base01).toBe('#586e75'); expect(vars.base00).toBe('#657b83');
+     expect(vars.base0).toBe('#839496'); expect(vars.base1).toBe('#93a1a1');
+     expect(vars.base2).toBe('#eee8d5'); expect(vars.base3).toBe('#fdf6e3');
+     ```
+- **Expected Result**: Solarized Dark の全8色が正しく設定
+- **Pass Criteria**: 8変数全てが完全一致
+- **Fail Indicators**: いずれかの値が不一致
+
+### TEST-DSH-059: サイドバー色 テーマ別検証
+- **Category**: dashboard / playwright
+- **Priority**: P2
+- **Prerequisites**: ダッシュボード起動済み
+- **Steps**:
+  1. `await page.goto('/')` (Dark テーマ)
+  2. `const sidebarBgDark = await page.getByRole('navigation').evaluate(el => getComputedStyle(el).backgroundColor)`
+  3. Assert sidebarBgDark corresponds to `#073642` (rgb(7, 54, 66))
+  4. テーマを Light に切替
+  5. `const sidebarBgLight = await page.getByRole('navigation').evaluate(el => getComputedStyle(el).backgroundColor)`
+  6. Assert sidebarBgLight corresponds to `#eee8d5` (rgb(238, 232, 213))
+- **Expected Result**: サイドバー背景色がテーマに応じて変更される
+- **Pass Criteria**: Dark = rgb(7, 54, 66), Light = rgb(238, 232, 213)
+- **Fail Indicators**: サイドバー色がテーマに連動しない
+
+### TEST-DSH-060: Nunito フォント適用確認 (Playwright版)
+- **Category**: dashboard / playwright
+- **Priority**: P2
+- **Prerequisites**: ダッシュボード起動済み
+- **Steps**:
+  1. `await page.goto('/')`
+  2. `const fontFamily = await page.locator('body').evaluate(el => getComputedStyle(el).fontFamily)`
+  3. `expect(fontFamily).toContain('Nunito')`
+  4. `const monoFont = await page.locator('code, .font-mono').first().evaluate(el => getComputedStyle(el).fontFamily)`
+  5. `expect(monoFont).toContain('JetBrains Mono')`
+- **Expected Result**: Body に Nunito、コード要素に JetBrains Mono が適用
+- **Pass Criteria**: fontFamily に 'Nunito' が含まれる AND monospace 要素に 'JetBrains Mono' が含まれる
+- **Fail Indicators**: フォントが適用されていない
+
+### 5.6 Playwright レスポンシブテスト
+
+### TEST-DSH-061: Mobile (375px) — シングルカラムレイアウト
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: ダッシュボード起動済み
+- **Steps**:
+  1. `await page.setViewportSize({ width: 375, height: 812 })`
+  2. `await page.goto('/')`
+  3. `await expect(page.getByRole('navigation')).not.toBeVisible()`
+  4. `const mainWidth = await page.locator('main').evaluate(el => el.getBoundingClientRect().width)`
+  5. Assert mainWidth >= 350 (ほぼフル幅)
+- **Expected Result**: 375px でモバイルレイアウト (サイドバー非表示、シングルカラム)
+- **Pass Criteria**: サイドバー非表示 AND メインコンテンツがフル幅
+- **Fail Indicators**: サイドバーが表示されたまま
+
+### TEST-DSH-062: Mobile — ハンバーガーメニュー開閉
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: ダッシュボード起動済み
+- **Steps**:
+  1. `await page.setViewportSize({ width: 375, height: 812 })`
+  2. `await page.goto('/')`
+  3. `await expect(page.getByRole('button', { name: /メニュー|menu/i })).toBeVisible()`
+  4. `await page.getByRole('button', { name: /メニュー|menu/i }).click()`
+  5. `await expect(page.getByRole('navigation')).toBeVisible()`
+  6. `await page.getByRole('navigation').getByText('KPI').click()`
+  7. `await expect(page.getByRole('navigation')).not.toBeVisible()`
+  8. `await expect(page).toHaveURL(/\/kpi/)`
+- **Expected Result**: ハンバーガーメニューで開閉可能、遷移後に自動で閉じる
+- **Pass Criteria**: メニュー開閉が動作 AND 遷移後にメニューが閉じる
+- **Fail Indicators**: ハンバーガーボタンが表示されない、メニューが閉じない
+
+### TEST-DSH-063: Tablet (768px) — サイドバー折りたたみ
+- **Category**: dashboard / playwright
+- **Priority**: P2
+- **Prerequisites**: ダッシュボード起動済み
+- **Steps**:
+  1. `await page.setViewportSize({ width: 768, height: 1024 })`
+  2. `await page.goto('/')`
+  3. `const navWidth = await page.getByRole('navigation').evaluate(el => el.getBoundingClientRect().width)`
+  4. Assert navWidth < 100 (折りたたみ状態 = アイコンのみ)
+- **Expected Result**: 768px でタブレットレイアウト (サイドバー折りたたみ)
+- **Pass Criteria**: サイドバー幅 < 100px
+- **Fail Indicators**: フルサイドバーが表示
+
+### TEST-DSH-064: Desktop (1280px) — フルサイドバー
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: ダッシュボード起動済み
+- **Steps**:
+  1. `await page.setViewportSize({ width: 1280, height: 800 })`
+  2. `await page.goto('/')`
+  3. `await expect(page.getByRole('navigation')).toBeVisible()`
+  4. `const navWidth = await page.getByRole('navigation').evaluate(el => el.getBoundingClientRect().width)`
+  5. Assert navWidth >= 200 (フル表示)
+- **Expected Result**: 1280px でフルサイドバー表示
+- **Pass Criteria**: サイドバー幅 >= 200px AND メニューテキストが表示
+- **Fail Indicators**: サイドバーが折りたたまれている
+
+### TEST-DSH-065: Mobile — テーブル水平スクロール
+- **Category**: dashboard / playwright
+- **Priority**: P2
+- **Prerequisites**: accounts テーブルにデータあり
+- **Steps**:
+  1. `await page.setViewportSize({ width: 375, height: 812 })`
+  2. `await page.goto('/accounts')`
+  3. `const overflow = await page.locator('table').locator('..').evaluate(el => getComputedStyle(el).overflowX)`
+  4. `expect(['auto', 'scroll']).toContain(overflow)`
+- **Expected Result**: モバイルでテーブルが水平スクロール可能
+- **Pass Criteria**: テーブルコンテナに overflow-x: auto/scroll が設定
+- **Fail Indicators**: テーブルがはみ出して表示が崩れる
+
+### TEST-DSH-066: チャートのレスポンシブリサイズ
+- **Category**: dashboard / playwright
+- **Priority**: P2
+- **Prerequisites**: KPIデータあり
+- **Steps**:
+  1. `await page.setViewportSize({ width: 1280, height: 800 })`
+  2. `await page.goto('/kpi')`
+  3. `const chartWidthDesktop = await page.locator('.recharts-wrapper').first().evaluate(el => el.getBoundingClientRect().width)`
+  4. `await page.setViewportSize({ width: 375, height: 812 })`
+  5. `await page.waitForTimeout(500)`
+  6. `const chartWidthMobile = await page.locator('.recharts-wrapper').first().evaluate(el => el.getBoundingClientRect().width)`
+  7. Assert chartWidthMobile < chartWidthDesktop AND chartWidthMobile >= 300
+- **Expected Result**: チャートがビューポートに合わせてリサイズされる
+- **Pass Criteria**: モバイル幅 < デスクトップ幅 AND モバイル幅 >= 300px
+- **Fail Indicators**: チャートがリサイズされない
+
+### 5.7 Playwright フォーム操作テスト
+
+### TEST-DSH-067: アカウント作成フォーム — 全フィールド入力・送信
+- **Category**: dashboard / playwright
+- **Priority**: P0
+- **Prerequisites**: ダッシュボード起動済み、characters にCHR_0001あり
+- **Steps**:
+  1. `await page.goto('/accounts')`
+  2. `await page.getByRole('button', { name: /新規作成|追加|Add/i }).click()`
+  3. `await page.getByLabel('プラットフォーム').selectOption('youtube')`
+  4. `await page.getByLabel('ハンドル').fill('@test_channel_e2e')`
+  5. `await page.getByLabel('キャラクター').selectOption('CHR_0001')`
+  6. `await page.getByRole('button', { name: /作成|保存|Save/i }).click()`
+  7. `await expect(page.getByText(/作成しました|Created/i)).toBeVisible()`
+- **Expected Result**: アカウントが正常に作成され、成功メッセージが表示
+- **Pass Criteria**: 成功メッセージ表示 AND 一覧に新アカウントが出現
+- **Fail Indicators**: エラーメッセージ表示、フォームが閉じない
+
+### TEST-DSH-068: アカウント作成フォーム — バリデーションエラー (空入力)
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: ダッシュボード起動済み
+- **Steps**:
+  1. `await page.goto('/accounts')`
+  2. `await page.getByRole('button', { name: /新規作成|追加|Add/i }).click()`
+  3. フィールドを空のまま送信: `await page.getByRole('button', { name: /作成|保存|Save/i }).click()`
+  4. `await expect(page.getByText(/必須|required/i)).toBeVisible()`
+- **Expected Result**: 必須フィールドのバリデーションエラーが表示
+- **Pass Criteria**: エラーメッセージが表示 AND フォームが送信されない
+- **Fail Indicators**: エラーなしで送信が成功
+
+### TEST-DSH-069: アカウント作成フォーム — 不正プラットフォーム拒否
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: ダッシュボード起動済み
+- **Steps**:
+  1. `await page.goto('/accounts')`
+  2. `await page.getByRole('button', { name: /新規作成|追加|Add/i }).click()`
+  3. プラットフォーム選択肢に 'youtube', 'tiktok', 'instagram', 'x' のみ存在することを確認:
+     `const options = await page.getByLabel('プラットフォーム').locator('option').allTextContents()`
+  4. Assert options に 'facebook' が含まれないこと
+- **Expected Result**: 選択肢は4プラットフォーム (youtube, tiktok, instagram, x) のみ
+- **Pass Criteria**: 4つの有効プラットフォームのみ選択可能
+- **Fail Indicators**: 無効なプラットフォームが選択肢に含まれる
+
+### TEST-DSH-070: 設定値編集 — number型入力
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: system_settings に MAX_RETRY_ATTEMPTS (type: integer, min: 1, max: 10) あり
+- **Steps**:
+  1. `await page.goto('/settings')`
+  2. MAX_RETRY_ATTEMPTS の行を見つけて編集ボタンをクリック
+  3. `await page.getByLabel(/値|value/i).fill('5')`
+  4. `await page.getByRole('button', { name: /保存|Save/i }).click()`
+  5. `await expect(page.getByText(/保存しました|Saved/i)).toBeVisible()`
+- **Expected Result**: number型の設定値が正常に更新
+- **Pass Criteria**: 成功メッセージが表示 AND 表示値が '5' に更新
+- **Fail Indicators**: 保存が失敗、値が変わらない
+
+### TEST-DSH-071: 設定値編集 — number型 制約違反拒否
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: system_settings に MAX_RETRY_ATTEMPTS (min: 1, max: 10) あり
+- **Steps**:
+  1. `await page.goto('/settings')`
+  2. MAX_RETRY_ATTEMPTS の編集モーダルを開く
+  3. `await page.getByLabel(/値|value/i).fill('15')`
+  4. `await page.getByRole('button', { name: /保存|Save/i }).click()`
+  5. `await expect(page.getByText(/範囲|range|1.*10/i)).toBeVisible()`
+- **Expected Result**: 制約違反 (15 > max:10) でバリデーションエラー
+- **Pass Criteria**: エラーメッセージ表示 AND 値が更新されない
+- **Fail Indicators**: 制約違反の値が受け入れられる
+
+### TEST-DSH-072: 設定値編集 — boolean型スイッチ
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: system_settings に HUMAN_REVIEW_ENABLED (type: boolean) あり
+- **Steps**:
+  1. `await page.goto('/settings')`
+  2. `await page.getByText('review').click()` (review カテゴリタブ)
+  3. HUMAN_REVIEW_ENABLED のスイッチを見つけてクリック:
+     `await page.locator('[data-key="HUMAN_REVIEW_ENABLED"]').getByRole('switch').click()`
+  4. `await expect(page.getByText(/保存しました|Saved/i)).toBeVisible()`
+- **Expected Result**: boolean型はスイッチUIで切替可能
+- **Pass Criteria**: スイッチの状態が変更 AND 保存成功
+- **Fail Indicators**: スイッチが表示されない、テキスト入力フィールドが表示
+
+### TEST-DSH-073: コンテンツ承認フォーム — フィードバック入力
+- **Category**: dashboard / playwright
+- **Priority**: P0
+- **Prerequisites**: content に review_status='pending_review' の行あり
+- **Steps**:
+  1. `await page.goto('/review')`
+  2. 最初の pending_review アイテムをクリック
+  3. `await page.getByPlaceholder(/フィードバック|feedback/i).fill('LGTM - 品質良好')`
+  4. `await page.getByRole('button', { name: /承認|approve/i }).click()`
+  5. `await expect(page.getByText(/承認しました|Approved/i)).toBeVisible()`
+- **Expected Result**: フィードバック付きで承認が完了
+- **Pass Criteria**: 成功メッセージ表示 AND アイテムが一覧から消える
+- **Fail Indicators**: 承認が失敗、アイテムが残る
+
+### TEST-DSH-074: コンテンツ差し戻しフォーム — コメント必須バリデーション
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: content に review_status='pending_review' の行あり
+- **Steps**:
+  1. `await page.goto('/review')`
+  2. 最初の pending_review アイテムをクリック
+  3. コメント欄を空のまま差し戻しボタンをクリック:
+     `await page.getByRole('button', { name: /差し戻し|reject/i }).click()`
+  4. `await expect(page.getByText(/コメント.*必須|comment.*required/i)).toBeVisible()`
+- **Expected Result**: コメントなしでの差し戻しは拒否される
+- **Pass Criteria**: バリデーションエラーが表示
+- **Fail Indicators**: コメントなしで差し戻しが成功
+
+### TEST-DSH-075: コンテンツ差し戻しフォーム — カテゴリ選択付き差し戻し
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: content に review_status='pending_review' の行あり
+- **Steps**:
+  1. `await page.goto('/review')`
+  2. 最初の pending_review アイテムをクリック
+  3. `await page.getByLabel(/カテゴリ|category/i).selectOption('data_insufficient')`
+  4. `await page.getByPlaceholder(/コメント|comment/i).fill('データ不足: 競合分析が欠けている')`
+  5. `await page.getByRole('button', { name: /差し戻し|reject/i }).click()`
+  6. `await expect(page.getByText(/差し戻しました|Rejected/i)).toBeVisible()`
+- **Expected Result**: カテゴリ + コメント付きで差し戻しが完了
+- **Pass Criteria**: rejection_category = 'data_insufficient' が設定
+- **Fail Indicators**: カテゴリが保存されない
+
+### TEST-DSH-076: human_directive 作成フォーム
+- **Category**: dashboard / playwright
+- **Priority**: P0
+- **Prerequisites**: ダッシュボード起動済み
+- **Steps**:
+  1. `await page.goto('/directives')`
+  2. `await page.getByRole('button', { name: /新規指示|新規作成|Add/i }).click()`
+  3. `await page.getByLabel(/対象エージェント|target.*agent/i).selectOption('analyst')`
+  4. `await page.getByLabel(/指示内容|content/i).fill('エンゲージメント率をビュー数より重視して仮説を生成せよ')`
+  5. `await page.getByLabel(/優先度|priority/i).selectOption('high')`
+  6. `await page.getByRole('button', { name: /送信|Submit/i }).click()`
+  7. `await expect(page.getByText(/送信しました|Submitted/i)).toBeVisible()`
+- **Expected Result**: human_directive が正常に作成
+- **Pass Criteria**: 成功メッセージ表示 AND 履歴一覧に新しい指示が出現
+- **Fail Indicators**: 送信失敗、エラーメッセージ表示
+
+### TEST-DSH-077: フォーム送信成功時のトースト通知
+- **Category**: dashboard / playwright
+- **Priority**: P2
+- **Prerequisites**: ダッシュボード起動済み
+- **Steps**:
+  1. `await page.goto('/settings')`
+  2. 設定値を編集して保存
+  3. `await expect(page.locator('[role="status"], .toast, [data-sonner-toast]')).toBeVisible()`
+  4. `await expect(page.locator('[role="status"], .toast, [data-sonner-toast]')).toContainText(/保存|success/i)`
+  5. トースト通知が数秒後に自動消去されることを確認:
+     `await expect(page.locator('[role="status"], .toast, [data-sonner-toast]')).not.toBeVisible({ timeout: 10000 })`
+- **Expected Result**: 成功時にトースト通知が表示され、数秒後に自動消去
+- **Pass Criteria**: トースト表示 → 自動消去
+- **Fail Indicators**: トーストが表示されない、消去されない
+
+### TEST-DSH-078: フォーム送信失敗時のエラー表示
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: ダッシュボード起動済み
+- **Steps**:
+  1. `await page.goto('/accounts')`
+  2. `await page.getByRole('button', { name: /新規作成|追加|Add/i }).click()`
+  3. `await page.route('**/api/accounts', route => route.fulfill({ status: 500, body: JSON.stringify({ error: 'Internal Server Error' }) }))`
+  4. フォームを入力して送信
+  5. `await expect(page.getByText(/エラー|error|失敗/i)).toBeVisible()`
+- **Expected Result**: API エラー時にユーザーフレンドリーなエラーメッセージが表示
+- **Pass Criteria**: エラーメッセージが表示 AND フォームが閉じない（再試行可能）
+- **Fail Indicators**: エラーが表示されない、白画面
+
+### 5.8 Playwright テーブル操作テスト
+
+### TEST-DSH-079: コンテンツ一覧テーブル — カラムソート (昇順/降順)
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: content テーブルに10件以上のデータあり
+- **Steps**:
+  1. `await page.goto('/content')`
+  2. `await page.getByRole('columnheader', { name: /作成日|created/i }).click()` (昇順)
+  3. 最初の行の日付を取得:
+     `const firstDateAsc = await page.locator('tbody tr').first().locator('td').nth(/*date column index*/).textContent()`
+  4. `await page.getByRole('columnheader', { name: /作成日|created/i }).click()` (降順)
+  5. `const firstDateDesc = await page.locator('tbody tr').first().locator('td').nth(/*date column index*/).textContent()`
+  6. Assert firstDateAsc <= firstDateDesc (日付順序が逆転)
+- **Expected Result**: カラムヘッダークリックで昇順/降順が切り替わる
+- **Pass Criteria**: 昇順→降順でデータ順序が逆転
+- **Fail Indicators**: ソートが動作しない、データ順序が変わらない
+
+### TEST-DSH-080: テーブルフィルター適用・解除
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: content に各ステータスのデータあり (planned, producing, published)
+- **Steps**:
+  1. `await page.goto('/content')`
+  2. `await page.getByLabel(/ステータス|status/i).selectOption('planned')`
+  3. テーブル全行のステータスが 'planned' であることを確認:
+     `const statuses = await page.locator('tbody tr td.status').allTextContents()`
+  4. Assert all statuses === 'planned'
+  5. フィルターを解除: `await page.getByLabel(/ステータス|status/i).selectOption('')`
+  6. テーブルに複数ステータスが表示されることを確認
+- **Expected Result**: フィルター適用で絞り込み、解除で全件表示
+- **Pass Criteria**: フィルター中は全件が指定ステータス AND 解除後は複数ステータス
+- **Fail Indicators**: フィルターが効かない
+
+### TEST-DSH-081: テーブルページネーション — 次/前ページ
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: content に30件以上のデータ (DASHBOARD_ITEMS_PER_PAGE=20)
+- **Steps**:
+  1. `await page.goto('/content')`
+  2. 1ページ目の表示件数を確認: `const rowCount1 = await page.locator('tbody tr').count()` → 20
+  3. `await page.getByRole('button', { name: /次|next|>/i }).click()`
+  4. `const rowCount2 = await page.locator('tbody tr').count()` → 10 (残り)
+  5. `await page.getByRole('button', { name: /前|prev|</i }).click()`
+  6. `const rowCount3 = await page.locator('tbody tr').count()` → 20 (1ページ目に戻る)
+- **Expected Result**: ページネーションで次/前ページに遷移
+- **Pass Criteria**: 各ページの表示件数が正しい
+- **Fail Indicators**: ページ切替が動作しない、件数が不正
+
+### TEST-DSH-082: テーブルページネーション — 特定ページ遷移
+- **Category**: dashboard / playwright
+- **Priority**: P2
+- **Prerequisites**: content に50件以上のデータ (DASHBOARD_ITEMS_PER_PAGE=20)
+- **Steps**:
+  1. `await page.goto('/content')`
+  2. `await page.getByRole('button', { name: '3' }).click()` (3ページ目)
+  3. `const rowCount = await page.locator('tbody tr').count()` → 10 (41-50件)
+  4. ページネーションの「3」がアクティブ状態であることを確認
+- **Expected Result**: 特定ページ番号クリックで直接遷移
+- **Pass Criteria**: 3ページ目のデータが表示
+- **Fail Indicators**: ページ遷移しない
+
+### TEST-DSH-083: テーブル空データ時の表示
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: hypotheses テーブルが空
+- **Steps**:
+  1. `await page.goto('/hypotheses')`
+  2. `await expect(page.getByText(/データがありません|No data|0件/i)).toBeVisible()`
+  3. テーブルのヘッダーは表示されることを確認:
+     `await expect(page.locator('thead')).toBeVisible()`
+- **Expected Result**: 空データ時に「データがありません」メッセージが表示
+- **Pass Criteria**: empty state メッセージ表示 AND テーブルヘッダーは維持
+- **Fail Indicators**: 白画面、エラー、または空のtbodyのみ表示
+
+### TEST-DSH-084: テーブル行クリックで詳細遷移
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: accounts にデータあり
+- **Steps**:
+  1. `await page.goto('/accounts')`
+  2. `const firstAccountId = await page.locator('tbody tr').first().locator('td').first().textContent()`
+  3. `await page.locator('tbody tr').first().click()`
+  4. `await expect(page).toHaveURL(new RegExp('/accounts/ACC_'))`
+  5. `await expect(page.locator('h1, h2')).toContainText(firstAccountId)`
+- **Expected Result**: テーブル行クリックで詳細ページに遷移
+- **Pass Criteria**: 正しいIDの詳細ページが表示
+- **Fail Indicators**: 遷移しない、別のアカウントが表示
+
+### 5.9 Playwright モーダル・ダイアログテスト
+
+### TEST-DSH-085: 設定編集モーダル — 開く/閉じる
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: system_settings にデータあり
+- **Steps**:
+  1. `await page.goto('/settings')`
+  2. 任意の設定行の編集ボタンをクリック:
+     `await page.locator('tbody tr').first().getByRole('button', { name: /編集|edit/i }).click()`
+  3. `await expect(page.getByRole('dialog')).toBeVisible()`
+  4. モーダルのタイトルに設定キー名が含まれることを確認
+  5. 閉じるボタンをクリック: `await page.getByRole('dialog').getByRole('button', { name: /閉じる|close|×/i }).click()`
+  6. `await expect(page.getByRole('dialog')).not.toBeVisible()`
+- **Expected Result**: モーダルの開閉が正常に動作
+- **Pass Criteria**: 開く→表示 AND 閉じる→非表示
+- **Fail Indicators**: モーダルが開かない、閉じない
+
+### TEST-DSH-086: モーダル外クリックで閉じる
+- **Category**: dashboard / playwright
+- **Priority**: P2
+- **Prerequisites**: ダッシュボード起動済み
+- **Steps**:
+  1. `await page.goto('/settings')`
+  2. 設定編集モーダルを開く
+  3. `await expect(page.getByRole('dialog')).toBeVisible()`
+  4. モーダル外の overlay をクリック:
+     `await page.locator('[data-overlay], .backdrop, [class*="overlay"]').click({ force: true })`
+  5. `await expect(page.getByRole('dialog')).not.toBeVisible()`
+- **Expected Result**: モーダル外クリックでモーダルが閉じる
+- **Pass Criteria**: overlay クリック後にモーダルが非表示
+- **Fail Indicators**: モーダルが閉じない
+
+### TEST-DSH-087: ESCキーでモーダルを閉じる
+- **Category**: dashboard / playwright
+- **Priority**: P2
+- **Prerequisites**: ダッシュボード起動済み
+- **Steps**:
+  1. `await page.goto('/settings')`
+  2. 設定編集モーダルを開く
+  3. `await expect(page.getByRole('dialog')).toBeVisible()`
+  4. `await page.keyboard.press('Escape')`
+  5. `await expect(page.getByRole('dialog')).not.toBeVisible()`
+- **Expected Result**: ESCキーでモーダルが閉じる
+- **Pass Criteria**: ESCキー押下後にモーダルが非表示
+- **Fail Indicators**: ESCキーが無効
+
+### TEST-DSH-088: 保存確認ダイアログ — 変更前後の値表示
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: system_settings に MAX_RETRY_ATTEMPTS = 3 あり
+- **Steps**:
+  1. `await page.goto('/settings')`
+  2. MAX_RETRY_ATTEMPTS の編集モーダルを開く
+  3. 値を '5' に変更して保存ボタンをクリック
+  4. 確認ダイアログに変更前後の値が表示されることを確認:
+     `await expect(page.getByRole('alertdialog')).toContainText('3')` (変更前)
+     `await expect(page.getByRole('alertdialog')).toContainText('5')` (変更後)
+  5. `await page.getByRole('alertdialog').getByRole('button', { name: /確認|confirm|OK/i }).click()`
+  6. `await expect(page.getByText(/保存しました|Saved/i)).toBeVisible()`
+- **Expected Result**: 確認ダイアログに変更前後の値が表示され、確認後に保存
+- **Pass Criteria**: 変更前値 '3' AND 変更後値 '5' が表示
+- **Fail Indicators**: 確認ダイアログが表示されない、値が表示されない
+
+### TEST-DSH-089: エラーログ — リトライ確認ダイアログ
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: task_queue に status='failed_permanent' の行あり
+- **Steps**:
+  1. `await page.goto('/errors')`
+  2. 失敗タスクの「リトライ」ボタンをクリック
+  3. 確認ダイアログが表示されることを確認:
+     `await expect(page.getByRole('alertdialog')).toBeVisible()`
+     `await expect(page.getByRole('alertdialog')).toContainText(/リトライ|retry/i)`
+  4. リトライ回数が表示されていることを確認
+  5. キャンセルボタンをクリック:
+     `await page.getByRole('alertdialog').getByRole('button', { name: /キャンセル|cancel/i }).click()`
+  6. `await expect(page.getByRole('alertdialog')).not.toBeVisible()`
+- **Expected Result**: リトライ前に確認ダイアログが表示、キャンセルで閉じる
+- **Pass Criteria**: ダイアログ表示 AND キャンセルで閉じる AND タスク状態は変更なし
+- **Fail Indicators**: 確認なしでリトライが実行される
+
+### TEST-DSH-090: 削除確認ダイアログ — OK/キャンセル
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: components に review_status='pending_review' の行あり
+- **Steps**:
+  1. `await page.goto('/tools')` (キュレーションレビューパネルを含む)
+  2. コンポーネントの「削除」ボタンをクリック
+  3. `await expect(page.getByRole('alertdialog')).toBeVisible()`
+  4. `await expect(page.getByRole('alertdialog')).toContainText(/削除.*確認|本当に削除/i)`
+  5. 「キャンセル」をクリック → ダイアログが閉じ、コンポーネントが残ることを確認
+  6. 再度「削除」→ 確認ダイアログで「OK」をクリック
+  7. `await expect(page.getByText(/削除しました|Deleted/i)).toBeVisible()`
+- **Expected Result**: 削除確認でOK→削除実行、キャンセル→何もしない
+- **Pass Criteria**: キャンセル=操作なし AND OK=削除実行
+- **Fail Indicators**: 確認なしで削除、キャンセルしても削除される
+
+### 5.10 エージェント管理画面テスト (7サブ機能)
+
+### TEST-DSH-091: エージェント画面 — 7タブ切替
+- **Category**: dashboard / playwright
+- **Priority**: P0
+- **Prerequisites**: ダッシュボード起動済み、各テーブルにシードデータあり
+- **Steps**:
+  1. `await page.goto('/agents')`
+  2. 以下の7タブが存在することを確認し、各タブをクリックして内容が切り替わることを確認:
+     ```
+     const tabs = ['思考ログ', '対話', '進化', 'プロンプト管理', '改善提案', '個別成長', '受信トレイ'];
+     for (const tab of tabs) {
+       await page.getByRole('tab', { name: new RegExp(tab) }).click();
+       await expect(page.getByRole('tabpanel')).toBeVisible();
+     }
+     ```
+- **Expected Result**: 7タブ全てが表示され、クリックで内容が切り替わる
+- **Pass Criteria**: 7タブ存在 AND 各タブクリック後にtabpanelが表示
+- **Fail Indicators**: タブが欠如、内容が切り替わらない
+
+### TEST-DSH-092: 思考ログビューア — エージェント別フィルタ
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: agent_thought_logs に strategist, researcher, analyst のデータあり
+- **Steps**:
+  1. `await page.goto('/agents')`
+  2. `await page.getByRole('tab', { name: /思考ログ/ }).click()`
+  3. `await page.getByLabel(/エージェント/).selectOption('analyst')`
+  4. ログ一覧が analyst のみであることを確認:
+     `const agents = await page.locator('[data-agent-type]').allTextContents()`
+  5. Assert all agents contain 'analyst'
+- **Expected Result**: analyst でフィルタ時、analyst のログのみ表示
+- **Pass Criteria**: 全件の agent_type = 'analyst'
+- **Fail Indicators**: 他エージェントのログが混入
+
+### TEST-DSH-093: 思考ログビューア — サイクル別フィルタ
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: agent_thought_logs に複数サイクルのデータあり
+- **Steps**:
+  1. `await page.goto('/agents')`
+  2. `await page.getByRole('tab', { name: /思考ログ/ }).click()`
+  3. `await page.getByLabel(/サイクル/).selectOption('Cycle #127')`
+  4. 全ログの cycle_id が 127 であることを確認
+- **Expected Result**: 指定サイクルのログのみ表示
+- **Pass Criteria**: 全件の cycle_id = 127
+- **Fail Indicators**: 他サイクルのログが混入
+
+### TEST-DSH-094: 思考ログビューア — 日付範囲フィルタ
+- **Category**: dashboard / playwright
+- **Priority**: P2
+- **Prerequisites**: agent_thought_logs に複数日付のデータあり
+- **Steps**:
+  1. `await page.goto('/agents')`
+  2. `await page.getByRole('tab', { name: /思考ログ/ }).click()`
+  3. `await page.getByLabel(/開始日|from/i).fill('2026-03-01')`
+  4. `await page.getByLabel(/終了日|to/i).fill('2026-03-07')`
+  5. 全ログの日付が 2026-03-01 〜 2026-03-07 の範囲内であることを確認
+- **Expected Result**: 指定日付範囲のログのみ表示
+- **Pass Criteria**: 全件の created_at が指定範囲内
+- **Fail Indicators**: 範囲外のログが混入
+
+### TEST-DSH-095: 思考ログビューア — ステップ詳細展開
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: agent_thought_logs にデータあり
+- **Steps**:
+  1. `await page.goto('/agents')`
+  2. `await page.getByRole('tab', { name: /思考ログ/ }).click()`
+  3. ログエントリをクリックして展開:
+     `await page.locator('[data-log-entry]').first().click()`
+  4. 展開後に以下が表示されることを確認:
+     - `await expect(page.getByText(/読み取りデータ|input_data/i)).toBeVisible()`
+     - `await expect(page.getByText(/考慮事項|reasoning/i)).toBeVisible()`
+     - `await expect(page.getByText(/判断|output/i)).toBeVisible()`
+  5. MCPツール呼び出し詳細が表示されることを確認
+- **Expected Result**: ログエントリ展開で入力データ・考慮事項・判断・MCP呼び出し詳細が表示
+- **Pass Criteria**: 4セクション全て表示
+- **Fail Indicators**: 展開しない、セクションが欠如
+
+### TEST-DSH-096: 人間↔エージェント対話 — エージェント選択
+- **Category**: dashboard / playwright
+- **Priority**: P0
+- **Prerequisites**: agent_communications にデータあり
+- **Steps**:
+  1. `await page.goto('/agents')`
+  2. `await page.getByRole('tab', { name: /対話/ }).click()`
+  3. 左サイドに6エージェント (戦略Agent, リサーチャー, アナリスト, プランナー, ツールSP, キュレーター) + 全体通知が表示されることを確認
+  4. `await page.getByText('アナリスト').click()`
+  5. 右側にアナリストとの対話履歴が表示されることを確認
+- **Expected Result**: エージェント選択で対話履歴が切り替わる
+- **Pass Criteria**: 6エージェント + 全体通知のリスト AND 選択時に対話履歴表示
+- **Fail Indicators**: エージェントリストが表示されない
+
+### TEST-DSH-097: 人間↔エージェント対話 — メッセージ送信
+- **Category**: dashboard / playwright
+- **Priority**: P0
+- **Prerequisites**: ダッシュボード起動済み
+- **Steps**:
+  1. `await page.goto('/agents')`
+  2. `await page.getByRole('tab', { name: /対話/ }).click()`
+  3. `await page.getByText('アナリスト').click()`
+  4. `await page.getByPlaceholder(/指示を入力|メッセージ/i).fill('エンゲージメント率を重視せよ')`
+  5. `await page.getByLabel(/優先度|priority/i).selectOption('high')`
+  6. `await page.getByRole('button', { name: /送信|Send/i }).click()`
+  7. `await expect(page.getByText('エンゲージメント率を重視せよ')).toBeVisible()`
+  8. `await expect(page.getByText(/pending/i)).toBeVisible()` (ステータス)
+- **Expected Result**: メッセージが送信され、対話履歴に表示
+- **Pass Criteria**: メッセージが対話ウィンドウに表示 AND ステータス = pending
+- **Fail Indicators**: メッセージが送信されない、表示されない
+
+### TEST-DSH-098: 人間↔エージェント対話 — ステータス表示
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: human_directives に status='applied' と status='pending' の行あり
+- **Steps**:
+  1. `await page.goto('/agents')`
+  2. `await page.getByRole('tab', { name: /対話/ }).click()`
+  3. `await page.getByText('アナリスト').click()`
+  4. applied 状態のメッセージに「適用済み」バッジがあることを確認:
+     `await expect(page.locator('[data-status="applied"]')).toBeVisible()`
+  5. pending 状態のメッセージに「保留中」バッジがあることを確認:
+     `await expect(page.locator('[data-status="pending"]')).toBeVisible()`
+- **Expected Result**: 各メッセージのステータス (pending/applied) が視覚的に区別される
+- **Pass Criteria**: ステータスバッジが正しく表示
+- **Fail Indicators**: ステータスが表示されない
+
+### TEST-DSH-099: エージェント進化 — self_score 推移チャート
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: agent_reflections に複数サイクルのデータあり
+- **Steps**:
+  1. `await page.goto('/agents')`
+  2. `await page.getByRole('tab', { name: /進化/ }).click()`
+  3. `await expect(page.locator('.recharts-wrapper, canvas, svg.chart')).toBeVisible()`
+  4. チャートに少なくとも1つのデータポイントが描画されていることを確認:
+     `await expect(page.locator('.recharts-dot, .recharts-line')).toHaveCount({ min: 1 })`
+- **Expected Result**: self_score 推移チャートが描画される
+- **Pass Criteria**: チャート要素が visible AND データポイントが存在
+- **Fail Indicators**: チャートが描画されない
+
+### TEST-DSH-100: エージェント進化 — 学習停滞アラート
+- **Category**: dashboard / playwright
+- **Priority**: P2
+- **Prerequisites**: agent_reflections に self_score が3サイクル連続低下しているデータあり
+- **Steps**:
+  1. `await page.goto('/agents')`
+  2. `await page.getByRole('tab', { name: /進化/ }).click()`
+  3. `await expect(page.getByText(/停滞|stagnation|低下傾向/i)).toBeVisible()`
+- **Expected Result**: 学習停滞時にアラートが表示される
+- **Pass Criteria**: 停滞アラートメッセージが表示
+- **Fail Indicators**: 停滞検知されない
+
+### TEST-DSH-101: プロンプト管理 — バージョン一覧表示
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: agent_prompt_versions に複数バージョンあり
+- **Steps**:
+  1. `await page.goto('/agents')`
+  2. `await page.getByRole('tab', { name: /プロンプト管理/ }).click()`
+  3. エージェントタイプを選択: `await page.getByLabel(/エージェント/).selectOption('strategist')`
+  4. バージョン一覧が表示されることを確認:
+     `await expect(page.locator('[data-version]')).toHaveCount({ min: 1 })`
+  5. アクティブバージョンがハイライトされていることを確認:
+     `await expect(page.locator('[data-version][data-active="true"]')).toBeVisible()`
+- **Expected Result**: エージェントごとのプロンプトバージョン一覧表示
+- **Pass Criteria**: バージョン一覧表示 AND アクティブバージョンがハイライト
+- **Fail Indicators**: 一覧が空、アクティブ表示なし
+
+### TEST-DSH-102: プロンプト管理 — プロンプト編集・保存
+- **Category**: dashboard / playwright
+- **Priority**: P0
+- **Prerequisites**: agent_prompt_versions にデータあり
+- **Steps**:
+  1. `await page.goto('/agents')`
+  2. `await page.getByRole('tab', { name: /プロンプト管理/ }).click()`
+  3. 「新しいバージョンを作成」ボタンをクリック
+  4. マークダウンエディタにプロンプトを入力:
+     `await page.locator('[data-editor], textarea').fill('# Updated Prompt\n\nNew instructions here.')`
+  5. 変更理由を入力: `await page.getByLabel(/変更理由|reason/i).fill('エンゲージメント重視の指示追加')`
+  6. `await page.getByRole('button', { name: /保存|Save/i }).click()`
+  7. `await expect(page.getByText(/保存しました|Saved/i)).toBeVisible()`
+- **Expected Result**: 新バージョンのプロンプトが保存される
+- **Pass Criteria**: 保存成功 AND バージョン一覧に新バージョンが追加
+- **Fail Indicators**: 保存失敗、バージョンが追加されない
+
+### TEST-DSH-103: プロンプト管理 — バージョン差分表示
+- **Category**: dashboard / playwright
+- **Priority**: P2
+- **Prerequisites**: agent_prompt_versions に2バージョン以上あり
+- **Steps**:
+  1. `await page.goto('/agents')`
+  2. `await page.getByRole('tab', { name: /プロンプト管理/ }).click()`
+  3. 古いバージョンをクリックして差分表示:
+     `await page.locator('[data-version]').nth(1).click()`
+  4. `await page.getByRole('button', { name: /差分|diff/i }).click()`
+  5. 追加行 (green) と削除行 (red) が表示されることを確認:
+     `await expect(page.locator('.diff-added, [data-diff="added"]')).toBeVisible()`
+- **Expected Result**: バージョン間の差分がハイライト表示される
+- **Pass Criteria**: 追加/削除のハイライトが表示
+- **Fail Indicators**: 差分が表示されない
+
+### TEST-DSH-104: プロンプト管理 — ロールバック操作
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: agent_prompt_versions に2バージョン以上あり
+- **Steps**:
+  1. `await page.goto('/agents')`
+  2. `await page.getByRole('tab', { name: /プロンプト管理/ }).click()`
+  3. 非アクティブバージョンの「ロールバック」ボタンをクリック:
+     `await page.locator('[data-version][data-active="false"]').first().getByRole('button', { name: /ロールバック|rollback/i }).click()`
+  4. 確認ダイアログが表示: `await expect(page.getByRole('alertdialog')).toBeVisible()`
+  5. 「確認」をクリック
+  6. ロールバック先のバージョンがアクティブに変わることを確認
+- **Expected Result**: ロールバックで指定バージョンがアクティブ化
+- **Pass Criteria**: アクティブバージョンが変更
+- **Fail Indicators**: ロールバック失敗、アクティブが変わらない
+
+### TEST-DSH-105: 改善提案パネル — 提案一覧・承認/却下
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: prompt_suggestions に status='pending' のデータあり
+- **Steps**:
+  1. `await page.goto('/agents')`
+  2. `await page.getByRole('tab', { name: /改善提案/ }).click()`
+  3. pending の提案一覧が表示されることを確認
+  4. 提案の「承認」ボタンをクリック:
+     `await page.locator('[data-suggestion]').first().getByRole('button', { name: /承認|accept/i }).click()`
+  5. `await expect(page.getByText(/承認しました|Accepted/i)).toBeVisible()`
+  6. 別の提案の「却下」ボタンをクリック:
+     `await page.locator('[data-suggestion]').first().getByRole('button', { name: /却下|reject/i }).click()`
+  7. `await expect(page.getByText(/却下しました|Rejected/i)).toBeVisible()`
+- **Expected Result**: 提案の承認/却下が正常に動作
+- **Pass Criteria**: ステータスが accepted/rejected に更新
+- **Fail Indicators**: 操作が失敗
+
+### TEST-DSH-106: 改善提案パネル — プロンプト編集画面への遷移
+- **Category**: dashboard / playwright
+- **Priority**: P2
+- **Prerequisites**: prompt_suggestions に status='accepted' のデータあり
+- **Steps**:
+  1. `await page.goto('/agents')`
+  2. `await page.getByRole('tab', { name: /改善提案/ }).click()`
+  3. accepted の提案の「プロンプト編集で適用」リンクをクリック
+  4. プロンプト管理タブに切り替わることを確認:
+     `await expect(page.getByRole('tab', { name: /プロンプト管理/ })).toHaveAttribute('aria-selected', 'true')`
+- **Expected Result**: 改善提案からプロンプト管理タブに遷移
+- **Pass Criteria**: プロンプト管理タブがアクティブ化
+- **Fail Indicators**: 遷移しない
+
+### TEST-DSH-107: 個別成長トラッキング — パフォーマンスカード
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: agent_individual_learnings + agent_reflections にデータあり
+- **Steps**:
+  1. `await page.goto('/agents')`
+  2. `await page.getByRole('tab', { name: /個別成長/ }).click()`
+  3. 各エージェントのパフォーマンスカードが表示されることを確認:
+     `await expect(page.locator('[data-agent-card]')).toHaveCount({ min: 4 })`
+  4. カードに以下の3指標が表示されることを確認:
+     - self_score: `await expect(page.locator('[data-agent-card]').first().getByText(/スコア|score/i)).toBeVisible()`
+     - 学習数: `await expect(page.locator('[data-agent-card]').first().getByText(/学習|learning/i)).toBeVisible()`
+     - 振り返り: `await expect(page.locator('[data-agent-card]').first().getByText(/振り返り|reflection/i)).toBeVisible()`
+- **Expected Result**: エージェント別のパフォーマンスカードに3指標表示
+- **Pass Criteria**: 4エージェント以上のカード AND 各カードに3指標
+- **Fail Indicators**: カードが表示されない、指標が欠如
+
+### TEST-DSH-108: 個別成長トラッキング — エージェント比較ビュー
+- **Category**: dashboard / playwright
+- **Priority**: P2
+- **Prerequisites**: agent_individual_learnings にデータあり
+- **Steps**:
+  1. `await page.goto('/agents')`
+  2. `await page.getByRole('tab', { name: /個別成長/ }).click()`
+  3. 比較ビューに切替: `await page.getByRole('button', { name: /比較|compare/i }).click()`
+  4. エージェント間のランキングまたは推移グラフが表示されることを確認
+- **Expected Result**: エージェント間の成長比較が視覚化される
+- **Pass Criteria**: 比較チャートまたはランキングが表示
+- **Fail Indicators**: 比較ビューが表示されない
+
+### TEST-DSH-109: 受信トレイ — メッセージ一覧・未読バッジ
+- **Category**: dashboard / playwright
+- **Priority**: P0
+- **Prerequisites**: agent_communications に status='unread' の行3件あり
+- **Steps**:
+  1. `await page.goto('/agents')`
+  2. `await page.getByRole('tab', { name: /受信トレイ/ }).click()`
+  3. メッセージ一覧が表示されることを確認:
+     `await expect(page.locator('[data-message]')).toHaveCount({ min: 3 })`
+  4. 未読バッジが表示されることを確認:
+     `await expect(page.locator('.badge, [data-unread]')).toContainText('3')`
+- **Expected Result**: 未読メッセージ数のバッジ付きで一覧表示
+- **Pass Criteria**: メッセージ一覧 AND 未読バッジ = 3
+- **Fail Indicators**: メッセージが表示されない、バッジが不正
+
+### TEST-DSH-110: 受信トレイ — メッセージ返信
+- **Category**: dashboard / playwright
+- **Priority**: P0
+- **Prerequisites**: agent_communications に status='unread' の行あり
+- **Steps**:
+  1. `await page.goto('/agents')`
+  2. `await page.getByRole('tab', { name: /受信トレイ/ }).click()`
+  3. 最初のメッセージをクリック
+  4. `await page.getByPlaceholder(/返信|reply/i).fill('了解。次サイクルから適用して。')`
+  5. `await page.getByRole('button', { name: /返信|Reply/i }).click()`
+  6. `await expect(page.getByText(/返信しました|Replied/i)).toBeVisible()`
+  7. メッセージのステータスが 'responded' に変わることを確認
+- **Expected Result**: メッセージへの返信が保存され、ステータスが responded に更新
+- **Pass Criteria**: 返信保存 AND ステータス = responded
+- **Fail Indicators**: 返信が失敗
+
+### TEST-DSH-111: 受信トレイ — ステータスフィルタ
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: agent_communications に各ステータスのデータあり
+- **Steps**:
+  1. `await page.goto('/agents')`
+  2. `await page.getByRole('tab', { name: /受信トレイ/ }).click()`
+  3. `await page.getByLabel(/ステータス|status/i).selectOption('unread')`
+  4. 全件が unread であることを確認
+  5. `await page.getByLabel(/ステータス|status/i).selectOption('responded')`
+  6. 全件が responded であることを確認
+- **Expected Result**: ステータスフィルタで絞り込み可能
+- **Pass Criteria**: フィルタ適用で正しく絞り込み
+- **Fail Indicators**: フィルタが効かない
+
+### 5.11 キャラクター管理画面テスト
+
+### TEST-DSH-112: キャラクター一覧 — status フィルタ
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: characters に draft/active/archived のデータあり
+- **Steps**:
+  1. `await page.goto('/characters')`
+  2. `await page.getByLabel(/ステータス|status/i).selectOption('active')`
+  3. 全件が active であることを確認:
+     `const statuses = await page.locator('tbody tr [data-status]').allTextContents()`
+  4. Assert all statuses === 'active'
+- **Expected Result**: ステータスフィルタで絞り込み可能
+- **Pass Criteria**: 全件のステータスが指定値
+- **Fail Indicators**: フィルタが効かない
+
+### TEST-DSH-113: キャラクター詳細表示
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: characters にCHR_0001あり
+- **Steps**:
+  1. `await page.goto('/characters')`
+  2. CHR_0001 の行をクリック
+  3. 詳細ページに以下が表示されることを確認:
+     - `await expect(page.getByText('CHR_0001')).toBeVisible()`
+     - `await expect(page.getByText(/名前|name/i)).toBeVisible()`
+     - `await expect(page.getByText(/ニッチ|niche/i)).toBeVisible()`
+     - `await expect(page.getByText(/パーソナリティ|personality/i)).toBeVisible()`
+     - 画像プレビューが表示: `await expect(page.locator('img[alt*="character"], img[alt*="キャラクター"]')).toBeVisible()`
+- **Expected Result**: キャラクターの全情報 + 画像が詳細ページに表示
+- **Pass Criteria**: 5項目全て表示
+- **Fail Indicators**: いずれかの項目が欠如
+
+### TEST-DSH-114: キャラクター レビュー — 承認フロー
+- **Category**: dashboard / playwright
+- **Priority**: P0
+- **Prerequisites**: characters に review_status='pending_review' (自動生成キャラクター) のデータあり
+- **Steps**:
+  1. `await page.goto('/characters')`
+  2. `await page.getByLabel(/ステータス|status/i).selectOption('pending_review')`
+  3. 最初のキャラクターをクリック
+  4. `await page.getByRole('button', { name: /承認|approve/i }).click()`
+  5. `await expect(page.getByText(/承認しました|Approved/i)).toBeVisible()`
+  6. 一覧に戻り、承認したキャラクターの review_status が 'human_approved' であることを確認
+- **Expected Result**: 自動生成キャラクターを承認 → human_approved に遷移
+- **Pass Criteria**: review_status = 'human_approved'
+- **Fail Indicators**: ステータスが変更されない
+
+### TEST-DSH-115: キャラクター レビュー — 却下フロー
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: characters に review_status='pending_review' のデータあり
+- **Steps**:
+  1. `await page.goto('/characters')`
+  2. pending_review のキャラクターをクリック
+  3. `await page.getByPlaceholder(/理由|reason/i).fill('パーソナリティが不適切')`
+  4. `await page.getByRole('button', { name: /却下|reject/i }).click()`
+  5. `await expect(page.getByText(/却下しました|Rejected/i)).toBeVisible()`
+- **Expected Result**: キャラクターを理由付きで却下
+- **Pass Criteria**: 却下成功 AND フィードバックが保存
+- **Fail Indicators**: 却下が失敗
+
+### TEST-DSH-116: キャラクター手動作成フォーム
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: ダッシュボード起動済み
+- **Steps**:
+  1. `await page.goto('/characters')`
+  2. `await page.getByRole('button', { name: /新規作成|手動作成|Add/i }).click()`
+  3. `await page.getByLabel(/名前|name/i).fill('テストキャラ')`
+  4. `await page.getByLabel(/ニッチ|niche/i).fill('beauty')`
+  5. `await page.getByLabel(/パーソナリティ|personality/i).fill('明るく元気')`
+  6. `await page.getByLabel(/ターゲット|target/i).fill('20代女性')`
+  7. `await page.getByRole('button', { name: /作成|Save/i }).click()`
+  8. `await expect(page.getByText(/作成しました|Created/i)).toBeVisible()`
+- **Expected Result**: キャラクターが手動で作成される
+- **Pass Criteria**: 作成成功 AND 一覧に新キャラクターが出現
+- **Fail Indicators**: 作成失敗
+
+### TEST-DSH-117: キャラクター画像プレビュー
+- **Category**: dashboard / playwright
+- **Priority**: P2
+- **Prerequisites**: characters に image_drive_id 付きのデータあり
+- **Steps**:
+  1. `await page.goto('/characters')`
+  2. キャラクターの行にサムネイル画像が表示されることを確認:
+     `await expect(page.locator('tbody tr img').first()).toBeVisible()`
+  3. 画像をクリックして拡大プレビューが表示されることを確認:
+     `await page.locator('tbody tr img').first().click()`
+     `await expect(page.locator('[data-lightbox], [role="dialog"] img')).toBeVisible()`
+- **Expected Result**: サムネイル表示 AND クリックで拡大プレビュー
+- **Pass Criteria**: サムネイル AND 拡大画像が表示
+- **Fail Indicators**: 画像が表示されない
+
+### 5.12 未カバー画面テスト
+
+### TEST-DSH-118: 制作キュー画面 — task_queue一覧
+- **Category**: dashboard / playwright
+- **Priority**: P0
+- **Prerequisites**: task_queue にデータあり
+- **Steps**:
+  1. `await page.goto('/production')`
+  2. テーブルが表示されることを確認:
+     `await expect(page.locator('table, [data-table]')).toBeVisible()`
+  3. 各行に task_id, type, status, priority, created_at が表示されることを確認
+  4. `await expect(page.locator('tbody tr')).toHaveCount({ min: 1 })`
+- **Expected Result**: task_queue の一覧がテーブル表示
+- **Pass Criteria**: テーブル表示 AND 必要カラムが全て存在
+- **Fail Indicators**: テーブルが表示されない
+
+### TEST-DSH-119: 制作キュー画面 — ステータス別フィルター
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: task_queue に queued, processing, completed のデータあり
+- **Steps**:
+  1. `await page.goto('/production')`
+  2. `await page.getByLabel(/ステータス|status/i).selectOption('processing')`
+  3. 全件が processing であることを確認
+  4. `await page.getByLabel(/ステータス|status/i).selectOption('queued')`
+  5. 全件が queued であることを確認
+- **Expected Result**: ステータスフィルターが動作
+- **Pass Criteria**: フィルタ適用で正しく絞り込み
+- **Fail Indicators**: フィルタが効かない
+
+### TEST-DSH-120: 制作キュー画面 — 優先度変更
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: task_queue に queued ステータスの行あり
+- **Steps**:
+  1. `await page.goto('/production')`
+  2. queued タスクの優先度ドロップダウンを変更:
+     `await page.locator('tbody tr').first().getByLabel(/優先度|priority/i).selectOption('high')`
+  3. `await expect(page.getByText(/更新しました|Updated/i)).toBeVisible()`
+- **Expected Result**: タスクの優先度が変更される
+- **Pass Criteria**: 優先度が更新 AND 成功メッセージ表示
+- **Fail Indicators**: 優先度が変更されない
+
+### TEST-DSH-121: コンテンツ一覧画面 — 全content検索
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: content にデータあり
+- **Steps**:
+  1. `await page.goto('/content')`
+  2. `await page.getByPlaceholder(/検索|search/i).fill('beauty')`
+  3. `await page.keyboard.press('Enter')`
+  4. 表示結果に 'beauty' が含まれることを確認
+- **Expected Result**: キーワード検索で絞り込み可能
+- **Pass Criteria**: 検索結果が表示
+- **Fail Indicators**: 検索が動作しない
+
+### TEST-DSH-122: コンテンツ一覧画面 — ステータス別フィルター
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: content に各ステータスのデータあり
+- **Steps**:
+  1. `await page.goto('/content')`
+  2. `await page.getByLabel(/ステータス|status/i).selectOption('published')`
+  3. 全件が published であることを確認
+- **Expected Result**: ステータスフィルターが動作
+- **Pass Criteria**: フィルタ適用で正しく絞り込み
+- **Fail Indicators**: フィルタが効かない
+
+### TEST-DSH-123: 仮説ブラウザ画面 — 仮説一覧・カテゴリ別分析
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: hypotheses に各カテゴリ (timing, content_type, platform, audience) のデータあり
+- **Steps**:
+  1. `await page.goto('/hypotheses')`
+  2. テーブルが表示されることを確認
+  3. `await page.getByLabel(/カテゴリ|category/i).selectOption('timing')`
+  4. 全件が timing カテゴリであることを確認
+  5. 的中率推移チャートが表示されることを確認:
+     `await expect(page.locator('.recharts-wrapper, canvas, svg.chart')).toBeVisible()`
+- **Expected Result**: 仮説一覧 + カテゴリフィルタ + 的中率チャートが表示
+- **Pass Criteria**: テーブル AND フィルタ AND チャート全て表示
+- **Fail Indicators**: いずれかが欠如
+
+### TEST-DSH-124: 知見ブラウザ画面 — 信頼度フィルター
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: learnings に confidence 0.3〜0.9 のデータあり
+- **Steps**:
+  1. `await page.goto('/learnings')`
+  2. 信頼度スライダーまたは入力で min_confidence=0.7 を設定:
+     `await page.getByLabel(/最低信頼度|min.*confidence/i).fill('0.7')`
+  3. 全件の confidence >= 0.7 であることを確認
+- **Expected Result**: 信頼度フィルターで高信頼度の知見のみ表示
+- **Pass Criteria**: 全件 confidence >= 0.7
+- **Fail Indicators**: 低信頼度の知見が混入
+
+### TEST-DSH-125: 知見ブラウザ画面 — 類似知見検索
+- **Category**: dashboard / playwright
+- **Priority**: P2
+- **Prerequisites**: learnings にデータあり (pgvector embedding)
+- **Steps**:
+  1. `await page.goto('/learnings')`
+  2. `await page.getByPlaceholder(/類似検索|similar/i).fill('エンゲージメント率改善')`
+  3. `await page.getByRole('button', { name: /検索|Search/i }).click()`
+  4. 類似度スコア付きの結果が表示されることを確認:
+     `await expect(page.locator('[data-similarity]')).toHaveCount({ min: 1 })`
+- **Expected Result**: テキストベースの類似知見検索が動作
+- **Pass Criteria**: 類似度スコア付きの結果表示
+- **Fail Indicators**: 検索が動作しない
+
+### TEST-DSH-126: ツール管理画面 — tool_catalog一覧
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: tool_catalog にデータあり
+- **Steps**:
+  1. `await page.goto('/tools')`
+  2. ツール一覧テーブルが表示されることを確認:
+     `await expect(page.locator('table, [data-table]')).toBeVisible()`
+  3. 各行に tool_name, tool_type, version, performance_score が表示されることを確認
+- **Expected Result**: ツールカタログの一覧表示
+- **Pass Criteria**: テーブル AND 必要カラム全て表示
+- **Fail Indicators**: テーブルが空
+
+### TEST-DSH-127: ツール管理画面 — キュレーションレビューパネル
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: components に review_status='pending_review' のデータあり
+- **Steps**:
+  1. `await page.goto('/tools')`
+  2. キュレーションレビューセクションに移動:
+     `await page.getByRole('tab', { name: /キュレーション|curation/i }).click()`
+  3. pending_review のコンポーネント一覧が表示されることを確認
+  4. 各コンポーネントに種別・自信度が表示されることを確認:
+     `await expect(page.locator('[data-confidence]')).toHaveCount({ min: 1 })`
+  5. 承認ボタンをクリック:
+     `await page.locator('[data-component]').first().getByRole('button', { name: /承認|approve/i }).click()`
+  6. `await expect(page.getByText(/承認しました|Approved/i)).toBeVisible()`
+- **Expected Result**: キュレーション結果のレビュー + 承認が動作
+- **Pass Criteria**: コンポーネント一覧表示 AND 承認操作成功
+- **Fail Indicators**: パネルが表示されない、承認が失敗
+
+### TEST-DSH-128: コスト管理画面 — 日次/月次API支出
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: system_settings (cost_control) + task_queue にコストデータあり
+- **Steps**:
+  1. `await page.goto('/costs')`
+  2. 日次API支出が表示されることを確認:
+     `await expect(page.getByText(/日次|daily/i)).toBeVisible()`
+  3. 月次API支出が表示されることを確認:
+     `await expect(page.getByText(/月次|monthly/i)).toBeVisible()`
+  4. 予算消化率チャートが表示されることを確認:
+     `await expect(page.locator('.recharts-wrapper, [data-chart]')).toBeVisible()`
+- **Expected Result**: 日次/月次のAPI支出 + 予算消化率が表示
+- **Pass Criteria**: 3要素全て表示
+- **Fail Indicators**: いずれかが欠如
+
+### TEST-DSH-129: コスト管理画面 — 予算超過アラート
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: コスト消化率が COST_ALERT_THRESHOLD (80%) を超えている状態
+- **Steps**:
+  1. `await page.goto('/costs')`
+  2. `await expect(page.getByText(/予算超過|budget.*alert|警告/i)).toBeVisible()`
+  3. アラートが Warning 色 (#b58900) で表示されていることを確認:
+     `const alertColor = await page.locator('[data-alert]').evaluate(el => getComputedStyle(el).color)`
+- **Expected Result**: 予算超過時にアラートが表示される
+- **Pass Criteria**: アラートメッセージ表示 AND Warning 色
+- **Fail Indicators**: アラートが表示されない
+
+### TEST-DSH-130: 人間指示画面 — 履歴閲覧
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: human_directives に複数の指示あり
+- **Steps**:
+  1. `await page.goto('/directives')`
+  2. 指示履歴一覧が表示されることを確認:
+     `await expect(page.locator('[data-directive], tbody tr')).toHaveCount({ min: 2 })`
+  3. 各指示に対象エージェント・ステータス・作成日が表示されることを確認
+  4. 指示をクリックして詳細が展開されることを確認
+- **Expected Result**: 過去の指示履歴が閲覧可能
+- **Pass Criteria**: 履歴一覧表示 AND 詳細展開可能
+- **Fail Indicators**: 履歴が表示されない
+
+### 5.13 ローディング・エラー状態テスト
+
+### TEST-DSH-131: APIコール中のローディングインジケーター
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: ダッシュボード起動済み
+- **Steps**:
+  1. API応答を遅延させる:
+     `await page.route('**/api/accounts', route => new Promise(resolve => setTimeout(() => { route.fulfill({ status: 200, body: JSON.stringify({ accounts: [], total: 0 }) }); resolve(); }, 3000)))`
+  2. `await page.goto('/accounts')`
+  3. ローディングインジケーターが表示されることを確認:
+     `await expect(page.locator('[data-loading], .spinner, [role="progressbar"]')).toBeVisible()`
+  4. データ読み込み完了後にローディングが消えることを確認:
+     `await expect(page.locator('[data-loading], .spinner, [role="progressbar"]')).not.toBeVisible({ timeout: 5000 })`
+- **Expected Result**: API読み込み中にローディングが表示 → 完了後に消去
+- **Pass Criteria**: ローディング表示→消去の遷移
+- **Fail Indicators**: ローディングが表示されない、消えない
+
+### TEST-DSH-132: APIエラー時のエラーメッセージ表示
+- **Category**: dashboard / playwright
+- **Priority**: P0
+- **Prerequisites**: ダッシュボード起動済み
+- **Steps**:
+  1. API をエラーにモック:
+     `await page.route('**/api/kpi/summary', route => route.fulfill({ status: 500, body: JSON.stringify({ error: 'Database connection failed' }) }))`
+  2. `await page.goto('/kpi')`
+  3. `await expect(page.getByText(/エラー|error|失敗/i)).toBeVisible()`
+  4. エラーメッセージにリトライ可能な情報が含まれることを確認
+- **Expected Result**: APIエラー時にユーザーフレンドリーなエラーメッセージが表示
+- **Pass Criteria**: エラーメッセージ表示 AND 白画面にならない
+- **Fail Indicators**: 白画面、コンソールエラーのみ
+
+### TEST-DSH-133: ネットワークエラー時のリトライUI
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: ダッシュボード起動済み
+- **Steps**:
+  1. ネットワーク接続を模擬的に切断:
+     `await page.route('**/api/**', route => route.abort('connectionfailed'))`
+  2. `await page.goto('/accounts')`
+  3. エラー表示が出ることを確認:
+     `await expect(page.getByText(/接続.*エラー|network.*error|再試行/i)).toBeVisible()`
+  4. リトライボタンが表示されることを確認:
+     `await expect(page.getByRole('button', { name: /再試行|retry/i })).toBeVisible()`
+  5. ネットワークを復旧してリトライ:
+     `await page.unroute('**/api/**')`
+     `await page.getByRole('button', { name: /再試行|retry/i }).click()`
+  6. データが正常に表示されることを確認
+- **Expected Result**: ネットワークエラー時にリトライUIが表示、リトライで復旧可能
+- **Pass Criteria**: エラー表示 → リトライボタン → 復旧成功
+- **Fail Indicators**: リトライUIが表示されない
+
+### TEST-DSH-134: 空レスポンス時の empty state 表示
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: ダッシュボード起動済み
+- **Steps**:
+  1. 空データを返すモック:
+     `await page.route('**/api/content*', route => route.fulfill({ status: 200, body: JSON.stringify({ content: [], total: 0 }) }))`
+  2. `await page.goto('/content')`
+  3. `await expect(page.getByText(/データがありません|No data|0件|コンテンツがありません/i)).toBeVisible()`
+  4. 「新規作成」ボタンや説明テキストなどの CTA が表示されることを確認
+- **Expected Result**: データが空の場合に empty state が表示 (エラーではない)
+- **Pass Criteria**: empty state メッセージ + CTA 表示
+- **Fail Indicators**: 白画面、エラーメッセージ、または空テーブルのみ
+
+### 5.14 エッジケーステスト
+
+### TEST-DSH-135: 空データ状態でのダッシュボード全画面表示
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: DBが初期状態（system_settings のみ、他テーブル空）
+- **Steps**:
+  1. 全15画面に順にアクセスし、いずれもクラッシュしないことを確認:
+     ```
+     const urls = ['/', '/kpi', '/production', '/review', '/content', '/accounts', '/characters', '/agents', '/hypotheses', '/learnings', '/tools', '/errors', '/costs', '/settings', '/directives'];
+     for (const url of urls) {
+       await page.goto(url);
+       await expect(page.locator('main')).toBeVisible();
+       // コンソールエラーがないことを確認
+       const errors = [];
+       page.on('console', msg => { if (msg.type() === 'error') errors.push(msg.text()); });
+       expect(errors).toHaveLength(0);
+     }
+     ```
+- **Expected Result**: データが空でも全画面がクラッシュせずに表示
+- **Pass Criteria**: 15画面全て main 表示 AND コンソールエラーなし
+- **Fail Indicators**: いずれかの画面でクラッシュ/白画面
+
+### TEST-DSH-136: 大量データ (1000行+) テーブルパフォーマンス
+- **Category**: dashboard / playwright
+- **Priority**: P2
+- **Prerequisites**: content テーブルに1000件以上のデータ
+- **Steps**:
+  1. `const start = Date.now()`
+  2. `await page.goto('/content')`
+  3. `await page.locator('tbody tr').first().waitFor()`
+  4. `const loadTime = Date.now() - start`
+  5. Assert loadTime < 5000 (5秒以内)
+  6. ページネーションが正しく動作することを確認 (50ページ)
+  7. 次ページボタンクリックの応答時間 < 2000ms
+- **Expected Result**: 1000件以上でもページネーション表示が5秒以内に完了
+- **Pass Criteria**: 初期ロード < 5秒 AND ページ遷移 < 2秒
+- **Fail Indicators**: ロードに5秒以上かかる、フリーズ
+
+### TEST-DSH-137: 長文テキストの truncation / tooltip
+- **Category**: dashboard / playwright
+- **Priority**: P2
+- **Prerequisites**: content に title が200文字以上のデータあり
+- **Steps**:
+  1. `await page.goto('/content')`
+  2. 長文タイトルのセルが truncation されていることを確認:
+     `const cellWidth = await page.locator('td.title').first().evaluate(el => el.scrollWidth > el.clientWidth)`
+  3. Assert cellWidth === true (テキストがオーバーフロー)
+  4. セルにホバーして tooltip が表示されることを確認:
+     `await page.locator('td.title').first().hover()`
+     `await expect(page.locator('[role="tooltip"]')).toBeVisible()`
+  5. tooltip に全文が表示されることを確認
+- **Expected Result**: 長文は truncation + hover で tooltip 表示
+- **Pass Criteria**: truncation AND tooltip に全文表示
+- **Fail Indicators**: テキストがはみ出してレイアウト崩れ
+
+### TEST-DSH-138: 特殊文字 (日本語・絵文字・HTML entities) の表示
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: content に以下のデータあり: 日本語タイトル「美容の極意✨」、HTML entities「&amp; &lt; &gt;」、絵文字「🎬🔥」
+- **Steps**:
+  1. `await page.goto('/content')`
+  2. 日本語が正しく表示:
+     `await expect(page.getByText('美容の極意✨')).toBeVisible()`
+  3. HTML entities がエスケープされて正しく表示 (XSS防止):
+     `await expect(page.getByText('& < >')).toBeVisible()` (レンダリングされたテキスト)
+  4. 絵文字が正しく表示:
+     `await expect(page.getByText('🎬🔥')).toBeVisible()`
+- **Expected Result**: 日本語・絵文字・HTML entities が正しく表示 AND XSS防止
+- **Pass Criteria**: 3種類全て正しく表示 AND HTML がエスケープ
+- **Fail Indicators**: 文字化け、HTML が実行される (XSS)
+
+### TEST-DSH-139: 不正URLアクセス — 404ページ
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: ダッシュボード起動済み
+- **Steps**:
+  1. `await page.goto('/nonexistent-page')`
+  2. `await expect(page.getByText(/404|見つかりません|Not Found/i)).toBeVisible()`
+  3. ホームへのリンクが表示されることを確認:
+     `await expect(page.getByRole('link', { name: /ホーム|Home/i })).toBeVisible()`
+- **Expected Result**: 存在しないURLで404ページが表示
+- **Pass Criteria**: 404メッセージ + ホームリンク表示
+- **Fail Indicators**: 白画面、またはエラー画面
+
+### TEST-DSH-140: 同時操作 — 別タブで同じ設定を編集
+- **Category**: dashboard / playwright
+- **Priority**: P3
+- **Prerequisites**: ダッシュボード起動済み
+- **Steps**:
+  1. Tab1: `const page1 = await context.newPage()`
+  2. `await page1.goto('/settings')`
+  3. Tab2: `const page2 = await context.newPage()`
+  4. `await page2.goto('/settings')`
+  5. Tab1: MAX_RETRY_ATTEMPTS を 5 に変更して保存
+  6. Tab2: MAX_RETRY_ATTEMPTS を 7 に変更して保存
+  7. Tab1 をリロードして値を確認 → 7 が表示（後勝ち）
+- **Expected Result**: 後の保存が勝つ (last-write-wins)
+- **Pass Criteria**: 最終値が最後に保存された値と一致
+- **Fail Indicators**: エラー、データ不整合
+
+### 5.15 アクセシビリティテスト
+
+### TEST-DSH-141: Tab キーフォーカス移動
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: ダッシュボード起動済み (viewport: 1280px)
+- **Steps**:
+  1. `await page.goto('/settings')`
+  2. `await page.keyboard.press('Tab')`
+  3. 最初のフォーカス可能要素にフォーカスが当たることを確認:
+     `const focused = await page.evaluate(() => document.activeElement?.tagName)`
+  4. Assert focused is 'A' or 'BUTTON' or 'INPUT'
+  5. 連続 Tab でフォーカスが順序通りに移動することを確認
+  6. Shift+Tab で逆順に移動することを確認
+- **Expected Result**: Tab キーで論理的な順序でフォーカスが移動
+- **Pass Criteria**: フォーカスが移動 AND 順序が論理的
+- **Fail Indicators**: フォーカスが移動しない、フォーカスがトラップされる
+
+### TEST-DSH-142: Enter キーでボタン操作
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: ダッシュボード起動済み
+- **Steps**:
+  1. `await page.goto('/settings')`
+  2. 編集ボタンにフォーカス:
+     `await page.locator('tbody tr').first().getByRole('button', { name: /編集|edit/i }).focus()`
+  3. `await page.keyboard.press('Enter')`
+  4. モーダルが開くことを確認:
+     `await expect(page.getByRole('dialog')).toBeVisible()`
+- **Expected Result**: Enter キーでボタンが操作可能
+- **Pass Criteria**: Enter でボタンがアクティベート
+- **Fail Indicators**: Enter が無効
+
+### TEST-DSH-143: ARIA ラベル存在確認
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: ダッシュボード起動済み
+- **Steps**:
+  1. `await page.goto('/')`
+  2. サイドバーに aria-label or role="navigation" があることを確認:
+     `await expect(page.locator('nav, [role="navigation"]')).toBeVisible()`
+  3. メインコンテンツに role="main" or `<main>` タグがあることを確認:
+     `await expect(page.locator('main, [role="main"]')).toBeVisible()`
+  4. 全てのボタンに accessible name があることを確認:
+     ```
+     const buttons = await page.locator('button').all();
+     for (const btn of buttons) {
+       const name = await btn.getAttribute('aria-label') || await btn.textContent();
+       expect(name?.trim()).toBeTruthy();
+     }
+     ```
+  5. 全ての画像に alt テキストがあることを確認:
+     ```
+     const imgs = await page.locator('img').all();
+     for (const img of imgs) {
+       const alt = await img.getAttribute('alt');
+       expect(alt).toBeTruthy();
+     }
+     ```
+- **Expected Result**: 全インタラクティブ要素に accessible name、全画像に alt が設定
+- **Pass Criteria**: 全ボタンに name AND 全画像に alt
+- **Fail Indicators**: aria-label/alt が欠如
+
+### TEST-DSH-144: フォーカス可視性確認
+- **Category**: dashboard / playwright
+- **Priority**: P2
+- **Prerequisites**: ダッシュボード起動済み
+- **Steps**:
+  1. `await page.goto('/')`
+  2. Tab キーでボタンにフォーカス
+  3. フォーカスリングが視覚的に確認できることを確認:
+     ```
+     const outline = await page.evaluate(() => {
+       const el = document.activeElement;
+       const s = getComputedStyle(el);
+       return s.outlineStyle !== 'none' || s.boxShadow !== 'none';
+     });
+     expect(outline).toBe(true);
+     ```
+- **Expected Result**: フォーカス状態が視覚的に確認可能
+- **Pass Criteria**: outline または box-shadow でフォーカスリング表示
+- **Fail Indicators**: フォーカスリングが非表示
+
+### 5.16 ホーム画面コンポーネント詳細テスト (§6.14対応)
+
+### TEST-DSH-145: ホーム — KPISummaryCards 4枚表示
+- **Category**: dashboard / playwright
+- **Priority**: P0
+- **Prerequisites**: metrics, accounts にデータあり
+- **Steps**:
+  1. `await page.goto('/')`
+  2. 4枚のサマリカードが表示されることを確認:
+     `await expect(page.locator('[data-card="kpi-summary"], .kpi-card')).toHaveCount(4)`
+  3. 各カードに値が表示されていることを確認 (「-」や「N/A」ではない):
+     - 総アカウント数: `await expect(page.getByText(/総アカウント|Total Accounts/i).locator('..')).not.toContainText('-')`
+     - アクティブ率
+     - 平均品質スコア
+     - 日次予算消化率
+- **Expected Result**: 4枚のKPIサマリカードに実データが表示
+- **Pass Criteria**: 4枚全て表示 AND 値が数値
+- **Fail Indicators**: カードが欠如、値が表示されない
+
+### TEST-DSH-146: ホーム — EngagementTrendChart 30日チャート
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: metrics に過去30日分のデータあり
+- **Steps**:
+  1. `await page.goto('/')`
+  2. エンゲージメント推移チャート (Recharts AreaChart) が表示:
+     `await expect(page.locator('.recharts-area, .recharts-wrapper').first()).toBeVisible()`
+  3. X軸に日付ラベルが表示されていることを確認
+- **Expected Result**: 過去30日間のエンゲージメント推移が AreaChart で表示
+- **Pass Criteria**: チャート描画 AND 日付ラベル表示
+- **Fail Indicators**: チャートが描画されない
+
+### TEST-DSH-147: ホーム — RecentContentTable 最新20件
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: content に20件以上のデータあり
+- **Steps**:
+  1. `await page.goto('/')`
+  2. テーブルが表示されることを確認:
+     `await expect(page.locator('table').last()).toBeVisible()`
+  3. 表示件数が20件以下であることを確認:
+     `const rows = await page.locator('table').last().locator('tbody tr').count()`
+  4. Assert rows <= 20
+  5. 各行に status badge + quality score が表示されていることを確認
+- **Expected Result**: 最新20件のコンテンツが status badge + quality score 付きで表示
+- **Pass Criteria**: 20件以下 AND status badge + quality score 表示
+- **Fail Indicators**: テーブルが表示されない、件数超過
+
+### TEST-DSH-148: ホーム — PlatformBreakdownPie チャート
+- **Category**: dashboard / playwright
+- **Priority**: P2
+- **Prerequisites**: content に複数プラットフォームのデータあり
+- **Steps**:
+  1. `await page.goto('/')`
+  2. PieChart が表示:
+     `await expect(page.locator('.recharts-pie, .recharts-sector')).toBeVisible()`
+  3. 凡例に4プラットフォーム (YouTube, TikTok, Instagram, X) が表示:
+     `await expect(page.getByText('YouTube')).toBeVisible()`
+     `await expect(page.getByText('TikTok')).toBeVisible()`
+- **Expected Result**: 4プラットフォーム別のコンテンツ分布が PieChart で表示
+- **Pass Criteria**: PieChart 描画 AND プラットフォーム凡例表示
+- **Fail Indicators**: チャートが描画されない
+
+### 5.17 コンテンツレビュー画面コンポーネント詳細テスト (§6.14対応)
+
+### TEST-DSH-149: レビュー — ReviewQueue 一覧表示
+- **Category**: dashboard / playwright
+- **Priority**: P0
+- **Prerequisites**: content に review_status='pending_review' + 'pending_approval' のデータあり
+- **Steps**:
+  1. `await page.goto('/review')`
+  2. レビュー待ちアイテム一覧が表示:
+     `await expect(page.locator('[data-review-item]')).toHaveCount({ min: 1 })`
+  3. 優先度・作成日でソートされていることを確認
+- **Expected Result**: pending_review/pending_approval のアイテムが優先度順に表示
+- **Pass Criteria**: アイテム一覧表示
+- **Fail Indicators**: 一覧が空
+
+### TEST-DSH-150: レビュー — ContentPreview (動画)
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: content に content_format='short_video' のレビュー待ちデータあり
+- **Steps**:
+  1. `await page.goto('/review')`
+  2. 動画コンテンツのアイテムをクリック
+  3. 動画プレイヤーが表示されることを確認:
+     `await expect(page.locator('video')).toBeVisible()`
+  4. 再生ボタンが存在することを確認
+- **Expected Result**: 動画コンテンツのプレビューが表示
+- **Pass Criteria**: video 要素が visible
+- **Fail Indicators**: プレイヤーが表示されない
+
+### TEST-DSH-151: レビュー — QualityScoreDisplay レーダーチャート
+- **Category**: dashboard / playwright
+- **Priority**: P2
+- **Prerequisites**: content に quality_scores 付きのデータあり
+- **Steps**:
+  1. `await page.goto('/review')`
+  2. レビューアイテムをクリック
+  3. レーダーチャートが表示:
+     `await expect(page.locator('.recharts-radar, .recharts-polar-grid')).toBeVisible()`
+  4. 5メトリクス (originality, engagement_potential, brand_alignment, technical_quality, platform_fit) のラベルが表示
+- **Expected Result**: 5メトリクスのレーダーチャートが表示
+- **Pass Criteria**: レーダーチャート AND 5ラベル表示
+- **Fail Indicators**: チャートが表示されない
+
+### TEST-DSH-152: レビュー — RevisionHistory アコーディオン
+- **Category**: dashboard / playwright
+- **Priority**: P2
+- **Prerequisites**: content に複数バージョンのデータあり
+- **Steps**:
+  1. `await page.goto('/review')`
+  2. レビューアイテムをクリック
+  3. 「改訂履歴」セクションをクリック:
+     `await page.getByRole('button', { name: /改訂履歴|revision/i }).click()`
+  4. アコーディオンが展開されて過去バージョンが表示:
+     `await expect(page.locator('[data-revision]')).toHaveCount({ min: 1 })`
+- **Expected Result**: アコーディオン形式で過去バージョンの改訂履歴が表示
+- **Pass Criteria**: アコーディオン展開 AND 改訂データ表示
+- **Fail Indicators**: アコーディオンが展開しない
+
+### 5.18 設定画面コンポーネント詳細テスト (§6.14対応)
+
+### TEST-DSH-153: 設定 — SettingsCategoryTabs 8カテゴリ (Playwright版)
+- **Category**: dashboard / playwright
+- **Priority**: P0
+- **Prerequisites**: system_settings に8カテゴリのデータあり
+- **Steps**:
+  1. `await page.goto('/settings')`
+  2. 8カテゴリのタブが表示されることを確認:
+     ```
+     const categories = ['production', 'posting', 'review', 'agent', 'measurement', 'cost_control', 'dashboard', 'credentials'];
+     for (const cat of categories) {
+       await expect(page.getByRole('tab', { name: new RegExp(cat, 'i') })).toBeVisible();
+     }
+     ```
+  3. 各タブをクリックして内容が切り替わることを確認
+- **Expected Result**: 8カテゴリタブが全て表示、切替が動作
+- **Pass Criteria**: 8タブ存在 AND 切替動作
+- **Fail Indicators**: タブが欠如
+
+### TEST-DSH-154: 設定 — EditSettingModal 型別入力UI
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: system_settings に integer, string, boolean, json 型のデータあり
+- **Steps**:
+  1. `await page.goto('/settings')`
+  2. integer 型の設定を編集 → NumberInput が表示されることを確認:
+     `await expect(page.getByRole('dialog').locator('input[type="number"]')).toBeVisible()`
+  3. boolean 型の設定を編集 → Switch が表示されることを確認:
+     `await expect(page.getByRole('dialog').getByRole('switch')).toBeVisible()`
+  4. json 型の設定を編集 → Monaco Editor またはテキストエリアが表示されることを確認:
+     `await expect(page.getByRole('dialog').locator('[data-editor], textarea')).toBeVisible()`
+- **Expected Result**: 設定値の型に応じた適切な入力UIが表示
+- **Pass Criteria**: integer→NumberInput, boolean→Switch, json→Editor
+- **Fail Indicators**: 全て同じテキスト入力
+
+### 5.19 エラーログ画面コンポーネント詳細テスト (§6.14対応)
+
+### TEST-DSH-155: エラーログ — ErrorFilterBar
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: task_queue にエラーデータあり
+- **Steps**:
+  1. `await page.goto('/errors')`
+  2. フィルターバーが表示:
+     `await expect(page.locator('[data-filter-bar]')).toBeVisible()`
+  3. ステータスフィルタ (retrying/failed_permanent) が使用可能:
+     `await page.getByLabel(/ステータス|status/i).selectOption('retrying')`
+  4. 日付範囲フィルタが使用可能:
+     `await page.getByLabel(/開始日|from/i).fill('2026-03-01')`
+  5. エージェントタイプフィルタが使用可能:
+     `await page.getByLabel(/エージェント|agent/i).selectOption('video_worker')`
+- **Expected Result**: 3種類のフィルタ (ステータス/日付/エージェント) が使用可能
+- **Pass Criteria**: 3フィルタ全て操作可能
+- **Fail Indicators**: フィルタが表示されない
+
+### TEST-DSH-156: エラーログ — ErrorDetailDrawer
+- **Category**: dashboard / playwright
+- **Priority**: P1
+- **Prerequisites**: task_queue にエラーデータあり
+- **Steps**:
+  1. `await page.goto('/errors')`
+  2. エラー行をクリック:
+     `await page.locator('tbody tr').first().click()`
+  3. ドロワーが開くことを確認:
+     `await expect(page.locator('[data-drawer], [role="complementary"]')).toBeVisible()`
+  4. ドロワーにエラートレースが表示されることを確認:
+     `await expect(page.locator('[data-drawer]').getByText(/error|stack/i)).toBeVisible()`
+  5. リトライボタンが存在することを確認:
+     `await expect(page.locator('[data-drawer]').getByRole('button', { name: /リトライ|retry/i })).toBeVisible()`
+- **Expected Result**: エラー詳細がドロワーに表示、リトライボタン付き
+- **Pass Criteria**: ドロワー表示 AND エラートレース AND リトライボタン
+- **Fail Indicators**: ドロワーが開かない
+
 ---
 
 ## 6. Integration Layer Tests (TEST-INT)
@@ -3345,16 +5381,17 @@ TEST-{LAYER}-{NUMBER}
 - **Steps**:
   1. 戦略サイクルグラフを起動 (サイクル#1)
   2. リサーチャーが市場情報収集 → market_intel に INSERT
-  3. アナリストが仮説生成 → hypotheses に INSERT (verdict='pending')
-  4. プランナーがコンテンツ計画 → content に INSERT (status='planned')
-  5. Tool Specialist がレシピ選択 → content.recipe_id 設定
-  6. 制作パイプラインが動画制作 → content.status = 'ready'
-  7. 投稿スケジューラーが投稿 → publications.status = 'posted'
-  8. 計測ジョブがメトリクス収集 → metrics に INSERT
-  9. 次のサイクルでアナリストが仮説検証 → hypotheses.verdict 更新
-  10. 知見抽出 → learnings に INSERT
-- **Expected Result**: 全10ステップが完了。hypotheses.verdict ≠ 'pending'。learnings に新行存在
-- **Pass Criteria**: Step 10 完了 AND verdict ∈ {'confirmed', 'rejected', 'inconclusive'} AND learnings COUNT > 0
+  3. アナリストが分析 (analyze_cycle) → 初回サイクルのため前サイクルレビューはスキップ
+  4. 社長が方針決定 (set_strategy) → 注力ニッチ・リソース配分を決定
+  5. プランナーが仮説立案 + コンテンツ計画 (plan_content) → hypotheses に INSERT (verdict='pending') + content に INSERT (status='planned')
+  6. Tool Specialist がレシピ選択 (select_tools) → content.recipe_id 設定
+  7. 制作パイプラインが動画制作 → content.status = 'ready'
+  8. 投稿スケジューラーが投稿 → publications.status = 'posted'
+  9. 計測ジョブがメトリクス収集 → metrics に INSERT
+  10. 次のサイクル (サイクル#2) でアナリストが仮説検証 (analyze_cycle) → hypotheses.verdict 更新
+  11. 知見抽出 → learnings に INSERT
+- **Expected Result**: 全11ステップが完了。hypotheses.verdict ≠ 'pending'。learnings に新行存在
+- **Pass Criteria**: Step 11 完了 AND verdict ∈ {'confirmed', 'rejected', 'inconclusive'} AND learnings COUNT > 0
 - **Fail Indicators**: いずれかのステップで停止
 
 ### TEST-E2E-002: 動画制作 E2E — 3セクション並列制作
@@ -3458,7 +5495,7 @@ TEST-{LAYER}-{NUMBER}
 - **Priority**: P0
 - **Prerequisites**: クリーンインストール完了
 - **Steps**:
-  1. PostgreSQL マイグレーション実行 (26テーブル + 73設定値)
+  1. PostgreSQL マイグレーション実行 (26テーブル + 84設定値)
   2. MCP Server 起動
   3. LangGraph 4グラフ起動
   4. ダッシュボード起動
@@ -3498,15 +5535,16 @@ TEST-{LAYER}-{NUMBER}
 
 | Section | Layer | Tests | P0 | P1 | P2 | P3 |
 |---------|-------|-------|----|----|----|----|
-| 1 | Database | 55 | 15 | 33 | 5 | 2 |
-| 2 | MCP Server | 105 | 30 | 55 | 15 | 5 |
-| 3 | Worker | 40 | 12 | 18 | 7 | 3 |
-| 4 | LangGraph Agent | 32 | 8 | 15 | 7 | 2 |
-| 5 | Dashboard | 47 | 9 | 24 | 10 | 4 |
-| 6 | Integration | 20 | 6 | 11 | 3 | 0 |
-| 7 | E2E | 12 | 3 | 7 | 2 | 0 |
-| **Total** | | **311** | **83** | **163** | **49** | **16** |
+| 1 | Database | 59 | 21 | 35 | 3 | 0 |
+| 2 | MCP Server | 131 | 46 | 72 | 13 | 0 |
+| 3 | Worker | 40 | 18 | 18 | 4 | 0 |
+| 4 | LangGraph Agent | 35 | 11 | 19 | 5 | 0 |
+| 5 | Dashboard | 156 | 30 | 92 | 32 | 2 |
+| 6 | Integration | 20 | 7 | 11 | 2 | 0 |
+| 7 | E2E | 12 | 4 | 8 | 0 | 0 |
+| **Total** | | **453** | **137** | **255** | **59** | **2** |
 
-> 全311テスト。各テストは AI エージェントが Pass/Fail を判定可能な精度で記述。
-> P0 テスト (83件) は初回リリース前に全件パス必須。
+> 全453テスト。各テストは AI エージェントが Pass/Fail を判定可能な精度で記述。
+> P0 テスト (137件) は初回リリース前に全件パス必須。
+> ※ TEST-AGT-033〜039 は欠番 (将来の拡張用に予約)。実テスト数は TEST-AGT-001〜032 + 040〜042 = 35件。
 

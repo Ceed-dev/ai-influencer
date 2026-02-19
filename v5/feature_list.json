@@ -14,14 +14,14 @@
         "03-database-schema.md §初期セットアップ"
       ],
       "test_ids": [
-        "TEST-DB-000",
-        "TEST-DB-001"
+        "TEST-DB-001",
+        "TEST-DB-002"
       ],
       "dependencies": [],
       "steps": [
         "Docker ComposeでPostgreSQL 16起動",
         "CREATE EXTENSION IF NOT EXISTS vector実行",
-        "TEST-DB-000,TEST-DB-001実行"
+        "TEST-DB-001,TEST-DB-002実行"
       ],
       "passes": false
     },

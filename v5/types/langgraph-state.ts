@@ -108,7 +108,7 @@ export interface CycleReview {
 /** Hypothesis verification result from analyst */
 export interface HypothesisVerification {
   hypothesis_id: number;
-  verdict: 'validated' | 'invalidated' | 'inconclusive';
+  verdict: 'pending' | 'confirmed' | 'rejected' | 'inconclusive';
   actual_kpis: Record<string, number>;
   predicted_kpis: Record<string, number>;
   deviation_pct: number;
