@@ -18,8 +18,12 @@
 - [4. モジュール間インターフェース](#4-モジュール間インターフェース)
   - [4.1 全モジュール共通: types/ ディレクトリ](#41-全モジュール共通-types-ディレクトリ)
   - [4.2 MCP Server ↔ エージェント/ワーカー](#42-mcp-server--エージェントワーカー)
-  - [4.3 ダッシュボード ↔ MCP Server](#43-ダッシュボード--mcp-server)
+  - [4.3 ダッシュボード ↔ PostgreSQL](#43-ダッシュボード--postgresql)
   - [4.4 エージェント ↔ DB](#44-エージェント--db)
+  - [4.5 エージェントノード → LLM](#45-エージェントノード--llm)
+  - [4.6 ワーカー → 外部API](#46-ワーカー--外部api)
+  - [4.7 設定アクセス（ソフトコーディング）](#47-設定アクセスソフトコーディング)
+  - [4.8 グラフ間連携（DB経由）](#48-グラフ間連携db経由)
 - [5. 実装プロトコル](#5-実装プロトコル)
   - [5.1 コーディング規約](#51-コーディング規約)
   - [5.2 ブランチ戦略](#52-ブランチ戦略)
@@ -325,11 +329,11 @@ Week 0-1でリーダーが生成し凍結。全エージェントはこの型定
 | 通信方式 | langchain-mcp-adapters経由 |
 | 契約 | `types/mcp-tools.ts` の入出力型 |
 
-### 4.3 ダッシュボード ↔ MCP Server
+### 4.3 ダッシュボード ↔ PostgreSQL
 
 | 項目 | 内容 |
 |------|------|
-| 通信方式 | Next.js API Routes → PostgreSQL直接（ダッシュボードはMCP経由ではなくDB直結） |
+| 通信方式 | Next.js API Routes → PostgreSQL直接（ダッシュボードはMCP経由ではなくDB直結。[02-architecture.md §6.1](02-architecture.md) 参照） |
 | 契約 | `types/api-schemas.ts` |
 
 ### 4.4 エージェント ↔ DB
@@ -338,6 +342,74 @@ Week 0-1でリーダーが生成し凍結。全エージェントはこの型定
 |------|------|
 | 通信方式 | MCP Serverツール経由（エージェントはDBに直接アクセスしない） |
 | 契約 | `types/database.ts` + `types/mcp-tools.ts` |
+
+> **例外**: `system_settings` の読み取りは `src/lib/settings.ts` 経由でDB直接アクセスする（§4.7参照）。これはMCPツール経由にすると全ノードの起動時コストが増大するため、パフォーマンス上の理由で直接アクセスを許容する。
+
+### 4.5 エージェントノード → LLM
+
+LangGraphの各ノード（Strategist, Researcher, Analyst, Planner, Tool Specialist, Data Curator）はLLM呼び出しを行う。テキスト制作ワーカーも同様にLLMを使用する。
+
+| 項目 | 内容 |
+|------|------|
+| 通信方式 | LangGraph node内で LangChain の `ChatAnthropic.invoke()` を直接呼び出し |
+| LLMモデル | Strategist: Claude Opus 4.6, 他全ノード: Claude Sonnet 4.5（[04-agent-design.md §1](04-agent-design.md) 参照） |
+| System Prompt | `agent_prompt_versions` テーブルから `is_active=true` のバージョンを取得。ファイルは `src/agents/prompts/*.md` |
+| 入力 | LangGraphのステート（`types/langgraph-state.ts`）から必要なフィールドを抽出してメッセージ構築 |
+| 出力 | LLM応答をパースしてステートに書き戻す。`agent_thought_logs` に推論ログを記録（`src/lib/logger.ts` 経由） |
+| エラーハンドリング | `src/lib/retry.ts` の `withRetry()` で3回リトライ。失敗時は `agent_thought_logs` にエラー記録 |
+| 認証 | `system_settings` `CRED_ANTHROPIC_API_KEY`（[02-architecture.md §12.2](02-architecture.md) 参照） |
+
+### 4.6 ワーカー → 外部API
+
+動画制作ワーカー・投稿ワーカー・計測ワーカーは外部APIを直接呼び出す。これらはMCPツール経由ではなく、Node.jsコードが直接API呼び出しを実行する（[02-architecture.md §5.6](02-architecture.md) 参照: 動画制作は「判断」ではなく「変換」のタスクのためLLM不要）。
+
+| 項目 | 内容 |
+|------|------|
+| 通信方式 | Node.js コードから各サービスのREST APIを直接呼び出し |
+| 動画制作API | fal.ai（Kling v2.6, Sync Lipsync）, Fish Audio（TTS）, ffmpeg（concat）, Google Drive API |
+| 投稿API | YouTube Data API v3, TikTok Content Posting API, Instagram Graph API, X API v2 |
+| 計測API | YouTube Analytics API v2, TikTok Analytics API, Instagram Insights API, X Analytics API |
+| ツール選択 | `production_recipes.steps[]` の `tool_name` フィールドでレシピ駆動（[02-architecture.md §5.4](02-architecture.md) 参照） |
+| 認証（ツールAPI） | `system_settings` `category='credentials'` から取得: `CRED_FAL_AI_API_KEY`, `CRED_FISH_AUDIO_API_KEY` 等（[02-architecture.md §12.2](02-architecture.md)） |
+| 認証（プラットフォーム） | `accounts.auth_credentials` (JSONB) からアカウント別OAuth情報を取得（[02-architecture.md §12.1](02-architecture.md)） |
+| エラーハンドリング | `src/lib/retry.ts` の `withRetry()` でリトライ。失敗は `tool_experiences` テーブルに記録（ツールスペシャリストが代替レシピを推奨） |
+
+### 4.7 設定アクセス（ソフトコーディング）
+
+全モジュールが設定値を取得する際は `src/lib/settings.ts` を使用する。§4.4のMCPルールの例外として、DB直接アクセスを許容する。
+
+| 項目 | 内容 |
+|------|------|
+| 通信方式 | `src/lib/settings.ts` → PostgreSQL直接クエリ（MCP非経由） |
+| 呼び出し元 | 全エージェント、全ワーカー、ダッシュボード |
+| テーブル | `system_settings`（81件、8カテゴリ: production(13), posting(8), review(4), agent(38), measurement(6), cost_control(4), dashboard(3), credentials(5)） |
+| 契約 | `getSetting(key: string): Promise<string>` — 初期実装は infra-agent（[02-architecture.md §10](02-architecture.md) 参照） |
+| ルール | 全設定値はこのユーティリティ経由で取得する。ハードコーディング禁止 |
+
+### 4.8 グラフ間連携（DB経由）
+
+4つのLangGraphグラフは互いに直接通信せず、PostgreSQLのステータス遷移のみで連携する（[02-architecture.md §3.7](02-architecture.md) 参照）。
+
+**グラフのトリガー方式**:
+
+| グラフ | トリガー | 関連設定キー |
+|--------|---------|-------------|
+| 戦略サイクル | 日次cron | `HYPOTHESIS_CYCLE_INTERVAL_HOURS`（デフォルト24h） |
+| 制作パイプライン | 連続実行（task_queueポーリング） | `PRODUCTION_POLL_INTERVAL_SEC`（デフォルト30s） |
+| 投稿スケジューラー | 連続実行（task_queueポーリング） | `POSTING_POLL_INTERVAL_SEC`（デフォルト120s） |
+| 計測ジョブ | 連続実行（task_queueポーリング） | `MEASUREMENT_POLL_INTERVAL_SEC`（デフォルト300s） |
+
+**ステータス遷移によるグラフ間連携**:
+
+```
+戦略サイクルG → content.status='planned' → 制作パイプラインG → content.status='ready'
+→ 投稿スケジューラーG → publications.status='posted' → 計測ジョブG → publications.status='measured'
+```
+
+- `content.status`: `pending_approval` → `planned` → `producing` → `ready`
+- `publications.status`: `scheduled` → `posted` → `measured`
+- 各グラフは自分が関心を持つステータスのレコードのみをポーリングで検出して処理する
+- グラフ間の直接関数呼び出しやメッセージングは**一切行わない**
 
 ---
 
