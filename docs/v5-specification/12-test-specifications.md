@@ -30,8 +30,6 @@ TEST-{LAYER}-{NUMBER}
 | P2 | 重要 | 主要機能の一部が制限される |
 | P3 | 低 | エッジケース・UI微調整 |
 
----
-
 ## 1. Database Layer Tests (TEST-DB)
 
 ### TEST-DB-001: pgvector拡張の有効化確認
@@ -745,8 +743,6 @@ TEST-{LAYER}-{NUMBER}
 - **Expected Result**: `count = 135`
 - **Pass Criteria**: COUNT = 135
 - **Fail Indicators**: COUNT ≠ 135
-
----
 
 ## 2. MCP Server Layer Tests (TEST-MCP)
 
@@ -2143,8 +2139,6 @@ TEST-{LAYER}-{NUMBER}
 - **Pass Criteria**: 返却件数 <= 5 AND 全件の self_score が 1-10 の範囲内
 - **Fail Indicators**: キーの欠如、または self_score が範囲外
 
----
-
 ## 3. Worker Layer Tests (TEST-WKR)
 
 ### TEST-WKR-001: タスクキューポーリング — 空キュー
@@ -2569,8 +2563,6 @@ TEST-{LAYER}-{NUMBER}
 - **Pass Criteria**: 同時処理数の上限が 10 に変更
 - **Fail Indicators**: 変更前の値 (5) が使い続けられる
 
----
-
 ## 4. LangGraph Agent Layer Tests (TEST-AGT)
 
 ### TEST-AGT-001: 戦略サイクルグラフ — ノード実行順序
@@ -2941,8 +2933,6 @@ TEST-{LAYER}-{NUMBER}
 - **Expected Result**: voice_id (32文字hex), voice_name, sample_url が返却される
 - **Pass Criteria**: voice_id が32文字の16進数文字列
 - **Fail Indicators**: voice_id が空、または32文字hexでない
-
----
 
 ## 5. Dashboard Layer Tests (TEST-DSH)
 
@@ -5136,8 +5126,6 @@ TEST-{LAYER}-{NUMBER}
 - **Pass Criteria**: ドロワー表示 AND エラートレース AND リトライボタン
 - **Fail Indicators**: ドロワーが開かない
 
----
-
 ## 6. Integration Layer Tests (TEST-INT)
 
 ### TEST-INT-001: 戦略サイクル → 制作パイプライン連携
@@ -5370,8 +5358,6 @@ TEST-{LAYER}-{NUMBER}
 - **Pass Criteria**: get_human_responses に返信が含まれる
 - **Fail Indicators**: 返信が取得できない
 
----
-
 ## 7. E2E Layer Tests (TEST-E2E)
 
 ### TEST-E2E-001: 仮説駆動サイクル完全ライフサイクル
@@ -5528,8 +5514,6 @@ TEST-{LAYER}-{NUMBER}
 - **Expected Result**: 月間予算超過 ($3005 > $3000) により制作がブロック
 - **Pass Criteria**: 新規制作が開始されない AND ログに "monthly budget exceeded" 相当のメッセージ
 - **Fail Indicators**: 予算超過後も制作が実行される
-
----
 
 ## テストサマリー
 

@@ -2115,7 +2115,56 @@ Phase 2 (commit `3d4a7ac`): CJKピクセル幅補正
 - 004_seed_settings.sql: コメント更新
 
 **既知の未解決事項**:
-- 13-agent-harness.md 付録BのテストID (TEST-INF/MCC/MCI) が12のレイヤーベースID (TEST-DB/MCP) と異なる命名規則 → 13の次回レビューで修正予定
+- ~~13-agent-harness.md 付録BのテストID (TEST-INF/MCC/MCI) が12のレイヤーベースID (TEST-DB/MCP) と異なる命名規則 → 13の次回レビューで修正予定~~ → Session 14で解決済み
+
+### 2026-02-19: Session 14 — v5仕様 全ファイルレビュー完了 (Agent Team 3エージェント)
+
+**概要**: Agent Team（editor-foundational, editor-learning-loop, prompt-researcher）が3並列でv5.0仕様の残り10ファイルをレビュー・修正。Session 13までの3ファイル(10, 12, 13)に加え、全13ファイルのレビューが完了。
+
+**修正ファイル**: 11ファイル / 2,161行追加 / 876行削除
+
+**Task #1 (editor-foundational): 01, 02, 03 基盤ドキュメントレビュー**
+- 02-architecture.md: Prisma/Drizzle ORM → Drizzle ORM に統一 (8箇所)
+- 02-architecture.md: `npx prisma migrate deploy` → `npx drizzle-kit migrate`
+- 03-database-schema.md: `ORM (Prisma/Drizzle)` → `Drizzle ORM`
+- 検証: 26テーブル ✅, 135インデックス ✅, verdict型 ✅, ダッシュボード15画面一致 ✅
+
+**Task #2 (editor-learning-loop): 04-agent-design.md per-content学習ループ再設計**
+- 2,224行の大幅改修: 日次サイクル → per-content学習モデルへ移行
+- 仮説駆動サイクル2層構造: マクロ(日次) + マイクロ(コンテンツ単位)
+- 全6エージェントプロンプト書き換え (Task #5, prompt-researcher)
+
+**Task #3 (editor-foundational): 08-algorithm-analysis.md 精度再計算**
+- 17セクション更新: 60-72%天井 → 88-93%天井 (per-content model)
+- 月間学習イベント: 900-2,400件(3月) → 105,000件(12月)
+- S曲線チャート、エージェント個別精度、シミュレーション表、結論すべて更新
+
+**Task #4 (editor-learning-loop): 07-kpi-analysis.md KPI再計算**
+- per-content学習モデルの数値でKPI予測更新
+- 仮説的中率: 6月70-82%, 12月88-93% (08と整合)
+
+**Task #5 (prompt-researcher): 全6エージェントプロンプト書き換え**
+- 04-agent-design.md内の全エージェントシステムプロンプトを per-content model 対応に更新
+
+**Task #6 (editor-foundational): 09, 11 レビュー + 全ファイルHR清掃**
+- 09-risks-and-bottlenecks.md: "日次サイクル" → "per-contentサイクル多数並行" (LangGraph checkpoint context)
+- 11-pre-implementation-checklist.md: セクション番号修正 (§8→§6)
+- 全5ファイルから45本の`---`水平線を削除 (06, 10, 11, 12, 13)
+- 13-agent-harness.md: §2.3にテストID命名規則マッピング表追加 (TEST-INF/MCC/MCI → TEST-DB/MCP/WKR/AGT)
+
+**Task #7 (editor-foundational): クロスファイル整合性検証**
+- 9項目の検証すべてパス:
+  - 数値一致: 26テーブル, 135インデックス, 84設定, 92MCP, 453テスト, 254機能
+  - 精度一致: 6月70-82%, 12月88-93% (04, 07, 08で整合)
+  - Drizzle ORM統一 (Prisma参照ゼロ)
+  - per-content学習 (04, 07, 08で整合、02のStrategy Cycleは正しく日次)
+  - `---`水平線ゼロ
+
+**解決した未解決事項**:
+- 13-agent-harness.md テストID命名規則マッピング表を追加
+
+**v5.0仕様レビュー完了ステータス**:
+全13ファイルのレビューが完了。次のステップは GCE VM + Cloud SQL セットアップ → Week 1 並列実装開始。
 
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID

@@ -126,7 +126,7 @@ v5.0は **4層構造** で構成される。上位層が方針を決定し、下
 │   │ ・個別学習ブラウザ             │ │ ・週次ダイジェスト      │              │
 │   └────────────────────────────────┘ └─────────────────────────┘        │
 │                                                                         │
-│                         │ Prisma/Drizzle ORM (DB直結)                    │
+│                         │ Drizzle ORM (DB直結)                    │
 ├─────────────────────────┼───────────────────────────────────────────────┤
 │                          ▼                                              │
 │   Layer 2: LangGraph.js Orchestration                                   │
@@ -1475,7 +1475,7 @@ v4.0 (現行)                          v5.0 (新)
 │  │  └────────────────────────────────────────────────────┘   │  │
 │  └───────────────────────────────────────────────────────────┘  │
 │                                                                 │
-│                     │ Prisma or Drizzle ORM                     │
+│                     │ Drizzle ORM                     │
 │                     ▼                                           │
 │              PostgreSQL (直結)                                   │
 └─────────────────────────────────────────────────────────────────┘
@@ -1485,7 +1485,7 @@ v4.0 (現行)                          v5.0 (新)
 
 | 方針 | 説明 |
 |---|---|
-| **DB直結** | MCP Serverを経由せず、Prisma/Drizzle ORMでPostgreSQLに直接接続。ダッシュボードはLLMではないため、MCPプロトコルは不要 |
+| **DB直結** | MCP Serverを経由せず、Drizzle ORMでPostgreSQLに直接接続。ダッシュボードはLLMではないため、MCPプロトコルは不要 |
 | **読み取り中心** | 大半の画面は読み取り専用。AIが自律的に回しているため、人間は基本的に監視のみ |
 | **介入は限定的** | 書き込みは「仮説投入」「参考コンテンツ指定」「設定変更」「コンテンツ計画承認」に限定。日常的な操作は全てAIが行う。計画承認は `HUMAN_REVIEW_ENABLED=true` 時のみ |
 | **リアルタイム性不要** | ポーリング (30秒〜1分) で十分。WebSocketは不要 |
@@ -2455,7 +2455,7 @@ ORDER BY agent_type, count DESC;
 │  │                                                                │  │
 │  └────────────────────────────────────────────────────────────────┘  │
 │                                                                      │
-│                        │ Prisma/Drizzle ORM                          │
+│                        │ Drizzle ORM                          │
 │                        ▼                                             │
 │                 PostgreSQL (直結)                                     │
 │                                                                      │
@@ -2475,7 +2475,7 @@ ORDER BY agent_type, count DESC;
 
 ### 6.13 Dashboard REST API ルート定義
 
-ダッシュボードの Next.js API Routes として実装する13のREST APIエンドポイント。MCP Serverとは独立し、Prisma/Drizzle ORMでPostgreSQLに直接接続する。
+ダッシュボードの Next.js API Routes として実装する13のREST APIエンドポイント。MCP Serverとは独立し、Drizzle ORMでPostgreSQLに直接接続する。
 
 | # | Method | Path | Description | Request Body | Response |
 |---|--------|------|-------------|-------------|----------|
@@ -3480,7 +3480,7 @@ v4.0からv5.0への移行は一括ではなく段階的に行う。各フェー
 | 1. コード取得 | `git pull origin main` | 最新コードを取得 |
 | 2. イメージ更新 | `docker-compose -f docker-compose.prod.yml pull` | 最新イメージを取得 (外部イメージ) |
 | 3. ビルド | `docker-compose -f docker-compose.prod.yml build` | 自作イメージをビルド |
-| 4. マイグレーション | `docker-compose -f docker-compose.prod.yml run --rm mcp-server npx prisma migrate deploy` | Cloud SQLへのスキーマ更新 (DATABASE_URL経由) |
+| 4. マイグレーション | `docker-compose -f docker-compose.prod.yml run --rm mcp-server npx drizzle-kit migrate` | Cloud SQLへのスキーマ更新 (DATABASE_URL経由) |
 | 5. 起動 | `docker-compose -f docker-compose.prod.yml up -d` | アプリケーションコンテナ起動 (DBはCloud SQLで常時稼働) |
 | 6. 確認 | `docker-compose -f docker-compose.prod.yml ps` | 全サービスの稼働確認 |
 
@@ -3507,7 +3507,7 @@ v4.0からv5.0への移行は一括ではなく段階的に行う。各フェー
 │  │  │  port: 3000:3000                                      │     │  │
 │  │  │  volumes: ./dashboard:/app                            │     │  │
 │  │  │                                                       │     │  │
-│  │  │  Prisma/Drizzle ORM → DB接続                          │     │   │
+│  │  │  Drizzle ORM → DB接続                          │     │   │
 │  │  │  (dev: postgres container / prod: Cloud SQL)          │     │  │
 │  │  └───────────────────────────────┬───────────────────────┘     │  │
 │  │                                  │                             │  │
@@ -3576,7 +3576,7 @@ v4.0からv5.0への移行は一括ではなく段階的に行う。各フェー
 | `production-agent` | `node:20-slim` + ffmpeg | 制作パイプライングラフ (連続) | 3300 | fal.ai + Fish Audio + ffmpeg |
 | `posting-agent` | `node:20-slim` | 投稿スケジューラーグラフ (連続) | 3400 | 4プラットフォームアダプター |
 | `measurement-agent` | `node:20-slim` | 計測ジョブグラフ (連続) | 3500 | Platform API接続 |
-| `dashboard` | `node:20-slim` | Next.js + Shadcn/ui | 3000 | Prisma/Drizzle ORM + 13 REST API |
+| `dashboard` | `node:20-slim` | Next.js + Shadcn/ui | 3000 | Drizzle ORM + 13 REST API |
 
 > **注**: 本番環境ではpostgresコンテナの代わりにCloud SQL (PostgreSQL 16 + pgvector) を使用する。コンテナ数は本番6 (postgres除外) / 開発7。
 > データキュレーターは独立コンテナではなく `strategy-agent` コンテナ内で動作する (戦略サイクルグラフのノードとして実装)。

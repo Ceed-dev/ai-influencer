@@ -21,8 +21,6 @@
 - [11. モニタリング](#11-モニタリング)
 - [12. アンチパターン防止](#12-アンチパターン防止)
 
----
-
 ## 1. ハーネスアーキテクチャ
 
 ### 1.1 設計思想
@@ -93,8 +91,6 @@ Phase B: Coding Agents (10チームメイト)
 | 障害復旧 | 最初からやり直し | 最後のCOMPLETEから再開 |
 | 品質保証 | 最後にまとめてテスト→大量失敗 | 毎機能でテスト→小さな修正 |
 | 並列実行 | 不可能 | 10エージェントが独立して実行 |
-
----
 
 ## 2. feature_list.json 設計
 
@@ -219,6 +215,18 @@ CATEGORY:
 
 NUMBER: 001〜999
 ```
+
+**テストID体系の対応表**: 各機能の `test_ids` は本ファイル内ではFEATカテゴリに準じた命名（TEST-{CATEGORY}-NNN）を使用する。12-test-specifications.md のレイヤーベースIDとの対応は以下の通り:
+
+| 13 (FEAT/TESTカテゴリ) | 12 (テストレイヤー) | 備考 |
+|---|---|---|
+| DB | TEST-DB | 同一 |
+| INF | (12に未定義) | Docker/環境設定テスト。実装時にTEST-DB or TEST-INT枠で追加 |
+| MCC, MCI | TEST-MCP | 12ではCore/Intelを区別せず統一 |
+| VW, TP, MS | TEST-WKR | 12ではワーカー層として統一 |
+| INT, STR | TEST-AGT | 12ではエージェント層として統一 |
+| DSH | TEST-DSH | 同一 |
+| TST | TEST-INT / TEST-E2E | CI・統合テスト |
 
 ### 2.4 機能一覧（抜粋: 各カテゴリ3件以上、計35件）
 
@@ -899,8 +907,6 @@ function selectNextFeature(agentName, featureList):
     return ready[0] || null  // null = 全機能完了 or 全てブロック中
 ```
 
----
-
 ## 3. init.sh 仕様
 
 ### 3.1 スクリプト全文
@@ -1163,8 +1169,6 @@ exit "$EXIT_CODE"
 | DDL | `CREATE TABLE IF NOT EXISTS` を各DDLファイル内で使用 |
 | npm install | package-lock.json が変わらなければ高速スキップ |
 
----
-
 ## 4. progress.txt プロトコル
 
 ### 4.1 フォーマット定義
@@ -1230,8 +1234,6 @@ exit "$EXIT_CODE"
 ```bash
 echo "$(date -u '+%Y-%m-%dT%H:%M:%SZ') | {agent-name} | {EVENT} | {FEATURE_ID} | {STATUS} | {DETAILS}" >> progress.txt
 ```
-
----
 
 ## 5. セッション起動チェックリスト
 
@@ -1353,8 +1355,6 @@ echo "$(date -u '+%Y-%m-%dT%H:%M:%SZ') | {agent-name} | SESSION | - | started | 
 #### Step 8: 作業開始
 
 Step 3 で特定した1つの機能について、次章「6. 単一機能ワークフロー」に従って実装を開始する。
-
----
 
 ## 6. 単一機能ワークフロー
 
@@ -1521,8 +1521,6 @@ echo "$(date -u '+%Y-%m-%dT%H:%M:%SZ') | {agent} | RECOVERY | {feature-id} | rev
 
 Step 1 に戻り、次の機能を選択する。
 
----
-
 ## 7. Git戦略
 
 ### 7.1 ブランチ構成
@@ -1599,8 +1597,6 @@ Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
 | `main` への直接コミット | 品質ゲート未通過のコードが本番に入る |
 | 1コミットに複数機能 | 進捗追跡が不可能になる |
 
----
-
 ## 8. 品質ゲート（全自動、人間判断不要）
 
 ### 8.1 6つの品質ゲート
@@ -1656,8 +1652,6 @@ G4 失敗 → 結合部分を修正 → 再テスト
 G5 失敗 → リグレッション。git revert → 原因調査 → 修正
 G6 失敗 → 以前の機能が壊れた。最優先で修復
 ```
-
----
 
 ## 9. リカバリー手順
 
@@ -1752,8 +1746,6 @@ G6 失敗 → 以前の機能が壊れた。最優先で修復
   5. 復旧しない場合 → リーダーに報告
 ```
 
----
-
 ## 10. 人間介入ポイント（最小化）
 
 ### 10.1 介入スケジュール
@@ -1804,8 +1796,6 @@ npx jest --coverage --passWithNoTests 2>/dev/null | tail -20
 | 環境問題 | infra-agentに修復指示 |
 | エージェント間の依存 | タスク優先度の調整 |
 | 技術的判断 | 方針の決定と指示 |
-
----
 
 ## 11. モニタリング
 
@@ -1909,8 +1899,6 @@ psql "${DATABASE_URL}" -c "SELECT count(*) FROM information_schema.tables WHERE 
 df -h /home/pochi
 ```
 
----
-
 ## 12. アンチパターン防止
 
 ### 12.1 アンチパターン一覧
@@ -1985,8 +1973,6 @@ echo "=== Detection Complete ==="
 | 5 | エラーハンドリング | 02-architecture.md §9 のパターンに従っているか |
 | 6 | コミット粒度 | 1コミット = 1機能か |
 | 7 | progress.txt の記録 | 全イベントが正しく記録されているか |
-
----
 
 ## 付録A: npm scripts 完全定義
 

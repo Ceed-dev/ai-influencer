@@ -42,8 +42,6 @@
   - [6.10 test-agent](#610-test-agentweek-1-7)
 - [7. 人間（Shungo）の作業](#7-人間shungoの作業)
 
----
-
 ## 1. 概要
 
 本ドキュメントは、v5.0仕様書（01-13）に基づいてClaude Code Agent Teamが並列実装を行うための指示書である。
@@ -60,8 +58,6 @@
 | プロンプト | 全プロンプトファイル（prompts/*.md）が作成済み |
 | VM環境 | GCE 16GB RAM, 4vCPU |
 | 同時エージェント上限 | リーダー1 + チームメイト10 |
-
----
 
 ## 2. チーム構成
 
@@ -99,8 +95,6 @@
 **クレデンシャル管理**（詳細は [02-architecture.md §12](02-architecture.md)）: text-post-agent (YouTube/X/IG/TikTok投稿OAuth + トークンリフレッシュ), measure-agent (YouTube/TikTok/IG Analytics API), infra-agent (Google Service Account, PostgreSQL接続情報)。全プラットフォームのOAuth認証情報は `accounts.auth_credentials` (JSONB) に格納。
 
 **エラーリカバリー**: 横断的関心事。各ワーカーエージェントが自モジュール内で [02-architecture.md §9](02-architecture.md) のパターンに従い実装。video-worker-agent, text-post-agent, measure-agentが各自のリトライ・チェックポイント処理を担当
-
----
 
 ## 3. ディレクトリ構造
 
@@ -307,8 +301,6 @@ ai-influencer/v5/
 
 > **注**: 画面#8「エージェント」は最もサブ機能が多い画面。実装者は [02-architecture.md §6.3〜§6.9](02-architecture.md) の各セクションを参照して、タブまたはサブページとして実装すること。
 
----
-
 ## 4. モジュール間インターフェース
 
 ### 4.1 全モジュール共通: types/ ディレクトリ
@@ -411,8 +403,6 @@ LangGraphの各ノード（Strategist, Researcher, Analyst, Planner, Tool Specia
 - 各グラフは自分が関心を持つステータスのレコードのみをポーリングで検出して処理する
 - グラフ間の直接関数呼び出しやメッセージングは**一切行わない**
 
----
-
 ## 5. 実装プロトコル
 
 > **詳細ワークフロー**: 本セクションは実装ルールの概要を定義する。具体的な作業フロー・品質ゲート・Git操作手順は [13-agent-harness.md](13-agent-harness.md) を参照。テスト定義は [12-test-specifications.md](12-test-specifications.md) を参照。
@@ -483,8 +473,6 @@ main ── 本番ブランチ（直接コミット禁止）
 2. **日中**: 各エージェントが担当タスク実行 → テスト実行 → コミット
 3. **夕方**: リーダーがプルリクエストレビュー → developマージ
 4. **夜**: 人間がダッシュボードで進捗確認 → 翌日の方針指示
-
----
 
 ## 6. 各エージェントの詳細タスク
 
@@ -673,8 +661,6 @@ export const getAccountsTool = {
 - スモークテスト（`npm run test:smoke` — 各機能実装後に必ず実行）
 - GitHub Actions CI設定
 - テストカバレッジ目標: 80%+
-
----
 
 ## 7. 人間（Shungo）の作業
 

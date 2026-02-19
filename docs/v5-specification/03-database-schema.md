@@ -3651,7 +3651,7 @@ GROUP BY a.account_id, a.platform, a.niche;
 ### 12.5 ダッシュボード: アルゴリズム精度推移
 
 ```sql
--- ORM (Prisma/Drizzle) で直接発行
+-- Drizzle ORM で直接発行
 SELECT measured_at, hypothesis_accuracy, prediction_error,
        learning_count, improvement_rate
 FROM algorithm_performance
