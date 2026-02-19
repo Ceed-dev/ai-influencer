@@ -1956,6 +1956,16 @@ Phase 2 (commit `3d4a7ac`): CJKピクセル幅補正
 - §6.2 mcp-core-agent: 各カテゴリに04-agent-design.mdの対応セクション番号（§4.1, §4.4, §4.6, §4.7, §4.9, §4.11）を追記、05-mcp-tools.md + types/mcp-tools.tsへの参照を追加
 - §6.3 mcp-intel-agent: 各カテゴリに04-agent-design.mdの対応セクション番号（§4.2, §4.3, §4.5, §4.10, §4.12）を追記、同様の参照を追加
 - §6.5 text-post-agent: 04-agent-designの「テキスト制作ワーカー」+「投稿ワーカー」を統合していることを注記、動画投稿も担当と明示、02-architecture.md §12への参照を追加
+- §3 ディレクトリ構造の大幅拡充:
+  - エージェントハーネス関連ファイル追加（CLAUDE.md, feature_list.json, progress.txt, scripts/, logs/）
+  - 全ファイル・ディレクトリに担当エージェント名を明記
+  - mcp-server/tools/ 配下の各サブディレクトリにmcp-core/mcp-intelの担当分割を明記
+  - agents/nodes/ 配下にstrategy-agent/intelligence-agentの担当分割を明記
+  - `embedding.ts` を `src/lib/` → `src/mcp-server/utils/embedding.ts` に移動（04-agent-design.md §6.3準拠）
+  - `src/lib/` 共通ライブラリの実装ルール追加: infra-agentがWeek 1で初期実装、変更はtypes/と同じ承認フロー
+  - dashboard/ の全15画面に番号を付与
+  - tests/ の各テストファイルに説明を追加
+  - 各セクションにコメント見出し追加（ハーネス/インフラ/型定義/SQL/実装コード）
 
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID

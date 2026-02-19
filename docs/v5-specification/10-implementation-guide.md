@@ -102,49 +102,64 @@
 
 ```
 ai-influencer/v5/
-├── docker-compose.yml          # infra-agent (dev環境)
-├── docker-compose.prod.yml     # infra-agent (Cloud SQL本番)
-├── init.sh                    # infra-agent (環境セットアップ)
-├── .env.example               # infra-agent
-├── package.json               # リーダーが初期生成
-├── tsconfig.json              # リーダーが初期生成
 │
-├── types/                     # リーダーがWeek 0-1で生成（凍結）
+│ ─── エージェントハーネス（実装管理用。コード外） ───
+├── CLAUDE.md                  # Agent Team起動時の自動読み込みエントリポイント（修正不可）
+├── feature_list.json          # 全251機能の進捗管理（passesフィールドのみ更新可）
+├── progress.txt               # 実装ログ（append-only: START/COMPLETE/FAIL/SMOKE/BLOCKED/SESSION）
+├── scripts/
+│   └── daily-report.sh        # 日次モニタリング（cron自動実行）
+├── logs/                      # daily-report出力先（gitに含める）
+│
+│ ─── インフラ・設定 ───
+├── docker-compose.yml          # infra-agent (dev環境: PostgreSQL 16 + pgvector, port 5433)
+├── docker-compose.prod.yml     # infra-agent (Cloud SQL本番接続)
+├── init.sh                    # infra-agent (環境セットアップ: Docker起動→DDL→npm install→ヘルスチェック)
+├── .env.example               # infra-agent (環境変数テンプレート)
+├── package.json               # リーダーが初期生成（変更はリーダーのみ）
+├── tsconfig.json              # リーダーが初期生成（変更はリーダーのみ）
+│
+│ ─── 凍結済み型定義（リーダーがWeek 0-1で生成。変更は「申請→リーダー承認→全チーム通知」） ───
+├── types/
 │   ├── database.ts            # 全26テーブルのRow型
 │   ├── mcp-tools.ts           # 全MCPツールの入出力型
 │   ├── langgraph-state.ts     # 全4グラフのステート型
 │   └── api-schemas.ts         # ダッシュボードAPI型
 │
-├── sql/                       # infra-agent
+│ ─── SQL（infra-agentのみ実行・変更可） ───
+├── sql/
 │   ├── 001_create_tables.sql  # DDL（26テーブル）
-│   ├── 002_create_indexes.sql # インデックス
-│   ├── 003_create_triggers.sql # トリガー
-│   ├── 004_seed_settings.sql  # system_settings初期データ
-│   └── 005_seed_prompts.sql   # agent_prompt_versions初期データ
+│   ├── 002_create_indexes.sql # インデックス（133件）
+│   ├── 003_create_triggers.sql # トリガー（13件）
+│   ├── 004_seed_settings.sql  # system_settings初期データ（81件）
+│   └── 005_seed_prompts.sql   # agent_prompt_versions初期データ（6エージェント分）
 │
+│ ─── 実装コード ───
 ├── src/
-│   ├── mcp-server/            # mcp-core-agent + mcp-intel-agent
-│   │   ├── index.ts           # MCP Server エントリポイント
+│   ├── mcp-server/            # mcp-core-agent + mcp-intel-agent（ツール分担は§6.2/6.3を参照）
+│   │   ├── index.ts           # MCP Server エントリポイント（mcp-core-agentが作成）
 │   │   ├── tools/
-│   │   │   ├── entity/        # accounts, characters, components CRUD
-│   │   │   ├── production/    # content, sections, publications CRUD
-│   │   │   ├── intelligence/  # hypotheses, market_intel, metrics, analyses, learnings
-│   │   │   ├── operations/    # cycles, human_directives, task_queue
-│   │   │   ├── observability/ # thought_logs, reflections, individual_learnings, communications
-│   │   │   ├── tool-mgmt/     # tool_catalog, tool_experiences, production_recipes
-│   │   │   ├── system/        # system_settings CRUD
-│   │   │   └── dashboard/     # KPI集計, アルゴリズム精度, コスト集計
-│   │   └── db.ts              # PostgreSQL接続管理
+│   │   │   ├── entity/        # accounts, characters, components CRUD ── mcp-core-agent
+│   │   │   ├── production/    # content, sections, publications CRUD ── mcp-core-agent
+│   │   │   ├── intelligence/  # hypotheses, market_intel, metrics, analyses, learnings ── mcp-intel-agent
+│   │   │   ├── operations/    # cycles, human_directives, task_queue ── mcp-core-agent
+│   │   │   ├── observability/ # thought_logs, reflections, individual_learnings ── mcp-intel-agent
+│   │   │   ├── tool-mgmt/     # tool_catalog, tool_experiences, production_recipes ── mcp-intel-agent
+│   │   │   ├── system/        # system_settings CRUD ── mcp-core-agent
+│   │   │   └── dashboard/     # KPI集計, アルゴリズム精度, コスト集計 ── mcp-core-agent
+│   │   ├── utils/
+│   │   │   └── embedding.ts   # pgvector embedding生成（04-agent-design.md §6.3準拠）── mcp-intel-agent
+│   │   └── db.ts              # PostgreSQL接続管理 ── mcp-core-agent
 │   │
 │   ├── workers/               # video-worker-agent, text-post-agent, measure-agent
-│   │   ├── video-production/
+│   │   ├── video-production/  # ── video-worker-agent
 │   │   │   ├── orchestrator.ts
 │   │   │   ├── fal-client.ts
 │   │   │   ├── fish-audio.ts
 │   │   │   └── ffmpeg.ts
-│   │   ├── text-production/
+│   │   ├── text-production/   # ── text-post-agent
 │   │   │   └── text-generator.ts
-│   │   ├── posting/
+│   │   ├── posting/           # ── text-post-agent（動画・テキスト両方の投稿を担当）
 │   │   │   ├── scheduler.ts
 │   │   │   ├── adapters/
 │   │   │   │   ├── youtube.ts
@@ -152,7 +167,7 @@ ai-influencer/v5/
 │   │   │   │   ├── instagram.ts
 │   │   │   │   └── x.ts
 │   │   │   └── token-refresher.ts
-│   │   └── measurement/
+│   │   └── measurement/       # ── measure-agent
 │   │       ├── collector.ts
 │   │       └── adapters/
 │   │           ├── youtube-analytics.ts
@@ -161,72 +176,87 @@ ai-influencer/v5/
 │   │           └── x-analytics.ts
 │   │
 │   ├── agents/                # intelligence-agent, strategy-agent
-│   │   ├── graphs/
+│   │   ├── graphs/            # ── intelligence-agent（グラフ定義）
 │   │   │   ├── strategy-cycle.ts    # 戦略サイクルグラフ
 │   │   │   ├── production-pipeline.ts # 制作パイプライングラフ
 │   │   │   ├── publishing-scheduler.ts # 投稿スケジューラーグラフ
 │   │   │   └── measurement-jobs.ts   # 計測ジョブグラフ
-│   │   ├── nodes/
-│   │   │   ├── strategist.ts
-│   │   │   ├── researcher.ts
-│   │   │   ├── analyst.ts
-│   │   │   ├── planner.ts
-│   │   │   ├── tool-specialist.ts
-│   │   │   └── data-curator.ts
-│   │   └── prompts/
-│   │       ├── shared-principles.md
-│   │       ├── strategist.md
-│   │       ├── researcher.md
-│   │       ├── analyst.md
-│   │       ├── planner.md
-│   │       ├── tool-specialist.md
-│   │       └── data-curator.md
+│   │   ├── nodes/             # ── strategy-agent（strategist, planner） + intelligence-agent（他4ノード）
+│   │   │   ├── strategist.ts        # ── strategy-agent
+│   │   │   ├── researcher.ts        # ── intelligence-agent
+│   │   │   ├── analyst.ts           # ── intelligence-agent
+│   │   │   ├── planner.ts           # ── strategy-agent
+│   │   │   ├── tool-specialist.ts   # ── intelligence-agent
+│   │   │   └── data-curator.ts      # ── intelligence-agent
+│   │   └── prompts/           # ── intelligence-agent + strategy-agent（各自の担当ノード分を作成）
+│   │       ├── shared-principles.md  # ── intelligence-agent（全ノード共通原則）
+│   │       ├── strategist.md         # ── strategy-agent
+│   │       ├── researcher.md         # ── intelligence-agent
+│   │       ├── analyst.md            # ── intelligence-agent
+│   │       ├── planner.md            # ── strategy-agent
+│   │       ├── tool-specialist.md    # ── intelligence-agent
+│   │       └── data-curator.md       # ── intelligence-agent
 │   │
-│   └── lib/                   # 共通ライブラリ
-│       ├── settings.ts        # system_settings読み込み
-│       ├── retry.ts           # リトライロジック
-│       ├── embedding.ts       # pgvector embedding生成
-│       └── logger.ts          # agent_thought_logs書き込み
+│   └── lib/                   # 共通ライブラリ（担当・ルールは下記を参照）
+│       ├── settings.ts        # system_settings読み込みユーティリティ ── infra-agent が初期実装
+│       ├── retry.ts           # リトライロジック（withRetry, exponential backoff） ── infra-agent が初期実装
+│       └── logger.ts          # agent_thought_logs書き込みユーティリティ ── infra-agent が初期実装
 │
-├── dashboard/                 # dashboard-agent (Next.js)
+├── dashboard/                 # dashboard-agent（Next.js 14.2.x、独立アプリ）
 │   ├── app/
 │   │   ├── layout.tsx         # Solarizedテーマ、Nunitoフォント
-│   │   ├── page.tsx           # ホーム
-│   │   ├── kpi/
-│   │   ├── production/
-│   │   ├── review/
-│   │   ├── content/
-│   │   ├── accounts/
-│   │   ├── characters/
-│   │   ├── agents/
-│   │   ├── hypotheses/
-│   │   ├── learnings/
-│   │   ├── tools/
-│   │   ├── errors/
-│   │   ├── costs/
-│   │   ├── settings/
-│   │   └── directives/
+│   │   ├── page.tsx           # ホーム（1/15画面）
+│   │   ├── kpi/               # KPIダッシュボード（2/15）
+│   │   ├── production/        # 制作キュー（3/15）
+│   │   ├── review/            # コンテンツレビュー（4/15）
+│   │   ├── content/           # コンテンツ一覧（5/15）
+│   │   ├── accounts/          # アカウント管理（6/15）
+│   │   ├── characters/        # キャラクター管理（7/15）
+│   │   ├── agents/            # エージェント（8/15）
+│   │   ├── hypotheses/        # 仮説ブラウザ（9/15）
+│   │   ├── learnings/         # 知見ブラウザ（10/15）
+│   │   ├── tools/             # ツール管理（11/15）
+│   │   ├── errors/            # エラーログ（12/15）
+│   │   ├── costs/             # コスト管理（13/15）
+│   │   ├── settings/          # 設定（14/15）
+│   │   └── directives/        # 人間指示（15/15）
 │   ├── components/
 │   │   ├── ui/               # Shadcn/ui components
 │   │   ├── charts/           # Recharts wrappers
 │   │   └── layout/           # Sidebar, Header, etc.
 │   ├── lib/
-│   │   ├── api.ts            # API client
+│   │   ├── api.ts            # API client（PostgreSQL直接接続、MCP経由ではない）
 │   │   └── theme.ts          # Solarized color tokens
 │   └── tailwind.config.ts    # Solarized + Nunito
 │
 └── tests/                     # test-agent
     ├── unit/
-    │   ├── mcp-server/
-    │   ├── workers/
-    │   └── agents/
+    │   ├── mcp-server/        # MCPツール単体テスト
+    │   ├── workers/           # ワーカー単体テスト
+    │   └── agents/            # エージェントノード単体テスト
     ├── integration/
-    │   ├── mcp-db.test.ts
-    │   ├── worker-mcp.test.ts
-    │   └── agent-mcp.test.ts
+    │   ├── mcp-db.test.ts     # MCP Server ↔ DB統合テスト
+    │   ├── worker-mcp.test.ts # Worker ↔ MCP Server統合テスト
+    │   └── agent-mcp.test.ts  # Agent ↔ MCP Server統合テスト
     └── e2e/
-        └── full-cycle.test.ts
+        └── full-cycle.test.ts # 全サイクルE2Eテスト
 ```
+
+#### `src/lib/` 共通ライブラリの実装ルール
+
+| ファイル | 初期実装担当 | 用途 | 利用者 |
+|---------|------------|------|-------|
+| `settings.ts` | infra-agent (Week 1) | `system_settings` テーブルからキーを取得するユーティリティ。全モジュールが設定値読み込みに使用 | 全エージェント |
+| `retry.ts` | infra-agent (Week 1) | `withRetry(fn, options)` 形式の汎用リトライラッパー。exponential backoff + jitter。[02-architecture.md §9](02-architecture.md) のリトライパターンに準拠 | video-worker, text-post, measure |
+| `logger.ts` | infra-agent (Week 1) | `agent_thought_logs` テーブルへの構造化ログ書き込み。`logThought(agent_type, step, input, reasoning, output)` | 全エージェント |
+
+> **注**: `embedding.ts` は `src/lib/` ではなく `src/mcp-server/utils/embedding.ts` に配置する（[04-agent-design.md §6.3](04-agent-design.md) 準拠）。embedding生成はMCPツールのINSERT処理内から呼び出されるため、MCP Server内部ユーティリティとして実装する。担当は mcp-intel-agent。
+
+**変更ルール**:
+- `src/lib/` の初期実装は infra-agent が Week 1 で行う（DB接続が前提のため）
+- 初期実装後の変更は「変更申請 → リーダー承認 → 全チーム通知」（`types/` と同じルール）
+- 各エージェントは `src/lib/` のファイルを import して使用するが、直接変更してはならない
+- 機能追加が必要な場合はリーダーに申請し、infra-agent が対応する
 
 ---
 
