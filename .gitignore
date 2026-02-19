@@ -50,6 +50,7 @@ Thumbs.db
 
 # Logs
 logs/
+!v5/logs/
 *.log
 
 # Test files

@@ -1900,6 +1900,32 @@ Phase 2 (commit `3d4a7ac`): CJKピクセル幅補正
 
 **テスト**: 全460テスト合格 (12スイート、3回連続安定)
 
+### 2026-02-19: Session 7 — 日次モニタリングスクリプト作成
+
+**目的**: v5.0並列実装フェーズ（10エージェント）の日次進捗・品質・アンチパターン監視を自動化
+
+**作成物**:
+- `v5/scripts/daily-report.sh` — 日次モニタリングスクリプト（6セクション）
+- `v5/logs/.gitkeep` — ログ保存ディレクトリ（Gitに含める）
+- cron設定: 毎日UTC 0:00に自動実行
+
+**レポート内容** (6セクション):
+1. **進捗サマリー**: feature_list.json ベース（全体・カテゴリ別・エージェント別、プログレスバー付き）
+2. **直近の活動**: progress.txt 最新30行、ブロッカー検出、当日COMPLETE数
+3. **アンチパターン検出**: AP1(One-shotting), AP4(E2E Skip), AP9(Config Hardcoding), AP10(Type Bypass)
+4. **Git統計**: 昨日からのコミット数、著者別
+5. **コード品質**: lint/TypeScript/テスト状況
+6. **環境ヘルスチェック**: Docker/DB接続/ディスク使用量
+
+**運用フロー**:
+- 毎日0:00 UTCに自動実行 → `v5/logs/daily-report-YYYY-MM-DD.txt` に保存 → auto git commit & push
+- GitHubアプリからスマホで `v5/logs/` を開くだけで確認可能
+- `.gitignore` に `!v5/logs/` 例外を追加（ルートの `logs/` ルールを上書き）
+
+**設計判断**:
+- progress.txt/src/ が未存在でもエラーにならない（実装フェーズ前の現時点で動作確認済み）
+- feature_list.json は251件（10エージェント、11カテゴリ）を正しく読み取り
+
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID
 - `.gsheets_token.json` - OAuth token for Sheets/Drive API

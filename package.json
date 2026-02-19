@@ -29,7 +29,8 @@
     "twitter-api-v2": "^1.29.0"
   },
   "devDependencies": {
-    "jest": "^29.7.0"
+    "jest": "^29.7.0",
+    "typescript": "^5.9.3"
   },
   "jest": {
     "projects": [
