@@ -1952,6 +1952,10 @@ Phase 2 (commit `3d4a7ac`): CJKピクセル幅補正
 - §5.2 ブランチ例: feature IDプレフィックスを feature_list.json と整合（FEAT-IN→FEAT-INT, FEAT-ST→FEAT-STR, FEAT-TE→FEAT-TST）
 - §6.2/6.3: ツール数の概数を削除し、05-mcp-tools.mdへの詳細参照に修正
 - §6.7: LangGraph.js バージョン表記を `v1.0` → `@langchain/langgraph 0.2.19`（01-tech-stack.md + package.jsonと整合）
+- §2.2 横断的関心事: クレデンシャル管理に02-architecture.md §12への参照を追加、text-post-agentにYouTube投稿OAuthを追加（元は欠落）、エラーリカバリーの02参照をリンク化
+- §6.2 mcp-core-agent: 各カテゴリに04-agent-design.mdの対応セクション番号（§4.1, §4.4, §4.6, §4.7, §4.9, §4.11）を追記、05-mcp-tools.md + types/mcp-tools.tsへの参照を追加
+- §6.3 mcp-intel-agent: 各カテゴリに04-agent-design.mdの対応セクション番号（§4.2, §4.3, §4.5, §4.10, §4.12）を追記、同様の参照を追加
+- §6.5 text-post-agent: 04-agent-designの「テキスト制作ワーカー」+「投稿ワーカー」を統合していることを注記、動画投稿も担当と明示、02-architecture.md §12への参照を追加
 
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID

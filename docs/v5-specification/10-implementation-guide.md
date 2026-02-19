@@ -92,9 +92,9 @@
 
 #### 横断的関心事のモジュール担当
 
-**クレデンシャル管理**: text-post-agent (X/IG/TikTok投稿OAuth), measure-agent (YouTube/TikTok/IG Analytics API), infra-agent (Google Service Account, PostgreSQL接続情報)
+**クレデンシャル管理**（詳細は [02-architecture.md §12](02-architecture.md)）: text-post-agent (YouTube/X/IG/TikTok投稿OAuth + トークンリフレッシュ), measure-agent (YouTube/TikTok/IG Analytics API), infra-agent (Google Service Account, PostgreSQL接続情報)。全プラットフォームのOAuth認証情報は `accounts.auth_credentials` (JSONB) に格納。
 
-**エラーリカバリー**: 横断的関心事。各ワーカーエージェントが自モジュール内で02-architecture.md §9のパターンに従い実装。video-worker-agent, text-post-agent, measure-agentが各自のリトライ・チェックポイント処理を担当
+**エラーリカバリー**: 横断的関心事。各ワーカーエージェントが自モジュール内で [02-architecture.md §9](02-architecture.md) のパターンに従い実装。video-worker-agent, text-post-agent, measure-agentが各自のリトライ・チェックポイント処理を担当
 
 ---
 
@@ -354,13 +354,15 @@ main ── 本番ブランチ（直接コミット禁止）
 
 ### 6.2 mcp-core-agent（Week 1-4）
 
-**担当**: Entity/Production/Operations/System/Dashboard系ツール（全89 MCPツールのうちコアCRUD担当分。詳細は [05-mcp-tools.md](05-mcp-tools.md)）
+**担当**: Entity/Production/Operations/System/Dashboard系ツール（全89 MCPツールのうちコアCRUD担当分）
 
-- Entity系: accounts, characters, components CRUD
-- Production系: content, content_sections, publications CRUD
-- Operations系: cycles, human_directives, task_queue CRUD
+- Entity系: accounts, characters, components CRUD（[04-agent-design.md §4.1](04-agent-design.md) 戦略エージェント用の一部 + §4.6 制作ワーカー用の一部）
+- Production系: content, content_sections, publications CRUD（§4.6, §4.7）
+- Operations系: cycles, human_directives, task_queue CRUD（§4.4 プランナー用）
 - System系: system_settings CRUD
-- Dashboard系: KPI集計, コスト集計
+- Dashboard系: KPI集計, コスト集計（§4.9 ダッシュボード用 + §4.11 ダッシュボードキュレーション）
+
+各ツールの入出力型は [05-mcp-tools.md](05-mcp-tools.md) および `types/mcp-tools.ts` を参照。
 
 **各ツールの実装パターン**:
 
@@ -378,18 +380,20 @@ export const getAccountsTool = {
 
 ### 6.3 mcp-intel-agent（Week 1-4）
 
-**担当**: Intelligence/Observability/ToolManagement/学習系ツール（全89 MCPツールのうちインテリジェンス担当分。詳細は [05-mcp-tools.md](05-mcp-tools.md)）
+**担当**: Intelligence/Observability/ToolManagement/学習系ツール（全89 MCPツールのうちインテリジェンス担当分）
 
-- Intelligence系: hypotheses, market_intel, metrics, analyses, learnings CRUD + 検索
-- Observability系: thought_logs, reflections, individual_learnings, communications
-- Tool Management系: tool_catalog, tool_experiences, production_recipes
-- 学習系: get_relevant_learnings, save_reflection, promote_learning
+- Intelligence系: hypotheses, market_intel, metrics, analyses, learnings CRUD + 検索（[04-agent-design.md §4.2](04-agent-design.md) リサーチャー用 + §4.3 アナリスト用）
+- Observability系: thought_logs, reflections, individual_learnings, communications（§4.12 自己学習・コミュニケーション用）
+- Tool Management系: tool_catalog, tool_experiences, production_recipes（§4.5 ツールスペシャリスト用）
+- 学習系: get_relevant_learnings, save_reflection, promote_learning（§4.10 データキュレーター用）
 
 **pgvector関連ツール**:
 - `similar_hypotheses_search` (cosine similarity)
 - `similar_learnings_search`
 - `similar_components_search`
 - `duplicate_detection`
+
+各ツールの入出力型は [05-mcp-tools.md](05-mcp-tools.md) および `types/mcp-tools.ts` を参照。
 
 ### 6.4 video-worker-agent（Week 1-4）
 
@@ -407,10 +411,12 @@ export const getAccountsTool = {
 
 ### 6.5 text-post-agent（Week 1-4）
 
+> **注**: 本エージェントは [04-agent-design.md](04-agent-design.md) で定義される「テキスト制作ワーカー」（テキスト生成）と「投稿ワーカー」（全プラットフォームへの投稿実行）の2つの責務を統合する。動画投稿（YouTube Shorts等）もこのエージェントが担当する（動画の**制作**は video-worker-agent、**投稿**は text-post-agent）。
+
 **実装内容**:
 - テキスト生成（Claude Sonnet, キャラクターpersonality反映）
-- 4プラットフォーム投稿アダプター (YouTube, TikTok, Instagram, X)
-- OAuth トークンリフレッシュ
+- 4プラットフォーム投稿アダプター (YouTube, TikTok, Instagram, X) — 動画・テキスト両方の投稿
+- OAuth トークンリフレッシュ（認証情報の定義は [02-architecture.md §12](02-architecture.md) を参照）
 - 投稿スケジューラー (`POSTING_POLL_INTERVAL_SEC`, `POSTING_TIME_JITTER_MIN`)
 - Rate Limit対応
 
