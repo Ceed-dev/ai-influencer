@@ -2515,7 +2515,7 @@ ORDER BY agent_type, count DESC;
 
 | コンポーネント名 | 種別 | 説明 |
 |---|---|---|
-| `SettingsCategoryTabs` | ナビ | 8カテゴリのタブ切替: cost_control, content_production, posting, measurement, agent, quality, platform_api, system |
+| `SettingsCategoryTabs` | ナビ | 8カテゴリのタブ切替: production, posting, review, agent, measurement, cost_control, dashboard, credentials（004_seed_settings.sql のcategoryカラムと一致） |
 | `SettingsTable` | テーブル | カテゴリ別の設定値一覧: key, value, type, description |
 | `EditSettingModal` | モーダル | 型に応じた入力UI: number → NumberInput, string → TextInput, boolean → Switch, json → Monaco Editor |
 | `SaveConfirmDialog` | ダイアログ | 変更前後の値を表示し、保存を確認 |
