@@ -1,8 +1,8 @@
 // AUTO-GENERATED from 04-agent-design.md Section 4 — DO NOT EDIT MANUALLY
 //
-// MCP Server Tool interfaces for 116 tools (103 MCP + 13 Dashboard REST)
-// Organized by agent role (13 categories)
-// §4.13 Dashboard Algorithm/KPI REST (6 tools) → types in api-schemas.ts #14-19
+// MCP Server Tool interfaces — 103 MCP + 13 base REST = 116 entries in this file
+// System total: 122 tools (103 MCP + 19 REST API). Remaining 6 REST (#14-19) in api-schemas.ts
+// Organized by agent role (13 categories: §4.1-§4.13)
 
 import type {
   AccountRow,
