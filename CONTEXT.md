@@ -2278,6 +2278,24 @@ Phase 2 (commit `3d4a7ac`): CJKピクセル幅補正
 
 **変更ファイル**: `pipeline/media/concat.js`, `tests/pipeline.test.js`
 
+### 2026-02-19〜20: Session 16 — リトライ耐性強化 + 量産実行
+
+**fetch failed リトライ修正** (`pipeline/media/fal-client.js`):
+- fal.ai API (Kling/Lipsync/Fabric) で `fetch failed`（ネットワーク接続エラー）がリトライ対象外だったバグを修正
+- `isFetchFailed` 条件追加 → 2s→5s→10s で最大3回リトライ
+- 本番ログで `fal.ai transient error (attempt 1/3), retrying in 2000ms...` → 自動回復を確認
+
+**Fish Audio 429 リトライ修正** (`pipeline/media/tts-generator.js`):
+- Fish Audio TTS の 429 (rate limit) がリトライ対象外だったバグを修正
+- 429 + fetch failed を isTransient に追加。429 は待機時間2倍（4s→10s→20s）
+- concurrency 5 で同時TTS 15呼び出し → レート制限抵触 → リトライで自動回復
+
+**量産実行結果**: VID_202602_0109〜0123（15本）全て completed
+- concat解像度正規化: Fabric 1.0 (736x1312@25fps) + Kling+Lipsync (720x1280@30fps) → 720x1280@30fps 統一 → black frame なし
+- 平均処理時間: ~600-700秒/本
+
+**変更ファイル**: `pipeline/media/fal-client.js`, `pipeline/media/tts-generator.js`
+
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID
 - `.gsheets_token.json` - OAuth token for Sheets/Drive API

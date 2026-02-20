@@ -48,10 +48,11 @@ async function generateSpeech({ text, referenceId }) {
     } catch (err) {
       lastError = err;
       const status = err.status || 0;
-      const isTransient = status >= 500 || err.code === 'ECONNRESET' || err.code === 'ETIMEDOUT';
+      const isFetchFailed = err.message && err.message.includes('fetch failed');
+      const isTransient = status >= 500 || status === 429 || err.code === 'ECONNRESET' || err.code === 'ETIMEDOUT' || isFetchFailed;
       if (!isTransient || attempt >= 2) throw err;
 
-      const delay = RETRY_DELAYS[attempt] || 10000;
+      const delay = status === 429 ? RETRY_DELAYS[attempt] * 2 : RETRY_DELAYS[attempt] || 10000;
       console.warn(`[tts] Fish Audio transient error (attempt ${attempt + 1}/3), retrying in ${delay}ms...`);
       await new Promise(r => setTimeout(r, delay));
     }
