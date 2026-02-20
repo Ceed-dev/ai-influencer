@@ -4,7 +4,7 @@
 >
 > **エージェント総数**: 社長1 + 専門職4〜5 + 部長N + ワーカープール = 可変
 >
-> **MCPツール数**: 119ツール (106 MCPツール + 13 Dashboard REST API, 12カテゴリ)
+> **MCPツール数**: 116ツール (103 MCPツール + 13 Dashboard REST API, 12カテゴリ) ※各セクション合計は106 MCP/119ツール（§4.3/§4.12で3ツール共有）
 >
 > **LangGraphグラフ数**: 4グラフ (戦略サイクル / 制作パイプライン / 投稿スケジューラー / 計測ジョブ)
 >
@@ -27,7 +27,7 @@
 - [3. エージェント通信パターン](#3-エージェント通信パターン)
   - [3.1 上位層 (社長・部長・専門職): LLM対話](#31-上位層-社長部長専門職-llm対話)
   - [3.2 下位層 (部長→ワーカー): DBタスクキュー](#32-下位層-部長ワーカー-dbタスクキュー)
-- [4. MCP Server ツール一覧 (119ツール)](#4-mcp-server-ツール一覧-119ツール)
+- [4. MCP Server ツール一覧 (116ツール)](#4-mcp-server-ツール一覧-116ツール)
   - [4.1 戦略エージェント用 (10ツール)](#41-戦略エージェント用-10ツール)
   - [4.2 リサーチャー用 (12ツール)](#42-リサーチャー用-12ツール)
   - [4.3 アナリスト用 (22ツール)](#43-アナリスト用-22ツール)
@@ -738,7 +738,7 @@ COMMIT;
 | ログファイル (stdout/stderr) | English | 標準的なログ管理ツールとの互換性 |
 | ダッシュボードエラー表示 | Japanese (UIラベル) + English (技術詳細) | 運用者が理解しやすい形式 |
 
-## 4. MCP Server ツール一覧 (119ツール)
+## 4. MCP Server ツール一覧 (116ツール)
 
 全エージェントはMCP Server経由でPostgreSQLにアクセスする。ツールはエージェントの役割ごとにグループ化されており、各エージェントのSystem Promptで使用可能なツール群を制限する。
 
@@ -948,6 +948,8 @@ AIツール知識の管理・検索・制作レシピ設計のためのツール
 | 12 | `get_content_metrics` | `{ content_id }` | `{ views, engagement_rate, completion_rate, ... }` | 単一コンテンツの実測メトリクス取得 |
 | 13 | `get_content_prediction` | `{ content_id }` | `{ predicted_kpis, hypothesis_id, hypothesis_category }` | 単一コンテンツの仮説予測値取得 |
 | 14 | `get_daily_micro_analyses_summary` | `{ date }` | `{ total_analyzed, confirmed, rejected, daily_accuracy, top_patterns[], new_learnings }` | 日次マイクロ分析集計 (マクロサイクル用) |
+
+> **注**: ツール #12-14 (get_content_metrics, get_content_prediction, get_daily_micro_analyses_summary) は §4.3 アナリスト用 #15-17 と同一ツール。MCP Server実装は1つ。§4の各セクション合計は106 MCPとなるが、この3ツールの重複によりユニーク実装数は103 MCP。
 
 ## 5. LangGraphグラフ設計詳細
 

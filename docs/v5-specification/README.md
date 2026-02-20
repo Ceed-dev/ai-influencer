@@ -45,6 +45,18 @@ v5.0は、AI-Influencerシステムを**完全AIエージェント駆動**に刷
 | 12 | [テスト仕様書](12-test-specifications.md) | 489テスト（DB:59, MCP:137, WKR:40, AGT:35, DSH:156, INT:20, E2E:12, ALG:30） |
 | 13 | [エージェントハーネス仕様](13-agent-harness.md) | 全自動実装ワークフロー、feature_list.json、品質ゲート |
 
+## v5.0 仕様の全体規模
+
+| 要素 | 数値 | 詳細 |
+|------|------|------|
+| データベース | 33テーブル | エンティティ8 / 仮説駆動6 / 計測・学習8 / アルゴリズム7 / 他4 |
+| MCPツール | 103 MCP (ユニーク実装) + 13 REST API = **116ツール** | mcp-core: 45 / mcp-intel: 58 / Dashboard REST: 13 ※04-agent-design.md §4ではエージェント別利用ツール合計として106 MCP/119ツールと記載（3ツールが§4.3/§4.12で共有） |
+| システム設定 | 118キー | エージェント: 75 / production: 13 / posting: 8 / measurement: 6 / credentials: 5 / cost_control: 4 / review: 4 / dashboard: 3 |
+| 機能一覧 | 276 Features | DB+Infra: 54 / MCP: 78 (core:43+intel:35) / Worker: 30 / Agent: 31 / Dashboard: 36 / Test: 32 / Algorithm: 15 |
+| テスト仕様 | **489テスト** | DB: 59 / MCP: 137 / Worker: 40 / Agent: 35 / Dashboard: 156 / Integration: 20 / E2E: 12 / Algorithm: 30 |
+| LangGraphグラフ | 4グラフ | 戦略サイクル / 制作パイプライン / 投稿スケジューラー / 計測ジョブ |
+| ダッシュボード | 15ページ + 13 API | 概要 / KPI監視 / エージェント進化 / キュレーション / プロンプト管理 / 他10ページ |
+
 ## アーキテクチャ概要図
 
 ```
@@ -64,7 +76,7 @@ v5.0は、AI-Influencerシステムを**完全AIエージェント駆動**に刷
 |                        MCP Protocol                         |
 |                              |                              |
 |              Custom MCP Server (Node.js)                    |
-|       Business Logic + Queries (98 MCP + 13 REST API)       |
+|   Business Logic + Queries (116ツール: 103 MCP + 13 REST API)   |
 |                              |                              |
 |  Video    Text     Posting        Measurement               |
 |  Worker   Worker   Worker         Worker                    |

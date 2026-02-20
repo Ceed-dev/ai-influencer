@@ -2254,7 +2254,8 @@ Phase 2 (commit `3d4a7ac`): CJKピクセル幅補正
 
 **数値整合性**: 87設定/agent:44/459テスト/MCP:137 が全13仕様ファイル+SQL+types+feature_listで一貫
 
-**最終数値**: 27テーブル, 139 indexes, 87 settings (agent:44), 98 MCP (111 total), 261 features, 459 tests
+**最終数値 (Session 14時点)**: 27テーブル, 139 indexes, 87 settings (agent:44), 98 MCP (111 total), 261 features, 459 tests
+> **Note**: Session 16でアルゴリズム・KPI統合により更新 → 33テーブル, 146 indexes, 118 settings (agent:75), 103 MCP (116 total), 276 features, 489 tests
 
 ### 2026-02-19: Session 15 — Fabric 1.0 integration + concat解像度修正
 
@@ -2331,10 +2332,10 @@ Phase 2 (commit `3d4a7ac`): CJKピクセル幅補正
 | インデックス数 | 139 | 146 (+7) |
 | 機能数 (features) | 261 | 276 (+15) |
 | テスト数 | 459 | 489 (+30) |
-| 総ツール数 (MCP+REST) | 111 | 119 (+8) |
+| 総ツール数 (MCP+REST) | 111 | 116 (+5 unique, §4.3/§4.12で3ツール共有) |
 
 **クロスチェック結果** (全通過):
-- 数値一貫性: 33テーブル, 118設定, 146インデックス, 276機能, 489テスト, 119ツール ✅
+- 数値一貫性: 33テーブル, 118設定, 146インデックス, 276機能, 489テスト, 116ツール(103 MCP + 13 REST) ✅
 - 不整合修正2件: 10-implementation-guide.md のインデックス数 139→146, 機能数 251→276
 - 古い参照の排除: measurement_round, comp.metadata 全ファイルから排除 ✅
 - 数式一貫性: 予測式・KPI式・精度式が 03/04/07/08 間で整合 ✅

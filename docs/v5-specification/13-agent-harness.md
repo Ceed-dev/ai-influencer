@@ -2041,7 +2041,7 @@ echo "=== Detection Complete ==="
 | # | 確認項目 | 完了 |
 |---|---------|------|
 | 1 | 全33テーブルに対応する FEAT-DB-xxx が存在 | ☐ |
-| 2 | 全98 MCPツールに対応する FEAT-MCC-xxx / FEAT-MCI-xxx が存在 | ☐ |
+| 2 | 全103 MCPツール + 13 Dashboard REST API に対応する FEAT-MCC-xxx / FEAT-MCI-xxx が存在 | ☐ |
 | 3 | 全4 LangGraphグラフに対応する FEAT-INT-xxx / FEAT-STR-xxx が存在 | ☐ |
 | 4 | 全15 ダッシュボード画面に対応する FEAT-DSH-xxx が存在 | ☐ |
 | 5 | 全機能に test_ids が設定されている | ☐ |

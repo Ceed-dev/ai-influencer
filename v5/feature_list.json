@@ -31,7 +31,7 @@
       "module": "sql",
       "agent": "infra-agent",
       "priority": "P0",
-      "description": "全27テーブルのDDL作成と存在確認",
+      "description": "全33テーブルのDDL作成と存在確認",
       "spec_refs": [
         "03-database-schema.md §1〜§7"
       ],
@@ -5987,7 +5987,7 @@
         "001_create_tables.sql に content_learnings CREATE TABLE追加",
         "002_create_indexes.sql に4インデックス追加",
         "マイグレーション実行",
-        "TEST-DB-002 (27テーブル存在確認) 実行"
+        "TEST-DB-002 (33テーブル存在確認) 実行"
       ],
       "passes": false
     },

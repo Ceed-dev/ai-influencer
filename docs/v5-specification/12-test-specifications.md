@@ -14,13 +14,27 @@ TEST-{LAYER}-{NUMBER}
 | Layer | Prefix | 対象 |
 |-------|--------|------|
 | Database | DB | PostgreSQL スキーマ・制約・トリガー・インデックス |
-| MCP Server | MCP | 98 MCP ツールの入出力・バリデーション (137テスト) |
+| MCP Server | MCP | 103 MCP ツール + 13 Dashboard REST API の入出力・バリデーション (137テスト) |
 | Worker | WKR | タスクキュー処理・動画制作・投稿・計測ワーカー |
 | LangGraph Agent | AGT | 4グラフのノード遷移・状態管理・チェックポイント |
 | Dashboard | DSH | Next.js 15ページ・13 REST API・テーマ・レスポンシブ |
 | Integration | INT | レイヤー間連携・グラフ間間接通信 |
 | E2E | E2E | 全ライフサイクル貫通テスト |
 | Algorithm & KPI | ALG | バッチジョブ・予測・ベースライン・weight・KPIスナップショット |
+
+### テスト総数
+
+| Layer | テスト数 |
+|-------|--------|
+| DB (Database) | 59 |
+| MCP (Server Tools + REST API) | 137 |
+| WKR (Worker) | 40 |
+| AGT (LangGraph Agent) | 35 |
+| DSH (Dashboard) | 156 |
+| INT (Integration) | 20 |
+| E2E (End-to-End) | 12 |
+| ALG (Algorithm & KPI) | 30 |
+| **合計** | **489** |
 
 ## 優先度定義
 
