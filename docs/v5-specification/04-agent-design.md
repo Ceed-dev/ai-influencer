@@ -5512,6 +5512,107 @@ Phase 4以降 (エージェント運用中):
 
 本セクションでは、エージェントの各判断に使用される数式・閾値・アルゴリズムを定義する。全ての閾値は `system_settings` テーブルで管理され、ハードコーディングは禁止される。
 
+### 閾値統合マスターテーブル
+
+以下は全エージェントが参照する閾値・設定値の一覧。各値の詳細定義は対応するサブセクションを参照。
+
+**仮説判定・学習** (§17.1, §18.3):
+
+| 設定キー | デフォルト値 | 型 | 定義箇所 | 説明 |
+|---------|------------|---|---------|------|
+| `HYPOTHESIS_CONFIRM_THRESHOLD` | 0.3 | float | §17.1 | prediction_error がこの値以下で `confirmed` |
+| `HYPOTHESIS_INCONCLUSIVE_THRESHOLD` | 0.5 | float | §17.1 | prediction_error がこの値以上で `rejected` |
+| `ANALYSIS_MIN_SAMPLE_SIZE` | 5 | int | §17.1 | 統計的判定に必要な最小サンプル数 |
+| `LEARNING_SUCCESS_INCREMENT` | 0.10 | float | §18.3 | `confirmed` 時の confidence 増加率 |
+| `CONFIDENCE_INCREMENT_INCONCLUSIVE` | 0.02 | float | §18.3 | `inconclusive` 時の confidence 微増 |
+| `LEARNING_FAILURE_DECREMENT` | 0.15 | float | §18.3 | `rejected` 時の confidence 減少量 |
+| `LEARNING_CONFIDENCE_THRESHOLD` | 0.7 | float | §18.3 | この値以上の知見のみプランナーに推奨 |
+| `LEARNING_DEACTIVATE_THRESHOLD` | 0.2 | float | §18.3 | この値未満で自動非活性化 (`is_active=false`) |
+| `LEARNING_AUTO_PROMOTE_COUNT` | 10 | int | §18.3 | この回数以上の成功で "mature" 判定 |
+| `LEARNING_SIMILARITY_THRESHOLD` | 0.8 | float | §18.2 | cosine similarity がこの値以上で既存知見に統合 |
+| `CROSS_NICHE_LEARNING_THRESHOLD` | 0.75 | float | §18.2 | この値以上で他ニッチに自動通知 |
+| `MAX_LEARNINGS_PER_CONTEXT` | 20 | int | §18.2 | エージェントに注入する知見の上限数 |
+
+**異常検知** (§17.3):
+
+| 設定キー | デフォルト値 | 型 | 定義箇所 | 説明 |
+|---------|------------|---|---------|------|
+| `ANOMALY_DETECTION_SIGMA` | 2.0 | float | §17.3 | 基準値からの標準偏差倍数 |
+| `ANOMALY_DETECTION_WINDOW_DAYS` | 14 | int | §17.3 | 基準値算出の対象期間（日数） |
+| `ANOMALY_MIN_DATAPOINTS` | 7 | int | §17.3 | この数未満で異常検知スキップ |
+
+**品質スコア** (§17.4):
+
+| 設定キー | デフォルト値 | 型 | 定義箇所 | 説明 |
+|---------|------------|---|---------|------|
+| `QUALITY_WEIGHT_COMPLETION` | 0.35 | float | §17.4 | 完視聴率の重み |
+| `QUALITY_WEIGHT_ENGAGEMENT` | 0.25 | float | §17.4 | エンゲージメント率の重み |
+| `QUALITY_WEIGHT_SHARE` | 0.20 | float | §17.4 | シェア率の重み |
+| `QUALITY_WEIGHT_RETENTION` | 0.15 | float | §17.4 | リテンション率の重み |
+| `QUALITY_WEIGHT_SENTIMENT` | 0.05 | float | §17.4 | センチメント分析の重み |
+| `QUALITY_FILTER_THRESHOLD` | 5.0 | float | §17.5 | この品質スコア以上のコンポーネントのみ使用可能 |
+| `CURATION_MIN_QUALITY` | 4.0 | float | §19.6 | この値未満は `review_status='pending'` |
+
+**リソース配分** (§17.5):
+
+| 設定キー | デフォルト値 | 型 | 定義箇所 | 説明 |
+|---------|------------|---|---------|------|
+| `PLANNER_ACCOUNTS_PER_INSTANCE` | 50 | int | §17.5 | 1プランナーの担当アカウント数上限 |
+| `MAX_POSTS_PER_ACCOUNT_PER_DAY` | 2 | int | §17.5 | 1アカウントの1日あたり最大投稿数 |
+| `DAILY_BUDGET_LIMIT_USD` | 100 | float | §17.5 | 1日あたりの外部API予算上限 |
+| `WORKER_THROUGHPUT_PER_HOUR` | 5 | int | §17.5 | 1ワーカーの1時間あたり処理動画数 |
+| `EXPLORATION_RATE` | 0.15 | float | §17.5 | 探索に割り当てるリソース比率 (15%) |
+
+**タイミング・インターバル** (§17, §18):
+
+| 設定キー | デフォルト値 | 型 | 定義箇所 | 説明 |
+|---------|------------|---|---------|------|
+| `HYPOTHESIS_CYCLE_INTERVAL_HOURS` | 24 | int | §17 | 戦略サイクル間隔（時間） |
+| `METRICS_COLLECTION_DELAY_HOURS` | 48 | int | §18.2 | 投稿後メトリクス収集までの遅延 |
+| `METRICS_FOLLOWUP_DAYS` | [7, 30] | int[] | §18.2 | 追加計測タイミング（日数配列） |
+| `METRICS_COLLECTION_RETRY_HOURS` | 6 | int | §16 | Rate Limit時の再試行待機時間 |
+| `METRICS_BACKFILL_MAX_DAYS` | 7 | int | §16 | 欠損データ補完の最大遡り日数 |
+| `MICRO_ANALYSIS_MAX_DURATION_SEC` | 30 | int | §18.2 | マイクロ分析の最大実行時間 |
+| `RESEARCHER_POLL_INTERVAL_HOURS` | 6 | int | §19.2 | リサーチャーのポーリング間隔 |
+
+**コンポーネント管理** (§19.6):
+
+| 設定キー | デフォルト値 | 型 | 定義箇所 | 説明 |
+|---------|------------|---|---------|------|
+| `COMPONENT_DUPLICATE_THRESHOLD` | 0.9 | float | §19.6 | cosine similarity >= この値で重複判定 |
+| `CHARACTER_GENERATION_CONFIDENCE_THRESHOLD` | 0.8 | float | §19.6 | この値以上で自動承認 |
+
+**プロンプト自動提案** (§18.3):
+
+| 設定キー | デフォルト値 | 型 | 定義箇所 | 説明 |
+|---------|------------|---|---------|------|
+| `PROMPT_SUGGEST_LOW_SCORE` | 5 | int | §18.3 | この値未満が3回連続で改善提案生成 |
+| `PROMPT_SUGGEST_HIGH_SCORE` | 8 | int | §18.3 | この値以上が5回連続で知見共有提案 |
+| `PROMPT_SUGGEST_FAILURE_COUNT` | 3 | int | §18.3 | 同一エラーがこの回数でパラメータ変更提案 |
+
+**リトライ・エラー回復** (§5, §16):
+
+| 設定キー | デフォルト値 | 型 | 定義箇所 | 説明 |
+|---------|------------|---|---------|------|
+| `MAX_RETRY_ATTEMPTS` | 3 | int | §5 | LLM API最大リトライ回数 |
+| `RETRY_BACKOFF_BASE_SEC` | 2 | int | §5 | 指数バックオフの基底秒数 |
+| `MAX_CONTENT_REVISION_COUNT` | 3 | int | §5 | 差戻し最大回数（超過で `cancelled`） |
+| `CHECKPOINT_RETENTION_DAYS` | 7 | int | 02-arch §9.2 | LangGraphチェックポイント保持日数 |
+
+**制御フラグ** (§2, §5, §17, §18):
+
+| 設定キー | デフォルト値 | 型 | 定義箇所 | 説明 |
+|---------|------------|---|---------|------|
+| `HUMAN_REVIEW_ENABLED` | true | bool | §5 | コンテンツの人間承認を要求 |
+| `REQUIRE_AUTO_CURATION` | true | bool | §2 | キュレーション結果の自動承認 |
+| `CHARACTER_REVIEW_REQUIRED` | true | bool | §2 | キャラクター生成の人間レビュー |
+| `CHARACTER_AUTO_GENERATION_ENABLED` | false | bool | §2 | 自動キャラクター生成の有効化 |
+| `STRATEGY_APPROVAL_REQUIRED` | true | bool | §17 | 大規模な戦略変更の人間承認 |
+| `RECIPE_APPROVAL_REQUIRED` | true | bool | §17 | ツールレシピ変更の人間承認 |
+| `LEARNING_AUTO_PROMOTE_ENABLED` | false | bool | §18.3 | 自動昇格の有効化（true: 人間確認不要） |
+
+> **注**: 上記は04-agent-design.mdで定義されるエージェント関連閾値のみ。アルゴリズム関連の設定値（重み初期値・クリッピング・ベースライン等 31件）は08-algorithm-analysis.md §27を参照。全118件のsystem_settingsの完全一覧はv5/sql/004_seed_settings.sqlに定義される。
+
 ### 17.1 仮説判定 (verdict)
 
 アナリストが仮説のpredicted_kpis と actual_kpis を比較して判定する際の基準。`predicted_kpis` / `actual_kpis` は JSONB で複数KPI指標を含むため、全KPI指標の相対誤差の平均で判定する。

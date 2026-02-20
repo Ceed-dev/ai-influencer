@@ -218,15 +218,16 @@ NUMBER: 001〜999
 
 **テストID体系の対応表**: 各機能の `test_ids` は本ファイル内ではFEATカテゴリに準じた命名（TEST-{CATEGORY}-NNN）を使用する。12-test-specifications.md のレイヤーベースIDとの対応は以下の通り:
 
-| 13 (FEAT/TESTカテゴリ) | 12 (テストレイヤー) | 備考 |
-|---|---|---|
-| DB | TEST-DB | 同一 |
-| INF | (12に未定義) | Docker/環境設定テスト。実装時にTEST-DB or TEST-INT枠で追加 |
-| MCC, MCI | TEST-MCP | 12ではCore/Intelを区別せず統一 |
-| VW, TP, MS | TEST-WKR | 12ではワーカー層として統一 |
-| INT, STR | TEST-AGT | 12ではエージェント層として統一 |
-| DSH | TEST-DSH | 同一 |
-| TST | TEST-INT / TEST-E2E | CI・統合テスト |
+| 13 (FEAT/TESTカテゴリ) | 12 (テストレイヤー) | テスト数 | 備考 |
+|---|---|---|---|
+| DB | TEST-DB | 59 | 同一 |
+| INF | TEST-DB / TEST-INT | — | Docker/環境設定テスト。実装時にTEST-DB or TEST-INT枠で追加 |
+| MCC, MCI | TEST-MCP | 137 | 12ではCore/Intelを区別せず統一 |
+| VW, TP, MS | TEST-WKR | 40 | 12ではワーカー層として統一 |
+| INT, STR | TEST-AGT | 35 | 12ではエージェント層として統一 |
+| DSH | TEST-DSH | 156 | 同一 |
+| TST | TEST-INT / TEST-E2E | 20 / 12 | CI・統合テスト / E2Eテスト |
+| (アルゴリズム) | TEST-ALG | 30 | Session 16で追加。FEAT-MCI のアルゴリズム機能に対応 |
 
 ### 2.4 機能一覧（抜粋: 各カテゴリ3件以上、計35件）
 

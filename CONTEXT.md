@@ -2345,6 +2345,71 @@ Phase 2 (commit `3d4a7ac`): CJKピクセル幅補正
 - docs/v5-specification/: 02, 03, 04, 05, 06, 07, 08, 09, 10, 11, 12, 13, README
 - v5/: feature_list.json, sql/001, sql/002, sql/004, types/api-schemas.ts, types/database.ts, types/mcp-tools.ts
 
+### 2026-02-20: Session 17 — MCP ツール重複修正 + 最終整合性チェック
+
+**目的**: Session 16 アルゴリズム・KPI統合後の最終品質チェック
+
+**実施内容**:
+1. **MCPツール重複発見・修正**: §4.3(intelligence/) と §4.12(entity/) で3ツール共有 → ユニーク103 MCP確認
+2. **10-implementation-guide マッピング表修正**: intelligence/ 40→45, mcp-intel 53→58, total 98→103
+3. **旧数値排除**: feature_list.json(27→33テーブル), CLAUDE.md(254→276 features), README.md(agent:44→75設定)
+4. **Features内訳修正**: README.md の機能内訳カテゴリを feature_list.json の実際のカテゴリに整合
+
+**コミット**:
+- `003fbdc` — feat(v5): integrate algorithm-KPI design memo into all specs (+3,987 lines, 21 files)
+- `8534617` — fix: update MCP tool count 111→119 in CONTEXT.md and 02-architecture.md
+- `d08029f` — fix(v5-spec): resolve MCP tool count inconsistency and stale references (12 files, +63/-32)
+
+**最終統一数値** (v5仕様 確定値):
+| 項目 | 値 |
+|------|------|
+| テーブル | 33 |
+| インデックス | 146 |
+| system_settings | 118 (agent: 75) |
+| MCPツール (ユニーク) | 103 |
+| REST API | 13 |
+| 総ツール | 116 |
+| Features | 276 |
+| テスト | 489 |
+
+### 2026-02-20: Session 18 — v5仕様 残品質タスク完了 + メモリ整理
+
+**目的**: v5-remaining-quality.md の6項目を全てベストプラクティスで修正
+
+**実施内容**:
+
+1. **cycles.status 状態遷移図追加** (02-architecture.md §8.1)
+   - 5ステータス (planning → executing → measuring → analyzing → completed) の状態遷移図を追加
+   - 各ステータスの意味・遷移トリガー・主要カラムを表で定義
+   - エラー時の挙動を明記（planning に留まり agent_communications で通知）
+
+2. **閾値統合マスターテーブル作成** (04-agent-design.md §17)
+   - 40+ 閾値を8カテゴリに分類した統合テーブルを §17 冒頭に追加
+   - カテゴリ: 仮説判定・学習 / 異常検知 / 品質スコア / リソース配分 / タイミング / コンポーネント管理 / プロンプト提案 / リトライ・制御フラグ
+   - 各閾値の設定キー・デフォルト値・型・定義箇所を一覧化
+
+3. **TEST-ID対応表の更新** (13-agent-harness.md §2.3)
+   - TEST-ALG（30テスト）行を追加（Session 16で追加されたアルゴリズムテスト）
+   - 各行にテスト数カラムを追加して具体性向上
+
+4. **per-content学習効率の計算根拠追記** (08-algorithm-analysis.md §3.2)
+   - 「1,000〜3,000倍」の導出式を明記: 15,000÷15=1,000倍 〜 45,000÷15=3,000倍
+
+5. **確認済み（修正不要）**:
+   - プロンプト全文確認 (04 §19): 全6エージェント完全 ✅
+   - リトライポリシー (02 §9): 3階層で完全定義済み ✅
+   - 02/04 精読: 構造的な欠陥なし ✅
+
+**メモリファイル整理**:
+- 削除: session14-remaining-fixes.md, sec7-11-fixes.md, diagram-alignment-fix.md, session15-algorithm-integration.md, session17-final-state.md, algorithm-kpi-design.md, v5-remaining-quality.md
+- 残存: MEMORY.md, v5-redesign.md のみ
+
+**変更ファイル一覧 (4ファイル)**:
+- docs/v5-specification/02-architecture.md (+cycles.status 状態遷移図)
+- docs/v5-specification/04-agent-design.md (+閾値統合マスターテーブル)
+- docs/v5-specification/08-algorithm-analysis.md (+導出式)
+- docs/v5-specification/13-agent-harness.md (+TEST-ALG行、テスト数カラム)
+
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID
 - `.gsheets_token.json` - OAuth token for Sheets/Drive API

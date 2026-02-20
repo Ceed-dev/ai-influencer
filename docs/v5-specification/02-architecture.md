@@ -2733,6 +2733,29 @@ content.status = 'ready'
 content.status = 'analyzed'
 ```
 
+**cycles.status** (戦略サイクルライフサイクル — 5ステータス):
+
+```
+planning → executing → measuring → analyzing → completed
+    │                                              │
+    │          ┌───────────────────────────────────┘
+    │          │ (次サイクル自動開始: HYPOTHESIS_CYCLE_INTERVAL_HOURS後)
+    │          ▼
+    │      planning (次のcycle_number)
+    │
+    └──→ (異常終了時: statusはplanningに留まり、agent_communicationsにmessage_type='struggle'で通知)
+```
+
+| ステータス | 意味 | 遷移トリガー | 主要なカラム |
+|---|---|---|---|
+| `planning` | 市場データ収集・仮説生成・計画策定中 | 戦略サイクルグラフSTARTノード通過 | `started_at` |
+| `executing` | 計画承認済み。制作パイプラインがコンテンツ制作中 | プランナーが全contentをINSERT完了 | `summary.planned_content_count` |
+| `measuring` | 投稿完了。計測ジョブがメトリクス収集中 | 全contentが `posted` ステータスに到達 | — |
+| `analyzing` | 計測完了。アナリストが分析・知見抽出中 | 全publicationsが `measured` に到達 | — |
+| `completed` | サイクル完了。全分析結果が保存済み | アナリストが全仮説のverdict判定完了 | `ended_at`, `summary` |
+
+> **注**: cycles テーブルにはエラー専用ステータスを設けない。各フェーズ内で発生するエラーは content.status / publications.status / task_queue.status のレベルで管理される（§9参照）。サイクル自体が進行不能な場合は `planning` に留まり、`agent_communications` (message_type='struggle') で人間に通知する。
+
 **エラー時の分岐**:
 
 ```
