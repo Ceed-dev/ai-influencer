@@ -1040,7 +1040,7 @@ v4.0では人間が手動でシナリオ・モーション・音声等のイン�
 │                       MCP Server (Node.js)                            │
 │                                                                       │
 │  ┌─────────────────────────────────────────────────────────────────┐  │
-│  │ Tool Registry (98 MCPツール + 13 Dashboard REST API = 計111)    │   │
+│  │ Tool Registry (106 MCPツール + 13 Dashboard REST API = 計119)   │   │
 │  │                                                                  │ │
 │  │  [MCPツール — エージェントが MCP Protocol 経由で呼び出す]        │      │
 │  │                                                                  │ │
