@@ -1,8 +1,11 @@
 # 06. 開発ロードマップ v5.0（仕様駆動並列実装版）
 
 > v5.0の開発ロードマップ。仕様駆動並列実装により、従来19週間の計画を7週間に短縮する。
+> （タイムライン最適化の詳細分析: `~/tunnel-share/agent-team-timeline-optimization.md`）
 >
 > **実装方式**: Claude Code Agent Team による仕様駆動並列実装
+>
+> **KPI定義**: 本ドキュメントにおけるKPIとは「プラットフォーム別の平均インプレッション数」を指す。アカウント数はKPIではなく、アカウント作成は人間の手動作業である。
 >
 > **関連ドキュメント**: [02-architecture.md](02-architecture.md) (アーキテクチャ), [03-database-schema.md](03-database-schema.md) (スキーマ), [04-agent-design.md](04-agent-design.md) (エージェント設計)
 
@@ -28,7 +31,7 @@
 | 実装方式 | Claude Code Agent Team による仕様駆動並列実装 |
 | 総期間 | **7週間**（従来の19週間から63%短縮） |
 | チーム構成 | リーダー1 + チームメイト10（合計11 Claude Codeプロセス） |
-| 前提 | 全仕様書（01-11）が確定し、モジュールインターフェースが凍結済み |
+| 前提 | 全仕様書（01-13）が確定し、モジュールインターフェースが凍結済み |
 | 実装者 | 人間は一切コードを書かない。指示・レビュー・承認のみ |
 | VM環境 | GCE 16GB RAM, 4vCPU — 最大10チームメイトが安全圏 |
 
@@ -117,12 +120,12 @@ Week  W0   W1        W2        W3        W4        W5        W6        W7
 
 #### 成果物
 
-1. **全仕様書（01-11）の最終レビュー完了**
+1. **全仕様書（01-13）の最終レビュー完了**
 2. **TypeScript型定義ファイル生成**:
-   - `types/database.ts`: 全33テーブルのRow型
-   - `types/mcp-tools.ts`: 全MCPツールの入出力型
+   - `types/database.ts`: 全33テーブル (146 indexes) のRow型
+   - `types/mcp-tools.ts`: 全103 MCPツールの入出力型
    - `types/langgraph-state.ts`: 全4グラフのステート型
-   - `types/api-schemas.ts`: ダッシュボードAPIのリクエスト/レスポンス型
+   - `types/api-schemas.ts`: ダッシュボード19 REST APIのリクエスト/レスポンス型
 3. **Docker Compose定義**（サービス分割）
 4. **ディレクトリ構造の確定**
 5. **全プロンプトファイル（`prompts/*.md`）の生成**
@@ -140,8 +143,8 @@ Week  W0   W1        W2        W3        W4        W5        W6        W7
 | # | エージェント名 | 担当モジュール | 主要成果物 |
 |---|-------------|--------------|----------|
 | 1 | infra-agent | Docker + PostgreSQL + DDL | docker-compose.yml, DDL適用, マイグレーションスクリプト |
-| 2 | mcp-core-agent | MCP Server（コアツール） | 全122ツールのうちCRUD系〜45ツール |
-| 3 | mcp-intel-agent | MCP Server（インテリジェンス系） | 分析・学習・仮説関連〜52ツール |
+| 2 | mcp-core-agent | MCP Server（コアツール） | 全103 MCPツールのうちCRUD系〜45ツール |
+| 3 | mcp-intel-agent | MCP Server（インテリジェンス系） | 分析・学習・仮説関連〜58ツール（intelligence:45 + observability:8 + tool-mgmt:5）、content_learnings CRUD + 6 micro-cycle MCPツール含む |
 | 4 | video-worker-agent | 動画制作ワーカー | fal.ai連携, ffmpeg concat, リトライ処理 |
 | 5 | text-post-agent | テキスト制作 + 投稿ワーカー | X/IG/TikTok/YTテキスト生成, 投稿アダプター |
 | 6 | measure-agent | 計測ワーカー + プラットフォームAPI | 4PFメトリクス収集, APIアダプター |
@@ -154,6 +157,11 @@ Week  W0   W1        W2        W3        W4        W5        W6        W7
 
 ```
 [型定義ファイル] ← 全エージェントが参照（Week 0-1で凍結）
+    ↓
+    ├─ types/database.ts       — 全33テーブル (146 indexes)
+    ├─ types/mcp-tools.ts      — 全103 MCPツール (+ 19 REST API = 122総計)
+    ├─ types/langgraph-state.ts — 全4グラフ
+    └─ types/api-schemas.ts    — 19 REST APIエンドポイント
     ↓
 infra-agent ─── Docker + DDL（Week 1-2で完成 → 他エージェントがDB接続可能に）
     ↓
@@ -185,7 +193,7 @@ infra-agent ─── Docker + DDL（Week 1-2で完成 → 他エージェント
 
 | エージェント | 作業内容 | 成果物 |
 |-------------|---------|--------|
-| infra-agent | 全33テーブルDDL完了 + インデックス + トリガー + 初期データ投入 | **33テーブル完成、M1達成** |
+| infra-agent | 全33テーブルDDL完了 + 146インデックス + トリガー + 初期データ投入 | **33テーブル (146 indexes) 完成、M1達成** |
 | mcp-core-agent | Production系 + Operations系CRUDツール | content/publications/task_queue CRUD |
 | mcp-intel-agent | 仮説検索 + 知見検索 + 異常検知ツール | pgvector検索対応ツール |
 | video-worker-agent | Sync Lipsync連携 + ffmpeg concat + リトライ処理 | 動画制作E2Eフロー完成 |
@@ -202,7 +210,7 @@ infra-agent ─── Docker + DDL（Week 1-2で完成 → 他エージェント
 |-------------|---------|--------|
 | infra-agent | マイグレーションスクリプト + バックアップ設定 | DB運用ツール完成 |
 | mcp-core-agent | Observability系ツール + Tool Management系ツール | thought_logs/prompt_versions CRUD |
-| mcp-intel-agent | エージェント学習系ツール + プロンプト提案ツール | 学習・反省・自動提案ツール |
+| mcp-intel-agent | エージェント学習系ツール + プロンプト提案ツール + per-content micro-cycle 6ツール（search_content_learnings, create_micro_analysis, save_micro_reflection, get_content_metrics, get_content_prediction, get_daily_micro_analyses_summary） | 学習・反省・自動提案ツール + content_learnings CRUD + micro-cycle (~30秒/コンテンツ) + macro-cycle (日次集約) |
 | video-worker-agent | エラーリカバリー + チェックポイント + 品質フィルター | 堅牢な動画制作ワーカー |
 | text-post-agent | 投稿スケジューラー + 時刻ジッター + リトライ処理 | スケジュール最適化 |
 | measure-agent | 異常検知ワーカー + メトリクス再収集ロジック | 自動異常検知 |
@@ -215,11 +223,11 @@ infra-agent ─── Docker + DDL（Week 1-2で完成 → 他エージェント
 
 | エージェント | 作業内容 | 成果物 |
 |-------------|---------|--------|
-| mcp-core-agent + mcp-intel-agent | 全122ツール完成 + テスト | **M4: MCP Server 100%** |
+| mcp-core-agent + mcp-intel-agent | 全103 MCPツール完成 + テスト | **M4: MCP Server 100% (103 MCP + 19 REST API = 122総計)** |
 | video-worker-agent | E2Eテスト（1動画の完全制作） | 動画制作ワーカー完成 |
 | text-post-agent | E2Eテスト（1投稿の完全フロー） | テキスト制作+投稿ワーカー完成 |
 | measure-agent | E2Eテスト（メトリクス収集→DB保存） | 計測ワーカー完成 |
-| intelligence-agent | 4エージェント統合テスト | インテリジェンス層完成 |
+| intelligence-agent | 4エージェント統合テスト + per-content学習検証 | インテリジェンス層完成（content_learningsテーブル + 6 micro-cycleツール稼働確認） |
 | strategy-agent | Strategy Cycle E2Eテスト（仮説→計画→承認） | 戦略・計画層完成 |
 | dashboard-agent | 知見ブラウザ + ツール管理 + エラーログ + コスト管理 | 4ページ追加 (計10ページ) |
 | test-agent | E2Eテストスイート構築 | E2Eテスト基盤 |
@@ -241,7 +249,7 @@ infra-agent ─── Docker + DDL（Week 1-2で完成 → 他エージェント
 
 ```
 Step 1: DB + MCP Server接続テスト
-        └─ 33テーブル + 122ツールの実DB動作確認
+        └─ 33テーブル (146 indexes) + 103 MCPツールの実DB動作確認
 
 Step 2: Worker + MCP Server結合テスト
         └─ 動画制作WK、テキスト制作WK、投稿WK、計測WKがMCP経由でDB操作
@@ -281,37 +289,38 @@ Step 5: 全体E2Eテスト
 
 ## 5. マイルストーン
 
-| ID | 時期 | 名称 | 判定基準 |
-|----|------|------|---------|
-| M0 | Week 0 | 仕様凍結 | 全仕様書（01-11）承認完了。型定義ファイル4種の生成・凍結完了。全プロンプトファイル作成完了 |
-| M1 | Week 2 | DB稼働 | 33テーブルDDL適用完了。インデックス・トリガー動作確認。Cloud SQL接続テスト通過 |
-| M2 | Week 3 | MCP Server 70% | 70+ツール実装完了。ユニットテスト通過。pgvector検索動作確認 |
-| M3 | Week 4 | モジュール単体完成 | 全モジュール（Worker/Agent/Dashboard）の単体テスト通過 |
-| M4 | Week 5 | MCP Server 100% + Worker完成 | 122ツール完成。全Worker E2Eテスト通過。ダッシュボード全15画面完成 |
-| M5 | Week 6 | E2E通過 | 全体フロー（仮説→計画→制作→投稿→計測→分析→学習）のE2Eテスト通過 |
-| M6 | Week 7 | 本番Ready | Docker本番設定完了。初期データ投入完了。バックアップ検証完了。チェックリスト全項目クリア |
+| ID | 時期 | 名称 | 判定基準 | Feature達成 |
+|----|------|------|---------|------------|
+| M0 | Week 0 | 仕様凍結 | 全仕様書（01-13）承認完了。型定義ファイル4種の生成・凍結完了。全プロンプトファイル作成完了。全118 system_settings凍結 | — |
+| M1 | Week 2 | DB稼働 | 33テーブル (146 indexes) DDL適用完了。インデックス・トリガー動作確認。Cloud SQL接続テスト通過 | 54/276 (DB features) |
+| M2 | Week 3 | MCP Server 70% | 70+ MCPツール実装完了。ユニットテスト通過。pgvector検索動作確認 | 100/276 |
+| M3 | Week 4 | モジュール単体完成 | 全モジュール（Worker/Agent/Dashboard）の単体テスト通過。per-content学習 micro-cycle (~30秒) 動作確認。アルゴリズム精度上限: 92% の理論的到達パスを検証 | 150/276 |
+| M4 | Week 5 | MCP Server 100% + Worker完成 | 全103 MCPツール完成 (+ 19 REST API = 122総計)。全Worker E2Eテスト通過。ダッシュボード全15画面完成。content_learnings + 6 micro-cycleツール完全稼働 | 220/276 |
+| M5 | Week 6 | E2E通過 | 全体フロー（仮説→計画→制作→投稿→計測→分析→学習）のE2Eテスト通過。アルゴリズム精度上限92%の学習サイクルが稼働 | 260/276 |
+| M6 | Week 7 | 本番Ready | Docker本番設定完了。初期データ投入完了。バックアップ検証完了。チェックリスト全項目クリア。アルゴリズム精度上限: 92%（12ヶ月後 88-93%）の基盤確立 | **276/276** |
 
 ### マイルストーン判定チェックリスト
 
 **M0: 仕様凍結**
-- [ ] 全仕様書（01-11）の最終レビュー完了・承認済み
-- [ ] `types/database.ts` — 全33テーブルのRow型が定義済み
-- [ ] `types/mcp-tools.ts` — 全122ツールの入出力型が定義済み
+- [ ] 全仕様書（01-13）の最終レビュー完了・承認済み
+- [ ] `types/database.ts` — 全33テーブル (146 indexes) のRow型が定義済み
+- [ ] `types/mcp-tools.ts` — 全103 MCPツール (+ 19 REST API = 122総計) の入出力型が定義済み
 - [ ] `types/langgraph-state.ts` — 全4グラフのステート型が定義済み
-- [ ] `types/api-schemas.ts` — ダッシュボードAPIスキーマが定義済み
+- [ ] `types/api-schemas.ts` — ダッシュボード19 REST APIスキーマが定義済み
 - [ ] `prompts/*.md` — 全エージェントのプロンプト全文が作成済み
+- [ ] 全118 system_settings完成・凍結（agent系75設定を含む）
 - [ ] Docker Compose定義（dev/prod分離設計）が確定
 - [ ] ディレクトリ構造が確定し、全エージェントに通知済み
 
-**M1: DB稼働**
+**M1: DB稼働** (Feature: 54/276)
 - [ ] Docker環境構築完了（`docker-compose.yml` + dev/prod分離）
 - [ ] PostgreSQL 16+ が稼働（Cloud SQL本番 + Docker開発環境）
 - [ ] pgvector拡張が有効
-- [ ] 33テーブル全て作成済み（Entity 3 + Production 3 + Intelligence 6 + Operations 4 + Observability 5 + Tool Management 5 + System Management 1 + Algorithm 6）
-- [ ] 全インデックス・トリガー作成済み・動作確認済み
+- [ ] 33テーブル全て作成済み（Entity 3 + Production 3 + Intelligence 6 + Operations 4 + Observability 5 + Tool Management 5 + System Management 1 + Algorithm 6）— content_learningsテーブル含む
+- [ ] 146インデックス・全トリガー作成済み・動作確認済み
 - [ ] 既存Sheetsデータの移行完了（accounts, characters, components, content）
 
-**M3: モジュール単体完成**
+**M3: モジュール単体完成** (Feature: 150/276)
 - [ ] 動画制作ワーカーが1動画のE2E制作完了（fal.ai Kling + TTS + Lipsync + concat）
 - [ ] テキスト制作ワーカーが4PFテキスト生成完了
 - [ ] 投稿ワーカーが4PF（YouTube, TikTok, Instagram, X）への投稿成功
@@ -319,18 +328,22 @@ Step 5: 全体E2Eテスト
 - [ ] LangGraph 4グラフ（Research, Analysis, ToolSP, DataCuration）が単体テスト通過
 - [ ] 戦略Agent + プランナーが単体テスト通過
 - [ ] ダッシュボード10画面が表示・動作確認済み
-- [ ] MCP Server 70+ツールがユニットテスト通過
+- [ ] MCP Server 70+ MCPツールがユニットテスト通過
+- [ ] per-content学習 micro-cycle (~30秒/コンテンツ) + macro-cycle (日次集約) が稼働確認済み
+- [ ] content_learningsテーブル + 6 micro-cycle MCPツールが動作確認済み
 
-**M5: E2E通過**
+**M5: E2E通過** (Feature: 260/276)
 - [ ] DB + MCP Server接続テスト通過
 - [ ] Worker + MCP Server結合テスト通過
 - [ ] LangGraph Agent + MCP Server結合テスト通過
 - [ ] Dashboard + API結合テスト通過
 - [ ] 全体E2Eテスト通過（仮説→計画→[人間承認]→制作→投稿→計測→分析→学習）
+- [ ] per-content学習E2Eテスト通過（投稿→計測→micro-analysis ~30秒→content_learnings保存→daily macro集約）
 - [ ] 人間承認フロー（`HUMAN_REVIEW_ENABLED = true`）がLangGraph interruptで正常動作
 - [ ] 24時間の無人稼働テスト成功
+- [ ] アルゴリズム精度上限92%の学習パイプラインが正常稼働
 
-**M6: 本番Ready**
+**M6: 本番Ready** (Feature: **276/276**, Tests: **489**)
 - [ ] 全プロセスがdocker-compose管理下（PM2完全廃止）
 - [ ] Docker本番設定（`docker-compose.prod.yml`）でのデプロイ検証完了
 - [ ] Cloud SQLバックアップ・リストア検証完了
@@ -338,30 +351,47 @@ Step 5: 全体E2Eテスト
 - [ ] 初期データ投入完了（v4.0からの移行）
 - [ ] ダッシュボード全15画面の手動操作テスト完了
 - [ ] GAS / Sheets停止計画の確定
+- [ ] 全276 features実装完了・テスト通過 (489テスト: DB:59, MCP:137, WKR:40, AGT:35, DSH:156, INT:20, E2E:12, ALG:30)
+- [ ] アルゴリズム精度上限: 92%（12ヶ月後 88-93%）の基盤確立確認
 
 ## 6. 並行実施事項（人間の作業）
 
 開発と並行して人間が実施すべき作業。Agent Teamの作業とは独立に進める。
 
-| 期間 | 作業 | 詳細 |
-|------|------|------|
-| Week 0- | API審査申請 | TikTok, Instagram, X API の審査申請を早期提出。審査に2-4週間かかるため最優先 |
-| Week 0- | アカウント作成 | 初期50アカウントの各プラットフォーム登録 |
-| Week 1- | OAuth認証 | 各アカウントのOAuthコンセントフロー完了（YouTube, TikTok, Instagram, X） |
-| Week 2- | API キー設定 | fal.ai, Fish Audio, OpenAI, Anthropic のキー設定・残高確認 |
-| Week 3- | キャラクターアセット | 画像・音声素材の準備とDriveアップロード |
-| Week 5- | レビュー・承認 | 統合テスト結果のレビュー、本番設定の承認 |
-| Week 6- | v4.0切替判断 | v4.0パイプライン停止タイミングの最終判断 |
+> **注意: KPIはプラットフォーム別の平均インプレッション数であり、アカウント数ではない。アカウント作成は人間の手動作業。**
+
+| 期間 | 作業 | 詳細 | クリティカルパス |
+|------|------|------|---------------|
+| Week 0- | **API審査申請** | TikTok, Instagram, X API の審査申請を早期提出。**審査に2-4週間**かかるため最優先 | **YES** — Week 5-6の統合テストでAPI接続が必須。Week 0で未申請の場合、統合テスト全体がブロックされる |
+| Week 0- | アカウント作成 | 初期50アカウントの各プラットフォーム登録（手動作業） | NO |
+| Week 1- | OAuth認証 | 各アカウントのOAuthコンセントフロー完了（YouTube, TikTok, Instagram, X） | YES — API審査完了が前提 |
+| Week 2- | API キー設定 | fal.ai, Fish Audio, OpenAI, Anthropic のキー設定・残高確認 | NO |
+| Week 3- | キャラクターアセット | 画像・音声素材の準備とDriveアップロード | NO |
+| Week 5- | レビュー・承認 | 統合テスト結果のレビュー、本番設定の承認 | NO |
+| Week 6- | v4.0切替判断 | v4.0パイプライン停止タイミングの最終判断 | NO |
+
+```
+【API審査クリティカルパス】
+Week 0          Week 2          Week 4          Week 5-6
+  │               │               │               │
+  ├─ API審査申請 ──┼── 審査中(2-4w) ┼── 審査完了? ──→ 統合テストでAPI接続必須
+  │               │               │               │
+  └─ 未申請の場合 ─────────────────────────────────→ ❌ 統合テスト全体がブロック
+```
 
 ## 7. 成功条件
 
 並列実装が成功するための前提条件:
 
-1. **全仕様書（01-11）が最終承認済み** — 仕様の曖昧さがゼロであること
-2. **TypeScript型定義ファイルが生成・凍結済み** — 全モジュール間のインターフェースが確定
+1. **全仕様書（01-13）が最終承認済み** — 仕様の曖昧さがゼロであること
+2. **TypeScript型定義ファイルが生成・凍結済み** — 全モジュール間のインターフェースが確定（33テーブル, 146 indexes, 103 MCP, 19 REST API）
 3. **全プロンプトファイルが作成済み** — エージェントの判断ロジック・閾値が明記
-4. **VM環境が安定** — 16GB RAM, スワップなし → 10エージェント以内で運用
-5. **人間が日次でレビュー・承認を実施可能** — リーダーAgentからの質問・PRレビューに即応
+4. **全118 system_settings（agent系75設定含む）が凍結済み** — ハードコーディング禁止、全設定値がDB管理
+5. **VM環境が安定** — 16GB RAM, スワップなし → 10エージェント以内で運用
+6. **人間が日次でレビュー・承認を実施可能** — リーダーAgentからの質問・PRレビューに即応
+7. **アルゴリズム精度上限: 92%** — per-content学習（micro-cycle ~30秒 + macro-cycle日次）による到達目標。12ヶ月運用後の維持レンジ: 88-93%
+8. **全276 features / 489テストが定義済み** — feature-based acceptance criteriaが全マイルストーンに紐づいていること
+9. **API審査がWeek 0で申請済み** — TikTok, Instagram, X の審査完了がWeek 5統合テストの前提条件
 
 ## 8. 週次レビュー計画
 
