@@ -1,7 +1,7 @@
 {
   "version": "5.0.0",
   "generated_at": "2026-02-18T10:24:32.665Z",
-  "total_features": 261,
+  "total_features": 276,
   "features": [
     {
       "id": "FEAT-DB-001",
@@ -6113,6 +6113,312 @@
       "steps": [
         "§4.12 get_daily_micro_analyses_summary仕様を読み取り",
         "ツール実装 (集計クエリ: confirmed/inconclusive/rejected件数)",
+        "テスト実行"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-ALG-001",
+      "category": "algorithm",
+      "module": "workers/algorithm",
+      "agent": "infra-agent",
+      "priority": "P0",
+      "description": "日次ベースライン計算バッチ — account_baselinesテーブルUPSERT（own_history→cohort→default フォールバック）",
+      "spec_refs": [
+        "algorithm-kpi-design.md §G15",
+        "03-database-schema.md §account_baselines"
+      ],
+      "test_ids": ["TEST-ALG-001", "TEST-ALG-002"],
+      "dependencies": ["FEAT-DB-002"],
+      "steps": [
+        "account_baselinesテーブルDDL確認",
+        "日次ベースライン計算SQL実装（CTE UPSERT: own_history→cohort×3段階→default）",
+        "BASELINE_WINDOW_DAYS/BASELINE_MIN_SAMPLE参照",
+        "テスト実行"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-ALG-002",
+      "category": "algorithm",
+      "module": "workers/algorithm",
+      "agent": "infra-agent",
+      "priority": "P0",
+      "description": "weight再計算バッチ — 4tier判定 + EMA平滑化 + ±20%クリップ + 正規化 + 監査ログ",
+      "spec_refs": [
+        "algorithm-kpi-design.md §G1, §G9, §G11, §G16"
+      ],
+      "test_ids": ["TEST-ALG-003", "TEST-ALG-004"],
+      "dependencies": ["FEAT-ALG-001"],
+      "steps": [
+        "tier判定（プラットフォーム別metricsレコード数）",
+        "誤差相関方式でraw_contribution算出",
+        "EMA→±20%クリップ→WEIGHT_FLOOR→合計=1.0正規化",
+        "prediction_weights UPDATE + weight_audit_log INSERT",
+        "テスト実行"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-ALG-003",
+      "category": "algorithm",
+      "module": "workers/algorithm",
+      "agent": "infra-agent",
+      "priority": "P0",
+      "description": "補正係数キャッシュ更新 — 8要素SQL + adjustment_factor_cache UPSERT",
+      "spec_refs": [
+        "algorithm-kpi-design.md §G8, §G17"
+      ],
+      "test_ids": ["TEST-ALG-005", "TEST-ALG-006"],
+      "dependencies": ["FEAT-ALG-001"],
+      "steps": [
+        "8本のバッチSQL実装（hook_type/content_length/post_hour/post_weekday/niche/narrative_structure/sound_bgm/hashtag_keyword）",
+        "共通CTE（prediction_snapshots JOIN publications/accounts/metrics）",
+        "adjustment_factor_cache UPSERT",
+        "テスト実行"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-ALG-004",
+      "category": "algorithm",
+      "module": "workers/algorithm",
+      "agent": "infra-agent",
+      "priority": "P0",
+      "description": "予測パイプライン — publication INSERT直後にprediction_snapshots作成",
+      "spec_refs": [
+        "algorithm-kpi-design.md §G5"
+      ],
+      "test_ids": ["TEST-ALG-007", "TEST-ALG-008"],
+      "dependencies": ["FEAT-ALG-001", "FEAT-ALG-003"],
+      "steps": [
+        "baseline取得（account_baselines→リアルタイムフォールバック）",
+        "8要素adjustment_factor_cacheから取得",
+        "cross_accountリアルタイムSQL算出",
+        "個別クリップ→合計クリップ→predicted算出→値域クリップ",
+        "prediction_snapshots INSERT",
+        "テスト実行"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-ALG-005",
+      "category": "algorithm",
+      "module": "workers/algorithm",
+      "agent": "infra-agent",
+      "priority": "P1",
+      "description": "KPIスナップショット月次生成バッチ — kpi_snapshots UPSERT",
+      "spec_refs": [
+        "algorithm-kpi-design.md §G18"
+      ],
+      "test_ids": ["TEST-ALG-009", "TEST-ALG-010"],
+      "dependencies": ["FEAT-ALG-004"],
+      "steps": [
+        "KPI計算SQL（対象: created_at<月初, posted_at>=21日, measurement_point='7d'）",
+        "achievement_rate = LEAST(1.0, avg/target)",
+        "prediction_accuracy算出（エッジケースE2対応）",
+        "kpi_snapshots UPSERT",
+        "テスト実行"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-ALG-006",
+      "category": "algorithm",
+      "module": "workers/measurement",
+      "agent": "infra-agent",
+      "priority": "P0",
+      "description": "計測ジョブオーケストレーション — 毎時ポーリング × 3ラウンド（48h/7d/30d）",
+      "spec_refs": [
+        "algorithm-kpi-design.md §G19"
+      ],
+      "test_ids": ["TEST-ALG-011", "TEST-ALG-012"],
+      "dependencies": ["FEAT-ALG-004"],
+      "steps": [
+        "毎時ポーリングバッチ実装",
+        "3ラウンド（48h/7d/30d）順次処理",
+        "prediction_snapshots actual更新 + prediction_error算出",
+        "分析トリガー（48h→単発キュー、7d→累積キュー）",
+        "テスト実行"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-ALG-007",
+      "category": "algorithm",
+      "module": "workers/analysis",
+      "agent": "mcp-intel-agent",
+      "priority": "P1",
+      "description": "per-contentマイクロ分析（48h計測後） — content_learnings micro_verdict書込",
+      "spec_refs": [
+        "algorithm-kpi-design.md §G6"
+      ],
+      "test_ids": ["TEST-ALG-013"],
+      "dependencies": ["FEAT-ALG-006"],
+      "steps": [
+        "48h計測完了をトリガーにマイクロ分析実行",
+        "content_learnings micro_verdict/contributing_factors/detractors書込",
+        "テスト実行"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-ALG-008",
+      "category": "algorithm",
+      "module": "workers/analysis",
+      "agent": "mcp-intel-agent",
+      "priority": "P1",
+      "description": "累積分析（7d計測後） — pgvector 5本検索 + AI解釈 → cumulative_context書込",
+      "spec_refs": [
+        "algorithm-kpi-design.md §項目11"
+      ],
+      "test_ids": ["TEST-ALG-014"],
+      "dependencies": ["FEAT-ALG-007"],
+      "steps": [
+        "7d計測完了をトリガーに累積分析実行",
+        "5テーブルpgvector検索（hypotheses/content_learnings/learnings/research_data/agent_learnings）",
+        "構造化集計（第1層）+ AI解釈（第2層）",
+        "content_learnings.cumulative_context JSONB書込",
+        "テスト実行"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-ALG-009",
+      "category": "algorithm",
+      "module": "workers/algorithm",
+      "agent": "infra-agent",
+      "priority": "P1",
+      "description": "cross_account_performance計算 — 同一content_idの他アカウント実績リアルタイム算出",
+      "spec_refs": [
+        "algorithm-kpi-design.md §G4"
+      ],
+      "test_ids": ["TEST-ALG-015"],
+      "dependencies": ["FEAT-ALG-004"],
+      "steps": [
+        "同一content_id・同一platformの他アカウントAVG(actual/baseline-1.0)算出SQL",
+        "CROSS_ACCOUNT_MIN_SAMPLE(2)チェック",
+        "予測パイプライン（FEAT-ALG-004）から呼び出し",
+        "テスト実行"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-ALG-010",
+      "category": "algorithm",
+      "module": "workers/algorithm",
+      "agent": "infra-agent",
+      "priority": "P1",
+      "description": "予測誤差計算 — 7d/30d計測後にprediction_error算出・保存",
+      "spec_refs": [
+        "algorithm-kpi-design.md §G19"
+      ],
+      "test_ids": ["TEST-ALG-016"],
+      "dependencies": ["FEAT-ALG-006"],
+      "steps": [
+        "7d計測後: prediction_error_7d = abs(predicted-actual_7d)/actual_7d",
+        "30d計測後: prediction_error_30d = abs(predicted-actual_30d)/actual_30d",
+        "エッジケース対応（actual=0→error=0 if predicted=0, else 1.0）",
+        "テスト実行"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-ALG-011",
+      "category": "algorithm",
+      "module": "workers/algorithm",
+      "agent": "infra-agent",
+      "priority": "P1",
+      "description": "エッジケースハンドリング（E1-E10） — フォールバックチェーン・BAN対応・コールドスタート",
+      "spec_refs": [
+        "algorithm-kpi-design.md §エッジケース一覧"
+      ],
+      "test_ids": ["TEST-ALG-017", "TEST-ALG-018"],
+      "dependencies": ["FEAT-ALG-001", "FEAT-ALG-004"],
+      "steps": [
+        "E1: コホートフォールバック4段階（platform×niche×age→platform×niche→platform→default(500)）",
+        "E2: predicted=0 AND actual=0 → accuracy=1.0",
+        "E3: actual=NULL → KPI計算除外",
+        "E7: 完全コールドスタート → pure baseline + cold_startフラグ",
+        "E5: account_count<5 → is_reliable=FALSE",
+        "テスト実行"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-ALG-012",
+      "category": "algorithm",
+      "module": "workers/algorithm",
+      "agent": "infra-agent",
+      "priority": "P2",
+      "description": "weight監査ログ記録 — 再計算のたびにweight_audit_logにINSERT",
+      "spec_refs": [
+        "algorithm-kpi-design.md §weight監査ログ"
+      ],
+      "test_ids": ["TEST-ALG-019"],
+      "dependencies": ["FEAT-ALG-002"],
+      "steps": [
+        "weight再計算バッチにweight_audit_log INSERT統合",
+        "old_weight/new_weight/data_count/metrics_count記録",
+        "テスト実行"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-ALG-013",
+      "category": "algorithm",
+      "module": "workers/algorithm",
+      "agent": "infra-agent",
+      "priority": "P2",
+      "description": "データ減衰（90日ハードカットオフ） — 全バッチSQLにWHERE created_at > NOW()-90d適用",
+      "spec_refs": [
+        "algorithm-kpi-design.md §G2"
+      ],
+      "test_ids": ["TEST-ALG-020"],
+      "dependencies": ["FEAT-ALG-002", "FEAT-ALG-003"],
+      "steps": [
+        "補正係数算出SQL全てにADJUSTMENT_DATA_DECAY_DAYSフィルタ適用",
+        "weight再計算SQLにも同フィルタ適用",
+        "テスト実行"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-ALG-014",
+      "category": "algorithm",
+      "module": "workers/maintenance",
+      "agent": "infra-agent",
+      "priority": "P2",
+      "description": "embeddingバッチ再生成 — 5テーブル × 100件ずつトランザクションUPDATE",
+      "spec_refs": [
+        "algorithm-kpi-design.md §G22"
+      ],
+      "test_ids": ["TEST-ALG-021"],
+      "dependencies": ["FEAT-DB-002"],
+      "steps": [
+        "対象5テーブル（hypotheses/content_learnings/learnings/research_data/agent_learnings）",
+        "バッチサイズ100件、id順OFFSET処理",
+        "OpenAI text-embedding-3-small呼び出し",
+        "EMBEDDING_MODEL_VERSION更新",
+        "テスト実行"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-ALG-015",
+      "category": "algorithm",
+      "module": "workers/algorithm",
+      "agent": "infra-agent",
+      "priority": "P2",
+      "description": "content_format別の9要素適用ルール — データ駆動の自然スキップ（NULL→adj=0）",
+      "spec_refs": [
+        "algorithm-kpi-design.md §P5"
+      ],
+      "test_ids": ["TEST-ALG-022"],
+      "dependencies": ["FEAT-ALG-003"],
+      "steps": [
+        "8本の補正係数SQLにNULLチェック組込（WHERE hook_type IS NOT NULL等）",
+        "text_postのcontent_length代替（content.metadata->>'char_count'→4バケット）",
         "テスト実行"
       ],
       "passes": false

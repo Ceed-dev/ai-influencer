@@ -250,3 +250,24 @@ CREATE INDEX idx_prompt_suggestions_created_at ON prompt_suggestions(created_at)
 -- system_settings
 CREATE INDEX idx_system_settings_category ON system_settings(category);
 CREATE INDEX idx_system_settings_updated_at ON system_settings(updated_at);
+
+-- ========================================
+-- 8.8 Algorithm & KPI Tables
+-- ========================================
+
+-- metrics compound index (for baseline/adjustment queries)
+CREATE INDEX idx_metrics_pub_measurement ON metrics(publication_id, measurement_point);
+
+-- prediction_snapshots
+CREATE INDEX idx_prediction_account ON prediction_snapshots(account_id, created_at DESC);
+CREATE INDEX idx_prediction_content ON prediction_snapshots(content_id);
+CREATE INDEX idx_prediction_error ON prediction_snapshots(prediction_error_7d)
+    WHERE prediction_error_7d IS NOT NULL;
+CREATE INDEX idx_prediction_hypothesis ON prediction_snapshots(hypothesis_id)
+    WHERE hypothesis_id IS NOT NULL;
+
+-- weight_audit_log
+CREATE INDEX idx_weight_audit_platform_time ON weight_audit_log(platform, calculated_at DESC);
+
+-- adjustment_factor_cache
+CREATE INDEX idx_adj_cache_lookup ON adjustment_factor_cache(platform, factor_name, is_active);

@@ -1,8 +1,8 @@
 -- ============================================================
--- AI-Influencer v5.0 — Default System Settings (87 entries)
+-- AI-Influencer v5.0 — Default System Settings (118 entries)
 -- Generated from docs/v5-specification/03-database-schema.md Section 7.2
 -- ============================================================
--- Categories: production (13), posting (8), review (4), agent (44),
+-- Categories: production (13), posting (8), review (4), agent (44+31=75),
 --             measurement (6), cost_control (4), dashboard (3), credentials (5)
 -- ============================================================
 
@@ -43,6 +43,7 @@ INSERT INTO system_settings (setting_key, setting_value, category, description, 
 ('RECIPE_APPROVAL_REQUIRED', 'true', 'review', '新しいプロダクションレシピの使用に人間の承認を要求するか', 'true', 'boolean', null);
 
 -- Agent settings (44: 38 base + 3 character auto-generation + 2 micro-cycle learning + 1 confidence inconclusive)
+-- Algorithm & KPI settings (31) are added at the end of this file
 INSERT INTO system_settings (setting_key, setting_value, category, description, default_value, value_type, constraints) VALUES
 ('HYPOTHESIS_CYCLE_INTERVAL_HOURS', '24', 'agent', '仮説駆動サイクルの実行間隔（時間）。日次=24', '24', 'integer', '{"min": 6, "max": 168}'),
 ('RESEARCHER_POLL_INTERVAL_HOURS', '6', 'agent', 'リサーチャーの市場情報収集間隔（時間）', '6', 'integer', '{"min": 1, "max": 48}'),
@@ -120,3 +121,37 @@ INSERT INTO system_settings (setting_key, setting_value, category, description, 
 ('CRED_OPENAI_API_KEY', '""', 'credentials', 'OpenAI APIキー（Embedding用: text-embedding-3-small）', '""', 'string', null),
 ('CRED_ANTHROPIC_API_KEY', '""', 'credentials', 'Anthropic APIキー（Claude Opus/Sonnet）', '""', 'string', null),
 ('CRED_GOOGLE_SERVICE_ACCOUNT_KEY', '""', 'credentials', 'Google Cloud サービスアカウントキー（JSON）。Drive・Sheets API用', '""', 'string', null);
+
+-- Algorithm & KPI settings (31)
+INSERT INTO system_settings (setting_key, setting_value, category, description, default_value, value_type, constraints) VALUES
+('ADJUSTMENT_INDIVIDUAL_MIN', '-0.5', 'agent', '個別補正係数の下限値', '-0.5', 'float', '{"min": -1.0, "max": 0}'),
+('ADJUSTMENT_INDIVIDUAL_MAX', '0.5', 'agent', '個別補正係数の上限値', '0.5', 'float', '{"min": 0, "max": 1.0}'),
+('ADJUSTMENT_TOTAL_MIN', '-0.7', 'agent', '合計補正係数の下限値', '-0.7', 'float', '{"min": -1.0, "max": 0}'),
+('ADJUSTMENT_TOTAL_MAX', '1.0', 'agent', '合計補正係数の上限値', '1.0', 'float', '{"min": 0, "max": 2.0}'),
+('WEIGHT_RECALC_TIER_1_THRESHOLD', '500', 'agent', 'weight再計算tier1閾値（metricsレコード数）', '500', 'integer', '{"min": 100, "max": 5000}'),
+('WEIGHT_RECALC_TIER_1_INTERVAL', '"7d"', 'agent', 'weight再計算tier1間隔（0〜500件: 週次）', '"7d"', 'string', null),
+('WEIGHT_RECALC_TIER_2_THRESHOLD', '5000', 'agent', 'weight再計算tier2閾値（metricsレコード数）', '5000', 'integer', '{"min": 500, "max": 50000}'),
+('WEIGHT_RECALC_TIER_2_INTERVAL', '"3d"', 'agent', 'weight再計算tier2間隔（500〜5000件: 3日ごと）', '"3d"', 'string', null),
+('WEIGHT_RECALC_TIER_3_THRESHOLD', '50000', 'agent', 'weight再計算tier3閾値（metricsレコード数）', '50000', 'integer', '{"min": 5000, "max": 500000}'),
+('WEIGHT_RECALC_TIER_3_INTERVAL', '"1d"', 'agent', 'weight再計算tier3間隔（5000〜50000件: 日次）', '"1d"', 'string', null),
+('WEIGHT_RECALC_TIER_4_INTERVAL', '"12h"', 'agent', 'weight再計算tier4間隔（50000件以上: 12時間ごと）', '"12h"', 'string', null),
+('WEIGHT_RECALC_MIN_NEW_DATA', '100', 'agent', 'weight再計算スキップ閾値。前回以降の新規metricsがこの値未満ならスキップ', '100', 'integer', '{"min": 10, "max": 1000}'),
+('WEIGHT_SMOOTHING_ALPHA', '0.3', 'agent', 'weight EMA平滑化のα値。new_weight = α × calculated + (1-α) × old', '0.3', 'float', '{"min": 0.05, "max": 0.9}'),
+('WEIGHT_CHANGE_MAX_RATE', '0.2', 'agent', 'weight 1回あたりの変更上限率。現在値の±20%', '0.2', 'float', '{"min": 0.05, "max": 0.5}'),
+('WEIGHT_FLOOR', '0.02', 'agent', 'weight下限値。完全に0にしない', '0.02', 'float', '{"min": 0.001, "max": 0.1}'),
+('ADJUSTMENT_DATA_DECAY_DAYS', '90', 'agent', 'データ減衰ハードカットオフ日数。これより古いデータは補正係数算出から除外', '90', 'integer', '{"min": 30, "max": 365}'),
+('BASELINE_WINDOW_DAYS', '14', 'agent', 'ベースライン算出の直近ウィンドウ日数', '14', 'integer', '{"min": 7, "max": 30}'),
+('BASELINE_MIN_SAMPLE', '3', 'agent', 'own_historyベースラインの最小サンプル数。未満の場合cohortにフォールバック', '3', 'integer', '{"min": 1, "max": 10}'),
+('KPI_CALC_MONTH_START_DAY', '21', 'agent', 'KPI計算対象期間の開始日（月の下旬のみ）', '21', 'integer', '{"min": 1, "max": 28}'),
+('KPI_TARGET_TIKTOK', '15000', 'agent', 'TikTok KPI目標値（インプレッション数/投稿）', '15000', 'integer', '{"min": 1000, "max": 1000000}'),
+('KPI_TARGET_INSTAGRAM', '10000', 'agent', 'Instagram KPI目標値（インプレッション数/投稿）', '10000', 'integer', '{"min": 1000, "max": 1000000}'),
+('KPI_TARGET_YOUTUBE', '20000', 'agent', 'YouTube KPI目標値（インプレッション数/投稿）', '20000', 'integer', '{"min": 1000, "max": 1000000}'),
+('KPI_TARGET_TWITTER', '10000', 'agent', 'X(Twitter) KPI目標値（インプレッション数/投稿）', '10000', 'integer', '{"min": 1000, "max": 1000000}'),
+('PREDICTION_VALUE_MIN_RATIO', '0.3', 'agent', '予測値の最小比率。predicted >= baseline × 0.3', '0.3', 'float', '{"min": 0.1, "max": 0.9}'),
+('PREDICTION_VALUE_MAX_RATIO', '2.0', 'agent', '予測値の最大比率。predicted <= baseline × 2.0', '2.0', 'float', '{"min": 1.1, "max": 5.0}'),
+('CUMULATIVE_SEARCH_TOP_K', '10', 'agent', '累積分析pgvector検索のtop-k件数', '10', 'integer', '{"min": 3, "max": 50}'),
+('CUMULATIVE_SIMILARITY_THRESHOLD', '0.7', 'agent', '累積分析のコサイン類似度閾値', '0.7', 'float', '{"min": 0.3, "max": 0.95}'),
+('CUMULATIVE_CONFIDENCE_THRESHOLD', '0.5', 'agent', '累積分析で参照するlearnings/agent_learningsの最低信頼度', '0.5', 'float', '{"min": 0.1, "max": 0.9}'),
+('BASELINE_DEFAULT_IMPRESSIONS', '500', 'agent', 'フォールバック最終デフォルトのベースラインインプレッション数', '500', 'integer', '{"min": 100, "max": 10000}'),
+('EMBEDDING_MODEL_VERSION', '"v1"', 'agent', 'embeddingモデルバージョン管理。変更時に全embedding再生成バッチを実行', '"v1"', 'string', null),
+('CROSS_ACCOUNT_MIN_SAMPLE', '2', 'agent', 'cross_account_performance補正の最小サンプル数（自分除く他アカウント数）', '2', 'integer', '{"min": 1, "max": 10}');

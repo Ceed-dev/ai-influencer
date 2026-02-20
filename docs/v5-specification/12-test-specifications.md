@@ -20,6 +20,7 @@ TEST-{LAYER}-{NUMBER}
 | Dashboard | DSH | Next.js 15ページ・13 REST API・テーマ・レスポンシブ |
 | Integration | INT | レイヤー間連携・グラフ間間接通信 |
 | E2E | E2E | 全ライフサイクル貫通テスト |
+| Algorithm & KPI | ALG | バッチジョブ・予測・ベースライン・weight・KPIスナップショット |
 
 ## 優先度定義
 
@@ -42,16 +43,16 @@ TEST-{LAYER}-{NUMBER}
 - **Pass Criteria**: 行数 = 1 AND extname = 'vector'
 - **Fail Indicators**: 0行返却、またはERROR
 
-### TEST-DB-002: 全27テーブルの存在確認
+### TEST-DB-002: 全33テーブルの存在確認
 - **Category**: database
 - **Priority**: P0
 - **Prerequisites**: マイグレーション実行済み
 - **Steps**:
   1. `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE' ORDER BY table_name;` を実行
-- **Expected Result**: 以下27テーブルが全て存在:
-  `accounts`, `agent_communications`, `agent_individual_learnings`, `agent_prompt_versions`, `agent_reflections`, `agent_thought_logs`, `algorithm_performance`, `analyses`, `characters`, `components`, `content`, `content_learnings`, `content_sections`, `cycles`, `human_directives`, `hypotheses`, `learnings`, `market_intel`, `metrics`, `production_recipes`, `prompt_suggestions`, `publications`, `system_settings`, `task_queue`, `tool_catalog`, `tool_experiences`, `tool_external_sources`
-- **Pass Criteria**: 返却行数 = 27 AND 全テーブル名が一致
-- **Fail Indicators**: 行数 ≠ 27、またはテーブル名の不一致
+- **Expected Result**: 以下33テーブルが全て存在:
+  `account_baselines`, `accounts`, `adjustment_factor_cache`, `agent_communications`, `agent_individual_learnings`, `agent_prompt_versions`, `agent_reflections`, `agent_thought_logs`, `algorithm_performance`, `analyses`, `characters`, `components`, `content`, `content_learnings`, `content_sections`, `cycles`, `human_directives`, `hypotheses`, `kpi_snapshots`, `learnings`, `market_intel`, `metrics`, `prediction_snapshots`, `prediction_weights`, `production_recipes`, `prompt_suggestions`, `publications`, `system_settings`, `task_queue`, `tool_catalog`, `tool_experiences`, `tool_external_sources`, `weight_audit_log`
+- **Pass Criteria**: 返却行数 = 33 AND 全テーブル名が一致
+- **Fail Indicators**: 行数 ≠ 33、またはテーブル名の不一致
 
 ### TEST-DB-003: accounts.platform CHECK制約
 - **Category**: database
@@ -553,15 +554,15 @@ TEST-{LAYER}-{NUMBER}
 - **Pass Criteria**: 6値成功 AND 不正値が拒否
 - **Fail Indicators**: 不正値が成功
 
-### TEST-DB-046: system_settings 初期データ件数 (87件)
+### TEST-DB-046: system_settings 初期データ件数 (118件)
 - **Category**: database
 - **Priority**: P0
 - **Prerequisites**: 初期INSERTマイグレーション実行済み
 - **Steps**:
   1. `SELECT COUNT(*) FROM system_settings;`
-- **Expected Result**: `count = 87`
-- **Pass Criteria**: COUNT = 87
-- **Fail Indicators**: COUNT ≠ 87
+- **Expected Result**: `count = 118`
+- **Pass Criteria**: COUNT = 118
+- **Fail Indicators**: COUNT ≠ 118
 
 ### TEST-DB-047: system_settings カテゴリ別件数
 - **Category**: database
@@ -692,7 +693,7 @@ TEST-{LAYER}-{NUMBER}
      Layer 3: `content`, `market_intel`, `learnings`, `human_directives`, `task_queue`, `algorithm_performance`, `agent_prompt_versions`, `agent_thought_logs`, `tool_external_sources`
      Layer 4: `content_learnings`, `content_sections`, `publications`, `analyses`, `agent_reflections`, `agent_communications`, `tool_experiences`, `prompt_suggestions`
      Layer 5: `metrics`, `agent_individual_learnings`
-- **Expected Result**: 全27テーブルがエラーなく作成される
+- **Expected Result**: 全33テーブルがエラーなく作成される
 - **Pass Criteria**: 全 CREATE TABLE が成功
 - **Fail Indicators**: いずれかのテーブル作成でFK依存エラー
 
@@ -734,15 +735,15 @@ TEST-{LAYER}-{NUMBER}
 - **Pass Criteria**: デフォルト = NULL AND 有効なJSONBが保存される
 - **Fail Indicators**: デフォルトが NULL でない、または JSONB挿入が失敗
 
-### TEST-DB-059: 全インデックス数の確認 (139個)
+### TEST-DB-059: 全インデックス数の確認 (155個)
 - **Category**: database
 - **Priority**: P1
 - **Prerequisites**: インデックスマイグレーション実行済み
 - **Steps**:
   1. `SELECT COUNT(*) FROM pg_indexes WHERE schemaname = 'public' AND indexname LIKE 'idx_%';`
-- **Expected Result**: `count = 139`
-- **Pass Criteria**: COUNT = 139
-- **Fail Indicators**: COUNT ≠ 139
+- **Expected Result**: `count = 155`
+- **Pass Criteria**: COUNT = 155
+- **Fail Indicators**: COUNT ≠ 155
 
 ## 2. MCP Server Layer Tests (TEST-MCP)
 
@@ -3144,12 +3145,12 @@ TEST-{LAYER}-{NUMBER}
 ### TEST-DSH-015: GET /api/settings — 全設定取得
 - **Category**: dashboard
 - **Priority**: P0
-- **Prerequisites**: system_settings に87件のデータ
+- **Prerequisites**: system_settings に118件のデータ
 - **Steps**:
   1. `GET /api/settings` を呼び出し
-- **Expected Result**: HTTP 200。`{ settings: SystemSetting[] }`。87件。カテゴリ別にグルーピング
-- **Pass Criteria**: settings の件数 = 87
-- **Fail Indicators**: 件数が 86 でない
+- **Expected Result**: HTTP 200。`{ settings: SystemSetting[] }`。118件。カテゴリ別にグルーピング
+- **Pass Criteria**: settings の件数 = 118
+- **Fail Indicators**: 件数が 118 でない
 
 ### TEST-DSH-016: PUT /api/settings/:key — 設定更新
 - **Category**: dashboard
@@ -3459,7 +3460,7 @@ TEST-{LAYER}-{NUMBER}
 ### TEST-DSH-045: REST API — レスポンスタイム
 - **Category**: dashboard
 - **Priority**: P2
-- **Prerequisites**: system_settings に87件のデータ
+- **Prerequisites**: system_settings に118件のデータ
 - **Steps**:
   1. `GET /api/settings` を10回呼び出し、レスポンスタイムを計測
 - **Expected Result**: 平均レスポンスタイム < 500ms
@@ -5541,7 +5542,7 @@ TEST-{LAYER}-{NUMBER}
 - **Priority**: P0
 - **Prerequisites**: クリーンインストール完了
 - **Steps**:
-  1. PostgreSQL マイグレーション実行 (27テーブル + 87設定値)
+  1. PostgreSQL マイグレーション実行 (33テーブル + 118設定値)
   2. MCP Server 起動
   3. LangGraph 4グラフ起動
   4. ダッシュボード起動
@@ -5575,6 +5576,337 @@ TEST-{LAYER}-{NUMBER}
 - **Pass Criteria**: 新規制作が開始されない AND ログに "monthly budget exceeded" 相当のメッセージ
 - **Fail Indicators**: 予算超過後も制作が実行される
 
+## 8. Algorithm & KPI Tests (TEST-ALG)
+
+### TEST-ALG-001: ベースライン計算 — own_history正常系
+- **Category**: algorithm
+- **Priority**: P0
+- **Prerequisites**: account_baselines テーブル作成済み、metricsに14日以上のデータ存在
+- **Steps**:
+  1. アカウント ACC_TEST に直近14日間のmetricsデータ（measurement_point='7d'）を10件INSERT
+  2. ベースライン更新バッチを実行
+- **Expected Result**: account_baselines に source='own_history', baseline_impressions = 10件の平均値
+- **Pass Criteria**: source = 'own_history' AND baseline_impressions = AVG(views) AND sample_count = 10
+- **Fail Indicators**: sourceが'cohort'、またはbaseline_impressionsが不正
+
+### TEST-ALG-002: ベースライン計算 — cohortフォールバックチェーン
+- **Category**: algorithm
+- **Priority**: P0
+- **Prerequisites**: テスト対象アカウントのown_historyが2件のみ（< BASELINE_MIN_SAMPLE=3）
+- **Steps**:
+  1. ACC_TEST のmetricsを2件のみに設定
+  2. 同platform×niche×age_bucketのコホートに5件のデータを用意
+  3. ベースライン更新バッチを実行
+- **Expected Result**: source='cohort', baseline_impressionsがコホート平均
+- **Pass Criteria**: source = 'cohort' AND sample_count >= 3
+- **Fail Indicators**: sourceが'own_history'（サンプル不足なのに）
+
+### TEST-ALG-003: ベースライン計算 — デフォルトフォールバック (E1)
+- **Category**: algorithm
+- **Priority**: P1
+- **Prerequisites**: テスト対象アカウントのown_historyなし、コホートもなし
+- **Steps**:
+  1. 新規アカウント作成（metricsデータなし）
+  2. 同条件のコホートデータも存在しない状態
+  3. ベースライン更新バッチを実行
+- **Expected Result**: source='default', baseline_impressions=500 (BASELINE_DEFAULT_IMPRESSIONS)
+- **Pass Criteria**: source = 'default' AND baseline_impressions = 500
+- **Fail Indicators**: エラー発生、またはレコード未作成
+
+### TEST-ALG-004: ベースライン — UPSERT正確性
+- **Category**: algorithm
+- **Priority**: P1
+- **Prerequisites**: account_baselines に既存レコードあり
+- **Steps**:
+  1. ACC_TEST の既存ベースライン（baseline_impressions=1000）を確認
+  2. 新しいmetricsを追加
+  3. ベースライン更新バッチを再実行
+- **Expected Result**: 既存レコードがUPDATEされる（INSERTではない）。常に1行のみ
+- **Pass Criteria**: COUNT(*) WHERE account_id='ACC_TEST' = 1 AND baseline_impressionsが更新済み
+- **Fail Indicators**: 2行以上存在、またはUPDATEされていない
+
+### TEST-ALG-005: weight再計算 — tier判定ロジック
+- **Category**: algorithm
+- **Priority**: P0
+- **Prerequisites**: 各プラットフォームのmetricsレコード数を制御可能
+- **Steps**:
+  1. tiktokのmetricsを300件に設定
+  2. tier判定ロジックを実行
+- **Expected Result**: tier=1（0-500件）、再計算間隔=7d
+- **Pass Criteria**: 判定されたtierが1 AND intervalが'7d'
+- **Fail Indicators**: tier判定が不正
+
+### TEST-ALG-006: weight再計算 — EMA平滑化
+- **Category**: algorithm
+- **Priority**: P0
+- **Prerequisites**: prediction_weightsに既存weight存在
+- **Steps**:
+  1. old_weight = 0.15 (hook_type, tiktok)
+  2. calculated_weight = 0.25 を入力
+  3. EMA計算実行 (α=0.3)
+- **Expected Result**: ema_weight = 0.3 × 0.25 + 0.7 × 0.15 = 0.18
+- **Pass Criteria**: ABS(結果 - 0.18) < 0.001
+- **Fail Indicators**: EMA計算結果が不正
+
+### TEST-ALG-007: weight再計算 — ±20%クリップ
+- **Category**: algorithm
+- **Priority**: P1
+- **Prerequisites**: prediction_weightsに既存weight存在
+- **Steps**:
+  1. old_weight = 0.10
+  2. EMA結果 = 0.20（old_weight × 2.0 = 100%増）
+  3. ±20%クリップ適用
+- **Expected Result**: clipped_weight = 0.12 (old × 1.2 上限)
+- **Pass Criteria**: clipped_weight = 0.12
+- **Fail Indicators**: クリップされていない（0.20のまま）
+
+### TEST-ALG-008: weight再計算 — WEIGHT_FLOOR適用
+- **Category**: algorithm
+- **Priority**: P1
+- **Prerequisites**: WEIGHT_FLOOR = 0.02
+- **Steps**:
+  1. クリップ後のweight = 0.01
+  2. WEIGHT_FLOOR適用
+- **Expected Result**: final_weight = 0.02
+- **Pass Criteria**: final_weight >= 0.02
+- **Fail Indicators**: 0.02未満のweightが存在
+
+### TEST-ALG-009: weight再計算 — 合計=1.0正規化
+- **Category**: algorithm
+- **Priority**: P0
+- **Prerequisites**: 9要素のweight更新完了
+- **Steps**:
+  1. 任意のプラットフォームでweight再計算を実行
+  2. SELECT SUM(weight) FROM prediction_weights WHERE platform = $p
+- **Expected Result**: SUM(weight) = 1.0 (浮動小数点誤差 < 0.001)
+- **Pass Criteria**: ABS(SUM(weight) - 1.0) < 0.001
+- **Fail Indicators**: 合計が1.0から逸脱
+
+### TEST-ALG-010: weight再計算 — 監査ログ記録
+- **Category**: algorithm
+- **Priority**: P1
+- **Prerequisites**: weight再計算実行
+- **Steps**:
+  1. weight再計算バッチを実行
+  2. weight_audit_log を確認
+- **Expected Result**: 9要素 × 1プラットフォーム = 9件のログが追加
+- **Pass Criteria**: weight_audit_log に新規9件追加 AND old_weight ≠ new_weight（変更あり）OR old_weight = new_weight（データ不足でスキップ）
+- **Fail Indicators**: ログが未記録
+
+### TEST-ALG-011: 補正係数キャッシュ — 8要素SQL正確性
+- **Category**: algorithm
+- **Priority**: P0
+- **Prerequisites**: prediction_snapshots + metrics + publications + content に十分なデータ存在
+- **Steps**:
+  1. 既知のデータセットを準備（adjustment計算結果が事前に手計算可能）
+  2. 補正係数キャッシュ更新バッチを実行
+- **Expected Result**: adjustment_factor_cache に8要素のレコードが UPSERT される
+- **Pass Criteria**: 各factor_nameのadjustment値が手計算結果と一致（誤差 < 0.01）
+- **Fail Indicators**: adjustment値が不正、またはレコード未作成
+
+### TEST-ALG-012: 補正係数キャッシュ — UPSERT + is_activeフラグ
+- **Category**: algorithm
+- **Priority**: P1
+- **Prerequisites**: adjustment_factor_cache テーブル作成済み
+- **Steps**:
+  1. sample_count=3（< ANALYSIS_MIN_SAMPLE_SIZE=5）のデータで更新
+  2. is_active フラグを確認
+- **Expected Result**: is_active = FALSE
+- **Pass Criteria**: is_active = FALSE AND adjustment値は計算されているがアクティブではない
+- **Fail Indicators**: is_active = TRUE（サンプル不足なのに）
+
+### TEST-ALG-013: KPIスナップショット — 月次集計正確性
+- **Category**: algorithm
+- **Priority**: P0
+- **Prerequisites**: kpi_snapshots テーブル作成済み、十分なpublications + metricsデータ存在
+- **Steps**:
+  1. tiktokの3月データを準備: 10アカウント, 21-31日の投稿, measurement_point='7d'
+  2. KPIスナップショットバッチを実行
+- **Expected Result**: kpi_snapshots にtiktok/2026-03のレコードが作成
+- **Pass Criteria**: avg_impressions = 計算値 AND achievement_rate = LEAST(1.0, avg/15000) AND account_count = 10
+- **Fail Indicators**: 計算値の不一致
+
+### TEST-ALG-014: KPIスナップショット — achievement_rate計算
+- **Category**: algorithm
+- **Priority**: P1
+- **Prerequisites**: KPIスナップショットデータ存在
+- **Steps**:
+  1. avg_impressions = 12000, kpi_target = 15000 の場合
+- **Expected Result**: achievement_rate = 0.8
+- **Pass Criteria**: achievement_rate = 0.8
+- **Fail Indicators**: achievement_rateが不正
+
+### TEST-ALG-015: KPIスナップショット — is_reliableフラグ (E5)
+- **Category**: algorithm
+- **Priority**: P1
+- **Prerequisites**: kpi_snapshotsテーブル作成済み
+- **Steps**:
+  1. account_count = 3（< 5）でKPIスナップショット作成
+- **Expected Result**: is_reliable = FALSE
+- **Pass Criteria**: is_reliable = FALSE
+- **Fail Indicators**: is_reliable = TRUE
+
+### TEST-ALG-016: 計測ポーリング — 3ラウンド処理
+- **Category**: algorithm
+- **Priority**: P0
+- **Prerequisites**: publicationsにposted_atが48h以上前のレコード存在
+- **Steps**:
+  1. posted_at = NOW() - 50 hours のpublicationを準備
+  2. actual_impressions_48h = NULL の状態で計測ポーリングを実行
+- **Expected Result**: actual_impressions_48h が更新される（NULLから値へ）
+- **Pass Criteria**: actual_impressions_48h IS NOT NULL AND prediction_error_7d IS NULL（まだ7d未到達）
+- **Fail Indicators**: 更新されない、またはNULL検出が機能しない
+
+### TEST-ALG-017: 計測ポーリング — prediction_error計算
+- **Category**: algorithm
+- **Priority**: P0
+- **Prerequisites**: predicted_impressions = 10000, actual_impressions_7d = 8000
+- **Steps**:
+  1. 7d計測完了後のprediction_error_7d計算
+- **Expected Result**: prediction_error_7d = ABS(10000 - 8000) / 8000 = 0.25
+- **Pass Criteria**: ABS(prediction_error_7d - 0.25) < 0.01
+- **Fail Indicators**: 計算結果が不正
+
+### TEST-ALG-018: 予測精度 — predicted=0 AND actual=0 (E2)
+- **Category**: algorithm
+- **Priority**: P1
+- **Prerequisites**: prediction_snapshots にpredicted=0, actual=0のレコード
+- **Steps**:
+  1. predicted_impressions = 0, actual_impressions_7d = 0
+  2. 予測精度計算を実行
+- **Expected Result**: prediction_accuracy = 1.0
+- **Pass Criteria**: prediction_accuracy = 1.0
+- **Fail Indicators**: ゼロ除算エラー、またはprediction_accuracy ≠ 1.0
+
+### TEST-ALG-019: 予測精度 — actual=NULL (E3: アカウントBAN)
+- **Category**: algorithm
+- **Priority**: P1
+- **Prerequisites**: actual_impressions_7d = NULL（計測不能）
+- **Steps**:
+  1. actual = NULL のレコードでKPI計算
+- **Expected Result**: KPI計算・予測精度の両方から除外される
+- **Pass Criteria**: COUNT対象に含まれない
+- **Fail Indicators**: NULLレコードがKPI計算に含まれる
+
+### TEST-ALG-020: コールドスタート — 全補正係数ゼロ (E7)
+- **Category**: algorithm
+- **Priority**: P1
+- **Prerequisites**: adjustment_factor_cache が空、新規アカウント
+- **Steps**:
+  1. 新規コンテンツの予測を実行
+- **Expected Result**: predicted = pure baseline（全adj=0）、adjustments_applied内に cold_start: true
+- **Pass Criteria**: total_adjustment = 0 AND adjustments_applied->>'cold_start' = 'true'
+- **Fail Indicators**: 補正が適用される
+
+### TEST-ALG-021: コホートサイズ小 — フォールバック進行 (E6)
+- **Category**: algorithm
+- **Priority**: P2
+- **Prerequisites**: platform×niche×age_bucketのコホートが2件のみ（< BASELINE_MIN_SAMPLE=3）
+- **Steps**:
+  1. ベースライン更新を実行
+- **Expected Result**: platform×nicheにフォールバック
+- **Pass Criteria**: source = 'cohort' AND フォールバックが段階的に進行
+- **Fail Indicators**: フォールバックせずにエラー
+
+### TEST-ALG-022: Per-content マイクロサイクル — 48h計測→分析
+- **Category**: algorithm
+- **Priority**: P0
+- **Prerequisites**: publicationが投稿済み、48h経過
+- **Steps**:
+  1. 48h計測ポーリングで actual_impressions_48h を取得
+  2. 単発分析キューへの追加を確認
+  3. 分析ワーカーが content_learnings に micro_verdict を書き込み
+- **Expected Result**: content_learnings レコード作成、micro_verdict が設定される
+- **Pass Criteria**: micro_verdict IN ('confirmed','rejected','inconclusive') AND predicted_kpis IS NOT NULL
+- **Fail Indicators**: content_learnings レコード未作成
+
+### TEST-ALG-023: 累積分析 — 7d計測→pgvector検索→結果保存
+- **Category**: algorithm
+- **Priority**: P1
+- **Prerequisites**: 7d計測完了、pgvectorに既存データ存在
+- **Steps**:
+  1. 7d計測完了後の累積分析を実行
+  2. pgvectorで5テーブルから類似データ検索
+  3. 構造化集計 + AI解釈
+- **Expected Result**: content_learnings.cumulative_context (JSONB) に結果保存
+- **Pass Criteria**: cumulative_context IS NOT NULL AND cumulative_context->'structured' IS NOT NULL
+- **Fail Indicators**: cumulative_context が NULL のまま
+
+### TEST-ALG-024: weight収束テスト — 100+反復で安定化
+- **Category**: algorithm
+- **Priority**: P2
+- **Prerequisites**: 十分なデータ量（100+回のweight更新）
+- **Steps**:
+  1. weight再計算を100回シミュレーション
+  2. 最後の10回のweight変動を確認
+- **Expected Result**: 最後の10回でweightの変動が1%未満
+- **Pass Criteria**: MAX(ABS(weight[n] - weight[n-1])) < 0.01 for last 10 iterations
+- **Fail Indicators**: weightが発散、またはフロアに張り付く
+
+### TEST-ALG-025: 予測パイプライン — content→prediction→publication→measurement→error
+- **Category**: algorithm
+- **Priority**: P0
+- **Prerequisites**: 全algorithm テーブル作成済み、バッチジョブ動作可能
+- **Steps**:
+  1. コンテンツ作成→予測インプ算出→prediction_snapshots INSERT
+  2. 投稿→posted_at記録
+  3. 48h/7d計測→actual更新→prediction_error算出
+- **Expected Result**: prediction_snapshots が完全に埋まる（predicted, actual_48h, actual_7d, error_7d全て非NULL）
+- **Pass Criteria**: 全カラム IS NOT NULL AND prediction_error_7d = ABS(predicted - actual_7d) / actual_7d
+- **Fail Indicators**: いずれかのカラムがNULLのまま
+
+### TEST-ALG-026: prediction_weights初期データ — 4platform × 9factor = 36行
+- **Category**: algorithm
+- **Priority**: P0
+- **Prerequisites**: prediction_weightsテーブル作成済み、初期データ投入済み
+- **Steps**:
+  1. SELECT COUNT(*) FROM prediction_weights
+  2. SELECT weight FROM prediction_weights LIMIT 1
+- **Expected Result**: 36行、全weight = 1/9 ≈ 0.1111
+- **Pass Criteria**: COUNT = 36 AND ABS(weight - 0.1111) < 0.001 for all rows
+- **Fail Indicators**: 行数 ≠ 36、またはweightが0.1111でない
+
+### TEST-ALG-027: prediction_snapshots.adjustments_applied JSONB構造
+- **Category**: algorithm
+- **Priority**: P1
+- **Prerequisites**: prediction_snapshotsにレコード存在
+- **Steps**:
+  1. 予測実行後のadjustments_applied JSONBを確認
+- **Expected Result**: 9要素それぞれに {value, adjustment, weight} が含まれる
+- **Pass Criteria**: jsonb_object_keys(adjustments_applied) が9要素含む
+- **Fail Indicators**: JSONB構造が不正、またはキーが不足
+
+### TEST-ALG-028: 6アルゴリズムテーブルの存在確認
+- **Category**: algorithm
+- **Priority**: P0
+- **Prerequisites**: マイグレーション実行済み
+- **Steps**:
+  1. 以下6テーブルが全て存在することを確認: `prediction_weights`, `weight_audit_log`, `prediction_snapshots`, `kpi_snapshots`, `account_baselines`, `adjustment_factor_cache`
+- **Expected Result**: 6テーブル全て存在
+- **Pass Criteria**: 全テーブルが information_schema.tables に存在
+- **Fail Indicators**: いずれかのテーブルが存在しない
+
+### TEST-ALG-029: 31 system_settings アルゴリズムキーの存在確認
+- **Category**: algorithm
+- **Priority**: P0
+- **Prerequisites**: system_settings テーブルにシードデータ投入済み
+- **Steps**:
+  1. SELECT COUNT(*) FROM system_settings WHERE setting_key IN ('ADJUSTMENT_INDIVIDUAL_MIN', 'ADJUSTMENT_INDIVIDUAL_MAX', 'ADJUSTMENT_TOTAL_MIN', 'ADJUSTMENT_TOTAL_MAX', 'WEIGHT_RECALC_TIER_1_THRESHOLD', 'WEIGHT_RECALC_TIER_1_INTERVAL', 'WEIGHT_RECALC_TIER_2_THRESHOLD', 'WEIGHT_RECALC_TIER_2_INTERVAL', 'WEIGHT_RECALC_TIER_3_THRESHOLD', 'WEIGHT_RECALC_TIER_3_INTERVAL', 'WEIGHT_RECALC_TIER_4_INTERVAL', 'WEIGHT_RECALC_MIN_NEW_DATA', 'WEIGHT_SMOOTHING_ALPHA', 'WEIGHT_CHANGE_MAX_RATE', 'WEIGHT_FLOOR', 'ADJUSTMENT_DATA_DECAY_DAYS', 'BASELINE_WINDOW_DAYS', 'BASELINE_MIN_SAMPLE', 'KPI_CALC_MONTH_START_DAY', 'KPI_TARGET_TIKTOK', 'KPI_TARGET_INSTAGRAM', 'KPI_TARGET_YOUTUBE', 'KPI_TARGET_TWITTER', 'PREDICTION_VALUE_MIN_RATIO', 'PREDICTION_VALUE_MAX_RATIO', 'CUMULATIVE_SEARCH_TOP_K', 'CUMULATIVE_SIMILARITY_THRESHOLD', 'CUMULATIVE_CONFIDENCE_THRESHOLD', 'BASELINE_DEFAULT_IMPRESSIONS', 'EMBEDDING_MODEL_VERSION', 'CROSS_ACCOUNT_MIN_SAMPLE')
+- **Expected Result**: COUNT = 31
+- **Pass Criteria**: COUNT = 31
+- **Fail Indicators**: COUNT < 31
+
+### TEST-ALG-030: MIN_NEW_DATA スキップ条件
+- **Category**: algorithm
+- **Priority**: P1
+- **Prerequisites**: WEIGHT_RECALC_MIN_NEW_DATA = 100
+- **Steps**:
+  1. 前回weight再計算以降の新規metricsを50件に設定（< 100）
+  2. weight再計算バッチを実行
+- **Expected Result**: weight再計算がスキップされる
+- **Pass Criteria**: weight_audit_log に新規レコードなし AND prediction_weights 変更なし
+- **Fail Indicators**: 新規データ不足なのにweight再計算が実行される
+
 ## テストサマリー
 
 | Section | Layer | Tests | P0 | P1 | P2 | P3 |
@@ -5586,9 +5918,10 @@ TEST-{LAYER}-{NUMBER}
 | 5 | Dashboard | 156 | 30 | 92 | 32 | 2 |
 | 6 | Integration | 20 | 7 | 11 | 2 | 0 |
 | 7 | E2E | 12 | 4 | 8 | 0 | 0 |
-| **Total** | | **459** | **137** | **261** | **59** | **2** |
+| 8 | Algorithm & KPI | 30 | 14 | 14 | 2 | 0 |
+| **Total** | | **489** | **151** | **275** | **61** | **2** |
 
-> 全459テスト。各テストは AI エージェントが Pass/Fail を判定可能な精度で記述。
-> P0 テスト (137件) は初回リリース前に全件パス必須。
+> 全489テスト。各テストは AI エージェントが Pass/Fail を判定可能な精度で記述。
+> P0 テスト (151件) は初回リリース前に全件パス必須。
 > ※ TEST-AGT-033〜039 は欠番 (将来の拡張用に予約)。実テスト数は TEST-AGT-001〜032 + 040〜042 = 35件。
 

@@ -103,7 +103,7 @@ ai-influencer/v5/
 │
 │ ─── エージェントハーネス（実装管理用。コード外） ───
 ├── CLAUDE.md                  # Agent Team起動時の自動読み込みエントリポイント（修正不可）
-├── feature_list.json          # 全251機能の進捗管理（passesフィールドのみ更新可）
+├── feature_list.json          # 全276機能の進捗管理（passesフィールドのみ更新可）
 ├── progress.txt               # 実装ログ（append-only: START/COMPLETE/FAIL/SMOKE/BLOCKED/SESSION）
 ├── scripts/
 │   └── daily-report.sh        # 日次モニタリング（cron自動実行）
@@ -119,17 +119,17 @@ ai-influencer/v5/
 │
 │ ─── 凍結済み型定義（リーダーがWeek 0-1で生成。変更は「申請→リーダー承認→全チーム通知」） ───
 ├── types/
-│   ├── database.ts            # 全27テーブルのRow型
+│   ├── database.ts            # 全33テーブルのRow型
 │   ├── mcp-tools.ts           # 全MCPツールの入出力型
 │   ├── langgraph-state.ts     # 全4グラフのステート型
 │   └── api-schemas.ts         # ダッシュボードAPI型
 │
 │ ─── SQL（infra-agentのみ実行・変更可） ───
 ├── sql/
-│   ├── 001_create_tables.sql  # DDL（27テーブル）
-│   ├── 002_create_indexes.sql # インデックス（139件）
+│   ├── 001_create_tables.sql  # DDL（33テーブル）
+│   ├── 002_create_indexes.sql # インデックス（146件）
 │   ├── 003_create_triggers.sql # トリガー（13件）
-│   ├── 004_seed_settings.sql  # system_settings初期データ（87件）
+│   ├── 004_seed_settings.sql  # system_settings初期データ（118件）
 │   └── 005_seed_prompts.sql   # agent_prompt_versions初期データ（6エージェント分）
 │
 │ ─── 実装コード ───
@@ -309,7 +309,7 @@ Week 0-1でリーダーが生成し凍結。全エージェントはこの型定
 
 | ファイル | 内容 | 利用者 |
 |---------|------|-------|
-| `types/database.ts` | 全27テーブルのRow型 | 全エージェント |
+| `types/database.ts` | 全33テーブルのRow型 | 全エージェント |
 | `types/mcp-tools.ts` | 全MCPツールの入出力型 | mcp-core-agent, mcp-intel-agent |
 | `types/langgraph-state.ts` | 全4グラフのステート型 | intelligence-agent, strategy-agent |
 | `types/api-schemas.ts` | ダッシュボードAPI型 | dashboard-agent |
@@ -375,7 +375,7 @@ LangGraphの各ノード（Strategist, Researcher, Analyst, Planner, Tool Specia
 |------|------|
 | 通信方式 | `src/lib/settings.ts` → PostgreSQL直接クエリ（MCP非経由） |
 | 呼び出し元 | 全エージェント、全ワーカー、ダッシュボード |
-| テーブル | `system_settings`（87件、8カテゴリ: production(13), posting(8), review(4), agent(44), measurement(6), cost_control(4), dashboard(3), credentials(5)） |
+| テーブル | `system_settings`（118件、8カテゴリ: production(13), posting(8), review(4), agent(75), measurement(6), cost_control(4), dashboard(3), credentials(5)） |
 | 契約 | `getSetting(key: string): Promise<string>` — 初期実装は infra-agent（[02-architecture.md §10](02-architecture.md) 参照） |
 | ルール | 全設定値はこのユーティリティ経由で取得する。ハードコーディング禁止 |
 
@@ -479,7 +479,7 @@ main ── 本番ブランチ（直接コミット禁止）
 
 ### 6.1 infra-agent（Week 1-2 集中、Week 3以降はサポート）
 
-**参照仕様**: [03-database-schema.md](03-database-schema.md)（27テーブル定義）, `v5/sql/`（DDL・シード・トリガー）, `v5/docker-compose.yml`
+**参照仕様**: [03-database-schema.md](03-database-schema.md)（33テーブル定義）, `v5/sql/`（DDL・シード・トリガー）, `v5/docker-compose.yml`
 
 **Week 1:**
 - Docker Compose作成 (PostgreSQL 16 + pgvector, Node.js app)
@@ -658,6 +658,19 @@ export const getAccountsTool = {
 | 11 | GET | `/api/settings` | `ListSettingsRequest` | `ListSettingsResponse` | system_settings一覧。categoryでフィルター |
 | 12 | PUT | `/api/settings/:key` | `UpdateSettingRequest` | `UpdateSettingResponse` | system_setting値の更新。key（パスパラメータ）+ value |
 | 13 | GET | `/api/errors` | `ListErrorsRequest` | `ListErrorsResponse` | エラーログ一覧。period（24h/7d/30d）/task_type（production/publishing/measurement/curation）でフィルター |
+
+**アルゴリズム・KPI関連 REST API（追加6エンドポイント）**:
+
+| # | Method | Path | 説明 |
+|---|--------|------|------|
+| 14 | GET | `/api/predictions/:content_id` | コンテンツ別予測vs実績データ |
+| 15 | GET | `/api/algorithm/performance` | アルゴリズム性能サマリー（予測精度、weight分布） |
+| 16 | GET | `/api/baselines/:account_id` | アカウント別ベースライン詳細 |
+| 17 | GET | `/api/weights/audit` | weight再計算の監査ログ |
+| 18 | POST | `/api/kpi/snapshots` | KPIスナップショット手動トリガー |
+| 19 | GET | `/api/kpi/snapshots` | KPIスナップショット一覧（platform, year_monthフィルター） |
+
+> REST API合計: 19エンドポイント（13 既存 + 6 アルゴリズム追加）
 
 > **実装パス**: 各エンドポイントは `dashboard/app/api/{resource}/route.ts` に Next.js Route Handler として実装する。DB接続は Prisma/Drizzle ORM → PostgreSQL 直接（MCP Server経由ではない。§4.3参照）。型は `types/api-schemas.ts` の `ApiRouteMap` で一括マッピングされており、`ApiRequest<T>` / `ApiResponse<T>` ユーティリティ型でルート別の型を取得可能。
 

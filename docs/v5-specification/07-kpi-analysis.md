@@ -25,7 +25,8 @@
 - [7. 修正版インプレッション予測](#7-修正版インプレッション予測)
 - [8. 収益化タイムライン](#8-収益化タイムライン)
 - [9. 推奨KPI修正](#9-推奨kpi修正)
-- [10. 結論](#10-結論)
+- [10. KPI達成率・予測精度の確定仕様](#10-kpi達成率予測精度の確定仕様)
+- [11. 結論](#11-結論)
 
 
 ## 1. エグゼクティブサマリー
@@ -635,7 +636,213 @@ v3分析の結論として、6月までに3,500アカウントを達成するこ
 **ただし、v5.0は3,500到達後の持続性と収益性で優位**。シナリオBは3,500に到達しても学習機構がないため品質が停滞する。v5.0は到達時点で累積知見500+を持ち、コンテンツ品質が高い状態でスケールする。
 
 
-## 10. 結論
+## 10. KPI達成率・予測精度の確定仕様
+
+> [08-algorithm-analysis.md](08-algorithm-analysis.md) セクション15-27で定義されたアルゴリズムに基づく、KPIの計算方法と精度指標の確定仕様。
+
+### 10.1 2つの精度指標
+
+v5.0では以下の2つの異なる精度指標を管理する。
+
+| 指標 | 対象 | 目的 |
+|---|---|---|
+| **KPI達成率** | ユーザー（経営層）向け | アルゴリズムが目標インプレッションを達成しているか |
+| **予測精度** | 内部指標（エンジニア・エージェント向け） | 学習の進捗度合い。補正係数の改善に直結 |
+
+### 10.2 KPI達成率（ユーザー向け指標）
+
+```
+KPI達成率 = min(1.0, 実績平均インプ / KPI目標)
+```
+
+- 目標超過は **1.0（100%）でキャップ**
+- プラットフォームごとに算出（各プラットフォームのKPI目標値で除算）
+- KPI目標値は `system_settings` で管理:
+
+| キー | デフォルト値 |
+|---|---|
+| KPI_TARGET_TIKTOK | 15,000 |
+| KPI_TARGET_INSTAGRAM | 10,000 |
+| KPI_TARGET_YOUTUBE | 20,000 |
+| KPI_TARGET_TWITTER | 10,000 |
+
+### 10.3 予測精度（内部指標）
+
+```sql
+CASE
+  WHEN actual = 0 AND predicted = 0 THEN 1.0
+  WHEN actual = 0 THEN 0.0
+  ELSE GREATEST(0, 1 - ABS(predicted - actual) / actual)
+END
+```
+
+- `actual=0 AND predicted=0`: 正しく予測した扱い → 1.0
+- `actual=0` (予測不能): 0.0 として処理
+- 大きく外した場合: `GREATEST(0, ...)` でフロア0
+- 投稿数0のプラットフォーム: 加重平均から自動除外（寄与ゼロ）
+
+### 10.4 プラットフォーム → 全体統合方法
+
+**決定: 投稿数加重平均**（KPI達成率・予測精度の両方に適用）
+
+```
+全体KPI達成率 = Σ(platform_achievement × platform_publications) / Σ(platform_publications)
+全体予測精度 = Σ(platform_prediction_accuracy × platform_publications) / Σ(platform_publications)
+```
+
+- 理由: 投稿数 = ビジネスボリューム → インパクトに正直な重み付け
+- 単純平均は少数プラットフォームに引っ張られる問題を回避
+- `kpi_snapshots.is_reliable = FALSE`（account_count < 5）のプラットフォームは加重平均から除外
+
+**加重平均の計算例（3月）**:
+
+| Platform | 達成率 | 投稿数 | 寄与 |
+|----------|-------|-------|------|
+| TikTok | 0.85 | 1,260 | 1,071 |
+| Instagram | 0.70 | 900 | 630 |
+| YouTube | 0.90 | 360 | 324 |
+| X | 0.60 | 300 | 180 |
+| **全体** | **0.782** | **2,820** | |
+
+### 10.5 KPI計算の対象アカウント・期間
+
+| 項目 | ルール | 設定キー |
+|---|---|---|
+| **対象アカウント** | `created_at < 計算対象月の1日`（当月新規作成は除外） | なし（固定ルール） |
+| **対象期間** | 月の21日〜月末（下旬のみ） | `KPI_CALC_MONTH_START_DAY = 21` |
+| **計測データ** | `measurement_point = '7d'`（7日計測値） | なし（固定ルール） |
+| **信頼性判定** | account_count < 5 → `is_reliable = FALSE` | なし（固定閾値） |
+
+例: TikTok 3月 → 2月以前作成の12アカウント × 3月21-31日の7日計測平均 vs 15,000
+
+### 10.6 KPIスナップショット算出SQL (G18)
+
+月末+1日に自動実行されるバッチジョブの完全なSQL。
+
+```sql
+-- KPIスナップショット算出（月次バッチ）
+WITH platform_kpi AS (
+  SELECT
+    a.platform,
+    COUNT(DISTINCT a.account_id) AS account_count,
+    COUNT(DISTINCT p.id) AS publication_count,
+    AVG(m.views) AS avg_impressions
+  FROM accounts a
+  JOIN publications p ON a.account_id = p.account_id
+  JOIN metrics m ON p.id = m.publication_id
+  WHERE a.status = 'active'
+    AND a.created_at < DATE_TRUNC('month', $1::date)  -- 月初より前に作成
+    AND p.posted_at >= DATE_TRUNC('month', $1::date) + INTERVAL '20 days'  -- 21日以降
+    AND p.posted_at < DATE_TRUNC('month', $1::date) + INTERVAL '1 month'
+    AND m.measurement_point = '7d'
+  GROUP BY a.platform
+),
+with_targets AS (
+  SELECT
+    pk.*,
+    CASE pk.platform
+      WHEN 'tiktok' THEN (SELECT value::int FROM system_settings WHERE key = 'KPI_TARGET_TIKTOK')
+      WHEN 'instagram' THEN (SELECT value::int FROM system_settings WHERE key = 'KPI_TARGET_INSTAGRAM')
+      WHEN 'youtube' THEN (SELECT value::int FROM system_settings WHERE key = 'KPI_TARGET_YOUTUBE')
+      WHEN 'twitter' THEN (SELECT value::int FROM system_settings WHERE key = 'KPI_TARGET_TWITTER')
+    END AS kpi_target,
+    LEAST(1.0, pk.avg_impressions /
+      CASE pk.platform
+        WHEN 'tiktok' THEN (SELECT value::int FROM system_settings WHERE key = 'KPI_TARGET_TIKTOK')
+        WHEN 'instagram' THEN (SELECT value::int FROM system_settings WHERE key = 'KPI_TARGET_INSTAGRAM')
+        WHEN 'youtube' THEN (SELECT value::int FROM system_settings WHERE key = 'KPI_TARGET_YOUTUBE')
+        WHEN 'twitter' THEN (SELECT value::int FROM system_settings WHERE key = 'KPI_TARGET_TWITTER')
+      END
+    ) AS achievement_rate
+  FROM platform_kpi pk
+),
+prediction_acc AS (
+  SELECT
+    a.platform,
+    AVG(
+      CASE
+        WHEN ps.actual_impressions_7d = 0 AND ps.predicted_impressions = 0 THEN 1.0
+        WHEN ps.actual_impressions_7d = 0 THEN 0.0
+        ELSE GREATEST(0, 1 - ABS(ps.predicted_impressions - ps.actual_impressions_7d)
+             / ps.actual_impressions_7d)
+      END
+    ) AS prediction_accuracy
+  FROM prediction_snapshots ps
+  JOIN publications p ON ps.publication_id = p.id
+  JOIN accounts a ON p.account_id = a.account_id
+  WHERE a.status = 'active'
+    AND a.created_at < DATE_TRUNC('month', $1::date)
+    AND p.posted_at >= DATE_TRUNC('month', $1::date) + INTERVAL '20 days'
+    AND p.posted_at < DATE_TRUNC('month', $1::date) + INTERVAL '1 month'
+    AND ps.actual_impressions_7d IS NOT NULL
+  GROUP BY a.platform
+)
+INSERT INTO kpi_snapshots (platform, year_month, kpi_target, avg_impressions,
+                           achievement_rate, account_count, publication_count,
+                           prediction_accuracy, is_reliable)
+SELECT
+  wt.platform,
+  TO_CHAR($1::date, 'YYYY-MM'),
+  wt.kpi_target,
+  wt.avg_impressions,
+  wt.achievement_rate,
+  wt.account_count,
+  wt.publication_count,
+  pa.prediction_accuracy,
+  wt.account_count >= 5
+FROM with_targets wt
+LEFT JOIN prediction_acc pa ON wt.platform = pa.platform
+ON CONFLICT (platform, year_month) DO UPDATE SET
+  kpi_target = EXCLUDED.kpi_target,
+  avg_impressions = EXCLUDED.avg_impressions,
+  achievement_rate = EXCLUDED.achievement_rate,
+  account_count = EXCLUDED.account_count,
+  publication_count = EXCLUDED.publication_count,
+  prediction_accuracy = EXCLUDED.prediction_accuracy,
+  is_reliable = EXCLUDED.is_reliable,
+  calculated_at = NOW();
+```
+
+**加重平均ロールアップ**: ダッシュボード側で算出（DBには保存しない）
+
+```sql
+-- ダッシュボード表示用: 全体KPI達成率
+SELECT
+  SUM(achievement_rate * publication_count) / NULLIF(SUM(publication_count), 0)
+    AS overall_achievement_rate
+FROM kpi_snapshots
+WHERE year_month = $1
+  AND is_reliable = TRUE;
+```
+
+### 10.7 関連エッジケース
+
+| ID | 状況 | 対応 |
+|---|---|---|
+| E1 | ベースライン算出でコホートにもデータなし | 段階的フォールバック: platform×niche×age → platform×niche → platform全体 → `BASELINE_DEFAULT_IMPRESSIONS`(500) |
+| E3 | アカウントBAN/削除で計測不能 | actual=NULL → KPI計算・予測精度の両方から除外 |
+| E5 | KPI対象アカウント極少数 | `kpi_snapshots.is_reliable=FALSE`（account_count<5）。ダッシュボードで「参考値」表示 |
+| E10 | KPI目標値の月途中変更 | 計算時点の`system_settings`で算出。過去スナップショットは不変 |
+
+> 全エッジケース一覧（E1-E10）は [08-algorithm-analysis.md](08-algorithm-analysis.md) セクション24を参照。
+
+### 10.8 月別KPI予測（アルゴリズム反映版）
+
+アルゴリズム学習効果（per-content学習モデル）を反映した月別KPI達成予測。ベースライン + 9補正係数 + weight自動調整による精度向上を考慮。
+
+| 月 | 稼働アカウント | 仮説的中率 | 予測精度 | TikTok達成率 | YT達成率 | 全体KPI達成率 |
+|---|---|---|---|---|---|---|
+| 3月 | 50-100 | 25-35% | 15-25% | 2-3% | 3-5% | 2-4% |
+| 4月 | 120-240 | 35-48% | 30-45% | 4-8% | 5-10% | 4-8% |
+| 5月 | 410-920 | 48-63% | 45-60% | 8-16% | 10-20% | 8-16% |
+| 6月 | 750-1,900 | 63-82% | 55-75% | 15-35% | 15-40% | 15-35% |
+| 9月 | 1,500-3,000 | 82-90% | 75-85% | 35-65% | 40-70% | 35-65% |
+| 12月 | 3,000-5,000 | 88-93% | 82-90% | 55-90% | 60-95% | 55-90% |
+
+> 注: KPI達成率はインプレッション数（アカウント成熟度依存）とアルゴリズム精度の両方に依存する。初期の低達成率はアカウント成熟度の低さ（新規アカウントのインプ数は300-500）が主因であり、アルゴリズム精度の問題ではない。12ヶ月経過でアカウントが成熟すると、アルゴリズム精度90%+とアカウント成熟度の相乗効果でKPI達成率が急速に改善する。
+
+
+## 11. 結論
 
 ### v5.0のポジショニング
 

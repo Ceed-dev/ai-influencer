@@ -1,5 +1,5 @@
 -- ============================================================
--- AI-Influencer v5.0 — Database Schema (27 tables)
+-- AI-Influencer v5.0 — Database Schema (33 tables)
 -- Generated from docs/v5-specification/03-database-schema.md
 -- ============================================================
 -- Execution order respects FK dependencies:
@@ -332,6 +332,9 @@ CREATE TABLE content (
     reviewer_comment  TEXT,
     reviewed_at       TIMESTAMPTZ,
     revision_count    INTEGER      DEFAULT 0,
+    hook_type         VARCHAR(30),
+    narrative_structure VARCHAR(30),
+    total_duration_seconds NUMERIC,
     quality_score     NUMERIC(3,1),
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -541,6 +544,7 @@ CREATE TABLE content_learnings (
     confidence      FLOAT NOT NULL DEFAULT 0.5 CHECK (confidence BETWEEN 0.0 AND 1.0),
     promoted_to_learning_id UUID REFERENCES learnings(id),
     similar_past_learnings_referenced INTEGER NOT NULL DEFAULT 0,
+    cumulative_context JSONB,
     embedding       vector(1536),
     niche           VARCHAR(50),
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -697,7 +701,9 @@ CREATE TABLE metrics (
     CONSTRAINT chk_metrics_completion_rate
         CHECK (completion_rate IS NULL OR (completion_rate >= 0.0000 AND completion_rate <= 1.0000)),
     CONSTRAINT chk_metrics_engagement_rate
-        CHECK (engagement_rate IS NULL OR (engagement_rate >= 0.0000 AND engagement_rate <= 1.0000))
+        CHECK (engagement_rate IS NULL OR (engagement_rate >= 0.0000 AND engagement_rate <= 1.0000)),
+    CONSTRAINT uq_metrics_pub_measurement
+        UNIQUE (publication_id, measurement_point)
 );
 
 COMMENT ON TABLE metrics IS '投稿パフォーマンスの時系列記録。1投稿に対して最大3回計測 (48h, 7d, 30d)';
@@ -806,3 +812,120 @@ COMMENT ON TABLE prompt_suggestions IS 'プロンプト改善の自動提案。�
 COMMENT ON COLUMN prompt_suggestions.trigger_type IS 'score_decline/repeated_issue/new_pattern/tool_update/manual/other';
 COMMENT ON COLUMN prompt_suggestions.confidence IS '提案の確信度。0.80以上でデータに基づく明確な改善点';
 COMMENT ON COLUMN prompt_suggestions.status IS 'pending→accepted/rejected/expired。人間がダッシュボードで判断';
+
+-- ========================================
+-- Algorithm & KPI Tables (6 new tables)
+-- ========================================
+
+-- prediction_weights — 9要素のweight保存（platform × factor = ~36行）
+CREATE TABLE prediction_weights (
+    id              SERIAL PRIMARY KEY,
+    platform        VARCHAR(20) NOT NULL,
+    factor_name     VARCHAR(50) NOT NULL,
+    weight          FLOAT NOT NULL DEFAULT 0.1111,
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_prediction_weights UNIQUE (platform, factor_name),
+    CONSTRAINT chk_weight_floor CHECK (weight >= 0.02)
+);
+
+COMMENT ON TABLE prediction_weights IS '9補正要素のweight保存。platform×factor_name=~36行。EMA平滑化で自動調整';
+COMMENT ON COLUMN prediction_weights.factor_name IS 'hook_type/content_length/post_hour/post_weekday/niche/narrative_structure/sound_bgm/hashtag_keyword/cross_account_performance';
+COMMENT ON COLUMN prediction_weights.weight IS '初期値1/9≈0.1111。WEIGHT_FLOOR(0.02)以上、合計=1.0';
+
+-- weight_audit_log — weight再計算の監査ログ（append-only）
+CREATE TABLE weight_audit_log (
+    id              SERIAL PRIMARY KEY,
+    platform        VARCHAR(20) NOT NULL,
+    factor_name     VARCHAR(50) NOT NULL,
+    old_weight      FLOAT NOT NULL,
+    new_weight      FLOAT NOT NULL,
+    data_count      INTEGER NOT NULL,
+    metrics_count   INTEGER NOT NULL,
+    calculated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE weight_audit_log IS 'weight再計算の監査ログ。append-only。いつ、どの値→どの値に変更されたかを追跡';
+COMMENT ON COLUMN weight_audit_log.data_count IS '再計算に使用されたprediction_snapshotsの件数';
+COMMENT ON COLUMN weight_audit_log.metrics_count IS '再計算に使用されたmetricsレコードの件数';
+
+-- prediction_snapshots — 投稿単位の予測vs実績
+CREATE TABLE prediction_snapshots (
+    id                      SERIAL PRIMARY KEY,
+    publication_id          INTEGER NOT NULL REFERENCES publications(id),
+    content_id              VARCHAR(20) NOT NULL REFERENCES content(content_id),
+    account_id              VARCHAR(20) NOT NULL REFERENCES accounts(account_id),
+    hypothesis_id           INTEGER REFERENCES hypotheses(id),
+    baseline_used           FLOAT NOT NULL,
+    baseline_source         VARCHAR(20) NOT NULL,
+    adjustments_applied     JSONB NOT NULL DEFAULT '{}',
+    total_adjustment        FLOAT NOT NULL,
+    predicted_impressions   FLOAT NOT NULL,
+    actual_impressions_48h  INTEGER,
+    actual_impressions_7d   INTEGER,
+    actual_impressions_30d  INTEGER,
+    prediction_error_7d     FLOAT,
+    prediction_error_30d    FLOAT,
+    created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_prediction_publication UNIQUE (publication_id)
+);
+
+COMMENT ON TABLE prediction_snapshots IS '投稿単位の予測vs実績。publication INSERT直後にprediction作成、計測後にactual更新';
+COMMENT ON COLUMN prediction_snapshots.baseline_source IS 'own_history/cohort/default。ベースライン算出元';
+COMMENT ON COLUMN prediction_snapshots.adjustments_applied IS '各補正要素の詳細JSONB。例: {"hook_type":{"value":"question","adjustment":0.12,"weight":0.15}}';
+COMMENT ON COLUMN prediction_snapshots.prediction_error_7d IS 'abs(predicted - actual_7d) / actual_7d。7日計測後に算出';
+
+-- kpi_snapshots — 月次KPI計算結果
+CREATE TABLE kpi_snapshots (
+    id                  SERIAL PRIMARY KEY,
+    platform            VARCHAR(20) NOT NULL,
+    year_month          VARCHAR(7) NOT NULL,
+    kpi_target          INTEGER NOT NULL,
+    avg_impressions     FLOAT NOT NULL,
+    achievement_rate    FLOAT NOT NULL,
+    account_count       INTEGER NOT NULL,
+    publication_count   INTEGER NOT NULL,
+    prediction_accuracy FLOAT,
+    is_reliable         BOOLEAN NOT NULL DEFAULT TRUE,
+    calculated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_kpi_platform_month UNIQUE (platform, year_month)
+);
+
+COMMENT ON TABLE kpi_snapshots IS '月次KPI計算結果。プラットフォーム別の目標vs実績を保存';
+COMMENT ON COLUMN kpi_snapshots.achievement_rate IS 'min(1.0, avg_impressions / kpi_target)。目標超過は100%キャップ';
+COMMENT ON COLUMN kpi_snapshots.is_reliable IS 'account_count < 5の場合FALSE。ダッシュボードで「参考値」表示';
+COMMENT ON COLUMN kpi_snapshots.prediction_accuracy IS '予測精度。1 - |predicted - actual| / actual の平均';
+
+-- account_baselines — ベースラインキャッシュ（日次バッチ更新）
+CREATE TABLE account_baselines (
+    id                   SERIAL PRIMARY KEY,
+    account_id           VARCHAR(20) NOT NULL REFERENCES accounts(account_id),
+    baseline_impressions FLOAT NOT NULL,
+    source               VARCHAR(20) NOT NULL,
+    sample_count         INTEGER NOT NULL,
+    window_start         DATE NOT NULL,
+    window_end           DATE NOT NULL,
+    calculated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_baseline_account UNIQUE (account_id)
+);
+
+COMMENT ON TABLE account_baselines IS 'アカウント別ベースラインキャッシュ。日次バッチでUPSERT、常に最新1行のみ保持';
+COMMENT ON COLUMN account_baselines.source IS 'own_history/cohort/default。フォールバックチェーンの結果';
+COMMENT ON COLUMN account_baselines.sample_count IS 'own_history: 直近14日のmetrics件数。cohort: コホート内件数';
+
+-- adjustment_factor_cache — 補正係数キャッシュ
+CREATE TABLE adjustment_factor_cache (
+    id              SERIAL PRIMARY KEY,
+    platform        VARCHAR(20) NOT NULL,
+    factor_name     VARCHAR(50) NOT NULL,
+    factor_value    VARCHAR(100) NOT NULL,
+    adjustment      FLOAT NOT NULL,
+    sample_count    INTEGER NOT NULL,
+    is_active       BOOLEAN NOT NULL DEFAULT TRUE,
+    calculated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_adj_cache UNIQUE (platform, factor_name, factor_value)
+);
+
+COMMENT ON TABLE adjustment_factor_cache IS '8補正要素のキャッシュ（cross_account除く）。weight再計算と同じtier別タイミングで更新';
+COMMENT ON COLUMN adjustment_factor_cache.is_active IS 'sample_count < ANALYSIS_MIN_SAMPLE_SIZE(5)の場合FALSE';
+COMMENT ON COLUMN adjustment_factor_cache.factor_value IS '要素の具体値。例: hook_type=question, post_hour=18-20';

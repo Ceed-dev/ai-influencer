@@ -1471,6 +1471,16 @@ export interface GetContentPredictionOutput {
   hypothesis_id: number | null;
   predicted_kpis: Record<string, number> | null; // null if no hypothesis
   hypothesis_category: string | null;
+  /** Baseline impressions used (from prediction_snapshots) */
+  baseline_used: number | null;
+  /** Baseline source: own_history / cohort / default */
+  baseline_source: string | null;
+  /** Per-factor adjustment details */
+  adjustments_applied: Record<string, { value: string; adjustment: number; weight: number }> | null;
+  /** Sum of all weighted adjustments */
+  total_adjustment: number | null;
+  /** Predicted impressions from algorithm */
+  predicted_impressions: number | null;
 }
 
 /** #6 — 日次マイクロ分析サマリー */

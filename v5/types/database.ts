@@ -261,6 +261,8 @@ export interface ComponentAudioData {
   genre?: string;
   bpm?: number;
   license?: string;
+  /** Content-context BGM category: trending_pop/lo_fi/dramatic/ambient/none/original */
+  bgm_category?: string;
   [key: string]: unknown;
 }
 
@@ -435,6 +437,12 @@ export interface ContentRow {
   reviewed_at: string | null;
   /** Number of revision cycles (default: 0) */
   revision_count: number;
+  /** Hook format: question/reaction/statement/story/demonstration/shock/mystery */
+  hook_type: string | null;
+  /** Narrative structure: linear/parallel/climactic/circular/listicle */
+  narrative_structure: string | null;
+  /** Total content duration in seconds (NUMERIC) */
+  total_duration_seconds: number | null;
   /** AI quality self-assessment score 0–10 (NUMERIC(3,1)) */
   quality_score: number | null;
   /** ISO 8601 timestamp */
@@ -464,6 +472,9 @@ export interface ContentCreateInput {
   review_status?: ContentReviewStatus;
   reviewer_comment?: string | null;
   reviewed_at?: string | null;
+  hook_type?: string | null;
+  narrative_structure?: string | null;
+  total_duration_seconds?: number | null;
   revision_count?: number;
   quality_score?: number | null;
 }
@@ -490,6 +501,9 @@ export interface ContentUpdateInput {
   review_status?: ContentReviewStatus;
   reviewer_comment?: string | null;
   reviewed_at?: string | null;
+  hook_type?: string | null;
+  narrative_structure?: string | null;
+  total_duration_seconds?: number | null;
   revision_count?: number;
   quality_score?: number | null;
 }
@@ -996,6 +1010,30 @@ export interface LearningUpdateInput {
 
 export type MicroVerdict = 'confirmed' | 'inconclusive' | 'rejected';
 
+/** JSONB shape for content_learnings.cumulative_context — 7d cumulative analysis results */
+export interface CumulativeContextStructured {
+  search_meta: {
+    query_embedding_source: string;
+    total_results: number;
+    searched_at: string;
+  };
+  by_source: Record<string, { count: number; [key: string]: unknown }>;
+  patterns: {
+    similar_content_success_rate: number;
+    similar_hypothesis_success_rate: number;
+    avg_prediction_error_of_similar: number;
+    top_contributing_factors: Array<{ factor: string; frequency: number }>;
+    top_detractors: Array<{ factor: string; frequency: number }>;
+  };
+}
+
+export interface CumulativeContext {
+  structured: CumulativeContextStructured;
+  ai_interpretation: string;
+  recommendations: string[];
+  analyzed_at: string;
+}
+
 export interface ContentLearningRow {
   id: string; // UUID
   content_id: string;
@@ -1013,6 +1051,8 @@ export interface ContentLearningRow {
   confidence: number;
   promoted_to_learning_id: string | null; // UUID
   similar_past_learnings_referenced: number;
+  /** 7d cumulative analysis results (JSONB) */
+  cumulative_context: CumulativeContext | null;
   embedding: number[] | null;
   niche: string | null;
   created_at: string; // ISO 8601
@@ -1043,6 +1083,7 @@ export interface ContentLearningUpdateInput {
   applicable_to?: string[] | null;
   confidence?: number;
   promoted_to_learning_id?: string | null;
+  cumulative_context?: CumulativeContext | null;
 }
 
 // ============================================================================
@@ -2078,6 +2119,275 @@ export interface SystemSettingUpdateInput {
 }
 
 // ============================================================================
+// 8. Algorithm & KPI Layer — prediction_weights, weight_audit_log,
+//    prediction_snapshots, kpi_snapshots, account_baselines,
+//    adjustment_factor_cache
+// ============================================================================
+
+// --- prediction_weights ---
+
+export type BaselineSource = 'own_history' | 'cohort' | 'default';
+
+/** Row type for the `prediction_weights` table */
+export interface PredictionWeightRow {
+  /** SERIAL auto-increment primary key */
+  id: number;
+  /** Platform: youtube / tiktok / instagram / x */
+  platform: string;
+  /** Factor name: hook_type/content_length/post_hour/post_weekday/niche/narrative_structure/sound_bgm/hashtag_keyword/cross_account_performance */
+  factor_name: string;
+  /** Weight value (default: 0.1111, floor: 0.02) */
+  weight: number;
+  /** ISO 8601 timestamp */
+  updated_at: string;
+}
+
+export interface PredictionWeightCreateInput {
+  platform: string;
+  factor_name: string;
+  weight?: number;
+}
+
+export interface PredictionWeightUpdateInput {
+  id: number;
+  platform?: string;
+  factor_name?: string;
+  weight?: number;
+}
+
+// --- weight_audit_log ---
+
+/** Row type for the `weight_audit_log` table */
+export interface WeightAuditLogRow {
+  /** SERIAL auto-increment primary key */
+  id: number;
+  /** Platform */
+  platform: string;
+  /** Factor name */
+  factor_name: string;
+  /** Previous weight value */
+  old_weight: number;
+  /** New weight value */
+  new_weight: number;
+  /** Number of prediction_snapshots used in calculation */
+  data_count: number;
+  /** Number of metrics records used in calculation */
+  metrics_count: number;
+  /** Calculation timestamp (ISO 8601) */
+  calculated_at: string;
+}
+
+export interface WeightAuditLogCreateInput {
+  platform: string;
+  factor_name: string;
+  old_weight: number;
+  new_weight: number;
+  data_count: number;
+  metrics_count: number;
+}
+
+// --- prediction_snapshots ---
+
+/** JSONB shape for prediction_snapshots.adjustments_applied elements */
+export interface AdjustmentDetail {
+  value: string;
+  adjustment: number;
+  weight: number;
+}
+
+/** Row type for the `prediction_snapshots` table */
+export interface PredictionSnapshotRow {
+  /** SERIAL auto-increment primary key */
+  id: number;
+  /** FK to publications.id */
+  publication_id: number;
+  /** FK to content.content_id */
+  content_id: string;
+  /** FK to accounts.account_id */
+  account_id: string;
+  /** FK to hypotheses.id (nullable) */
+  hypothesis_id: number | null;
+  /** Baseline impressions used for prediction */
+  baseline_used: number;
+  /** Baseline source: own_history / cohort / default */
+  baseline_source: BaselineSource;
+  /** Per-factor adjustment details (JSONB) */
+  adjustments_applied: Record<string, AdjustmentDetail>;
+  /** Sum of all weighted adjustments */
+  total_adjustment: number;
+  /** Predicted impressions: baseline × (1 + total_adjustment) */
+  predicted_impressions: number;
+  /** Actual impressions at 48h measurement (null if not yet measured) */
+  actual_impressions_48h: number | null;
+  /** Actual impressions at 7d measurement (null if not yet measured) */
+  actual_impressions_7d: number | null;
+  /** Actual impressions at 30d measurement (null if not yet measured) */
+  actual_impressions_30d: number | null;
+  /** Prediction error at 7d: abs(predicted - actual_7d) / actual_7d */
+  prediction_error_7d: number | null;
+  /** Prediction error at 30d: abs(predicted - actual_30d) / actual_30d */
+  prediction_error_30d: number | null;
+  /** ISO 8601 timestamp */
+  created_at: string;
+  /** ISO 8601 timestamp */
+  updated_at: string;
+}
+
+export interface PredictionSnapshotCreateInput {
+  publication_id: number;
+  content_id: string;
+  account_id: string;
+  hypothesis_id?: number | null;
+  baseline_used: number;
+  baseline_source: BaselineSource;
+  adjustments_applied: Record<string, AdjustmentDetail>;
+  total_adjustment: number;
+  predicted_impressions: number;
+}
+
+export interface PredictionSnapshotUpdateInput {
+  id: number;
+  actual_impressions_48h?: number | null;
+  actual_impressions_7d?: number | null;
+  actual_impressions_30d?: number | null;
+  prediction_error_7d?: number | null;
+  prediction_error_30d?: number | null;
+}
+
+// --- kpi_snapshots ---
+
+/** Row type for the `kpi_snapshots` table */
+export interface KpiSnapshotRow {
+  /** SERIAL auto-increment primary key */
+  id: number;
+  /** Platform */
+  platform: string;
+  /** Year-month: YYYY-MM */
+  year_month: string;
+  /** KPI target for this platform (from system_settings) */
+  kpi_target: number;
+  /** Average impressions for the period */
+  avg_impressions: number;
+  /** min(1.0, avg_impressions / kpi_target) */
+  achievement_rate: number;
+  /** Number of accounts included in calculation */
+  account_count: number;
+  /** Number of publications included in calculation */
+  publication_count: number;
+  /** Prediction accuracy (1 - avg |predicted - actual| / actual) */
+  prediction_accuracy: number | null;
+  /** false if account_count < 5 (unreliable data) */
+  is_reliable: boolean;
+  /** Calculation timestamp (ISO 8601) */
+  calculated_at: string;
+}
+
+export interface KpiSnapshotCreateInput {
+  platform: string;
+  year_month: string;
+  kpi_target: number;
+  avg_impressions: number;
+  achievement_rate: number;
+  account_count: number;
+  publication_count: number;
+  prediction_accuracy?: number | null;
+  is_reliable?: boolean;
+}
+
+export interface KpiSnapshotUpdateInput {
+  id: number;
+  kpi_target?: number;
+  avg_impressions?: number;
+  achievement_rate?: number;
+  account_count?: number;
+  publication_count?: number;
+  prediction_accuracy?: number | null;
+  is_reliable?: boolean;
+}
+
+// --- account_baselines ---
+
+/** Row type for the `account_baselines` table */
+export interface AccountBaselineRow {
+  /** SERIAL auto-increment primary key */
+  id: number;
+  /** FK to accounts.account_id */
+  account_id: string;
+  /** Baseline impressions value */
+  baseline_impressions: number;
+  /** Source: own_history / cohort / default */
+  source: BaselineSource;
+  /** Number of data points used */
+  sample_count: number;
+  /** Window start date (DATE) */
+  window_start: string;
+  /** Window end date (DATE) */
+  window_end: string;
+  /** Calculation timestamp (ISO 8601) */
+  calculated_at: string;
+}
+
+export interface AccountBaselineCreateInput {
+  account_id: string;
+  baseline_impressions: number;
+  source: BaselineSource;
+  sample_count: number;
+  window_start: string;
+  window_end: string;
+}
+
+export interface AccountBaselineUpdateInput {
+  id: number;
+  account_id?: string;
+  baseline_impressions?: number;
+  source?: BaselineSource;
+  sample_count?: number;
+  window_start?: string;
+  window_end?: string;
+}
+
+// --- adjustment_factor_cache ---
+
+/** Row type for the `adjustment_factor_cache` table */
+export interface AdjustmentFactorCacheRow {
+  /** SERIAL auto-increment primary key */
+  id: number;
+  /** Platform */
+  platform: string;
+  /** Factor name */
+  factor_name: string;
+  /** Factor value (e.g. hook_type=question, post_hour=18-20) */
+  factor_value: string;
+  /** Adjustment coefficient */
+  adjustment: number;
+  /** Number of data points */
+  sample_count: number;
+  /** false if sample_count < ANALYSIS_MIN_SAMPLE_SIZE */
+  is_active: boolean;
+  /** Calculation timestamp (ISO 8601) */
+  calculated_at: string;
+}
+
+export interface AdjustmentFactorCacheCreateInput {
+  platform: string;
+  factor_name: string;
+  factor_value: string;
+  adjustment: number;
+  sample_count: number;
+  is_active?: boolean;
+}
+
+export interface AdjustmentFactorCacheUpdateInput {
+  id: number;
+  platform?: string;
+  factor_name?: string;
+  factor_value?: string;
+  adjustment?: number;
+  sample_count?: number;
+  is_active?: boolean;
+}
+
+// ============================================================================
 // Utility Types
 // ============================================================================
 
@@ -2115,6 +2425,13 @@ export type TableName =
   | 'tool_external_sources'
   | 'production_recipes'
   | 'prompt_suggestions'
+  // Algorithm & KPI Layer
+  | 'prediction_weights'
+  | 'weight_audit_log'
+  | 'prediction_snapshots'
+  | 'kpi_snapshots'
+  | 'account_baselines'
+  | 'adjustment_factor_cache'
   // System Layer
   | 'system_settings';
 
@@ -2146,5 +2463,11 @@ export interface AllRowTypes {
   tool_external_sources: ToolExternalSourceRow;
   production_recipes: ProductionRecipeRow;
   prompt_suggestions: PromptSuggestionRow;
+  prediction_weights: PredictionWeightRow;
+  weight_audit_log: WeightAuditLogRow;
+  prediction_snapshots: PredictionSnapshotRow;
+  kpi_snapshots: KpiSnapshotRow;
+  account_baselines: AccountBaselineRow;
+  adjustment_factor_cache: AdjustmentFactorCacheRow;
   system_settings: SystemSettingRow;
 }

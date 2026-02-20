@@ -153,7 +153,7 @@ v5.0は **4層構造** で構成される。上位層が方針を決定し、下
 │                                │                                        │
 ├────────────────────────────────┼────────────────────────────────────────┤
 │                                ▼                                        │
-│   Layer 3: MCP Server (自作 Node.js, 111ツール)                           │
+│   Layer 3: MCP Server (自作 Node.js, 119ツール)                           │
 │                                                                         │
 │   ┌────────────────────────────────────────────────────────────────┐    │
 │   │ アカウント管理  │ コンテンツ管理 │ 仮説管理 │ 計測管理         │           │
@@ -2645,7 +2645,7 @@ ORDER BY agent_type, count DESC;
 │ ・agent_thought_logs     │    │                                    │
 │                          │    │                                    │
 │ （主要テーブルのみ。     │    │                                       │
-│  全27テーブルは          │    │                                      │
+│  全33テーブルは          │    │                                      │
 │  03-database-schema.md   │    │                                    │
 │  参照）                  │    │                                     │
 └──────────────────────────┘    └──────────────────────────          ┘
@@ -3659,3 +3659,225 @@ Phase 3: + posting-agent + measurement-agent              (dev: 5 / prod: 4 + Cl
 Phase 4: + strategy-agent                                 (dev: 6 / prod: 5 + Cloud SQL)
 Phase 5: + dashboard + pgbouncer                          (dev: 8 / prod: 7 + Cloud SQL = 完全体)
 ```
+
+## 17. バッチジョブアーキテクチャ (Algorithm & KPI)
+
+アルゴリズム精度向上とKPI計測のためのバッチジョブ群。全ジョブは冪等設計で、失敗時は次回スケジュールで自動リトライされる。
+
+### 17.1 バッチジョブ一覧
+
+| # | ジョブ名 | スケジュール | 目的 | 依存関係 |
+|---|---------|------------|------|---------|
+| 1 | 計測ポーリング (Measurement Polling) | 毎時0分 | publication後48h/7d/30dのメトリクス収集 | なし（独立） |
+| 2 | ベースライン更新 (Baseline Update) | 日次 UTC 01:00 | account_baselinesの再計算 | 計測ポーリング |
+| 3 | 補正係数キャッシュ更新 (Adjustment Cache Update) | tier別 UTC 02:00 | adjustment_factor_cacheの再計算 | ベースライン更新 |
+| 4 | weight再計算 (Weight Recalculation) | tier別 UTC 03:00 | prediction_weightsの再計算 | 補正係数キャッシュ更新 |
+| 5 | KPIスナップショット (KPI Snapshot) | 月次 月末+1日 UTC 04:00 | kpi_snapshotsの月次集計 | 計測ポーリング |
+| 6 | Per-content分析 (Content Analysis) | イベント駆動 | 単発分析(48h後) + 累積分析(7d後) | 計測ポーリング |
+
+### 17.2 ジョブ依存順序
+
+```
+計測ポーリング → ベースライン更新 → 補正係数キャッシュ更新 → weight再計算
+                                                                    ↓
+計測ポーリング → KPIスナップショット（月次）
+計測ポーリング → Per-content分析（イベント駆動）
+```
+
+### 17.3 スケジューリング機構
+
+**固定スケジュールジョブ**:
+- 計測ポーリング: cron `0 * * * *`（毎時0分）
+- ベースライン更新: cron `0 1 * * *`（日次 UTC 01:00）
+- KPIスナップショット: cron `0 4 1 * *`（月初1日 UTC 04:00）
+
+**tier別スケジュールジョブ（プラットフォームスコープ）**:
+
+tier判定はプラットフォーム別のmetricsレコード数に基づく。
+
+| tier | metricsレコード数 | 補正係数更新頻度 | weight更新頻度 |
+|------|-----------------|----------------|---------------|
+| Tier 1 | 0〜500 | 週次（月曜 UTC 02:00） | 週次（月曜 UTC 03:00） |
+| Tier 2 | 500〜5,000 | 3日ごと（月木 UTC 02:00） | 3日ごと（月木 UTC 03:00） |
+| Tier 3 | 5,000〜50,000 | 日次 UTC 02:00 | 日次 UTC 03:00 |
+| Tier 4 | 50,000以上 | 12時間ごと（UTC 02:00 + 14:00） | 12時間ごと（UTC 03:00 + 15:00） |
+
+tier判定SQL:
+```sql
+SELECT COUNT(*) FROM metrics m
+JOIN publications p ON m.publication_id = p.id
+JOIN accounts a ON p.account_id = a.account_id
+WHERE a.platform = $1;
+```
+
+**スキップ条件**: 前回計算以降の新規データが `WEIGHT_RECALC_MIN_NEW_DATA`（デフォルト100件）未満の場合はスキップ。
+
+### 17.4 計測ポーリングジョブ
+
+3ラウンド（48h/7d/30d）を順次処理する。
+
+```
+WHERE actual_impressions_48h IS NULL AND posted_at + INTERVAL '48 hours' <= NOW()
+WHERE actual_impressions_7d IS NULL AND posted_at + INTERVAL '7 days' <= NOW()
+WHERE actual_impressions_30d IS NULL AND posted_at + INTERVAL '30 days' <= NOW()
+```
+
+- Platform API経由でインプレッション取得
+- `prediction_snapshots` の対応カラムを更新 + `metrics` テーブルに UPSERT
+- `prediction_error_7d` 算出: `ABS(predicted_impressions - actual_impressions_7d) / actual_impressions_7d`
+- `prediction_error_30d` 算出: 同様
+
+**分析トリガー**:
+- 48h計測完了 → 単発分析（マイクロサイクル）キューに追加
+- 7d計測完了 → 累積分析（pgvector5本 + AI解釈）キューに追加
+- 30d計測完了 → 保存のみ（分析なし、長期検証用）
+
+### 17.5 ベースライン更新ジョブ
+
+全アクティブアカウントの `account_baselines` を再計算する。
+
+**フォールバックチェーン**:
+1. `own_history`: 直近14日（`BASELINE_WINDOW_DAYS`）の自分の7d計測平均インプレッション
+2. `cohort` (platform × niche × age_bucket): 同条件コホートの平均
+3. `cohort` (platform × niche): ニッチ別平均
+4. `cohort` (platform): プラットフォーム全体平均
+5. `default`: `BASELINE_DEFAULT_IMPRESSIONS`（デフォルト500）
+
+各ステップで `COUNT >= BASELINE_MIN_SAMPLE`（デフォルト3）を満たさなければ次へ。
+
+**年齢バケット（6段階固定）**:
+
+| バケット名 | 日数 |
+|-----------|------|
+| new | 0-30 |
+| young | 31-60 |
+| growing | 61-90 |
+| established | 91-180 |
+| mature | 181-365 |
+| veteran | 366+ |
+
+UPSERT: `ON CONFLICT (account_id) DO UPDATE` — 常に最新1行のみ保持。
+
+### 17.6 補正係数キャッシュ更新ジョブ
+
+8要素の補正係数を `adjustment_factor_cache` テーブルに UPSERT する（cross_account_performanceはリアルタイム算出のため除外）。
+
+**共通パターン**:
+```sql
+AVG(m.views / ps.baseline_used - 1.0) AS adjustment
+```
+- WHERE: `platform = $p`, `created_at > NOW() - INTERVAL '90 days'`（`ADJUSTMENT_DATA_DECAY_DAYS`）, `baseline_used > 0`, `measurement_point = '7d'`
+- HAVING: `COUNT(*) >= ANALYSIS_MIN_SAMPLE_SIZE`（デフォルト5）
+
+**8要素のデータ取得パス**:
+
+| # | 要素 | GROUP BY / バケット | DBパス |
+|---|------|-------------------|--------|
+| 1 | hook_type | `content.hook_type` | 直接 |
+| 2 | content_length | 4バケット (0-15s/16-30s/31-60s/60s+) | `content.total_duration_seconds` |
+| 3 | post_hour | 7バケット (00-05/06-08/09-11/12-14/15-17/18-20/21-23) | `EXTRACT(HOUR FROM publications.posted_at)` |
+| 4 | post_weekday | 0-6 | `EXTRACT(DOW FROM publications.posted_at)` |
+| 5 | niche | `accounts.niche` | publications JOIN accounts |
+| 6 | narrative_structure | `content.narrative_structure` | 直接 |
+| 7 | sound_bgm | bgm_category | `content_sections JOIN components(audio) → comp.data->>'bgm_category'` |
+| 8 | hashtag_keyword | タグ別 | `jsonb_array_elements_text(publications.metadata->'tags')` |
+
+UPSERT: `ON CONFLICT (platform, factor_name, factor_value) DO UPDATE`
+`is_active = sample_count >= ANALYSIS_MIN_SAMPLE_SIZE(5)`
+
+### 17.7 weight再計算ジョブ
+
+**Error Correlation方式**による9要素のweight再計算:
+
+```
+direction_accuracy = AVG(SIGN(adj × (actual - baseline)) > 0 ? 1 : 0)
+avg_impact = AVG(ABS(adj × weight))
+raw_contribution = direction_accuracy × avg_impact
+calculated_weight = raw_contribution / Σ(raw_contribution)  -- 正規化
+```
+
+**適用順序**: calculated → EMA(α=0.3) → ±20%クリップ → WEIGHT_FLOOR(0.02) → 合計=1.0正規化
+
+```
+ema_weight = WEIGHT_SMOOTHING_ALPHA × calculated + (1 - WEIGHT_SMOOTHING_ALPHA) × old_weight
+clipped = CLAMP(ema_weight, old_weight × 0.8, old_weight × 1.2)
+floored = MAX(clipped, WEIGHT_FLOOR)
+normalized = floored / Σ(all_floored)  -- 合計=1.0保証
+```
+
+- 4プラットフォームそれぞれに対して実行
+- contribution=0の場合: calculated=1/9（均等フォールバック）
+- トランザクションで `prediction_weights` UPDATE + `weight_audit_log` INSERT
+
+### 17.8 KPIスナップショットジョブ
+
+月次でプラットフォーム別のKPI達成率を集計する。
+
+**対象アカウント**: `created_at < 計算対象月の1日`（当月新規は除外）
+**対象期間**: 月の`KPI_CALC_MONTH_START_DAY`（デフォルト21日）〜月末
+**計測データ**: `measurement_point = '7d'` のみ
+
+```sql
+achievement_rate = LEAST(1.0, avg_impressions / kpi_target)
+is_reliable = account_count >= 5
+```
+
+**予測精度**:
+```sql
+CASE
+  WHEN actual = 0 AND predicted = 0 THEN 1.0
+  WHEN actual = 0 THEN 0.0
+  ELSE GREATEST(0, 1 - ABS(predicted - actual) / actual)
+END
+```
+
+**全体統合**: 投稿数加重平均
+```
+全体KPI達成率 = Σ(platform_achievement × platform_publications) / Σ(platform_publications)
+```
+is_reliable=TRUE のプラットフォームのみ対象。ダッシュボード側で算出。
+
+UPSERT: `ON CONFLICT (platform, year_month) DO UPDATE`
+
+### 17.9 Per-content分析パイプライン
+
+投稿ごとにイベント駆動で実行される2種類の分析。
+
+**48h後 — 単発分析（マイクロサイクル）**:
+- 計測ポーリングが48h計測を完了 → 分析キューに追加
+- ワーカーが非同期処理（~30秒/コンテンツ）
+- 結果を `content_learnings` テーブルに書き込み（micro_verdict等）
+
+**7d後 — 累積分析**:
+- 計測ポーリングが7d計測を完了 → 分析キューに追加
+- pgvectorで5テーブルから類似データ検索 + 構造化集計 + AI解釈（~60-90秒）
+- 結果を `content_learnings.cumulative_context` (JSONB) に書き込み
+
+**負荷見積り**: 定常状態で毎日~3,600回の単発 + ~3,600回の累積分析。10並列で~9h、20並列で~4.5h。
+
+### 17.10 エラーハンドリング
+
+| 対象 | 戦略 | 詳細 |
+|------|------|------|
+| API呼び出し失敗 | 指数バックオフリトライ | MAX_RETRY_ATTEMPTS=3, 2s→4s→8s |
+| バッチ全体失敗 | 次回スケジュールで再実行 | 全バッチ冪等（UPSERT/NULL判定） |
+| 部分失敗 | 投稿単位で継続 | 1件失敗しても他は継続、失敗分は次回ポーリングで再取得 |
+| 依存ジョブ失敗 | 独立実行 | 各ジョブは独立して冪等実行。前段失敗時はデータが古いまま使用（次回で修正） |
+
+### 17.11 予測ワークフロー
+
+新規投稿時の予測インプレッション算出フロー:
+
+```
+1. account_baselines から baseline 取得（なければリアルタイム算出）
+2. 8要素を adjustment_factor_cache から取得（なければ adj=0）
+3. cross_account_performance をリアルタイムSQL算出
+4. 各 adjustment を個別クリップ: CLAMP(adj, ADJUSTMENT_INDIVIDUAL_MIN, ADJUSTMENT_INDIVIDUAL_MAX)
+5. 合計 adjustment をクリップ: CLAMP(Σ, ADJUSTMENT_TOTAL_MIN, ADJUSTMENT_TOTAL_MAX)
+6. predicted = baseline × (1 + total_adjustment)
+7. predicted をクリップ: CLAMP(predicted, baseline × PREDICTION_VALUE_MIN_RATIO, baseline × PREDICTION_VALUE_MAX_RATIO)
+8. prediction_snapshots に INSERT
+```
+
+**タイミング**: publication INSERT直後、API投稿実行直前
+**冪等性**: 同じ入力→同じprediction（キャッシュ値は時点固定、スナップショットとして保存）

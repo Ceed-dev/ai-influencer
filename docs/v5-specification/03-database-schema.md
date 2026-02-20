@@ -4,7 +4,7 @@
 >
 > **データベース**: PostgreSQL 16+ with pgvector extension
 >
-> **テーブル数**: 27テーブル (Entity 3 / Production 3 / Intelligence 6 / Operations 4 / Observability 5 / Tool Management 5 / System Management 1)
+> **テーブル数**: 33テーブル (Entity 3 / Production 3 / Intelligence 12 / Operations 4 / Observability 5 / Tool Management 5 / System Management 1)
 >
 > **関連ドキュメント**: [02-architecture.md](02-architecture.md) (データ基盤層の設計思想), [01-tech-stack.md](01-tech-stack.md) (pgvector・ORM選定)
 
@@ -29,6 +29,12 @@
   - [3.4 analyses — 分析結果](#34-analyses--分析結果)
   - [3.5 learnings — 蓄積知見](#35-learnings--蓄積知見)
   - [3.6 content_learnings — コンテンツ単位マイクロサイクル学習](#36-content_learnings--コンテンツ単位マイクロサイクル学習)
+  - [3.7 prediction_weights — 予測ウェイト管理](#37-prediction_weights--予測ウェイト管理)
+  - [3.8 weight_audit_log — ウェイト再計算監査ログ](#38-weight_audit_log--ウェイト再計算監査ログ)
+  - [3.9 prediction_snapshots — 予測スナップショット](#39-prediction_snapshots--予測スナップショット)
+  - [3.10 kpi_snapshots — 月次KPIスナップショット](#310-kpi_snapshots--月次kpiスナップショット)
+  - [3.11 account_baselines — ベースラインキャッシュ](#311-account_baselines--ベースラインキャッシュ)
+  - [3.12 adjustment_factor_cache — 補正係数キャッシュ](#312-adjustment_factor_cache--補正係数キャッシュ)
 - [4. Operations Tables (運用テーブル)](#4-operations-tables-運用テーブル)
   - [4.1 cycles — サイクル管理](#41-cycles--サイクル管理)
   - [4.2 human_directives — 人間の指示](#42-human_directives--人間の指示)
@@ -78,10 +84,13 @@
   - [12.3 アナリスト: 類似仮説検索 (pgvector)](#123-アナリスト-類似仮説検索-pgvector)
   - [12.4 プランナー: アカウント別パフォーマンスサマリー](#124-プランナー-アカウント別パフォーマンスサマリー)
   - [12.5 ダッシュボード: アルゴリズム精度推移](#125-ダッシュボード-アルゴリズム精度推移)
+  - [12.6 ベースライン算出 (日次バッチ)](#126-ベースライン算出-日次バッチ)
+  - [12.7 KPI計算 (月次バッチ)](#127-kpi計算-月次バッチ)
+  - [12.8 累積分析: pgvector類似検索](#128-累積分析-pgvector類似検索)
 
 ## 概要
 
-v5.0のPostgreSQLスキーマは、AI-Influencerシステムの全構造化データを一元管理する。v4.0で5つのGoogle Spreadsheet + 33列productionタブに散在していたデータを、リレーショナルDBの正規化された27テーブルに集約する。
+v5.0のPostgreSQLスキーマは、AI-Influencerシステムの全構造化データを一元管理する。v4.0で5つのGoogle Spreadsheet + 33列productionタブに散在していたデータを、リレーショナルDBの正規化された33テーブルに集約する。
 
 ### テーブルカテゴリ
 
@@ -89,7 +98,7 @@ v5.0のPostgreSQLスキーマは、AI-Influencerシステムの全構造化デ�
 |---------|----------|------|------------|
 | **Entity** | 3 | システムの基本エンティティ定義 | accounts, characters, components |
 | **Production** | 3 | コンテンツ制作から投稿までのライフサイクル | content, content_sections, publications |
-| **Intelligence** | 6 | 仮説駆動サイクルの知的資産 | hypotheses, market_intel, metrics, analyses, learnings, content_learnings |
+| **Intelligence** | 12 | 仮説駆動サイクルの知的資産 + 予測・KPI分析 | hypotheses, market_intel, metrics, analyses, learnings, content_learnings, prediction_weights, weight_audit_log, prediction_snapshots, kpi_snapshots, account_baselines, adjustment_factor_cache |
 | **Operations** | 4 | システム運用・タスク管理 | cycles, human_directives, task_queue, algorithm_performance |
 | **Observability** | 5 | エージェントの運用可視化・自己学習・デバッグ | agent_prompt_versions, agent_thought_logs, agent_reflections, agent_individual_learnings, agent_communications |
 | **Tool Management** | 5 | AIツールの知識管理・制作レシピ・プロンプト改善 | tool_catalog, tool_experiences, tool_external_sources, production_recipes, prompt_suggestions |
@@ -99,11 +108,11 @@ v5.0のPostgreSQLスキーマは、AI-Influencerシステムの全構造化デ�
 >
 > 外部キー制約の依存関係により、CREATE TABLE文は以下の順序で実行する必要がある:
 >
-> 1. **依存なし (先に作成)**: `characters`, `cycles`, `tool_catalog`, `system_settings`
+> 1. **依存なし (先に作成)**: `characters`, `cycles`, `tool_catalog`, `system_settings`, `prediction_weights`, `weight_audit_log`, `kpi_snapshots`, `adjustment_factor_cache`
 > 2. **第1層**: `accounts` (→characters), `hypotheses` (→cycles), `production_recipes`, `agent_prompt_versions`, `agent_reflections` (→cycles)
-> 3. **第2層**: `components`, `content` (→hypotheses, characters, production_recipes), `market_intel`, `learnings`, `human_directives`, `task_queue`, `algorithm_performance`
+> 3. **第2層**: `components`, `content` (→hypotheses, characters, production_recipes), `market_intel`, `learnings`, `human_directives`, `task_queue`, `algorithm_performance`, `account_baselines` (→accounts)
 > 4. **第3層**: `content_sections` (→content, components), `content_learnings` (→content, hypotheses, learnings), `publications` (→content, accounts), `agent_thought_logs` (→cycles), `agent_individual_learnings` (→agent_reflections), `agent_communications` (→cycles)
-> 5. **第4層**: `metrics` (→publications), `analyses` (→cycles), `tool_experiences` (→tool_catalog, content), `tool_external_sources` (→tool_catalog), `prompt_suggestions`
+> 5. **第4層**: `metrics` (→publications), `analyses` (→cycles), `tool_experiences` (→tool_catalog, content), `tool_external_sources` (→tool_catalog), `prompt_suggestions`, `prediction_snapshots` (→publications, content, accounts, hypotheses)
 >
 > ※ 本ドキュメントのセクション順はカテゴリ別だが、実際のマイグレーションではこの順序に従うこと。
 
@@ -255,6 +264,48 @@ v5.0のPostgreSQLスキーマは、AI-Influencerシステムの全構造化デ�
                 │ confidence          │
                 │ status              │
                 └─────────────────────┘
+
+                ┌──────────────────────┐   ┌───────────────────────┐
+                │ prediction_weights   │   │  weight_audit_log     │
+                │                      │   │                       │
+                │ platform             │   │ platform              │
+                │ factor_name          │   │ factor_name           │
+                │ weight               │   │ old_weight → new_weight│
+                └──────────────────────┘   │ data_count            │
+                                           └───────────────────────┘
+
+                ┌───────────────────────────────────────────┐
+                │         prediction_snapshots              │
+                │                                           │
+                │ publication_id ───────────────────────────┼──► publications
+                │ content_id ───────────────────────────────┼──► content
+                │ account_id ───────────────────────────────┼──► accounts
+                │ hypothesis_id ────────────────────────────┼──► hypotheses
+                │ baseline_used, baseline_source             │
+                │ adjustments_applied (JSONB)                │
+                │ predicted_impressions                      │
+                │ actual_impressions_48h / 7d / 30d          │
+                │ prediction_error_7d / 30d                  │
+                └───────────────────────────────────────────┘
+
+                ┌──────────────────────┐   ┌───────────────────────┐
+                │   kpi_snapshots      │   │  account_baselines    │
+                │                      │   │                       │
+                │ platform             │   │ account_id ───────────┼──► accounts
+                │ year_month           │   │ baseline_impressions   │
+                │ kpi_target           │   │ source                │
+                │ avg_impressions      │   │ sample_count          │
+                │ achievement_rate     │   └───────────────────────┘
+                │ prediction_accuracy  │
+                │ is_reliable          │   ┌───────────────────────┐
+                └──────────────────────┘   │adjustment_factor_cache│
+                                           │                       │
+                                           │ platform              │
+                                           │ factor_name           │
+                                           │ factor_value          │
+                                           │ adjustment            │
+                                           │ is_active             │
+                                           └───────────────────────┘
 ```
 
 ## 初期セットアップ
@@ -735,6 +786,21 @@ CREATE TABLE content (
         -- AI生成時の品質自己評価スコア（0-10）
         -- AUTO_APPROVE_SCORE_THRESHOLD以上で自動承認
 
+    -- 予測・分析用カラム
+    hook_type           VARCHAR(30),
+        -- フック形式。予測補正係数の9要素の1つ (adjustment_factor_cache参照)
+        -- 値: question / reaction / statement / story / demonstration / shock / mystery
+        -- コンテンツ作成時にプランナーが設定
+    narrative_structure VARCHAR(30),
+        -- ナラティブ構造。予測補正係数の9要素の1つ
+        -- 値: linear / parallel / climactic / circular / listicle
+        -- コンテンツ作成時にプランナーが設定
+    total_duration_seconds NUMERIC,
+        -- コンテンツの総再生時間（秒）。予測補正係数の content_length 要素に使用
+        -- short_video: 各セクションの duration_seconds 合計
+        -- text_post: NULL (代わりに content.metadata->>'char_count' を使用)
+        -- image_post: NULL
+
     -- タイムスタンプ
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -757,6 +823,14 @@ CREATE TABLE content (
     CONSTRAINT chk_content_rejection_category
         CHECK (rejection_category IS NULL OR rejection_category IN (
             'plan_revision', 'data_insufficient', 'hypothesis_weak'
+        )),
+    CONSTRAINT chk_content_hook_type
+        CHECK (hook_type IS NULL OR hook_type IN (
+            'question', 'reaction', 'statement', 'story', 'demonstration', 'shock', 'mystery'
+        )),
+    CONSTRAINT chk_content_narrative_structure
+        CHECK (narrative_structure IS NULL OR narrative_structure IN (
+            'linear', 'parallel', 'climactic', 'circular', 'listicle'
         ))
 );
 
@@ -771,6 +845,9 @@ COMMENT ON COLUMN content.review_status IS 'レビュー状態。HUMAN_REVIEW_EN
 COMMENT ON COLUMN content.reviewer_comment IS '人間のレビューコメント。差し戻し理由を記載。再制作時にエージェントが参照';
 COMMENT ON COLUMN content.revision_count IS '差し戻し→再制作の回数。過度のリビジョンを検知するため';
 COMMENT ON COLUMN content.quality_score IS 'AI生成時の品質自己評価スコア（0-10）。AUTO_APPROVE_SCORE_THRESHOLD以上で自動承認';
+COMMENT ON COLUMN content.hook_type IS 'フック形式。予測補正係数の9要素の1つ。question/reaction/statement/story/demonstration/shock/mystery';
+COMMENT ON COLUMN content.narrative_structure IS 'ナラティブ構造。予測補正係数の9要素の1つ。linear/parallel/climactic/circular/listicle';
+COMMENT ON COLUMN content.total_duration_seconds IS 'コンテンツ総再生時間（秒）。予測補正のcontent_length要素に使用。text_post/image_postではNULL';
 ```
 
 ### 2.2 content_sections — セクション構成
@@ -1223,7 +1300,10 @@ CREATE TABLE metrics (
     CONSTRAINT chk_metrics_completion_rate
         CHECK (completion_rate IS NULL OR (completion_rate >= 0.0000 AND completion_rate <= 1.0000)),
     CONSTRAINT chk_metrics_engagement_rate
-        CHECK (engagement_rate IS NULL OR (engagement_rate >= 0.0000 AND engagement_rate <= 1.0000))
+        CHECK (engagement_rate IS NULL OR (engagement_rate >= 0.0000 AND engagement_rate <= 1.0000)),
+    CONSTRAINT uq_metrics_pub_measurement
+        UNIQUE (publication_id, measurement_point)
+        -- 1投稿×1計測回次で1レコードを保証。重複計測によるbaseline/adjustment算出バグを防止
 );
 
 COMMENT ON TABLE metrics IS '投稿パフォーマンスの時系列記録。1投稿に対して最大3回計測 (48h, 7d, 30d)';
@@ -1453,6 +1533,35 @@ CREATE TABLE content_learnings (
     confidence      FLOAT NOT NULL DEFAULT 0.5 CHECK (confidence BETWEEN 0.0 AND 1.0),
         -- この学習の信頼度 (単一コンテンツでは0.5〜0.8程度)
 
+    -- 累積分析コンテキスト (7d計測後に書込)
+    cumulative_context  JSONB,
+        -- pgvector 5テーブル検索 + AI解釈の結果を格納
+        -- 48h計測後: NULL (単発分析のみ)
+        -- 7d計測後: 累積分析結果を書込
+        -- 内部構造:
+        -- {
+        --   "structured": {
+        --     "search_meta": { "query_embedding_source": "content_id", "total_results": 38, "searched_at": "ISO8601" },
+        --     "by_source": {
+        --       "hypotheses": { "count": 8, "confirmed": 5, "rejected": 2, "inconclusive": 1, "avg_similarity": 0.84 },
+        --       "content_learnings": { "count": 10, "confirmed": 6, "rejected": 3, "inconclusive": 1, "avg_prediction_error": 0.18, "avg_similarity": 0.81 },
+        --       "learnings": { "count": 8, "avg_confidence": 0.82, "avg_similarity": 0.78 },
+        --       "research_data": { "count": 7, "avg_age_days": 12, "avg_similarity": 0.76 },
+        --       "agent_learnings": { "count": 5, "avg_confidence": 0.75, "avg_similarity": 0.73 }
+        --     },
+        --     "patterns": {
+        --       "similar_content_success_rate": 0.6,
+        --       "similar_hypothesis_success_rate": 0.625,
+        --       "avg_prediction_error_of_similar": 0.18,
+        --       "top_contributing_factors": [{"factor": "hook_type:question", "frequency": 7}],
+        --       "top_detractors": [{"factor": "content_length:over_60s", "frequency": 4}]
+        --     }
+        --   },
+        --   "ai_interpretation": "テキスト",
+        --   "recommendations": ["提案1", "提案2"],
+        --   "analyzed_at": "ISO8601"
+        -- }
+
     -- 昇格管理
     promoted_to_learning_id UUID REFERENCES learnings(id),
         -- 共有知見 (learningsテーブル) に昇格した場合のID
@@ -1488,6 +1597,325 @@ COMMENT ON TABLE content_learnings IS 'コンテンツ単位のマイクロサ�
 COMMENT ON COLUMN content_learnings.embedding IS 'ベクトル検索用。次のコンテンツ計画時にsearch_content_learningsで即座に検索';
 COMMENT ON COLUMN content_learnings.micro_verdict IS 'confirmed/inconclusive/rejected';
 COMMENT ON COLUMN content_learnings.promoted_to_learning_id IS '共有知見への昇格追跡。昇格済みならlearnings.idを格納';
+COMMENT ON COLUMN content_learnings.cumulative_context IS '7d計測後の累積分析結果。pgvector 5テーブル検索の構造化集計 + AI解釈';
+```
+
+### 3.7 prediction_weights — 予測ウェイト管理
+
+9つの補正係数要素のウェイトをプラットフォーム別に管理する。予測式 `predicted = baseline × (1 + Σ(weight_i × adjustment_i))` の weight_i を格納。初期値は全要素均等 (1/9 ≈ 0.1111)、データ蓄積に伴い Error Correlation 方式で自動再計算される。
+
+```sql
+CREATE TABLE prediction_weights (
+    -- 主キー
+    id              SERIAL PRIMARY KEY,
+
+    -- ウェイト定義
+    platform        VARCHAR(20) NOT NULL,
+        -- 対象プラットフォーム: tiktok / instagram / youtube / twitter
+        -- プラットフォーム別にウェイトを管理（蓄積量・特性が異なるため）
+    factor_name     VARCHAR(50) NOT NULL,
+        -- 補正係数要素名（9種類固定）:
+        -- hook_type / content_length / post_hour / post_weekday / niche /
+        -- narrative_structure / sound_bgm / hashtag_keyword / cross_account_performance
+    weight          FLOAT NOT NULL DEFAULT 0.1111,
+        -- このfactorのウェイト値。全9要素の合計 = 1.0
+        -- 初期値: 1/9 ≈ 0.1111（均等配分）
+        -- 下限: WEIGHT_FLOOR (system_settings, デフォルト 0.02)
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    -- 制約
+    CONSTRAINT uq_prediction_weights UNIQUE (platform, factor_name),
+        -- プラットフォーム×要素名で一意
+    CONSTRAINT chk_weight_floor CHECK (weight >= 0.02)
+        -- WEIGHT_FLOOR: 完全に0にしない（影響をゼロにさせない安全装置）
+);
+
+-- 初期データ: 4 platform × 9 factor = 36行、全weight = 1/9
+-- INSERT は初期セットアップスクリプトで実行
+
+COMMENT ON TABLE prediction_weights IS '予測補正係数の9要素ウェイト。platform別に管理。Error Correlation方式で自動再計算';
+COMMENT ON COLUMN prediction_weights.weight IS '合計=1.0に正規化。再計算: EMA(α=0.3) → ±20%クリップ → WEIGHT_FLOOR(0.02) → 合計正規化';
+```
+
+### 3.8 weight_audit_log — ウェイト再計算監査ログ
+
+ウェイト再計算の監査ログを記録するappend-onlyテーブル。いつ、どの値からどの値に変更されたかを全て追跡する。デバッグ・アルゴリズム改善の根拠データとして使用。
+
+```sql
+CREATE TABLE weight_audit_log (
+    -- 主キー
+    id              SERIAL PRIMARY KEY,
+
+    -- 監査データ
+    platform        VARCHAR(20) NOT NULL,
+        -- 再計算対象のプラットフォーム
+    factor_name     VARCHAR(50) NOT NULL,
+        -- 再計算対象の要素名
+    old_weight      FLOAT NOT NULL,
+        -- 変更前のウェイト値
+    new_weight      FLOAT NOT NULL,
+        -- 変更後のウェイト値
+    data_count      INTEGER NOT NULL,
+        -- 再計算に使用したデータ件数（prediction_snapshots の対象行数）
+    metrics_count   INTEGER NOT NULL,
+        -- 前回再計算以降の新規メトリクス数
+    calculated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        -- 再計算実行日時
+);
+
+-- パフォーマンスインデックス
+CREATE INDEX idx_weight_audit_platform_time
+    ON weight_audit_log (platform, calculated_at DESC);
+    -- プラットフォーム別の再計算履歴を時系列で取得
+
+COMMENT ON TABLE weight_audit_log IS 'ウェイト再計算の監査ログ (append-only)。変更前後の値と計算に使用したデータ量を記録';
+```
+
+### 3.9 prediction_snapshots — 予測スナップショット
+
+投稿単位の予測値と実績値を記録するテーブル。予測式の入力パラメータ（ベースライン、各補正係数、ウェイト）を全てスナップショットとして保存し、後からの検証・再計算を可能にする。publication INSERT直後・API投稿実行直前に生成。
+
+```sql
+CREATE TABLE prediction_snapshots (
+    -- 主キー
+    id                      SERIAL PRIMARY KEY,
+
+    -- リレーション
+    publication_id          INTEGER NOT NULL REFERENCES publications(id),
+        -- 予測対象の投稿
+    content_id              VARCHAR(20) NOT NULL REFERENCES content(content_id),
+        -- 予測対象のコンテンツ
+    account_id              VARCHAR(20) NOT NULL REFERENCES accounts(account_id),
+        -- 投稿先アカウント
+    hypothesis_id           INTEGER REFERENCES hypotheses(id),
+        -- 関連仮説 (NULLable: 人間の直接指示で仮説なしの場合)
+
+    -- ベースライン
+    baseline_used           FLOAT NOT NULL,
+        -- 予測時に使用したベースライン値（インプレッション数）
+        -- account_baselines からの時点固定値
+    baseline_source         VARCHAR(20) NOT NULL,
+        -- ベースラインの算出元: 'own_history' / 'cohort' / 'default'
+        -- own_history: 直近14日の自アカウント平均
+        -- cohort: 同条件コホートの平均（新規アカウント）
+        -- default: BASELINE_DEFAULT_IMPRESSIONS (フォールバック最終手段)
+
+    -- 補正係数スナップショット
+    adjustments_applied     JSONB NOT NULL DEFAULT '{}',
+        -- 適用した9要素の補正係数の詳細
+        -- {
+        --   "hook_type": {"value": "question", "adjustment": 0.12, "weight": 0.15},
+        --   "content_length": {"value": "30s", "adjustment": -0.05, "weight": 0.08},
+        --   "post_hour": {"value": "07", "adjustment": 0.08, "weight": 0.12},
+        --   "post_weekday": {"value": "1", "adjustment": 0.03, "weight": 0.10},
+        --   "niche": {"value": "beauty", "adjustment": 0.15, "weight": 0.13},
+        --   "narrative_structure": {"value": "climactic", "adjustment": 0.05, "weight": 0.11},
+        --   "sound_bgm": {"value": "trending_pop", "adjustment": 0.10, "weight": 0.09},
+        --   "hashtag_keyword": {"value": "#skincare", "adjustment": 0.07, "weight": 0.11},
+        --   "cross_account_performance": {"value": "same_content", "adjustment": 0.20, "weight": 0.11}
+        -- }
+        -- cold_start=trueフラグ: 全補正係数ゼロ時 {"cold_start": true}
+    total_adjustment        FLOAT NOT NULL,
+        -- Σ(weight_i × adjustment_i) の合計値
+        -- クリップ後: ADJUSTMENT_TOTAL_MIN(-0.7) 〜 ADJUSTMENT_TOTAL_MAX(1.0)
+
+    -- 予測値
+    predicted_impressions   FLOAT NOT NULL,
+        -- predicted = baseline_used × (1 + total_adjustment)
+        -- 値域クリップ: baseline × PREDICTION_VALUE_MIN_RATIO(0.3) 〜 baseline × PREDICTION_VALUE_MAX_RATIO(2.0)
+
+    -- 実績値 (計測ジョブが書込)
+    actual_impressions_48h  INTEGER,
+        -- 48h計測の実際のインプレッション数
+    actual_impressions_7d   INTEGER,
+        -- 7d計測の実際のインプレッション数（主要比較対象）
+    actual_impressions_30d  INTEGER,
+        -- 30d計測の最終確定インプレッション数
+
+    -- 予測誤差 (計測ジョブが算出)
+    prediction_error_7d     FLOAT,
+        -- |predicted - actual_7d| / actual_7d
+        -- actual_7d=0 AND predicted=0 → 1.0 (正しく予測)
+        -- actual_7d=0 → 0.0 (予測不能)
+        -- GREATEST(0, 1 - abs(predicted - actual) / actual) の逆数
+    prediction_error_30d    FLOAT,
+        -- |predicted - actual_30d| / actual_30d (精度検証用)
+
+    -- タイムスタンプ
+    created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    -- 制約
+    CONSTRAINT uq_prediction_publication UNIQUE (publication_id)
+        -- 1投稿につき1予測スナップショット
+);
+
+COMMENT ON TABLE prediction_snapshots IS '投稿単位の予測vs実績スナップショット。予測パラメータを全保存し事後検証を可能に';
+COMMENT ON COLUMN prediction_snapshots.baseline_used IS '予測時点のベースライン。account_baselinesの時点固定値を保存（後から変わっても影響なし）';
+COMMENT ON COLUMN prediction_snapshots.adjustments_applied IS '9要素の補正係数詳細。各要素のvalue/adjustment/weightをJSONBで保存';
+COMMENT ON COLUMN prediction_snapshots.prediction_error_7d IS '7d計測での予測誤差。weight再計算(G1)の入力データ';
+```
+
+### 3.10 kpi_snapshots — 月次KPIスナップショット
+
+月次KPI計算結果をプラットフォーム別に記録するテーブル。月末+1日のバッチジョブで自動生成。ダッシュボードの KPI 推移グラフの主要データソース。
+
+```sql
+CREATE TABLE kpi_snapshots (
+    -- 主キー
+    id                  SERIAL PRIMARY KEY,
+
+    -- KPI集計
+    platform            VARCHAR(20) NOT NULL,
+        -- 対象プラットフォーム: tiktok / instagram / youtube / twitter
+    year_month          VARCHAR(7) NOT NULL,
+        -- 集計対象月: 'YYYY-MM' 形式 (例: '2026-03')
+    kpi_target          INTEGER NOT NULL,
+        -- 当該プラットフォームのKPI目標値 (system_settings: KPI_TARGET_xxx)
+        -- TikTok: 15,000 / Instagram: 10,000 / YouTube: 20,000 / Twitter: 10,000
+    avg_impressions     FLOAT NOT NULL,
+        -- 対象アカウント・対象期間の7d計測平均インプレッション数
+        -- 対象: created_at < 月初 のアカウント (当月新規は除外)
+        -- 期間: 月の KPI_CALC_MONTH_START_DAY(21)日 〜 月末
+    achievement_rate    FLOAT NOT NULL,
+        -- KPI達成率 = LEAST(1.0, avg_impressions / kpi_target)
+        -- 目標超過は100%でキャップ
+    account_count       INTEGER NOT NULL,
+        -- 対象アカウント数
+    publication_count   INTEGER NOT NULL,
+        -- 対象期間内の投稿数
+    prediction_accuracy FLOAT,
+        -- 予測精度 = 投稿数加重平均の予測精度
+        -- CASE WHEN actual=0 AND predicted=0 THEN 1.0
+        --      WHEN actual=0 THEN 0.0
+        --      ELSE GREATEST(0, 1 - ABS(predicted - actual) / actual) END
+    is_reliable         BOOLEAN NOT NULL DEFAULT TRUE,
+        -- account_count < 5 → FALSE (参考値表示)
+        -- 加重平均ロールアップ時にis_reliable=TRUEのみ含む
+    calculated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    -- 制約
+    CONSTRAINT uq_kpi_platform_month UNIQUE (platform, year_month)
+        -- プラットフォーム×月で一意。UPSERT時に使用
+);
+
+-- 全体KPI達成率はダッシュボード側で算出:
+-- Σ(achievement_rate × publication_count) / Σ(publication_count) WHERE is_reliable = TRUE
+
+COMMENT ON TABLE kpi_snapshots IS '月次KPI計算結果。プラットフォーム別の達成率と予測精度を記録';
+COMMENT ON COLUMN kpi_snapshots.is_reliable IS 'account_count<5の場合FALSE。ダッシュボードで「参考値」表示';
+COMMENT ON COLUMN kpi_snapshots.prediction_accuracy IS '投稿数加重平均の予測精度。内部指標として学習進捗を追跡';
+```
+
+### 3.11 account_baselines — ベースラインキャッシュ
+
+アカウント別のベースライン（期待インプレッション数）をキャッシュするテーブル。日次バッチジョブ (UTC 01:00) で全アクティブアカウントに対してUPSERT更新される。予測ワークフロー (G5) で参照。
+
+```sql
+CREATE TABLE account_baselines (
+    -- 主キー
+    id                   SERIAL PRIMARY KEY,
+
+    -- アカウント紐付け
+    account_id           VARCHAR(20) NOT NULL REFERENCES accounts(account_id),
+        -- ベースライン対象アカウント
+
+    -- ベースライン値
+    baseline_impressions FLOAT NOT NULL,
+        -- ベースライン（期待インプレッション数）
+        -- 既存アカウント: 直近14日の自アカウント7d計測平均
+        -- 新規アカウント: コホート平均（フォールバックチェーン）
+        -- フォールバック最終: BASELINE_DEFAULT_IMPRESSIONS(500)
+    source               VARCHAR(20) NOT NULL,
+        -- 算出元: 'own_history' / 'cohort' / 'default'
+        -- own_history: 直近14日に十分なデータあり
+        -- cohort: 自己データ不足 → 同条件コホートの平均
+        -- default: コホートにもデータなし → BASELINE_DEFAULT_IMPRESSIONS(500)
+    sample_count         INTEGER NOT NULL,
+        -- 算出に使用したサンプル数
+        -- own_history: 自分の計測レコード数
+        -- cohort: コホート内のアカウント数
+        -- default: 0
+    window_start         DATE NOT NULL,
+        -- 算出に使用したデータの開始日
+    window_end           DATE NOT NULL,
+        -- 算出に使用したデータの終了日
+    calculated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    -- 制約
+    CONSTRAINT uq_baseline_account UNIQUE (account_id)
+        -- アカウントあたり常に最新1行のみ保持 (UPSERT)
+);
+
+-- コホートフォールバックチェーン:
+-- (1) platform × niche × age_bucket (COUNT >= BASELINE_MIN_SAMPLE=3)
+-- (2) platform × niche (COUNT >= 3)
+-- (3) platform 全体 (COUNT >= 3)
+-- (4) BASELINE_DEFAULT_IMPRESSIONS (500)
+--
+-- age_bucket (6段階): new(0-30d) / young(31-60) / growing(61-90) /
+--   established(91-180) / mature(181-365) / veteran(366+)
+
+COMMENT ON TABLE account_baselines IS 'ベースラインキャッシュ。日次バッチでUPSERT。予測ワークフロー(G5)で参照';
+COMMENT ON COLUMN account_baselines.source IS '算出元。own_history→cohort→defaultのフォールバックチェーン';
+```
+
+### 3.12 adjustment_factor_cache — 補正係数キャッシュ
+
+9要素の補正係数値をキャッシュするテーブル。tier別バッチジョブ (UTC 02:00 基準) で更新され、予測ワークフロー (G5) で参照される。cross_account_performance はリアルタイム算出のため本テーブルに含まない (8要素のみ)。
+
+```sql
+CREATE TABLE adjustment_factor_cache (
+    -- 主キー
+    id              SERIAL PRIMARY KEY,
+
+    -- キャッシュキー
+    platform        VARCHAR(20) NOT NULL,
+        -- 対象プラットフォーム
+    factor_name     VARCHAR(50) NOT NULL,
+        -- 補正係数要素名 (8種類: cross_account_performance を除く)
+        -- hook_type / content_length / post_hour / post_weekday / niche /
+        -- narrative_structure / sound_bgm / hashtag_keyword
+    factor_value    VARCHAR(100) NOT NULL,
+        -- 要素の具体値
+        -- hook_type: question / reaction / statement / story / demonstration / shock / mystery
+        -- content_length: 0-15s / 16-30s / 31-60s / 60s+
+        -- post_hour: 00-05 / 06-08 / 09-11 / 12-14 / 15-17 / 18-20 / 21-23
+        -- post_weekday: 0〜6 (Sunday=0)
+        -- niche: beauty / fitness / cooking / tech 等
+        -- narrative_structure: linear / parallel / climactic / circular / listicle
+        -- sound_bgm: trending_pop / lo_fi / dramatic / ambient / none / original
+        -- hashtag_keyword: 個別タグ文字列
+
+    -- キャッシュ値
+    adjustment      FLOAT NOT NULL,
+        -- 補正係数値 = AVG(actual / baseline_used - 1.0)
+        -- 個別クリップ: ADJUSTMENT_INDIVIDUAL_MIN(-0.5) 〜 ADJUSTMENT_INDIVIDUAL_MAX(0.5)
+    sample_count    INTEGER NOT NULL,
+        -- 算出に使用したサンプル数
+    is_active       BOOLEAN NOT NULL DEFAULT TRUE,
+        -- sample_count < ANALYSIS_MIN_SAMPLE_SIZE(5) → FALSE
+        -- FALSE の場合、予測時に adjustment=0 として扱う
+    calculated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    -- 制約
+    CONSTRAINT uq_adj_cache UNIQUE (platform, factor_name, factor_value)
+        -- UPSERT時に使用
+);
+
+-- 検索用インデックス
+CREATE INDEX idx_adj_cache_lookup
+    ON adjustment_factor_cache (platform, factor_name, is_active);
+    -- 予測ワークフロー(G5)でのキャッシュ参照
+
+-- 更新タイミング: weight再計算と同じtier別スケジュール
+-- tier1(週次) / tier2(3日) / tier3(日次) / tier4(12h)
+-- 基本パターン: AVG(actual / ps.baseline_used - 1.0) AS adjustment
+-- WHERE: platform=$p, created_at > NOW()-90d (ADJUSTMENT_DATA_DECAY_DAYS), baseline_used > 0
+-- HAVING: COUNT(*) >= ANALYSIS_MIN_SAMPLE_SIZE(5)
+
+COMMENT ON TABLE adjustment_factor_cache IS '補正係数キャッシュ。8要素のplatform×factor_name×factor_value別の補正値';
+COMMENT ON COLUMN adjustment_factor_cache.is_active IS 'sample_count<5でFALSE。FALSEの場合adjustment=0として扱う';
 ```
 
 ## 4. Operations Tables (運用テーブル)
@@ -2890,7 +3318,7 @@ COMMENT ON COLUMN system_settings.updated_by IS '最終更新者。"system"=初�
 
 ### 7.2 デフォルト設定値（初期INSERT）
 
-システム初期化時にINSERTされるデフォルト設定値。全カテゴリの設定を網羅する（合計87件: production 13, posting 8, review 4, agent 44, measurement 6, cost_control 4, dashboard 3, credentials 5）。
+システム初期化時にINSERTされるデフォルト設定値。全カテゴリの設定を網羅する（合計118件: production 13, posting 8, review 4, agent 75, measurement 6, cost_control 4, dashboard 3, credentials 5）。
 
 ```sql
 -- ========================================
@@ -3012,7 +3440,49 @@ INSERT INTO system_settings (setting_key, setting_value, category, description, 
 -- Measurement settings (追加)
 ('MEASUREMENT_POLL_INTERVAL_SEC', '300', 'measurement', '計測ジョブのポーリング間隔（秒）', '300', 'integer', '{"min": 60, "max": 900}'),
 ('METRICS_BACKFILL_MAX_DAYS', '7', 'measurement', 'メトリクス遡及取得の最大日数', '7', 'integer', '{"min": 1, "max": 30}'),
-('METRICS_FOLLOWUP_DAYS', '[7, 30]', 'measurement', 'フォローアップ計測を実施する日数（投稿後N日目）', '[7, 30]', 'json', null);
+('METRICS_FOLLOWUP_DAYS', '[7, 30]', 'measurement', 'フォローアップ計測を実施する日数（投稿後N日目）', '[7, 30]', 'json', null),
+
+-- Prediction & KPI settings (31) — アルゴリズム精度・KPI設計で追加
+-- 補正係数の上下限
+('ADJUSTMENT_INDIVIDUAL_MIN', '-0.5', 'agent', '個別補正係数の下限。各adjustment_iの最小値', '-0.5', 'float', '{"min": -1.0, "max": 0.0}'),
+('ADJUSTMENT_INDIVIDUAL_MAX', '0.5', 'agent', '個別補正係数の上限。各adjustment_iの最大値', '0.5', 'float', '{"min": 0.0, "max": 2.0}'),
+('ADJUSTMENT_TOTAL_MIN', '-0.7', 'agent', '補正係数合計の下限。Σ(weight_i × adjustment_i)の最小値', '-0.7', 'float', '{"min": -1.0, "max": 0.0}'),
+('ADJUSTMENT_TOTAL_MAX', '1.0', 'agent', '補正係数合計の上限。Σ(weight_i × adjustment_i)の最大値', '1.0', 'float', '{"min": 0.0, "max": 5.0}'),
+-- Weight再計算のtier別閾値・間隔
+('WEIGHT_RECALC_TIER_1_THRESHOLD', '500', 'agent', 'Tier1→Tier2の切替閾値。metricsレコード数がこの値を超えるとTier2', '500', 'integer', '{"min": 100, "max": 5000}'),
+('WEIGHT_RECALC_TIER_1_INTERVAL', '7d', 'agent', 'Tier1の再計算間隔（0〜500件）。週次', '7d', 'string', null),
+('WEIGHT_RECALC_TIER_2_THRESHOLD', '5000', 'agent', 'Tier2→Tier3の切替閾値。metricsレコード数がこの値を超えるとTier3', '5000', 'integer', '{"min": 500, "max": 50000}'),
+('WEIGHT_RECALC_TIER_2_INTERVAL', '3d', 'agent', 'Tier2の再計算間隔（500〜5,000件）。3日ごと', '3d', 'string', null),
+('WEIGHT_RECALC_TIER_3_THRESHOLD', '50000', 'agent', 'Tier3→Tier4の切替閾値。metricsレコード数がこの値を超えるとTier4', '50000', 'integer', '{"min": 5000, "max": 500000}'),
+('WEIGHT_RECALC_TIER_3_INTERVAL', '1d', 'agent', 'Tier3の再計算間隔（5,000〜50,000件）。日次', '1d', 'string', null),
+('WEIGHT_RECALC_TIER_4_INTERVAL', '12h', 'agent', 'Tier4の再計算間隔（50,000件以上）。12時間ごと', '12h', 'string', null),
+('WEIGHT_RECALC_MIN_NEW_DATA', '100', 'agent', '再計算に必要な最小新規データ数。前回再計算以降のmetrics件数がこの値未満ならスキップ', '100', 'integer', '{"min": 10, "max": 1000}'),
+-- Weight再計算の平滑化パラメータ
+('WEIGHT_SMOOTHING_ALPHA', '0.3', 'agent', 'EMA平滑化係数α。new_weight = α × calculated + (1-α) × old_weight', '0.3', 'float', '{"min": 0.05, "max": 0.9}'),
+('WEIGHT_CHANGE_MAX_RATE', '0.2', 'agent', '1回あたりのweight変更上限率。old × (1±rate) でクリップ', '0.2', 'float', '{"min": 0.05, "max": 0.5}'),
+('WEIGHT_FLOOR', '0.02', 'agent', 'weightの下限値。完全に0にしない安全装置', '0.02', 'float', '{"min": 0.001, "max": 0.1}'),
+-- データ減衰・ベースライン
+('ADJUSTMENT_DATA_DECAY_DAYS', '90', 'agent', 'データ減衰の日数。この日数より古いデータは補正係数算出から除外（hard cutoff）', '90', 'integer', '{"min": 30, "max": 365}'),
+('BASELINE_WINDOW_DAYS', '14', 'agent', 'ベースライン算出のローリングウィンドウ日数。直近N日の平均インプ', '14', 'integer', '{"min": 7, "max": 60}'),
+('BASELINE_MIN_SAMPLE', '3', 'agent', 'ベースライン算出に必要な最小サンプル数。未満でコホートフォールバック', '3', 'integer', '{"min": 1, "max": 20}'),
+('BASELINE_DEFAULT_IMPRESSIONS', '500', 'agent', 'フォールバック最終デフォルト。コホートにもデータがない場合のベースライン値', '500', 'integer', '{"min": 50, "max": 10000}'),
+-- KPI計算
+('KPI_CALC_MONTH_START_DAY', '21', 'agent', 'KPI計算の対象期間開始日。月のこの日以降の計測データのみKPI算出に使用', '21', 'integer', '{"min": 1, "max": 28}'),
+('KPI_TARGET_TIKTOK', '15000', 'agent', 'TikTok KPI目標インプレッション数/投稿', '15000', 'integer', '{"min": 1000, "max": 1000000}'),
+('KPI_TARGET_INSTAGRAM', '10000', 'agent', 'Instagram KPI目標インプレッション数/投稿', '10000', 'integer', '{"min": 1000, "max": 1000000}'),
+('KPI_TARGET_YOUTUBE', '20000', 'agent', 'YouTube KPI目標インプレッション数/投稿', '20000', 'integer', '{"min": 1000, "max": 1000000}'),
+('KPI_TARGET_TWITTER', '10000', 'agent', 'X(Twitter) KPI目標インプレッション数/投稿', '10000', 'integer', '{"min": 1000, "max": 1000000}'),
+-- 予測値の範囲
+('PREDICTION_VALUE_MIN_RATIO', '0.3', 'agent', '予測値の下限比率。predicted >= baseline × この値', '0.3', 'float', '{"min": 0.01, "max": 1.0}'),
+('PREDICTION_VALUE_MAX_RATIO', '2.0', 'agent', '予測値の上限比率。predicted <= baseline × この値', '2.0', 'float', '{"min": 1.0, "max": 10.0}'),
+-- 累積分析（pgvector検索）
+('CUMULATIVE_SEARCH_TOP_K', '10', 'agent', '累積分析の各テーブル検索で返す上位件数', '10', 'integer', '{"min": 3, "max": 50}'),
+('CUMULATIVE_SIMILARITY_THRESHOLD', '0.7', 'agent', '累積分析のコサイン類似度閾値。この値以上の結果のみ返す', '0.7', 'float', '{"min": 0.3, "max": 0.95}'),
+('CUMULATIVE_CONFIDENCE_THRESHOLD', '0.5', 'agent', '累積分析でlearnings/agent_learningsをフィルタする信頼度閾値', '0.5', 'float', '{"min": 0.1, "max": 0.9}'),
+-- cross_account_performance
+('CROSS_ACCOUNT_MIN_SAMPLE', '2', 'agent', '同一コンテンツの他アカウント実績を補正に使用するための最小アカウント数（自分除く）', '2', 'integer', '{"min": 1, "max": 10}'),
+-- Embedding管理
+('EMBEDDING_MODEL_VERSION', 'v1', 'agent', 'embeddingモデルバージョン管理。変更時に全embedding再生成バッチを実行', 'v1', 'string', null);
 ```
 
 ### 7.3 JSONB 内部スキーマ定義
@@ -3136,11 +3606,13 @@ JSONBカラムの内部構造を定義する。各スキーマの正規型定義
 | `genre` | string | ジャンル (upbeat_pop, lo_fi, cinematic 等) |
 | `bpm` | number | テンポ (beats per minute) |
 | `license` | string | ライセンス種別 (royalty_free, creative_commons 等) |
+| `bgm_category` | string | コンテンツ文脈でのBGM用途分類。予測補正係数の sound_bgm 要素に使用。値: `trending_pop` / `lo_fi` / `dramatic` / `ambient` / `none` / `original`。genre とは別概念（genre=音楽ジャンル、bgm_category=コンテンツでの用途分類） |
 
 ```json
 {
   "duration_seconds": 30,
   "genre": "upbeat_pop",
+  "bgm_category": "trending_pop",
   "bpm": 120,
   "license": "royalty_free"
 }
@@ -3489,6 +3961,9 @@ CREATE INDEX idx_market_intel_embedding ON market_intel
 -- metrics
 CREATE INDEX idx_metrics_publication ON metrics(publication_id);
     -- 投稿別のメトリクス一覧
+CREATE INDEX idx_metrics_pub_measurement ON metrics(publication_id, measurement_point);
+    -- 複合: baseline/adjustment算出クエリの効率化
+    -- WHERE publication_id = $1 AND measurement_point = '7d' 等
 CREATE INDEX idx_metrics_measured_at ON metrics(measured_at);
     -- 時系列ソート（パフォーマンス推移分析）
 CREATE INDEX idx_metrics_raw_data ON metrics USING GIN(raw_data);
@@ -3534,6 +4009,48 @@ CREATE INDEX idx_content_learnings_verdict ON content_learnings(micro_verdict);
     -- micro_verdict別集計
 CREATE INDEX idx_content_learnings_created ON content_learnings(created_at);
     -- 日次集計用
+
+-- prediction_weights
+-- NOTE: uq_prediction_weights (platform, factor_name) の UNIQUE 制約が自動的にインデックスを作成
+-- 追加インデックスは不要（36行のみ、全行フルスキャンで十分高速）
+
+-- weight_audit_log
+CREATE INDEX idx_weight_audit_platform_time
+    ON weight_audit_log (platform, calculated_at DESC);
+    -- プラットフォーム別の再計算履歴を時系列で取得
+
+-- prediction_snapshots
+CREATE INDEX idx_prediction_account ON prediction_snapshots (account_id, created_at DESC);
+    -- アカウント別の予測履歴（ベースライン比較等）
+CREATE INDEX idx_prediction_content ON prediction_snapshots (content_id);
+    -- コンテンツ別の予測結果一覧
+CREATE INDEX idx_prediction_error ON prediction_snapshots (prediction_error_7d)
+    WHERE prediction_error_7d IS NOT NULL;
+    -- 予測精度の分析（NULLを除外する部分インデックス）
+CREATE INDEX idx_prediction_hypothesis ON prediction_snapshots (hypothesis_id)
+    WHERE hypothesis_id IS NOT NULL;
+    -- 仮説別の予測結果（NULL除外部分インデックス）
+CREATE INDEX idx_prediction_created ON prediction_snapshots (created_at DESC);
+    -- 時系列ソート
+
+-- kpi_snapshots
+-- NOTE: uq_kpi_platform_month (platform, year_month) の UNIQUE 制約が自動的にインデックスを作成
+CREATE INDEX idx_kpi_platform ON kpi_snapshots (platform);
+    -- プラットフォーム別のKPI一覧
+CREATE INDEX idx_kpi_reliable ON kpi_snapshots (is_reliable)
+    WHERE is_reliable = TRUE;
+    -- 信頼性のあるスナップショットのみ取得（加重平均ロールアップ用）
+
+-- account_baselines
+-- NOTE: uq_baseline_account (account_id) の UNIQUE 制約が自動的にインデックスを作成
+CREATE INDEX idx_baselines_source ON account_baselines (source);
+    -- ソース別のフィルタ（own_history/cohort/default の分布確認）
+
+-- adjustment_factor_cache
+CREATE INDEX idx_adj_cache_lookup
+    ON adjustment_factor_cache (platform, factor_name, is_active);
+    -- 予測ワークフロー(G5)でのキャッシュ参照（最頻出クエリ）
+-- NOTE: uq_adj_cache (platform, factor_name, factor_value) の UNIQUE 制約が自動的にインデックスを作成
 ```
 
 ### 8.4 Operations Tables のインデックス
@@ -3807,6 +4324,14 @@ CREATE TRIGGER trg_production_recipes_updated_at
 CREATE TRIGGER trg_system_settings_updated_at
     BEFORE UPDATE ON system_settings
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER trg_prediction_weights_updated_at
+    BEFORE UPDATE ON prediction_weights
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER trg_prediction_snapshots_updated_at
+    BEFORE UPDATE ON prediction_snapshots
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 ```
 
 ## 10. テーブル間リレーション詳細
@@ -3833,6 +4358,14 @@ CREATE TRIGGER trg_system_settings_updated_at
 | tool_experiences | tool_id | tool_catalog | id | N:1 | 使用したツール |
 | tool_experiences | content_id | content | content_id | N:1 | 使用されたコンテンツ (VARCHAR(20)参照) |
 | tool_external_sources | tool_id | tool_catalog | id | N:1 | 関連するツール (NULLable) |
+| content_learnings | content_id | content | content_id | 1:1 | マイクロ学習の対象コンテンツ |
+| content_learnings | hypothesis_id | hypotheses | id | N:1 | コンテンツに紐づく仮説 |
+| content_learnings | promoted_to_learning_id | learnings | id | N:1 | 共有知見への昇格先 |
+| prediction_snapshots | publication_id | publications | id | 1:1 | 予測対象の投稿 |
+| prediction_snapshots | content_id | content | content_id | N:1 | 予測対象のコンテンツ |
+| prediction_snapshots | account_id | accounts | account_id | N:1 | 投稿先アカウント |
+| prediction_snapshots | hypothesis_id | hypotheses | id | N:1 | 関連仮説 (NULLable) |
+| account_baselines | account_id | accounts | account_id | 1:1 | ベースライン対象アカウント |
 
 ### 10.2 データフロー上の間接参照
 
@@ -3874,10 +4407,15 @@ CREATE TRIGGER trg_system_settings_updated_at
 3. 投稿スケジューラーグラフ                       │
    task_queue (INSERT, type='publish') ←─────────┘
    publications (INSERT, status='scheduled' → 'posted')
+   prediction_snapshots (INSERT) ← 投稿直前に予測値を記録 (G5ワークフロー)
                                                 │
 4. 計測ジョブグラフ                              │
    task_queue (INSERT, type='measure') ←─────────┘
    metrics (INSERT) → publications (UPDATE, status='measured')
+   prediction_snapshots (UPDATE) ← 実績値・誤差を書込
+   48h計測: content_learnings (UPDATE, micro_verdict等) ← 単発分析
+   7d計測: content_learnings (UPDATE, cumulative_context) ← 累積分析 (pgvector 5テーブル検索)
+   30d計測: 保存のみ（分析なし、長期検証用）
                                                 │
 5. 戦略サイクルグラフ (次サイクル)                │
    analyses (INSERT) ←──────────────────────────┘
@@ -3885,6 +4423,12 @@ CREATE TRIGGER trg_system_settings_updated_at
    hypotheses (UPDATE, verdict判定)
    content (UPDATE, status='analyzed')
    algorithm_performance (INSERT)
+
+バッチジョブ（定期実行）:
+   account_baselines (UPSERT) ← 日次 UTC 01:00、全アクティブアカウント
+   adjustment_factor_cache (UPSERT) ← tier別 UTC 02:00基準
+   prediction_weights (UPDATE) + weight_audit_log (INSERT) ← tier別 UTC 03:00基準
+   kpi_snapshots (UPSERT) ← 月次 月末+1日 UTC 04:00
 
 ※ 全ステップで agent_thought_logs (INSERT) が記録される（横断的）
 ※ プロンプト変更時に agent_prompt_versions (INSERT) が記録される
@@ -4026,4 +4570,211 @@ FROM algorithm_performance
 WHERE period = 'weekly'
   AND measured_at >= NOW() - INTERVAL '90 days'
 ORDER BY measured_at ASC;
+```
+
+### 12.6 ベースライン算出 (日次バッチ)
+
+```sql
+-- 日次バッチ (UTC 01:00): account_baselines UPSERT
+-- own_history → cohort_niche_age → cohort_niche → cohort_platform → default(500)
+WITH own_history AS (
+    SELECT p.account_id,
+           AVG(m.views) AS baseline,
+           COUNT(*) AS sample_count,
+           MIN(m.measured_at::date) AS window_start,
+           MAX(m.measured_at::date) AS window_end
+    FROM metrics m
+    JOIN publications p ON m.publication_id = p.id
+    WHERE m.measurement_point = '7d'
+      AND m.measured_at >= NOW() - INTERVAL '14 days'  -- BASELINE_WINDOW_DAYS
+    GROUP BY p.account_id
+    HAVING COUNT(*) >= 3  -- BASELINE_MIN_SAMPLE
+),
+cohort_data AS (
+    SELECT a.platform, a.niche,
+           CASE
+               WHEN EXTRACT(DAY FROM NOW() - a.created_at) <= 30 THEN 'new'
+               WHEN EXTRACT(DAY FROM NOW() - a.created_at) <= 60 THEN 'young'
+               WHEN EXTRACT(DAY FROM NOW() - a.created_at) <= 90 THEN 'growing'
+               WHEN EXTRACT(DAY FROM NOW() - a.created_at) <= 180 THEN 'established'
+               WHEN EXTRACT(DAY FROM NOW() - a.created_at) <= 365 THEN 'mature'
+               ELSE 'veteran'
+           END AS age_bucket,
+           a.account_id,
+           AVG(m.views) AS avg_views,
+           COUNT(*) AS cnt
+    FROM accounts a
+    JOIN publications p ON p.account_id = a.account_id
+    JOIN metrics m ON m.publication_id = p.id
+    WHERE m.measurement_point = '7d'
+      AND m.measured_at >= NOW() - INTERVAL '90 days'
+      AND a.status = 'active'
+    GROUP BY a.platform, a.niche, age_bucket, a.account_id
+)
+INSERT INTO account_baselines (account_id, baseline_impressions, source, sample_count, window_start, window_end)
+SELECT a.account_id,
+       COALESCE(
+           oh.baseline,
+           -- cohort fallback chain: platform×niche×age → platform×niche → platform → default
+           (SELECT AVG(cd.avg_views) FROM cohort_data cd WHERE cd.platform = a.platform AND cd.niche = a.niche AND cd.age_bucket = (
+               CASE WHEN EXTRACT(DAY FROM NOW() - a.created_at) <= 30 THEN 'new'
+                    WHEN EXTRACT(DAY FROM NOW() - a.created_at) <= 60 THEN 'young'
+                    WHEN EXTRACT(DAY FROM NOW() - a.created_at) <= 90 THEN 'growing'
+                    WHEN EXTRACT(DAY FROM NOW() - a.created_at) <= 180 THEN 'established'
+                    WHEN EXTRACT(DAY FROM NOW() - a.created_at) <= 365 THEN 'mature'
+                    ELSE 'veteran' END
+           ) HAVING COUNT(*) >= 3),
+           (SELECT AVG(cd.avg_views) FROM cohort_data cd WHERE cd.platform = a.platform AND cd.niche = a.niche HAVING COUNT(*) >= 3),
+           (SELECT AVG(cd.avg_views) FROM cohort_data cd WHERE cd.platform = a.platform HAVING COUNT(*) >= 3),
+           500  -- BASELINE_DEFAULT_IMPRESSIONS
+       ) AS baseline,
+       CASE
+           WHEN oh.baseline IS NOT NULL THEN 'own_history'
+           WHEN (SELECT COUNT(*) FROM cohort_data cd WHERE cd.platform = a.platform) >= 3 THEN 'cohort'
+           ELSE 'default'
+       END AS source,
+       COALESCE(oh.sample_count, 0),
+       COALESCE(oh.window_start, CURRENT_DATE - 14),
+       COALESCE(oh.window_end, CURRENT_DATE)
+FROM accounts a
+LEFT JOIN own_history oh ON oh.account_id = a.account_id
+WHERE a.status = 'active'
+ON CONFLICT (account_id) DO UPDATE SET
+    baseline_impressions = EXCLUDED.baseline_impressions,
+    source = EXCLUDED.source,
+    sample_count = EXCLUDED.sample_count,
+    window_start = EXCLUDED.window_start,
+    window_end = EXCLUDED.window_end,
+    calculated_at = NOW();
+```
+
+### 12.7 KPI計算 (月次バッチ)
+
+```sql
+-- 月次バッチ (月末+1日 UTC 04:00): kpi_snapshots UPSERT
+-- 対象: created_at < 月初 のアカウント、月の21日〜月末の7d計測
+WITH platform_kpi AS (
+    SELECT a.platform,
+           AVG(m.views) AS avg_impressions,
+           COUNT(DISTINCT a.account_id) AS account_count,
+           COUNT(*) AS publication_count
+    FROM metrics m
+    JOIN publications p ON m.publication_id = p.id
+    JOIN accounts a ON p.account_id = a.account_id
+    WHERE a.status = 'active'
+      AND a.created_at < DATE_TRUNC('month', $1::date)  -- $1 = 対象月の任意の日
+      AND m.measurement_point = '7d'
+      AND m.measured_at >= (DATE_TRUNC('month', $1::date) + INTERVAL '20 days')  -- KPI_CALC_MONTH_START_DAY - 1
+      AND m.measured_at < (DATE_TRUNC('month', $1::date) + INTERVAL '1 month')
+    GROUP BY a.platform
+),
+prediction_acc AS (
+    SELECT a.platform,
+           AVG(
+               CASE
+                   WHEN ps.actual_impressions_7d = 0 AND ps.predicted_impressions = 0 THEN 1.0
+                   WHEN ps.actual_impressions_7d = 0 THEN 0.0
+                   ELSE GREATEST(0, 1.0 - ABS(ps.predicted_impressions - ps.actual_impressions_7d) / ps.actual_impressions_7d)
+               END
+           ) AS prediction_accuracy
+    FROM prediction_snapshots ps
+    JOIN publications p ON ps.publication_id = p.id
+    JOIN accounts a ON p.account_id = a.account_id
+    WHERE ps.actual_impressions_7d IS NOT NULL
+      AND a.created_at < DATE_TRUNC('month', $1::date)
+      AND ps.created_at >= (DATE_TRUNC('month', $1::date) + INTERVAL '20 days')
+      AND ps.created_at < (DATE_TRUNC('month', $1::date) + INTERVAL '1 month')
+    GROUP BY a.platform
+)
+INSERT INTO kpi_snapshots (platform, year_month, kpi_target, avg_impressions, achievement_rate, account_count, publication_count, prediction_accuracy, is_reliable)
+SELECT pk.platform,
+       TO_CHAR($1::date, 'YYYY-MM'),
+       CASE pk.platform
+           WHEN 'tiktok' THEN 15000     -- KPI_TARGET_TIKTOK
+           WHEN 'instagram' THEN 10000  -- KPI_TARGET_INSTAGRAM
+           WHEN 'youtube' THEN 20000    -- KPI_TARGET_YOUTUBE
+           WHEN 'twitter' THEN 10000    -- KPI_TARGET_TWITTER
+       END AS kpi_target,
+       pk.avg_impressions,
+       LEAST(1.0, pk.avg_impressions / CASE pk.platform
+           WHEN 'tiktok' THEN 15000 WHEN 'instagram' THEN 10000
+           WHEN 'youtube' THEN 20000 WHEN 'twitter' THEN 10000
+       END) AS achievement_rate,
+       pk.account_count,
+       pk.publication_count,
+       pa.prediction_accuracy,
+       pk.account_count >= 5
+FROM platform_kpi pk
+LEFT JOIN prediction_acc pa ON pa.platform = pk.platform
+ON CONFLICT (platform, year_month) DO UPDATE SET
+    avg_impressions = EXCLUDED.avg_impressions,
+    achievement_rate = EXCLUDED.achievement_rate,
+    account_count = EXCLUDED.account_count,
+    publication_count = EXCLUDED.publication_count,
+    prediction_accuracy = EXCLUDED.prediction_accuracy,
+    is_reliable = EXCLUDED.is_reliable,
+    calculated_at = NOW();
+
+-- 全体KPI達成率 (ダッシュボード表示用、テーブルには保存しない)
+-- SELECT SUM(achievement_rate * publication_count) / SUM(publication_count)
+-- FROM kpi_snapshots WHERE year_month = $1 AND is_reliable = TRUE;
+```
+
+### 12.8 累積分析: pgvector類似検索
+
+```sql
+-- 7d計測後にアナリストが実行する5テーブル検索
+-- パラメータ: $1=query_embedding, $2=platform, $3=CUMULATIVE_SIMILARITY_THRESHOLD(0.7), $4=CUMULATIVE_SEARCH_TOP_K(10)
+
+-- 1. 類似仮説
+SELECT h.id, h.hypothesis_text, h.status, h.verdict,
+       h.predicted_kpis, h.evidence_count,
+       1 - (h.embedding <=> $1) AS similarity
+FROM hypotheses h
+WHERE h.platform = $2
+  AND h.status IN ('confirmed', 'rejected', 'inconclusive')
+  AND 1 - (h.embedding <=> $1) >= $3
+ORDER BY h.embedding <=> $1
+LIMIT $4;
+
+-- 2. 類似コンテンツ学習
+SELECT cl.content_id, cl.micro_verdict, cl.predicted_kpis, cl.actual_kpis,
+       cl.prediction_error, cl.contributing_factors, cl.detractors,
+       cl.what_worked, cl.what_didnt_work, cl.key_insight,
+       cl.confidence, 1 - (cl.embedding <=> $1) AS similarity
+FROM content_learnings cl
+WHERE cl.micro_verdict IS NOT NULL
+  AND 1 - (cl.embedding <=> $1) >= $3
+ORDER BY cl.embedding <=> $1
+LIMIT $4;
+
+-- 3. 関連学習知見
+SELECT l.id, l.insight, l.category, l.confidence,
+       l.applicable_platforms, l.evidence_count,
+       1 - (l.embedding <=> $1) AS similarity
+FROM learnings l
+WHERE l.confidence >= 0.5  -- CUMULATIVE_CONFIDENCE_THRESHOLD
+  AND (l.applicable_platforms IS NULL OR $2 = ANY(l.applicable_platforms))
+ORDER BY l.embedding <=> $1
+LIMIT $4;
+
+-- 4. 類似リサーチ
+SELECT rd.id, rd.source_type, rd.title, rd.summary,
+       rd.platform, rd.niche,
+       1 - (rd.embedding <=> $1) AS similarity
+FROM research_data rd
+WHERE rd.platform = $2
+  AND (rd.expires_at IS NULL OR rd.expires_at > NOW())
+  AND 1 - (rd.embedding <=> $1) >= $3
+ORDER BY rd.embedding <=> $1
+LIMIT $4;
+
+-- 5. エージェント戦略的洞察
+SELECT al.id, al.learning_type, al.description, al.impact,
+       al.confidence, 1 - (al.embedding <=> $1) AS similarity
+FROM agent_learnings al
+WHERE al.confidence >= 0.5  -- CUMULATIVE_CONFIDENCE_THRESHOLD
+  AND 1 - (al.embedding <=> $1) >= $3
+ORDER BY al.embedding <=> $1
+LIMIT $4;
 ```

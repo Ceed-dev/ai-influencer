@@ -234,7 +234,7 @@ NUMBER: 001〜999
 {
   "version": "5.0.0",
   "generated_at": "2026-03-01T00:00:00Z",
-  "total_features": 261,
+  "total_features": 291,
   "features": [
     {
       "id": "FEAT-DB-001",
@@ -1050,10 +1050,10 @@ if [[ -n "${DATABASE_URL:-}" ]]; then
 
         # テーブル数確認
         TABLE_COUNT=$(psql "${DATABASE_URL}" -t -c "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public'" 2>/dev/null | tr -d ' ')
-        if [[ "$TABLE_COUNT" -ge 27 ]]; then
-            ok "テーブル数: ${TABLE_COUNT} (27テーブル以上)"
+        if [[ "$TABLE_COUNT" -ge 33 ]]; then
+            ok "テーブル数: ${TABLE_COUNT} (33テーブル以上)"
         else
-            warn "テーブル数: ${TABLE_COUNT} (目標: 27テーブル)"
+            warn "テーブル数: ${TABLE_COUNT} (目標: 33テーブル)"
         fi
     else
         fail "PostgreSQL 接続失敗: ${DATABASE_URL}"
@@ -1769,7 +1769,7 @@ G6 失敗 → 以前の機能が壊れた。最優先で修復
 ```bash
 # 1. 進捗確認（1分）
 jq '[.features[] | select(.passes==true)] | length' feature_list.json
-# → "85 / 261 features passed" のように表示
+# → "85 / 291 features passed" のように表示
 
 # 2. 最近の活動確認（2分）
 tail -30 progress.txt
@@ -1805,7 +1805,7 @@ npx jest --coverage --passWithNoTests 2>/dev/null | tail -20
 # 全体進捗率
 jq '[.features[] | select(.passes==true)] | length' feature_list.json
 # 出力例: 85
-# → 85 / 261 = 33.9%
+# → 85 / 291 = 29.2%
 
 # カテゴリ別進捗
 jq -r '
@@ -2040,7 +2040,7 @@ echo "=== Detection Complete ==="
 
 | # | 確認項目 | 完了 |
 |---|---------|------|
-| 1 | 全27テーブルに対応する FEAT-DB-xxx が存在 | ☐ |
+| 1 | 全33テーブルに対応する FEAT-DB-xxx が存在 | ☐ |
 | 2 | 全98 MCPツールに対応する FEAT-MCC-xxx / FEAT-MCI-xxx が存在 | ☐ |
 | 3 | 全4 LangGraphグラフに対応する FEAT-INT-xxx / FEAT-STR-xxx が存在 | ☐ |
 | 4 | 全15 ダッシュボード画面に対応する FEAT-DSH-xxx が存在 | ☐ |

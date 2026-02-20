@@ -2296,6 +2296,53 @@ Phase 2 (commit `3d4a7ac`): CJKピクセル幅補正
 
 **変更ファイル**: `pipeline/media/fal-client.js`, `pipeline/media/tts-generator.js`
 
+### 2026-02-20: Session 17 — アルゴリズム-KPI設計メモ全統合 (21ファイル, +3,987行)
+
+**概要**: `algorithm-kpi-design.md` (821行) の確定仕様を v5仕様 13ファイル + v5コード 7ファイル + README に完全統合。Agent Team (3チームメイト並列) で実行。
+
+**3つの重要命名修正**:
+- `measurement_round` (INTEGER) → `measurement_point` (VARCHAR: '48h', '7d', '30d')
+- `comp.metadata` → `comp.data`
+- `bgm_category` を audio component_data JSOBスキーマに追加
+
+**新規テーブル (6)**:
+- `algorithm_weights`, `algorithm_adjustment_logs`, `prediction_logs`, `platform_baselines`, `kpi_snapshots`, `account_monthly_stats`
+
+**新規 system_settings (31)**: アルゴリズム関連 — 初期重み、クリッピング閾値、ベースライン最小投稿数、予測精度目標など
+
+**主要セクション追加**:
+- **08-algorithm-analysis.md** (+986行): §15-27 — インプレッション予測アルゴリズム確定仕様（ベースライン算出、重み調整、クリッピング、エッジケース、新settings一覧）
+- **07-kpi-analysis.md** (+211行): §10 — KPI達成率・予測精度の確定仕様（数式、SQL、加重平均集約、エッジケース）
+- **05-cost-analysis.md** (+115行): §10 — アルゴリズム学習システムのコスト（micro $0.018/本、cumulative $0.035/本、月額$80-$5,566）
+- **09-risks-and-bottlenecks.md** (+47行): §3.9 — アルゴリズムリスク R-24〜R-29
+- **03-database-schema.md** (+769行): 6 CREATE TABLE、seed設定、JSONB拡張
+- **04-agent-design.md** (+265行): エージェントプロンプト・ワークフローにアルゴリズム統合
+- **12-test-specifications.md** (+379行): アルゴリズムテスト追加
+- **02-architecture.md** (+224行): アーキテクチャ図・フロー更新
+- **v5/feature_list.json** (+308行): 新機能追加
+- **v5/sql/** (+187行): CREATE TABLE、INDEX、seed
+- **v5/types/** (+501行): TypeScript型定義追加
+
+**更新された数値**:
+| 項目 | 旧値 | 新値 |
+|------|------|------|
+| テーブル数 | 27 | 33 (+6 algorithm/KPI) |
+| system_settings数 | 87 | 118 (+31 algorithm) |
+| インデックス数 | 139 | 146 (+7) |
+| 機能数 (features) | 261 | 276 (+15) |
+| テスト数 | 459 | 489 (+30) |
+
+**クロスチェック結果** (全通過):
+- 数値一貫性: 33テーブル, 118設定, 146インデックス, 276機能, 489テスト, 111ツール ✅
+- 不整合修正2件: 10-implementation-guide.md のインデックス数 139→146, 機能数 251→276
+- 古い参照の排除: measurement_round, comp.metadata 全ファイルから排除 ✅
+- 数式一貫性: 予測式・KPI式・精度式が 03/04/07/08 間で整合 ✅
+- per-content学習ループ: 04→08→03→12 でE2E追跡可能 ✅
+
+**変更ファイル一覧 (20ファイル)**:
+- docs/v5-specification/: 02, 03, 04, 05, 06, 07, 08, 09, 10, 11, 12, 13, README
+- v5/: feature_list.json, sql/001, sql/002, sql/004, types/api-schemas.ts, types/database.ts, types/mcp-tools.ts
+
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID
 - `.gsheets_token.json` - OAuth token for Sheets/Drive API

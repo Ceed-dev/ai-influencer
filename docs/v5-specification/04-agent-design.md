@@ -4,7 +4,7 @@
 >
 > **エージェント総数**: 社長1 + 専門職4〜5 + 部長N + ワーカープール = 可変
 >
-> **MCPツール数**: 111ツール (98 MCPツール + 13 Dashboard REST API, 12カテゴリ)
+> **MCPツール数**: 119ツール (106 MCPツール + 13 Dashboard REST API, 12カテゴリ)
 >
 > **LangGraphグラフ数**: 4グラフ (戦略サイクル / 制作パイプライン / 投稿スケジューラー / 計測ジョブ)
 >
@@ -27,10 +27,10 @@
 - [3. エージェント通信パターン](#3-エージェント通信パターン)
   - [3.1 上位層 (社長・部長・専門職): LLM対話](#31-上位層-社長部長専門職-llm対話)
   - [3.2 下位層 (部長→ワーカー): DBタスクキュー](#32-下位層-部長ワーカー-dbタスクキュー)
-- [4. MCP Server ツール一覧 (111ツール)](#4-mcp-server-ツール一覧-111ツール)
+- [4. MCP Server ツール一覧 (119ツール)](#4-mcp-server-ツール一覧-119ツール)
   - [4.1 戦略エージェント用 (10ツール)](#41-戦略エージェント用-10ツール)
   - [4.2 リサーチャー用 (12ツール)](#42-リサーチャー用-12ツール)
-  - [4.3 アナリスト用 (14ツール)](#43-アナリスト用-14ツール)
+  - [4.3 アナリスト用 (22ツール)](#43-アナリスト用-22ツール)
   - [4.4 プランナー用 (9ツール)](#44-プランナー用-9ツール)
   - [4.5 ツールスペシャリスト用 (5ツール)](#45-ツールスペシャリスト用-5ツール)
   - [4.6 制作ワーカー用 (12ツール)](#46-制作ワーカー用-12ツール)
@@ -51,6 +51,7 @@
   - [6.2 分析精度の向上](#62-分析精度の向上)
   - [6.3 改善スピードの向上](#63-改善スピードの向上)
   - [6.4 algorithm_performanceテーブルによるメタ計測](#64-algorithm_performanceテーブルによるメタ計測)
+  - [6.5 予測・KPIシステムによるアルゴリズム精度向上](#65-予測kpiシステムによるアルゴリズム精度向上)
 - [7. 仮説駆動サイクルの詳細フロー](#7-仮説駆動サイクルの詳細フロー)
   - [7.1 全体フロー図](#71-全体フロー図)
   - [7.2 仮説駆動サイクルのタイムライン](#72-仮説駆動サイクルのタイムライン)
@@ -266,6 +267,31 @@ v5.0のエージェントは **4層階層型** で構成される。上位層が
 | `hypothesis_verification` | 計測データ到着時 | 個別仮説のpredicted vs actual比較 | hypotheses.verdict + analyses |
 | `anomaly_detection` | 計測データ到着時 | 異常値 (急落/急伸) の検出 | analyses |
 | `trend_analysis` | 随時 | 中長期トレンドの分析 | analyses + learnings |
+
+**予測・KPI関連の追加責務**:
+
+| 責務 | トリガー | 処理内容 | 出力先 |
+|------|---------|---------|--------|
+| **予測スナップショット生成 (G5)** | publication INSERT直後、API投稿直前 | (1)account_baselinesからbaseline取得 → (2)8要素をadjustment_factor_cacheから取得 → (3)cross_accountをリアルタイムSQL算出 → (4)各adj個別クリップ(±0.5) → (5)合計クリップ(-0.7〜+1.0) → (6)predicted算出+値域クリップ(baseline×0.3〜2.0) → (7)prediction_snapshotsにINSERT | prediction_snapshots |
+| **単発分析 (48h計測後)** | metrics INSERT (measurement_point='48h') | content_learnings.micro_verdict等に書込。`create_micro_analysis` MCPツールで実行 | content_learnings |
+| **累積分析 (7d計測後)** | metrics INSERT (measurement_point='7d') | pgvector 5テーブル検索(hypotheses/content_learnings/learnings/research_data/agent_learnings) → 構造化集計(第1層) → AI解釈(第2層) → cumulative_context JSONBに書込 | content_learnings.cumulative_context |
+| **ウェイト再計算 (バッチ)** | tier別スケジュール (UTC 03:00基準) | Error Correlation方式: direction_accuracy × avg_impact → 正規化 → EMA(α=0.3) → ±20%クリップ → WEIGHT_FLOOR(0.02) → 合計=1.0正規化 | prediction_weights + weight_audit_log |
+| **ベースライン更新 (バッチ)** | 日次 UTC 01:00 | 全アクティブアカウント: own_history(14日) → cohortフォールバック(niche×age/niche/platform) → default(500) | account_baselines |
+| **補正係数キャッシュ更新 (バッチ)** | tier別スケジュール (UTC 02:00基準) | 8要素×プラットフォームの AVG(actual/baseline-1.0)。90日hard cutoff、HAVING COUNT>=5 | adjustment_factor_cache |
+| **KPIスナップショット (バッチ)** | 月次 月末+1日 UTC 04:00 | プラットフォーム別: 対象期間(21日〜月末)のavg_impressions vs KPI_TARGET → achievement_rate + prediction_accuracy | kpi_snapshots |
+
+**バッチジョブのスケジュールとtier判定**:
+
+| バッチ | タイミング | tier判定基準 |
+|--------|----------|------------|
+| 計測ジョブ | 毎時0分 | 独立（ポーリング） |
+| ベースライン更新 | 日次 UTC 01:00 | 固定日次 |
+| 補正係数キャッシュ更新 | tier別 UTC 02:00基準 | metricsレコード数: 0-500=週次(月曜) / 500-5K=3日(月木) / 5K-50K=日次 / 50K+=12h(02:00+14:00) |
+| ウェイト再計算 | tier別 UTC 03:00基準 | 同上。WEIGHT_RECALC_MIN_NEW_DATA(100)未満ならスキップ |
+| KPIスナップショット | 月次 月末+1日 UTC 04:00 | 固定月次 |
+| 累積/単発分析 | イベント駆動 | 計測ジョブがキューに追加 |
+
+> **依存順序**: 計測 → ベースライン → 補正係数 → ウェイト（前のジョブの出力を次のジョブが使用）
 
 ### 1.4 Layer 2: 専門職 — ツールスペシャリスト (Tool Specialist) x 1体
 
@@ -712,7 +738,7 @@ COMMIT;
 | ログファイル (stdout/stderr) | English | 標準的なログ管理ツールとの互換性 |
 | ダッシュボードエラー表示 | Japanese (UIラベル) + English (技術詳細) | 運用者が理解しやすい形式 |
 
-## 4. MCP Server ツール一覧 (111ツール)
+## 4. MCP Server ツール一覧 (119ツール)
 
 全エージェントはMCP Server経由でPostgreSQLにアクセスする。ツールはエージェントの役割ごとにグループ化されており、各エージェントのSystem Promptで使用可能なツール群を制限する。
 
@@ -752,7 +778,7 @@ COMMIT;
 | 11 | `mark_intel_expired` | `{ intel_id }` | `{ success }` | 情報の期限切れマーク |
 | 12 | `get_intel_gaps` | `{ niche }` | `[{ intel_type, last_collected, gap_hours }]` | 情報収集の空白領域検出 |
 
-### 4.3 アナリスト用 (14ツール)
+### 4.3 アナリスト用 (22ツール)
 
 パフォーマンス分析・仮説検証・知見管理のためのツール群。読み書き両方が多い。
 
@@ -772,6 +798,16 @@ COMMIT;
 | 12 | `get_niche_performance_trends` | `{ niche, period: "30d" }` | `[{ date, avg_views, avg_engagement, content_count }]` | ニッチ別パフォーマンス推移 |
 | 13 | `compare_hypothesis_predictions` | `{ hypothesis_ids: [] }` | `[{ hypothesis_id, predicted, actual, error_rate }]` | 予測vs実測の比較 |
 | 14 | `generate_improvement_suggestions` | `{ niche, account_id? }` | `[{ suggestion, rationale, expected_impact, priority }]` | 改善提案の生成 |
+| 15 | `get_content_prediction` | `{ publication_id, content_id, account_id, hypothesis_id? }` | `{ baseline_used, baseline_source, adjustments_applied, total_adjustment, predicted_impressions }` | 予測スナップショット生成 (G5ワークフロー: baseline取得→8要素cache+cross_accountリアルタイム→クリップ→INSERT) |
+| 16 | `get_content_metrics` | `{ content_id, measurement_point?: '48h'\|'7d'\|'30d' }` | `{ views, engagement_rate, completion_rate, impressions, predicted_vs_actual }` | コンテンツの計測データ取得（prediction_snapshotsと結合） |
+| 17 | `get_daily_micro_analyses_summary` | `{ date?: string, platform?: string }` | `{ total_analyzed, confirmed, rejected, inconclusive, avg_prediction_error, top_factors }` | 日次マイクロ分析サマリー（マクロサイクル集約用） |
+| 18 | `run_weight_recalculation` | `{ platform }` | `{ factors: [{ name, old_weight, new_weight }], data_count, skipped_reason? }` | ウェイト再計算バッチ実行 (Error Correlation方式→EMA→クリップ→正規化→UPSERT+監査ログ) |
+| 19 | `run_baseline_update` | `{ account_id?: string }` | `{ updated_count, source_breakdown: { own_history, cohort, default } }` | ベースライン日次更新バッチ（全アカウントまたは指定アカウント） |
+| 20 | `run_adjustment_cache_update` | `{ platform }` | `{ factors_updated, cache_entries }` | 補正係数キャッシュ更新バッチ（8要素のSQL集計→UPSERT） |
+| 21 | `run_kpi_snapshot` | `{ year_month: string }` | `{ platforms: [{ platform, achievement_rate, prediction_accuracy, is_reliable }] }` | 月次KPIスナップショット算出+UPSERT |
+| 22 | `run_cumulative_analysis` | `{ content_id }` | `{ structured, ai_interpretation, recommendations }` | 累積分析実行（pgvector 5テーブル検索→構造化集計→AI解釈→cumulative_context書込） |
+
+> **ツール数変更**: 14→22 (+8 予測・KPI・バッチツール)
 
 ### 4.4 プランナー用 (9ツール)
 
@@ -1499,10 +1535,17 @@ interface SectionResult {
 │ measure_    │  │                │
 │ after設定   │  │                │
 │             │  │                │
+│ 予測スナップ │  │                │
+│ ショット生成 │  │                │
+│ (G5ワーク   │  │                │
+│ フロー実行)  │  │                │
+│             │  │                │
 │ MCPツール:  │  │                │
 │ report_     │  │                │
 │ publish_    │  │                │
 │ result      │  │                │
+│ get_content_│  │                │
+│ prediction  │  │                │
 └──────┬─────┘  └──────┬─────────┘
        │               │
        └───────┬───────┘
@@ -1556,8 +1599,16 @@ interface PublishMetadata {
 ### 5.4 グラフ4: 計測ジョブグラフ (Measurement Jobs Graph)
 
 **実行頻度**: 連続（MEASUREMENT_POLL_INTERVAL_SEC（system_settings、デフォルト: 300）秒ポーリング）
-**参加エージェント**: 計測ワーカー (コード)
-**目的**: 投稿後METRICS_COLLECTION_DELAY_HOURS（system_settings、デフォルト: 48）時間経過したコンテンツのパフォーマンスを計測する
+**参加エージェント**: 計測ワーカー (コード) + アナリスト (分析トリガー時)
+**目的**: 投稿後の3ラウンド計測 (48h/7d/30d) + 予測スナップショット更新 + 分析トリガー
+
+**計測ラウンドとアクション**:
+
+| measurement_point | タイミング | アクション | 分析トリガー |
+|-------------------|----------|-----------|------------|
+| `48h` | posted_at + 48h | metrics INSERT + prediction_snapshots.actual_impressions_48h UPDATE | 単発分析 → content_learnings.micro_verdict等 |
+| `7d` | posted_at + 7d | metrics INSERT + prediction_snapshots.actual_impressions_7d + prediction_error_7d UPDATE | 累積分析 → content_learnings.cumulative_context |
+| `30d` | posted_at + 30d | metrics INSERT + prediction_snapshots.actual_impressions_30d + prediction_error_30d UPDATE | なし（保存のみ、長期検証用） |
 
 #### ノード定義
 
@@ -1570,9 +1621,14 @@ interface PublishMetadata {
 ┌──────────────────┐     MCPツール:
 │ detect_targets    │     get_measurement_tasks
 │                  │
-│ 計測対象の検出    │     条件:
-│ ・status='posted'│       NOW() > measure_after
-│ ・48h経過       │       まだ計測されていない
+│ 3ラウンドの検出:  │     条件 (measurement_point別):
+│ ・48h: actual_    │       48h: actual_impressions_48h IS NULL
+│   impressions_48h │            AND posted_at + 48h <= NOW()
+│   IS NULL        │       7d:  actual_impressions_7d IS NULL
+│ ・7d: actual_7d  │            AND posted_at + 7d <= NOW()
+│   IS NULL        │       30d: actual_impressions_30d IS NULL
+│ ・30d: actual_30d│            AND posted_at + 30d <= NOW()
+│   IS NULL        │
 └────────┬─────────┘
     ┌────┴────┐
   あり      なし
@@ -1596,14 +1652,32 @@ interface PublishMetadata {
 │ save_metrics      │     report_measurement_complete
 │                  │
 │ metricsテーブル   │     更新内容:
-│ に保存           │       metrics INSERT
-│                  │       publications.status → 'measured'
-│ engagement_rate  │       全pub measured後 → content 'analyzed'
-│ を計算して保存    │
+│ に保存           │       metrics INSERT (measurement_point付き)
+│                  │       prediction_snapshots UPDATE (実績値・誤差)
+│ engagement_rate  │       publications.status → 'measured'
+│ を計算して保存    │       全pub measured後 → content 'analyzed'
 │                  │
-│ 次回計測の判定:   │
-│ 追加計測が必要か  │
-│ (7日後, 30日後)  │
+│ prediction_error │     予測誤差算出 (7d/30d時):
+│ 算出 (7d/30d)    │       CASE actual=0 AND pred=0 → 1.0
+│                  │            actual=0 → 0.0
+│                  │            ELSE |pred-actual|/actual
+└──────┬───────────┘
+       │
+       ▼
+┌──────────────────┐     分析トリガー:
+│ trigger_analysis  │
+│                  │     48h計測完了:
+│ measurement_point│       → task_queue INSERT (type='analyze',
+│ に応じた分析を    │         payload={content_id, analysis_type:'micro'})
+│ キューに追加     │       → アナリストが create_micro_analysis 実行
+│                  │
+│                  │     7d計測完了:
+│                  │       → task_queue INSERT (type='analyze',
+│                  │         payload={content_id, analysis_type:'cumulative'})
+│                  │       → アナリストが run_cumulative_analysis 実行
+│                  │
+│                  │     30d計測完了:
+│                  │       → 保存のみ (分析トリガーなし)
 └──────┬───────────┘
        │
        ▼
@@ -1626,6 +1700,9 @@ interface MeasurementJobState {
   // 処理済みカウント (バッチ内)
   processed_count: number;
   error_count: number;
+
+  // 分析トリガーキュー (計測完了後にtask_queueに追加)
+  analysis_triggers: AnalysisTrigger[];
 }
 
 interface MeasurementTarget {
@@ -1636,7 +1713,14 @@ interface MeasurementTarget {
   platform: 'youtube' | 'tiktok' | 'instagram' | 'x';
   platform_post_id: string;
   posted_at: string;
-  measurement_type: '48h' | '7d' | '30d';
+  measurement_point: '48h' | '7d' | '30d';  // 計測回次
+  prediction_snapshot_id?: number;            // 予測スナップショットID (UPDATE用)
+}
+
+interface AnalysisTrigger {
+  content_id: string;
+  analysis_type: 'micro' | 'cumulative';  // 48h→micro, 7d→cumulative
+  measurement_point: '48h' | '7d';
 }
 
 interface CollectedMetrics {
@@ -1953,6 +2037,62 @@ algorithm_performance テーブル:
 │              Mar    Apr    May    Jun    Jul    Aug       │
 └─────────────────────────────────────────────────────────┘
 ```
+
+### 6.5 予測・KPIシステムによるアルゴリズム精度向上
+
+**メカニズム**: 投稿ごとの予測→実績比較 + 9要素ウェイト自動調整 + 補正係数キャッシュの継続更新
+
+```
+予測精度の向上サイクル:
+
+  ┌──────────────────────────────────────────────────────────┐
+  │                                                          │
+  │  投稿前: 予測スナップショット生成 (G5)                      │
+  │    baseline × (1 + Σ(weight_i × adjustment_i))           │
+  │                                                          │
+  │  48h後: 単発分析                                          │
+  │    predicted vs actual → micro_verdict                    │
+  │    → content_learnings に即時記録                         │
+  │                                                          │
+  │  7d後: 累積分析 + 予測誤差算出                             │
+  │    prediction_error_7d = |predicted - actual| / actual     │
+  │    → 5テーブルpgvector検索 + AI解釈                        │
+  │    → content_learnings.cumulative_context に記録            │
+  │                                                          │
+  │  tier別バッチ: ウェイト再計算                               │
+  │    Error Correlation方式 → 9要素のweight自動調整            │
+  │    → 次の予測がより正確に                                   │
+  │                                                          │
+  └─────────────────→ 次の投稿で改善された予測値 ──────────────┘
+
+予測精度の改善推移:
+  0-500 metrics:   予測精度 ~50% (コールドスタート、全adj=0)
+  500-5,000:       予測精度 ~70% (補正係数が効き始める)
+  5,000-50,000:    予測精度 ~85% (ウェイト日次調整で収束)
+  50,000+:         予測精度 ~92% (12h更新で微調整、上限値)
+```
+
+**KPI達成率の計算フロー**:
+
+```
+月末+1日 UTC 04:00: kpi_snapshots バッチ実行
+  │
+  ├─ TikTok: avg_impressions(21-31日,7d計測) / 15,000 → achievement_rate
+  ├─ Instagram: avg_impressions / 10,000 → achievement_rate
+  ├─ YouTube: avg_impressions / 20,000 → achievement_rate
+  └─ Twitter: avg_impressions / 10,000 → achievement_rate
+
+全体KPI達成率 = Σ(achievement_rate × publication_count) / Σ(publication_count)
+  ※ is_reliable=TRUE のプラットフォームのみ (account_count >= 5)
+  ※ 当月新規作成アカウントはKPI計算から除外
+```
+
+**2つの精度指標の使い分け**:
+
+| 指標 | 対象 | 用途 | 計算式 |
+|------|------|------|--------|
+| **KPI達成率** | ユーザー向け | アルゴリズムが目標を達成しているか | `min(1.0, avg_impressions / kpi_target)` |
+| **予測精度** | 内部指標 | 学習の進捗度合い | `1 - |predicted - actual| / actual` (max 0) |
 
 ## 7. 仮説駆動サイクルの詳細フロー
 
@@ -2471,11 +2611,29 @@ MCPツール呼び出し:
      → publications INSERT (status='posted', posted_at, measure_after=posted_at+48h)
      → task_queue INSERT (type='measure', payload に measure_after を含める)
 
+  4. get_content_prediction({                    ← NEW: 予測スナップショット生成 (G5)
+       publication_id: 42,
+       content_id: "CNT_202603_0001",
+       account_id: "ACC_0013",
+       hypothesis_id: 15
+     })
+     → (1) account_baselinesからbaseline取得 (baseline=4200, source='own_history')
+     → (2) adjustment_factor_cacheから8要素取得 (hook_type:question→+0.12, ...)
+     → (3) cross_account_performanceをリアルタイムSQL算出 (adj=0.08)
+     → (4) 各adj個別クリップ (ADJUSTMENT_INDIVIDUAL_MIN/MAX: -0.5〜+0.5)
+     → (5) 合計クリップ (ADJUSTMENT_TOTAL_MIN/MAX: -0.7〜+1.0)
+     → (6) predicted = 4200 × (1 + 0.23) = 5166
+     → (7) prediction_snapshots INSERT
+     → { predicted_impressions: 5166, baseline_used: 4200, total_adjustment: 0.23 }
+
 データフロー:
   [読み取り] task_queue → 投稿タスク取得
   [外部API] YouTube/TikTok/Instagram/X → 投稿実行
   [書き込み] publications INSERT → 投稿記録 (status='posted')
   [書き込み] task_queue INSERT → 計測タスク発行 (measure_after設定)
+  [読み取り] account_baselines → ベースライン取得                    ← NEW
+  [読み取り] adjustment_factor_cache → 8要素の補正係数取得          ← NEW
+  [書き込み] prediction_snapshots INSERT → 予測スナップショット記録  ← NEW
 ```
 
 ### Step 7: 計測ワーカー — メトリクス収集
@@ -2499,6 +2657,7 @@ MCPツール呼び出し:
   4. report_measurement_complete({
        task_id: 7,
        publication_id: 42,
+       measurement_point: '48h',              ← NEW: 計測回次を明示
        metrics_data: {
          views: 4800, likes: 240, comments: 35, shares: 12,
          watch_time_seconds: 14400, completion_rate: 0.72,
@@ -2506,38 +2665,49 @@ MCPツール呼び出し:
          raw_data: { ... }
        }
      })
-     → metrics INSERT
+     → metrics INSERT (measurement_point='48h')
+     → prediction_snapshots UPDATE (actual_impressions_48h=4800)  ← NEW
      → publications UPDATE (status='measured')
      → accounts UPDATE (follower_count=1250)
+     → 分析トリガー: task_queue INSERT (type='analyze',          ← NEW
+         payload={content_id, analysis_type:'micro'})
+         ※ 48h計測 → 単発分析トリガー
+         ※ 7d計測 → 累積分析トリガー + prediction_error_7d算出
+         ※ 30d計測 → prediction_error_30d算出のみ (分析なし)
 
 データフロー:
   [読み取り] task_queue → 計測タスク取得
   [外部API] YouTube/TikTok/Instagram/X Analytics API → メトリクス取得
-  [書き込み] metrics INSERT → パフォーマンスデータ
+  [書き込み] metrics INSERT → パフォーマンスデータ (measurement_point付き)
+  [書き込み] prediction_snapshots UPDATE → 実績値・予測誤差を書込  ← NEW
   [書き込み] publications UPDATE → status: posted → measured
   [書き込み] accounts UPDATE → follower_count更新
+  [書き込み] task_queue INSERT → 分析タスク発行 (48h→micro, 7d→cumulative)  ← NEW
 ```
 
 ### Step 8m: マイクロ分析 — per-content即時分析 (Type A)
 
 **実行者**: アナリスト (Claude Sonnet 4.5) — 軽量モードで自動実行
-**タイミング**: metricsテーブルにコンテンツ1件の新規データが入った時点で即座に実行
+**タイミング**: 48h計測完了後 (measurement_point='48h')。task_queue (type='analyze', analysis_type='micro') が計測ジョブから追加された時点
 **所要時間**: ~MICRO_ANALYSIS_MAX_DURATION_SEC（system_settings、デフォルト: 30）秒
 
 ```
 マイクロ分析のトリガー:
-  計測ワーカーが report_measurement_complete を実行
-    → metrics INSERT
-    → content_learningsパイプラインが自動発火 (イベント駆動)
+  計測ワーカーが report_measurement_complete (measurement_point='48h') を実行
+    → metrics INSERT (measurement_point='48h')
+    → prediction_snapshots UPDATE (actual_impressions_48h)
+    → task_queue INSERT (type='analyze', analysis_type='micro')
+    → アナリストがキューから取得して実行
 
 MCPツール呼び出し:
   1. get_content_metrics({ content_id: "CNT_202603_0001" })
      → このコンテンツ1件の実測値を取得
      → { views: 4800, engagement_rate: 0.0598, completion_rate: 0.72 }
 
-  2. get_content_prediction({ content_id: "CNT_202603_0001" })
-     → このコンテンツに紐づく仮説のpredicted_kpisを取得
-     → { predicted: { views: 5000, engagement_rate: 0.05 },
+  2. get_content_metrics({ content_id: "CNT_202603_0001", measurement_point: '48h' })
+     → prediction_snapshots + metrics から予測vs実績を取得
+     → { predicted_impressions: 5166, actual_impressions_48h: 4800,
+          baseline_used: 4200, adjustments_applied: {...},
           hypothesis_id: 42, hypothesis_category: "timing" }
 
   3. search_content_learnings({                          ← Type B: 類似コンテンツの過去学習を参照
@@ -2652,6 +2822,47 @@ MCPツール呼び出し:
   [書き込み] learnings INSERT or UPDATE → 共有知見の蓄積/強化
   [書き込み] content_learnings UPDATE → 昇格済みフラグ
 ```
+
+### Step 10m-B: 累積分析 — 7d計測後のpgvector検索+AI解釈
+
+**実行者**: アナリスト (Claude Sonnet 4.5)
+**タイミング**: 7d計測完了後 (measurement_point='7d')。task_queue (type='analyze', analysis_type='cumulative') から取得
+**所要時間**: ~60-90秒
+**目的**: 過去の類似コンテンツ・仮説・知見をpgvectorで広く検索し、パターンを言語化
+
+```
+累積分析のトリガー:
+  計測ワーカーが 7d計測を完了
+    → prediction_snapshots UPDATE (actual_impressions_7d, prediction_error_7d)
+    → task_queue INSERT (type='analyze', analysis_type='cumulative')
+
+MCPツール呼び出し:
+  1. run_cumulative_analysis({ content_id: "CNT_202603_0001" })
+     → 第1層（構造化集計 — 冪等）:
+       pgvector 5テーブル検索 (CUMULATIVE_SEARCH_TOP_K=10, CUMULATIVE_SIMILARITY_THRESHOLD=0.7)
+         ・hypotheses: 類似仮説の過去結果 (confirmed/rejected/inconclusive)
+         ・content_learnings: 類似コンテンツの成功/失敗パターン
+         ・learnings: 検証済み知見の関連参照
+         ・research_data: 類似市場条件での過去実績
+         ・agent_learnings: エージェントの戦略的洞察
+       SQL集計:
+         ・similar_content_success_rate
+         ・similar_hypothesis_success_rate
+         ・avg_prediction_error_of_similar
+         ・top_contributing_factors (出現頻度順)
+         ・top_detractors (出現頻度順)
+
+     → 第2層（AI解釈 — アナリストLLM）:
+       パターン言語化、因果推論、次回提案
+
+     → content_learnings UPDATE (cumulative_context JSONB)
+
+データフロー:
+  [読み取り] hypotheses, content_learnings, learnings, research_data, agent_learnings (pgvector検索)
+  [書き込み] content_learnings UPDATE → cumulative_context JSONB
+```
+
+> **注**: 30d計測は保存のみ（分析トリガーなし）。prediction_snapshots.actual_impressions_30d と prediction_error_30d のみ更新。
 
 ### Step 8〜10 (マクロ): アナリスト — 日次集計分析
 

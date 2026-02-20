@@ -98,7 +98,7 @@ Agent Teamが並列実装を開始する前に、人間（Shungo）が完了し�
 |---|--------|---------|----------|
 | 1 | 01-tech-stack.md | 技術選定に問題なし | ☐ |
 | 2 | 02-architecture.md | アーキテクチャ承認 | ☐ |
-| 3 | 03-database-schema.md | 全27テーブルのスキーマ承認 | ☐ |
+| 3 | 03-database-schema.md | 全33テーブルのスキーマ承認 | ☐ |
 | 4 | 04-agent-design.md | エージェント設計承認 | ☐ |
 | 5 | 05-cost-analysis.md | コスト試算確認 | ☐ |
 | 6 | 06-development-roadmap.md | ロードマップ承認 | ☐ |
@@ -106,6 +106,17 @@ Agent Teamが並列実装を開始する前に、人間（Shungo）が完了し�
 | 8 | 08-algorithm-analysis.md | アルゴリズム設計承認 | ☐ |
 | 9 | 09-risks-and-bottlenecks.md | リスク対策確認 | ☐ |
 | 10 | 10-implementation-guide.md | 実装ガイド承認 | ☐ |
+
+### 2.7 アルゴリズム・KPI基盤
+
+| # | 作業 | 詳細 | ステータス |
+|---|------|------|----------|
+| 1 | 6アルゴリズムテーブル作成確認 | prediction_weights, weight_audit_log, prediction_snapshots, kpi_snapshots, account_baselines, adjustment_factor_cache | ☐ |
+| 2 | 31 system_settings シード投入 | アルゴリズム関連設定値のデフォルト値投入確認 | ☐ |
+| 3 | ベースライン計算バッチジョブテスト | own_history, cohortフォールバック, デフォルト(500) の3パスを確認 | ☐ |
+| 4 | weight再計算バッチジョブテスト | tier判定, EMA平滑化, ±20%クリップ, WEIGHT_FLOOR, 正規化 | ☐ |
+| 5 | Per-content マイクロ分析パイプラインテスト | 48h計測→単発分析→content_learnings書き込み | ☐ |
+| 6 | 累積分析（pgvector）テスト | 7d計測→5テーブル検索→構造化集計→AI解釈→cumulative_context書き込み | ☐ |
 
 ## 3. 推奨作業（実装開始後でも可）
 

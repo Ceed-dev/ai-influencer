@@ -1,0 +1,82 @@
+==========================================
+ Daily Report 2026-02-20
+==========================================
+
+--- 1. Progress Summary ---
+
+  Overall: 0 / 261 features passed (0.0%)
+
+  By category:
+    agent-intelligence [....................]   0/  3 (0%)
+    dashboard          [....................]   0/ 36 (0%)
+    database           [....................]   0/ 49 (0%)
+    infra              [....................]   0/  5 (0%)
+    intelligence       [....................]   0/ 18 (0%)
+    mcp-core           [....................]   0/ 43 (0%)
+    mcp-intel          [....................]   0/ 35 (0%)
+    measure            [....................]   0/  6 (0%)
+    strategy           [....................]   0/ 10 (0%)
+    test               [....................]   0/ 32 (0%)
+    text-post          [....................]   0/  6 (0%)
+    video-worker       [....................]   0/ 18 (0%)
+
+  By agent:
+    dashboard-agent         0/ 36 (0%)
+    infra-agent             0/ 54 (0%)
+    intelligence-agent      0/ 21 (0%)
+    mcp-core-agent          0/ 43 (0%)
+    mcp-intel-agent         0/ 35 (0%)
+    measure-agent           0/  6 (0%)
+    strategy-agent          0/ 10 (0%)
+    test-agent              0/ 32 (0%)
+    text-post-agent         0/  6 (0%)
+    video-worker-agent      0/ 18 (0%)
+
+--- 2. Recent Activity ---
+
+  [WARN] progress.txt not found — skipping activity summary (expected before implementation starts)
+
+--- 3. Anti-pattern Detection ---
+
+  AP1: One-shotting (multiple FEATs in single commit)
+    None detected
+
+  AP4: E2E Skip (COMPLETE without prior SMOKE)
+    (progress.txt not found — skipped)
+
+  AP9: Config Hardcoding (hardcoded values in src/)
+    (src/ directory not found — skipped)
+
+  AP10: Type Bypass (any type usage)
+    (src/ directory not found — skipped)
+
+  Anti-pattern total: 0 issue(s) found
+
+--- 4. Git Statistics ---
+
+  Commits since 2026-02-19: 27
+
+  By author:
+         27 shungo0222
+
+  Recent commits:
+    f427004 Fix concat resolution mismatch: normalize all inputs to 720x1280@30fps
+    c2806e8 fix(13-harness): correct stale MCP tool count 102→98
+    e299459 docs: update CONTEXT.md with Session 14 quality-100% work
+    892a7cb docs(v5): bring spec quality to 100% — JSONB schemas, formulas, REST API, number propagation
+    ce4aa23 docs(03-db): move content_learnings to Intelligence section + fix seed count in feature_list
+    d81eed9 docs(v5): propagate per-content learning numbers across all files (27 tables, 98 MCP, 86 settings)
+    3e4d64c docs(03-db): content_learnings table addition (26→27 tables)
+    edd56f7 docs(v5-spec): complete review of all 13 spec files — per-content learning + consistency
+    12d58fb docs(12-test): full review + 139 new tests (314→453), Playwright dashboard expansion
+    73e82d5 feat(curator): expand Data Curator to auto-generate character assets
+    29471e8 docs: update CONTEXT.md with Session 10-11 (§4-§7 review complete)
+    253e1c1 docs(10-impl): §6 agent tasks accuracy + §7 human work completeness
+    39ed81f docs(10-impl): §5 cross-refs, branch examples, git rules + fix module/prettier
+    3b0fe32 fix(12-test): update system_settings counts 73→81 in TEST-DB-046/047, TEST-DSH-015/045
+    23ca9b9 fix(02-arch): align settings UI tab names with DB categories
+    6be051c docs(10-impl): add §4.5-4.8 module interfaces + fix §4.3 heading + §4.7 categories
+    8bd1742 docs(10): add MCP tool directory mapping (89 tools) + dashboard sub-feature mapping (15 screens)
+    7165365 fix(spec): expand §3 directory structure with agent ownership and harness files
+    c42ca92 fix(spec): improve §2 cross-references and clarify agent responsibilities
+    ab8325c fix(spec): align 10-implementation-guide.md with actual project state and other specs
