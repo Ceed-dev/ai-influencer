@@ -153,7 +153,7 @@ v5.0は **4層構造** で構成される。上位層が方針を決定し、下
 │                                │                                        │
 ├────────────────────────────────┼────────────────────────────────────────┤
 │                                ▼                                        │
-│   Layer 3: MCP Server (自作 Node.js, 116ツール)                           │
+│   Layer 3: MCP Server (自作 Node.js, 122ツール)                           │
 │                                                                         │
 │   ┌────────────────────────────────────────────────────────────────┐    │
 │   │ アカウント管理  │ コンテンツ管理 │ 仮説管理 │ 計測管理         │           │
@@ -1040,7 +1040,7 @@ v4.0では人間が手動でシナリオ・モーション・音声等のイン�
 │                       MCP Server (Node.js)                            │
 │                                                                       │
 │  ┌─────────────────────────────────────────────────────────────────┐  │
-│  │ Tool Registry (103 MCPツール + 13 Dashboard REST API = 計116)   │   │
+│  │ Tool Registry (103 MCPツール + 19 Dashboard REST API = 計122)   │   │
 │  │                                                                  │ │
 │  │  [MCPツール — エージェントが MCP Protocol 経由で呼び出す]        │      │
 │  │                                                                  │ │
@@ -2475,7 +2475,7 @@ ORDER BY agent_type, count DESC;
 
 ### 6.13 Dashboard REST API ルート定義
 
-ダッシュボードの Next.js API Routes として実装する13のREST APIエンドポイント。MCP Serverとは独立し、Drizzle ORMでPostgreSQLに直接接続する。
+ダッシュボードの Next.js API Routes として実装する19のREST APIエンドポイント（基本13 + アルゴリズム・KPI関連6）。MCP Serverとは独立し、Drizzle ORMでPostgreSQLに直接接続する。
 
 | # | Method | Path | Description | Request Body | Response |
 |---|--------|------|-------------|-------------|----------|
@@ -2492,6 +2492,12 @@ ORDER BY agent_type, count DESC;
 | 11 | `GET` | `/api/settings` | 全system_settingsの取得（カテゴリ別グルーピング） | — | `{ settings: SystemSetting[] }` |
 | 12 | `PUT` | `/api/settings/:key` | system_setting値の更新 | `{ value: any }` | `{ setting: SystemSetting }` |
 | 13 | `GET` | `/api/errors` | エラーログ一覧（期間/タスクタイプでフィルター可） | — | `{ errors: ErrorLog[], total: number }` |
+| 14 | `GET` | `/api/predictions/:publication_id` | コンテンツ別予測vs実績データ | — | `{ prediction: PredictionDetail }` |
+| 15 | `GET` | `/api/algorithm/performance` | アルゴリズム性能サマリー（予測精度、weight分布） | — | `{ performance: AlgorithmPerformance }` |
+| 16 | `GET` | `/api/baselines/:account_id` | アカウント別ベースライン詳細 | — | `{ baseline: BaselineDetail }` |
+| 17 | `GET` | `/api/weights/audit` | weight再計算の監査ログ | — | `{ audits: WeightAudit[] }` |
+| 18 | `POST` | `/api/kpi/snapshots` | KPIスナップショット手動トリガー | `{ platform?, year_month? }` | `{ snapshot: KpiSnapshot }` |
+| 19 | `GET` | `/api/kpi/snapshots` | KPIスナップショット一覧（platform, year_monthフィルター） | — | `{ snapshots: KpiSnapshot[] }` |
 
 ### 6.14 主要ページのコンポーネント構成
 
@@ -3562,7 +3568,7 @@ v4.0からv5.0への移行は一括ではなく段階的に行う。各フェー
 │  │  │            │ │ agent      │ │-agent    │ │agent        │ │     │
 │  │  │ Node.js    │ │ LangGraph  │ │LangGraph │ │LangGraph    │ │     │
 │  │  │ 103 MCP  │ │ .js        │ │.js +     │ │.js          │ │      │
-│  │  │ + 13 API  │ │            │ │ffmpeg    │ │             │ │       │
+│  │  │ + 19 API  │ │            │ │ffmpeg    │ │             │ │       │
 │  │  │            │ │            │ │          │ │             │ │     │
 │  │  │ port: 3100 │ │ Opus +     │ │          │ │ Sonnet×N   │ │      │
 │  │  │            │ │ Sonnet×3   │ │ Sonnet×N│ │             │ │      │
@@ -3594,12 +3600,12 @@ v4.0からv5.0への移行は一括ではなく段階的に行う。各フェー
 | コンテナ名 | ベースイメージ | 役割 | ポート | 特記事項 |
 |---|---|---|---|---|
 | `postgres` | `pgvector/pgvector:pg16` | PostgreSQL 16 + pgvector拡張 | 5433 (dev) | **開発環境のみ**。本番はCloud SQL。ヘルスチェック: `pg_isready` |
-| `mcp-server` | `node:20-slim` | MCP Server (103 MCPツール) | 3100 | SQL実行 + Drive API。13 Dashboard REST APIはdashboard側 |
+| `mcp-server` | `node:20-slim` | MCP Server (103 MCPツール) | 3100 | SQL実行 + Drive API。19 Dashboard REST APIはdashboard側 |
 | `strategy-agent` | `node:20-slim` | 戦略サイクルグラフ (日次)。データキュレーターを内包 | 3200 | Opus + Sonnet×3 (リサーチャー+アナリスト+プランナー) + ツールSP + データキュレーター |
 | `production-agent` | `node:20-slim` + ffmpeg | 制作パイプライングラフ (連続) | 3300 | fal.ai + Fish Audio + ffmpeg |
 | `posting-agent` | `node:20-slim` | 投稿スケジューラーグラフ (連続) | 3400 | 4プラットフォームアダプター |
 | `measurement-agent` | `node:20-slim` | 計測ジョブグラフ (連続) | 3500 | Platform API接続 |
-| `dashboard` | `node:20-slim` | Next.js + Shadcn/ui | 3000 | Drizzle ORM + 13 REST API |
+| `dashboard` | `node:20-slim` | Next.js + Shadcn/ui | 3000 | Drizzle ORM + 19 REST API |
 
 > **注**: 本番環境ではpostgresコンテナの代わりにCloud SQL (PostgreSQL 16 + pgvector) を使用する。コンテナ数は本番6 (postgres除外) / 開発7。
 > データキュレーターは独立コンテナではなく `strategy-agent` コンテナ内で動作する (戦略サイクルグラフのノードとして実装)。

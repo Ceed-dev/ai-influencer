@@ -143,7 +143,7 @@ ai-influencer/v5/
 │   │   │   ├── operations/    # cycles, directives, task_queue (14ツール) ── mcp-core-agent
 │   │   │   ├── observability/ # reflections, individual_learnings, communications (8ツール) ── mcp-intel-agent
 │   │   │   ├── tool-mgmt/     # tool_catalog, tool_experiences, recipes (5ツール) ── mcp-intel-agent
-│   │   │   ├── system/        # system_settings参照 (※CRUDは13 REST APIに含まれる) ── mcp-core-agent
+│   │   │   ├── system/        # system_settings参照 (※CRUDは19 REST APIに含まれる) ── mcp-core-agent
 │   │   │   └── dashboard/     # KPI集計クエリ (2ツール) ── mcp-core-agent
 │   │   ├── utils/
 │   │   │   └── embedding.ts   # pgvector embedding生成（04-agent-design.md §6.3準拠）── mcp-intel-agent
@@ -218,7 +218,7 @@ ai-influencer/v5/
 │   │   ├── costs/             # コスト管理（13/15）
 │   │   ├── settings/          # 設定（14/15）— 8カテゴリタブ
 │   │   ├── directives/        # 人間指示（15/15）
-│   │   └── api/               # 13 REST API Routes（02-architecture.md §6.13参照）
+│   │   └── api/               # 19 REST API Routes（02-architecture.md §6.13参照）
 │   ├── components/
 │   │   ├── ui/               # Shadcn/ui components
 │   │   ├── charts/           # Recharts wrappers
@@ -263,7 +263,7 @@ ai-influencer/v5/
 
 > **注**: 04-agent-design.md §4ではエージェント別にツールを列挙しており、合計106 MCPツールと記載されている。これは3ツール（get_content_prediction, get_content_metrics, get_daily_micro_analyses_summary）が§4.3（アナリスト用）と§4.12（エージェント自己学習用）の両方に掲載されているため。MCP Server実装としてはユニーク103ツール。
 
-> **注**: 13 Dashboard REST APIツール（[04-agent-design.md §4.9](04-agent-design.md) の10ツール + [§4.11](04-agent-design.md) の3ツール）は `dashboard/app/api/` に Next.js API Routes として実装する（[02-architecture.md §6.13](02-architecture.md) 参照）。`src/mcp-server/tools/` には含めない。
+> **注**: 19 Dashboard REST APIツール（[04-agent-design.md §4.9](04-agent-design.md) の10ツール + [§4.11](04-agent-design.md) の3ツール + [§4.13](04-agent-design.md) の6ツール）は `dashboard/app/api/` に Next.js API Routes として実装する（[02-architecture.md §6.13](02-architecture.md) 参照）。`src/mcp-server/tools/` には含めない。
 
 | ディレクトリ | 担当 | ツール数 | ツール名（§4.x参照元） |
 |-------------|------|:-------:|----------------------|
@@ -273,7 +273,7 @@ ai-influencer/v5/
 | `operations/` | mcp-core | 14 | get_pending_directives(§4.1), create_cycle(§4.1), set_cycle_plan(§4.1), allocate_resources(§4.1), send_planner_directive(§4.1), request_production(§4.4), get_production_task(§4.6), report_production_complete(§4.6), get_publish_task(§4.7), report_publish_result(§4.7), get_measurement_tasks(§4.8), report_measurement_complete(§4.8), get_curation_queue(§4.10), mark_curation_complete(§4.10) |
 | `observability/` | mcp-intel | 8 | save_reflection(§4.12), get_recent_reflections(§4.12), save_individual_learning(§4.12), get_individual_learnings(§4.12), peek_other_agent_learnings(§4.12), submit_agent_message(§4.12), get_human_responses(§4.12), mark_learning_applied(§4.12) |
 | `tool-mgmt/` | mcp-intel | 5 | get_tool_knowledge(§4.5), save_tool_experience(§4.5), search_similar_tool_usage(§4.5), get_tool_recommendations(§4.5), update_tool_knowledge_from_external(§4.5) |
-| `system/` | mcp-core | 0 | ―（system_settings CRUDは13 REST APIに含まれる。エージェントの設定読み込みは `src/lib/settings.ts` を使用） |
+| `system/` | mcp-core | 0 | ―（system_settings CRUDは19 REST APIに含まれる。エージェントの設定読み込みは `src/lib/settings.ts` を使用） |
 | `dashboard/` | mcp-core | 2 | get_portfolio_kpi_summary(§4.1), get_cluster_performance(§4.1) |
 | **合計** | | **103** | |
 
@@ -506,7 +506,7 @@ main ── 本番ブランチ（直接コミット禁止）
 - Entity系 (14ツール): accounts, characters, components CRUD + キャラクター自動生成（[04-agent-design.md §4.3](04-agent-design.md), §4.4, §4.6, §4.10）
 - Production系 (15ツール): content, publications CRUD + 外部API連携（§4.4, §4.6, §4.7）
 - Operations系 (14ツール): cycles, human_directives, task_queue CRUD（§4.1, §4.4, §4.6, §4.7, §4.8, §4.10）
-- System系 (0 MCPツール): system_settings CRUDは13 REST APIに含まれる。エージェントは `src/lib/settings.ts` で読み取り
+- System系 (0 MCPツール): system_settings CRUDは19 REST APIに含まれる。エージェントは `src/lib/settings.ts` で読み取り
 - Dashboard系 (2ツール): KPI集計クエリ（§4.1 get_portfolio_kpi_summary, get_cluster_performance）
 
 各ツールの入出力型は [04-agent-design.md §4](04-agent-design.md) および `types/mcp-tools.ts` を参照。
@@ -641,9 +641,9 @@ export const getAccountsTool = {
 - Solarized Dark/Light テーマ（Tailwind CSS）
 - Nunito フォント（Google Fonts）
 - レスポンシブデザイン（Mobile-first）
-- 13 REST APIエンドポイント（`dashboard/app/api/` — §4.9の10 + §4.11の3）
+- 19 REST APIエンドポイント（`dashboard/app/api/` — §4.9の10 + §4.11の3 + §4.13の6）
 
-**13 REST APIエンドポイント一覧**（型定義: `types/api-schemas.ts`）:
+**19 REST APIエンドポイント一覧**（基本13 + アルゴリズム6）（型定義: `types/api-schemas.ts`）:
 
 | # | Method | Path | Request型 | Response型 | 説明 |
 |---|--------|------|-----------|------------|------|

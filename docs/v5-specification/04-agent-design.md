@@ -4,7 +4,7 @@
 >
 > **エージェント総数**: 社長1 + 専門職4〜5 + 部長N + ワーカープール = 可変
 >
-> **MCPツール数**: 116ツール (103 MCPツール + 13 Dashboard REST API, 12カテゴリ) ※各セクション合計は106 MCP/119ツール（§4.3/§4.12で3ツール共有）
+> **MCPツール数**: 122ツール (103 MCPツール + 19 Dashboard REST API, 13カテゴリ) ※各セクション合計は106 MCP/125ツール（§4.3/§4.12で3ツール共有）
 >
 > **LangGraphグラフ数**: 4グラフ (戦略サイクル / 制作パイプライン / 投稿スケジューラー / 計測ジョブ)
 >
@@ -27,7 +27,7 @@
 - [3. エージェント通信パターン](#3-エージェント通信パターン)
   - [3.1 上位層 (社長・部長・専門職): LLM対話](#31-上位層-社長部長専門職-llm対話)
   - [3.2 下位層 (部長→ワーカー): DBタスクキュー](#32-下位層-部長ワーカー-dbタスクキュー)
-- [4. MCP Server ツール一覧 (116ツール)](#4-mcp-server-ツール一覧-116ツール)
+- [4. MCP Server ツール一覧 (122ツール)](#4-mcp-server-ツール一覧-122ツール)
   - [4.1 戦略エージェント用 (10ツール)](#41-戦略エージェント用-10ツール)
   - [4.2 リサーチャー用 (12ツール)](#42-リサーチャー用-12ツール)
   - [4.3 アナリスト用 (22ツール)](#43-アナリスト用-22ツール)
@@ -738,7 +738,7 @@ COMMIT;
 | ログファイル (stdout/stderr) | English | 標準的なログ管理ツールとの互換性 |
 | ダッシュボードエラー表示 | Japanese (UIラベル) + English (技術詳細) | 運用者が理解しやすい形式 |
 
-## 4. MCP Server ツール一覧 (116ツール)
+## 4. MCP Server ツール一覧 (122ツール)
 
 全エージェントはMCP Server経由でPostgreSQLにアクセスする。ツールはエージェントの役割ごとにグループ化されており、各エージェントのSystem Promptで使用可能なツール群を制限する。
 
@@ -950,6 +950,22 @@ AIツール知識の管理・検索・制作レシピ設計のためのツール
 | 14 | `get_daily_micro_analyses_summary` | `{ date }` | `{ total_analyzed, confirmed, rejected, daily_accuracy, top_patterns[], new_learnings }` | 日次マイクロ分析集計 (マクロサイクル用) |
 
 > **注**: ツール #12-14 (get_content_metrics, get_content_prediction, get_daily_micro_analyses_summary) は §4.3 アナリスト用 #15-17 と同一ツール。MCP Server実装は1つ。§4の各セクション合計は106 MCPとなるが、この3ツールの重複によりユニーク実装数は103 MCP。
+
+### 4.13 ダッシュボード アルゴリズム・KPI用 (6ツール)
+
+ダッシュボードからアルゴリズム性能やKPIデータを閲覧・操作するためのツール群。§4.9/§4.11と同様、REST API (Next.js API Routes) として実装する。
+
+| # | ツール名 | 引数 | 戻り値 | 用途 |
+|---|---------|------|--------|------|
+| 1 | `get_content_prediction_detail` | `{ publication_id }` | `{ predicted_kpis, actual_kpis, prediction_error, factors }` | コンテンツ別予測vs実績データ |
+| 2 | `get_algorithm_performance` | `{ period?: '7d' \| '30d' \| '90d' }` | `{ accuracy, weight_distribution, trend }` | アルゴリズム性能サマリー |
+| 3 | `get_account_baseline` | `{ account_id }` | `{ baseline_type, metrics, last_updated }` | アカウント別ベースライン詳細 |
+| 4 | `get_weight_audit_log` | `{ limit?: 50 }` | `[{ tier, old_weights, new_weights, reason, created_at }]` | weight再計算の監査ログ |
+| 5 | `create_kpi_snapshot` | `{ platform?, year_month? }` | `{ snapshot_id }` | KPIスナップショット手動トリガー |
+| 6 | `list_kpi_snapshots` | `{ platform?, year_month? }` | `[{ id, platform, year_month, metrics, created_at }]` | KPIスナップショット一覧 |
+
+> **REST APIパス**: 上記6ツールは `dashboard/app/api/` に以下のルートとして実装される（型定義: `types/api-schemas.ts` #14-19）:
+> GET `/api/predictions/:publication_id`, GET `/api/algorithm/performance`, GET `/api/baselines/:account_id`, GET `/api/weights/audit`, POST `/api/kpi/snapshots`, GET `/api/kpi/snapshots`
 
 ## 5. LangGraphグラフ設計詳細
 

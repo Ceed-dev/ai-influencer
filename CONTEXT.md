@@ -2360,15 +2360,15 @@ Phase 2 (commit `3d4a7ac`): CJKピクセル幅補正
 - `8534617` — fix: update MCP tool count 111→119 in CONTEXT.md and 02-architecture.md
 - `d08029f` — fix(v5-spec): resolve MCP tool count inconsistency and stale references (12 files, +63/-32)
 
-**最終統一数値** (v5仕様 確定値):
+**最終統一数値** (v5仕様 確定値 — Session 18で REST API 13→19 に修正):
 | 項目 | 値 |
 |------|------|
 | テーブル | 33 |
 | インデックス | 146 |
 | system_settings | 118 (agent: 75) |
 | MCPツール (ユニーク) | 103 |
-| REST API | 13 |
-| 総ツール | 116 |
+| REST API | 19 (基本13 + アルゴリズム6) |
+| 総ツール | 122 |
 | Features | 276 |
 | テスト | 489 |
 
@@ -2404,11 +2404,20 @@ Phase 2 (commit `3d4a7ac`): CJKピクセル幅補正
 - 削除: session14-remaining-fixes.md, sec7-11-fixes.md, diagram-alignment-fix.md, session15-algorithm-integration.md, session17-final-state.md, algorithm-kpi-design.md, v5-remaining-quality.md
 - 残存: MEMORY.md, v5-redesign.md のみ
 
-**変更ファイル一覧 (4ファイル)**:
-- docs/v5-specification/02-architecture.md (+cycles.status 状態遷移図)
-- docs/v5-specification/04-agent-design.md (+閾値統合マスターテーブル)
-- docs/v5-specification/08-algorithm-analysis.md (+導出式)
-- docs/v5-specification/13-agent-harness.md (+TEST-ALG行、テスト数カラム)
+6. **REST API数修正** (全10ファイル横断)
+   - Session 16で追加された6つのアルゴリズム REST API が 10-implementation-guide.md にのみ反映され、他ファイルに未伝搬だった
+   - 13 REST → 19 REST (基本13 + アルゴリズム6)、116総ツール → 122総ツール
+   - 04-agent-design.md に §4.13 (ダッシュボード アルゴリズム・KPI用 6ツール) を新設
+   - 02-architecture.md §6.13 に6エンドポイント追加
+   - 全10ファイルの数値を 19 REST / 122 total に統一
+
+7. **stale数値修正**: 13-agent-harness.md の total_features 291→276 (3箇所)
+
+**変更ファイル一覧 (11ファイル)**:
+- docs/v5-specification/01-tech-stack.md, 02-architecture.md, 04-agent-design.md, 06-development-roadmap.md
+- docs/v5-specification/08-algorithm-analysis.md, 09-risks-and-bottlenecks.md, 10-implementation-guide.md
+- docs/v5-specification/12-test-specifications.md, 13-agent-harness.md, README.md
+- CONTEXT.md
 
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID

@@ -140,7 +140,7 @@ Week  W0   W1        W2        W3        W4        W5        W6        W7
 | # | エージェント名 | 担当モジュール | 主要成果物 |
 |---|-------------|--------------|----------|
 | 1 | infra-agent | Docker + PostgreSQL + DDL | docker-compose.yml, DDL適用, マイグレーションスクリプト |
-| 2 | mcp-core-agent | MCP Server（コアツール） | 全116ツールのうちCRUD系〜45ツール |
+| 2 | mcp-core-agent | MCP Server（コアツール） | 全122ツールのうちCRUD系〜45ツール |
 | 3 | mcp-intel-agent | MCP Server（インテリジェンス系） | 分析・学習・仮説関連〜52ツール |
 | 4 | video-worker-agent | 動画制作ワーカー | fal.ai連携, ffmpeg concat, リトライ処理 |
 | 5 | text-post-agent | テキスト制作 + 投稿ワーカー | X/IG/TikTok/YTテキスト生成, 投稿アダプター |
@@ -215,7 +215,7 @@ infra-agent ─── Docker + DDL（Week 1-2で完成 → 他エージェント
 
 | エージェント | 作業内容 | 成果物 |
 |-------------|---------|--------|
-| mcp-core-agent + mcp-intel-agent | 全116ツール完成 + テスト | **M4: MCP Server 100%** |
+| mcp-core-agent + mcp-intel-agent | 全122ツール完成 + テスト | **M4: MCP Server 100%** |
 | video-worker-agent | E2Eテスト（1動画の完全制作） | 動画制作ワーカー完成 |
 | text-post-agent | E2Eテスト（1投稿の完全フロー） | テキスト制作+投稿ワーカー完成 |
 | measure-agent | E2Eテスト（メトリクス収集→DB保存） | 計測ワーカー完成 |
@@ -241,7 +241,7 @@ infra-agent ─── Docker + DDL（Week 1-2で完成 → 他エージェント
 
 ```
 Step 1: DB + MCP Server接続テスト
-        └─ 33テーブル + 116ツールの実DB動作確認
+        └─ 33テーブル + 122ツールの実DB動作確認
 
 Step 2: Worker + MCP Server結合テスト
         └─ 動画制作WK、テキスト制作WK、投稿WK、計測WKがMCP経由でDB操作
@@ -287,7 +287,7 @@ Step 5: 全体E2Eテスト
 | M1 | Week 2 | DB稼働 | 33テーブルDDL適用完了。インデックス・トリガー動作確認。Cloud SQL接続テスト通過 |
 | M2 | Week 3 | MCP Server 70% | 70+ツール実装完了。ユニットテスト通過。pgvector検索動作確認 |
 | M3 | Week 4 | モジュール単体完成 | 全モジュール（Worker/Agent/Dashboard）の単体テスト通過 |
-| M4 | Week 5 | MCP Server 100% + Worker完成 | 116ツール完成。全Worker E2Eテスト通過。ダッシュボード全15画面完成 |
+| M4 | Week 5 | MCP Server 100% + Worker完成 | 122ツール完成。全Worker E2Eテスト通過。ダッシュボード全15画面完成 |
 | M5 | Week 6 | E2E通過 | 全体フロー（仮説→計画→制作→投稿→計測→分析→学習）のE2Eテスト通過 |
 | M6 | Week 7 | 本番Ready | Docker本番設定完了。初期データ投入完了。バックアップ検証完了。チェックリスト全項目クリア |
 
@@ -296,7 +296,7 @@ Step 5: 全体E2Eテスト
 **M0: 仕様凍結**
 - [ ] 全仕様書（01-11）の最終レビュー完了・承認済み
 - [ ] `types/database.ts` — 全33テーブルのRow型が定義済み
-- [ ] `types/mcp-tools.ts` — 全116ツールの入出力型が定義済み
+- [ ] `types/mcp-tools.ts` — 全122ツールの入出力型が定義済み
 - [ ] `types/langgraph-state.ts` — 全4グラフのステート型が定義済み
 - [ ] `types/api-schemas.ts` — ダッシュボードAPIスキーマが定義済み
 - [ ] `prompts/*.md` — 全エージェントのプロンプト全文が作成済み
