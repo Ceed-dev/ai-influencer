@@ -2649,7 +2649,7 @@ G8のSQLは全てNULLチェック付き（`WHERE hook_type IS NOT NULL`等）。
 
 ## 27. 新規system_settings一覧（アルゴリズム関連）
 
-本セクションで参照される全settings（30キー）:
+本セクションで参照される全settings（31キー）:
 
 | # | キー | デフォルト値 | カテゴリ |
 |---|---|---|---|

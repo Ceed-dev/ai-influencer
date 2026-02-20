@@ -2419,6 +2419,42 @@ Phase 2 (commit `3d4a7ac`): CJKピクセル幅補正
 - docs/v5-specification/12-test-specifications.md, 13-agent-harness.md, README.md
 - CONTEXT.md
 
+### 2026-02-20: Session 18 — 型ファイル同期 + KPI再定義 + ロードマップ修正
+
+**概要**: v5仕様の網羅的検証（Round 7〜9+）の継続で型ファイルの不整合を発見・修正。続いてユーザー指摘により KPI定義の根本的な誤り（アカウント数→インプレッション）をドキュメント全体で修正。
+
+**型ファイル同期** (commit: `e501d80`):
+1. **v5/types/mcp-tools.ts** — Session 14/16の仕様変更が未反映だった
+   - ヘッダー: 105ツール/12カテゴリ → 116ツール(103 MCP + 13 REST)/13カテゴリ
+   - §4.3 Analyst: 14→22ツール (+8 アルゴリズム/KPIバッチツール)
+   - §4.12 Self-Learning: 8→14ツール (+3 ユニークmicro-cycle + 3 共有)
+   - §4.13: Micro-Cycle Learning → Dashboard Algorithm/KPI REST (参照のみ)
+   - McpToolMap: 111→116エントリ
+   - AgentToolAccess: 全6 LLMエージェントに micro-cycle 6ツール追加、analystに algorithm 8ツール追加
+2. **v5/types/api-schemas.ts** — ヘッダー: 13→19エンドポイント
+
+**KPI再定義** (commit: `038413c`, +626/-382行):
+- **ユーザー指摘**: KPIはアカウント数ではなく、プラットフォーム別平均インプレッション達成率
+  - KPI達成率 = min(1.0, 実績平均インプ / KPI目標)
+  - 目標: TikTok 15,000 / IG 10,000 / YT 20,000 / X 10,000
+  - アカウント作成は人間の手動タスク（システムKPIではない）
+  - 新規アカウントは300-1,000インプレッションからスタート
+- **07-kpi-analysis.md**: §1新設（KPI定義と前提）、§1-§9全てインプレッションベースに書き換え、v5.0が最良シナリオに
+- **08-algorithm-analysis.md**: 92%上限の導出追加、§10.6新規アカウント成長曲線、§14数式クイックリファレンス(F1-F14)
+- **06-development-roadmap.md**: 16箇所修正（KPI定義、per-content学習タイムライン、精度目標、API審査クリティカルパス）
+
+**検証結果**:
+- Round 7: テスト数 489 (DB:59+MCP:137+WKR:40+AGT:35+DSH:156+INT:20+E2E:12+ALG:30) ✅
+- Round 8: 機能数 276 (全カテゴリ一致) ✅
+- Round 9: 型ファイル不整合発見 → 修正済み
+- KPI/精度/ロードマップ: 3並列エージェントで修正完了
+
+**v5仕様 最終数値**:
+- 33テーブル / 146インデックス / 118 system_settings (agent:75)
+- 103 MCPツール (ユニーク) / 19 REST API (13+6) / 122総ツール
+- 276機能 / 489テスト
+- 精度上限: 92% (月1: 25-35% → 月3: 45-60% → 月6: 70-82% → 月12: 88-93%)
+
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID
 - `.gsheets_token.json` - OAuth token for Sheets/Drive API

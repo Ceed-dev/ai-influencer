@@ -320,6 +320,14 @@ Step 5: 全体E2Eテスト
 - [ ] 146インデックス・全トリガー作成済み・動作確認済み
 - [ ] 既存Sheetsデータの移行完了（accounts, characters, components, content）
 
+**M2: MCP Server 70%** (Feature: 100/276)
+- [ ] 70+ MCPツール（103中）の実装完了・ユニットテスト通過
+- [ ] pgvector検索（embedding類似検索）が動作確認済み
+- [ ] entity/（accounts, characters, components）のCRUDが全て稼働
+- [ ] production/（content, publications, task_queue）のCRUDが全て稼働
+- [ ] intelligence/（hypotheses, learnings, observations）の主要ツールが稼働
+- [ ] MCP Serverが全ツールをLangGraphから呼び出し可能なことを確認
+
 **M3: モジュール単体完成** (Feature: 150/276)
 - [ ] 動画制作ワーカーが1動画のE2E制作完了（fal.ai Kling + TTS + Lipsync + concat）
 - [ ] テキスト制作ワーカーが4PFテキスト生成完了
@@ -331,6 +339,15 @@ Step 5: 全体E2Eテスト
 - [ ] MCP Server 70+ MCPツールがユニットテスト通過
 - [ ] per-content学習 micro-cycle (~30秒/コンテンツ) + macro-cycle (日次集約) が稼働確認済み
 - [ ] content_learningsテーブル + 6 micro-cycle MCPツールが動作確認済み
+
+**M4: MCP Server 100% + Worker完成** (Feature: 220/276)
+- [ ] 全103 MCPツール実装完了・ユニットテスト通過 (+ 19 REST API = 122総計)
+- [ ] 全Worker（動画制作/テキスト制作/投稿/計測）のE2Eテスト通過
+- [ ] ダッシュボード全15画面完成（M3の10画面 + 残り5画面）
+- [ ] content_learnings + 6 micro-cycleツールが完全稼働（本番データで検証済み）
+- [ ] アルゴリズム関連8バッチツール（weight再計算/baseline更新/cache更新/KPIスナップショット等）が稼働
+- [ ] 全6 LangGraph Agentが MCP Server経由で全ツールにアクセス可能
+- [ ] operations/（task_queue, error_logs）のリトライ・エラーハンドリングが動作確認済み
 
 **M5: E2E通過** (Feature: 260/276)
 - [ ] DB + MCP Server接続テスト通過
