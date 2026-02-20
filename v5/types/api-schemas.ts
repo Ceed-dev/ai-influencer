@@ -1,6 +1,6 @@
 // AUTO-GENERATED from 02-architecture.md Section 6.13 — DO NOT EDIT MANUALLY
 //
-// Dashboard REST API route interfaces (13 endpoints)
+// Dashboard REST API route interfaces (19 endpoints: 13 base + 6 algorithm/KPI)
 // Next.js API Routes, Prisma/Drizzle ORM → PostgreSQL direct
 
 import type {

@@ -1,7 +1,8 @@
 // AUTO-GENERATED from 04-agent-design.md Section 4 — DO NOT EDIT MANUALLY
 //
-// MCP Server Tool interfaces for all 105 tools
-// Organized by agent role (12 categories)
+// MCP Server Tool interfaces for 116 tools (103 MCP + 13 Dashboard REST)
+// Organized by agent role (13 categories)
+// §4.13 Dashboard Algorithm/KPI REST (6 tools) → types in api-schemas.ts #14-19
 
 import type {
   AccountRow,
@@ -320,8 +321,9 @@ export interface GetIntelGapsOutput {
 }
 
 // ============================================================================
-// 4.3 Analyst Tools (14 tools)
-// パフォーマンス分析・仮説検証・知見管理のためのツール群
+// 4.3 Analyst Tools (22 tools)
+// パフォーマンス分析・仮説検証・知見管理 + 予測・KPI・バッチツール
+// #15-17 は §4.12 #12-14 と同一ツール (MCP実装は1つ)
 // ============================================================================
 
 /** #1 — 分析対象メトリクス取得 */
@@ -502,6 +504,69 @@ export interface GenerateImprovementSuggestionsOutput {
     expected_impact: string;
     priority: 'high' | 'medium' | 'low';
   }>;
+}
+
+// #15-17: Shared with §4.12 — interface definitions in §4.12 Micro-Cycle section below
+// GetContentPredictionInput/Output, GetContentMetricsInput/Output,
+// GetDailyMicroAnalysesSummaryInput/Output
+
+/** #18 — ウェイト再計算バッチ (Error Correlation→EMA→クリップ→正規化→UPSERT+監査ログ) */
+export interface RunWeightRecalculationInput {
+  platform: Platform;
+}
+export interface RunWeightRecalculationOutput {
+  factors: Array<{
+    name: string;
+    old_weight: number;
+    new_weight: number;
+  }>;
+  data_count: number;
+  skipped_reason: string | null;
+}
+
+/** #19 — ベースライン日次更新バッチ (全アカウントまたは指定アカウント) */
+export interface RunBaselineUpdateInput {
+  account_id?: string;
+}
+export interface RunBaselineUpdateOutput {
+  updated_count: number;
+  source_breakdown: {
+    own_history: number;
+    cohort: number;
+    default: number;
+  };
+}
+
+/** #20 — 補正係数キャッシュ更新バッチ (8要素SQL集計→UPSERT) */
+export interface RunAdjustmentCacheUpdateInput {
+  platform: Platform;
+}
+export interface RunAdjustmentCacheUpdateOutput {
+  factors_updated: number;
+  cache_entries: number;
+}
+
+/** #21 — 月次KPIスナップショット算出+UPSERT */
+export interface RunKpiSnapshotInput {
+  year_month: string; // YYYY-MM
+}
+export interface RunKpiSnapshotOutput {
+  platforms: Array<{
+    platform: Platform;
+    achievement_rate: number;
+    prediction_accuracy: number;
+    is_reliable: boolean;
+  }>;
+}
+
+/** #22 — 累積分析実行 (pgvector 5テーブル検索→構造化集計→AI解釈→cumulative_context書込) */
+export interface RunCumulativeAnalysisInput {
+  content_id: string;
+}
+export interface RunCumulativeAnalysisOutput {
+  structured: Record<string, unknown>;
+  ai_interpretation: string;
+  recommendations: string[];
 }
 
 // ============================================================================
@@ -1284,8 +1349,9 @@ export interface SubmitReferenceContentOutput {
 }
 
 // ============================================================================
-// 4.12 Agent Self-Learning & Communication Tools (8 tools)
-// 全LLMエージェント共通 — セルフリフレクション、個別学習、人間への通信
+// 4.12 Agent Self-Learning & Communication Tools (14 tools: 8 self-learning + 6 micro-cycle)
+// 全LLMエージェント共通 — セルフリフレクション、個別学習、人間への通信、マイクロサイクル学習
+// #12-14 は §4.3 #15-17 と同一ツール (MCP実装は1つ)
 // ============================================================================
 
 /** #1 — セルフリフレクション結果の保存 */
@@ -1391,7 +1457,9 @@ export interface MarkLearningAppliedOutput {
 }
 
 // ============================================================================
-// 4.13 Micro-Cycle Learning Tools (per-content) — 6 tools
+// §4.12 Micro-Cycle Learning Interfaces (#9-14)
+// #9-11 are unique to §4.12, #12-14 are shared with §4.3 #15-17
+// Interface definitions used by McpToolMap §4.3 and §4.12 entries
 // ============================================================================
 
 /** #1 — content_learningsベクトル検索 + nicheフィルタ */
@@ -1500,6 +1568,15 @@ export interface GetDailyMicroAnalysesSummaryOutput {
 }
 
 // ============================================================================
+// 4.13 Dashboard Algorithm/KPI REST API (6 tools)
+// REST API (Next.js API Routes) — types defined in api-schemas.ts #14-19
+// NOT included in McpToolMap (different interface from MCP tools)
+// get_content_prediction_detail, get_algorithm_performance, get_account_baseline,
+// get_weight_audit_log, create_kpi_snapshot, list_kpi_snapshots
+// NOTE: get_algorithm_performance has different interface than §4.1 MCP tool
+// ============================================================================
+
+// ============================================================================
 // Tool Registry — maps tool names to their Input/Output types
 // ============================================================================
 
@@ -1530,7 +1607,7 @@ export interface McpToolMap {
   mark_intel_expired: { input: MarkIntelExpiredInput; output: MarkIntelExpiredOutput };
   get_intel_gaps: { input: GetIntelGapsInput; output: GetIntelGapsOutput };
 
-  // 4.3 Analyst (14)
+  // 4.3 Analyst (22 — #15-17 shared with §4.12 #12-14, unique entries = 22)
   get_metrics_for_analysis: { input: GetMetricsForAnalysisInput; output: GetMetricsForAnalysisOutput };
   get_hypothesis_results: { input: GetHypothesisResultsInput; output: GetHypothesisResultsOutput };
   verify_hypothesis: { input: VerifyHypothesisInput; output: VerifyHypothesisOutput };
@@ -1545,6 +1622,16 @@ export interface McpToolMap {
   get_niche_performance_trends: { input: GetNichePerformanceTrendsInput; output: GetNichePerformanceTrendsOutput };
   compare_hypothesis_predictions: { input: CompareHypothesisPredictionsInput; output: CompareHypothesisPredictionsOutput };
   generate_improvement_suggestions: { input: GenerateImprovementSuggestionsInput; output: GenerateImprovementSuggestionsOutput };
+  // #15-17: shared with §4.12 (listed here, referenced in §4.12 comment)
+  get_content_prediction: { input: GetContentPredictionInput; output: GetContentPredictionOutput };
+  get_content_metrics: { input: GetContentMetricsInput; output: GetContentMetricsOutput };
+  get_daily_micro_analyses_summary: { input: GetDailyMicroAnalysesSummaryInput; output: GetDailyMicroAnalysesSummaryOutput };
+  // #18-22: algorithm/KPI batch tools
+  run_weight_recalculation: { input: RunWeightRecalculationInput; output: RunWeightRecalculationOutput };
+  run_baseline_update: { input: RunBaselineUpdateInput; output: RunBaselineUpdateOutput };
+  run_adjustment_cache_update: { input: RunAdjustmentCacheUpdateInput; output: RunAdjustmentCacheUpdateOutput };
+  run_kpi_snapshot: { input: RunKpiSnapshotInput; output: RunKpiSnapshotOutput };
+  run_cumulative_analysis: { input: RunCumulativeAnalysisInput; output: RunCumulativeAnalysisOutput };
 
   // 4.4 Planner (9)
   get_assigned_accounts: { input: GetAssignedAccountsInput; output: GetAssignedAccountsOutput };
@@ -1623,7 +1710,8 @@ export interface McpToolMap {
   approve_curated_component: { input: ApproveCuratedComponentInput; output: ApproveCuratedComponentOutput };
   submit_reference_content: { input: SubmitReferenceContentInput; output: SubmitReferenceContentOutput };
 
-  // 4.12 Self-Learning & Communication (8)
+  // 4.12 Self-Learning & Communication (14 in spec: 8 self-learning + 3 unique micro-cycle + 3 shared)
+  // #1-8: Self-learning
   save_reflection: { input: SaveReflectionInput; output: SaveReflectionOutput };
   get_recent_reflections: { input: GetRecentReflectionsInput; output: GetRecentReflectionsOutput };
   save_individual_learning: { input: SaveIndividualLearningInput; output: SaveIndividualLearningOutput };
@@ -1632,14 +1720,16 @@ export interface McpToolMap {
   submit_agent_message: { input: SubmitAgentMessageInput; output: SubmitAgentMessageOutput };
   get_human_responses: { input: GetHumanResponsesInput; output: GetHumanResponsesOutput };
   mark_learning_applied: { input: MarkLearningAppliedInput; output: MarkLearningAppliedOutput };
-
-  // 4.13 Micro-Cycle Learning (6)
+  // #9-11: Micro-cycle unique tools
   search_content_learnings: { input: SearchContentLearningsInput; output: SearchContentLearningsOutput };
   create_micro_analysis: { input: CreateMicroAnalysisInput; output: CreateMicroAnalysisOutput };
   save_micro_reflection: { input: SaveMicroReflectionInput; output: SaveMicroReflectionOutput };
-  get_content_metrics: { input: GetContentMetricsInput; output: GetContentMetricsOutput };
-  get_content_prediction: { input: GetContentPredictionInput; output: GetContentPredictionOutput };
-  get_daily_micro_analyses_summary: { input: GetDailyMicroAnalysesSummaryInput; output: GetDailyMicroAnalysesSummaryOutput };
+  // #12-14: shared with §4.3 #15-17 — listed in §4.3 section above (get_content_metrics, get_content_prediction, get_daily_micro_analyses_summary)
+
+  // 4.13 Dashboard Algorithm/KPI REST (6 tools) — types in api-schemas.ts #14-19
+  // NOT in McpToolMap: get_content_prediction_detail, get_algorithm_performance,
+  // get_account_baseline, get_weight_audit_log, create_kpi_snapshot, list_kpi_snapshots
+  // NOTE: get_algorithm_performance REST has different interface than §4.1 MCP tool
 }
 
 /** Union type of all MCP tool names */
@@ -1661,20 +1751,24 @@ export interface AgentToolAccess {
     'get_portfolio_kpi_summary', 'get_cluster_performance', 'get_top_learnings',
     'get_active_hypotheses', 'get_algorithm_performance', 'get_pending_directives',
     'create_cycle', 'set_cycle_plan', 'allocate_resources', 'send_planner_directive',
-    // + self-learning tools
+    // + self-learning & micro-cycle tools (§4.12)
     'save_reflection', 'get_recent_reflections', 'save_individual_learning',
     'get_individual_learnings', 'peek_other_agent_learnings',
     'submit_agent_message', 'get_human_responses', 'mark_learning_applied',
+    'search_content_learnings', 'create_micro_analysis', 'save_micro_reflection',
+    'get_content_metrics', 'get_content_prediction', 'get_daily_micro_analyses_summary',
   ];
   researcher: [
     'save_trending_topic', 'save_competitor_post', 'save_competitor_account',
     'save_audience_signal', 'save_platform_update', 'get_recent_intel',
     'search_similar_intel', 'get_niche_trends', 'get_competitor_analysis',
     'get_platform_changes', 'mark_intel_expired', 'get_intel_gaps',
-    // + self-learning tools
+    // + self-learning & micro-cycle tools (§4.12)
     'save_reflection', 'get_recent_reflections', 'save_individual_learning',
     'get_individual_learnings', 'peek_other_agent_learnings',
     'submit_agent_message', 'get_human_responses', 'mark_learning_applied',
+    'search_content_learnings', 'create_micro_analysis', 'save_micro_reflection',
+    'get_content_metrics', 'get_content_prediction', 'get_daily_micro_analyses_summary',
   ];
   analyst: [
     'get_metrics_for_analysis', 'get_hypothesis_results', 'verify_hypothesis',
@@ -1683,36 +1777,48 @@ export interface AgentToolAccess {
     'update_component_score', 'calculate_algorithm_performance',
     'get_niche_performance_trends', 'compare_hypothesis_predictions',
     'generate_improvement_suggestions',
-    // + self-learning tools
+    // #15-17: shared with §4.12 micro-cycle
+    'get_content_prediction', 'get_content_metrics', 'get_daily_micro_analyses_summary',
+    // #18-22: algorithm/KPI batch tools
+    'run_weight_recalculation', 'run_baseline_update', 'run_adjustment_cache_update',
+    'run_kpi_snapshot', 'run_cumulative_analysis',
+    // + self-learning & micro-cycle tools (§4.12)
     'save_reflection', 'get_recent_reflections', 'save_individual_learning',
     'get_individual_learnings', 'peek_other_agent_learnings',
     'submit_agent_message', 'get_human_responses', 'mark_learning_applied',
+    'search_content_learnings', 'create_micro_analysis', 'save_micro_reflection',
   ];
   planner: [
     'get_assigned_accounts', 'get_account_performance', 'get_available_components',
     'create_hypothesis', 'plan_content', 'schedule_content',
     'get_niche_learnings', 'get_content_pool_status', 'request_production',
-    // + self-learning tools
+    // + self-learning & micro-cycle tools (§4.12)
     'save_reflection', 'get_recent_reflections', 'save_individual_learning',
     'get_individual_learnings', 'peek_other_agent_learnings',
     'submit_agent_message', 'get_human_responses', 'mark_learning_applied',
+    'search_content_learnings', 'create_micro_analysis', 'save_micro_reflection',
+    'get_content_metrics', 'get_content_prediction', 'get_daily_micro_analyses_summary',
   ];
   tool_specialist: [
     'get_tool_knowledge', 'save_tool_experience', 'search_similar_tool_usage',
     'get_tool_recommendations', 'update_tool_knowledge_from_external',
-    // + self-learning tools
+    // + self-learning & micro-cycle tools (§4.12)
     'save_reflection', 'get_recent_reflections', 'save_individual_learning',
     'get_individual_learnings', 'peek_other_agent_learnings',
     'submit_agent_message', 'get_human_responses', 'mark_learning_applied',
+    'search_content_learnings', 'create_micro_analysis', 'save_micro_reflection',
+    'get_content_metrics', 'get_content_prediction', 'get_daily_micro_analyses_summary',
   ];
   data_curator: [
     'get_curation_queue', 'create_component', 'update_component_data',
     'mark_curation_complete', 'get_similar_components', 'submit_for_human_review',
     'create_character_profile', 'generate_character_image', 'select_voice_profile',
-    // + self-learning tools
+    // + self-learning & micro-cycle tools (§4.12)
     'save_reflection', 'get_recent_reflections', 'save_individual_learning',
     'get_individual_learnings', 'peek_other_agent_learnings',
     'submit_agent_message', 'get_human_responses', 'mark_learning_applied',
+    'search_content_learnings', 'create_micro_analysis', 'save_micro_reflection',
+    'get_content_metrics', 'get_content_prediction', 'get_daily_micro_analyses_summary',
   ];
   production_worker: [
     'get_production_task', 'generate_script', 'get_character_info',
