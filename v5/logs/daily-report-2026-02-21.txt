@@ -1,0 +1,91 @@
+==========================================
+ Daily Report 2026-02-21
+==========================================
+
+--- 1. Progress Summary ---
+
+  Overall: 0 / 276 features passed (0.0%)
+
+  By category:
+    agent-intelligence [....................]   0/  3 (0%)
+    algorithm          [....................]   0/ 15 (0%)
+    dashboard          [....................]   0/ 36 (0%)
+    database           [....................]   0/ 49 (0%)
+    infra              [....................]   0/  5 (0%)
+    intelligence       [....................]   0/ 18 (0%)
+    mcp-core           [....................]   0/ 43 (0%)
+    mcp-intel          [....................]   0/ 35 (0%)
+    measure            [....................]   0/  6 (0%)
+    strategy           [....................]   0/ 10 (0%)
+    test               [....................]   0/ 32 (0%)
+    text-post          [....................]   0/  6 (0%)
+    video-worker       [....................]   0/ 18 (0%)
+
+  By agent:
+    dashboard-agent         0/ 36 (0%)
+    infra-agent             0/ 67 (0%)
+    intelligence-agent      0/ 21 (0%)
+    mcp-core-agent          0/ 43 (0%)
+    mcp-intel-agent         0/ 37 (0%)
+    measure-agent           0/  6 (0%)
+    strategy-agent          0/ 10 (0%)
+    test-agent              0/ 32 (0%)
+    text-post-agent         0/  6 (0%)
+    video-worker-agent      0/ 18 (0%)
+
+--- 2. Recent Activity ---
+
+  [WARN] progress.txt not found — skipping activity summary (expected before implementation starts)
+
+--- 3. Anti-pattern Detection ---
+
+  AP1: One-shotting (multiple FEATs in single commit)
+    None detected
+
+  AP4: E2E Skip (COMPLETE without prior SMOKE)
+    (progress.txt not found — skipped)
+
+  AP9: Config Hardcoding (hardcoded values in src/)
+    (src/ directory not found — skipped)
+
+  AP10: Type Bypass (any type usage)
+    (src/ directory not found — skipped)
+
+  Anti-pattern total: 0 issue(s) found
+
+--- 4. Git Statistics ---
+
+  Commits since 2026-02-20: 11
+
+  By author:
+         11 shungo0222
+
+  Recent commits:
+    11efab5 fix(v5-types): clarify mcp-tools.ts header — 116 in file, 122 system total
+    b090b7f fix(v5-spec): add missing M2/M4 checklists, fix settings count, update CONTEXT.md
+    038413c feat(v5-spec): redefine KPI as per-platform impressions, fix accuracy & roadmap
+    e501d80 fix(v5-types): sync mcp-tools.ts and api-schemas.ts with spec changes from Sessions 14/16
+    2563efd fix(v5-spec): propagate REST API count 13→19 and total tools 116→122 across all specs
+    b8a23f1 fix(v5-spec): correct stale total_features 291→276 in 13-agent-harness.md
+    6997575 fix(v5-spec): add missing state machines, threshold master table, and calculation derivations
+    d08029f fix(v5-spec): resolve MCP tool count inconsistency and stale references
+    8534617 fix: update MCP tool count 111→119 in CONTEXT.md and 02-architecture.md
+    003fbdc feat(v5): integrate algorithm-KPI design memo into all specs (+3,987 lines, 21 files)
+    ca6e3d9 Add retry for fetch-failed and Fish Audio 429 rate limit errors
+
+--- 5. Code Quality ---
+
+  Lint: node_modules not installed yet — skipped
+  TypeScript: not configured yet — skipped
+  Tests: node_modules not installed yet — skipped
+
+--- 6. Environment Health Check ---
+
+  Docker: no v5 containers running
+  Database: psql not installed
+  v5/ disk usage: 520K
+  Disk free: 22G
+
+==========================================
+ End of Report
+==========================================
