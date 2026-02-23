@@ -118,3 +118,4 @@
 2026-02-23T08:47:05Z | strategy-agent | COMPLETE | FEAT-STR-001 | passed | TEST-AGT-001 green (15/15 tests)
 2026-02-23T08:47:20Z | strategy-agent | START | FEAT-STR-002 | starting | cycles table status transition recording
 2026-02-23T08:49:27Z | text-post-agent | COMPLETE | FEAT-TP-003 | passed | TEST-WKR-014 green
+2026-02-23T08:49:44Z | text-post-agent | START | FEAT-TP-006 | starting | publicationsレコード作成+measure_after自動設定
