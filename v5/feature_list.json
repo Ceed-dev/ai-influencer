@@ -1183,7 +1183,7 @@
         "run-migrations.sh作成",
         "Docker起動時自動実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-INF-004",
