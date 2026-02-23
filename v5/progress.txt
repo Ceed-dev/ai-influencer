@@ -80,3 +80,6 @@
 2026-02-23T08:07:12Z | dashboard-agent | COMPLETE | FEAT-DSH-027 | passed | TEST-DSH-037,073-075,114-115 green
 2026-02-23T08:07:12Z | dashboard-agent | COMPLETE | FEAT-DSH-028 | passed | TEST-DSH-038,070-072,077,085-088 green
 2026-02-23T08:07:12Z | dashboard-agent | COMPLETE | FEAT-DSH-029 | passed | TEST-DSH-039,067-069,078,084 green
+2026-02-23T08:07:52Z | dashboard-agent | SMOKE | - | passed | All 18 P0 features complete, smoke test passed
+2026-02-23T08:08:03Z | dashboard-agent | START | FEAT-DSH-008 | starting | GET /api/kpi/summary
+2026-02-23T08:10:37Z | infra-agent | COMPLETE | FEAT-INF-003 | passed | migration script working
