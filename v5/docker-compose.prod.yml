@@ -2,9 +2,14 @@
 # Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 # Spec: docs/v5-specification/02-architecture.md Section 15-16
 #
+# FEAT-INF-004: Production docker-compose connecting to Cloud SQL
+# Cloud SQL instance: ai-influencer-db (35.243.93.204)
+# GCP Project: ai-influencer-ceed
+#
 # Note: Production uses Cloud SQL instead of postgres container.
 # The postgres and pgbouncer services are NOT started in production.
-# Override DATABASE_URL in .env.production to point to Cloud SQL.
+# Set DATABASE_URL in .env.production or environment to point to Cloud SQL.
+# Default: postgres://postgres:<password>@35.243.93.204:5432/ai_influencer
 
 services:
   postgres:
@@ -20,12 +25,22 @@ services:
     container_name: v5-app
     working_dir: /app
     restart: unless-stopped
-    volumes: []
+    volumes:
+      - ./dist:/app/dist
+      - ./package.json:/app/package.json
+      - ./node_modules:/app/node_modules
     environment:
       NODE_ENV: production
-      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_URL: ${DATABASE_URL:-postgres://postgres:password@35.243.93.204:5432/ai_influencer}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      FAL_AI_KEY: ${FAL_AI_KEY}
+      FISH_AUDIO_API_KEY: ${FISH_AUDIO_API_KEY}
+      GOOGLE_DRIVE_ROOT_FOLDER_ID: ${GOOGLE_DRIVE_ROOT_FOLDER_ID:-1KRQuZ4W7u5CXRamjvN4xmavfu-7TPb0X}
+      GOOGLE_SERVICE_ACCOUNT_KEY_PATH: ${GOOGLE_SERVICE_ACCOUNT_KEY_PATH:-/app/credentials/service-account.json}
       LOG_LEVEL: info
       DRY_RUN: "false"
+      PORT: "3001"
     ports:
       - "3001:3001"
     command: ["npm", "run", "start"]
@@ -33,6 +48,12 @@ services:
       resources:
         limits:
           memory: 4G
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3001/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     logging:
       driver: json-file
       options:
@@ -46,11 +67,14 @@ services:
     restart: unless-stopped
     depends_on:
       app:
-        condition: service_started
-    volumes: []
+        condition: service_healthy
+    volumes:
+      - ./dashboard/.next:/dashboard/.next
+      - ./dashboard/package.json:/dashboard/package.json
+      - ./dashboard/node_modules:/dashboard/node_modules
     environment:
       NODE_ENV: production
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://app:3001}
     ports:
       - "3000:3000"
     command: ["npm", "run", "start"]
@@ -58,6 +82,12 @@ services:
       resources:
         limits:
           memory: 2G
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     logging:
       driver: json-file
       options:
