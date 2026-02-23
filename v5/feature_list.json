@@ -4952,7 +4952,7 @@
         "Rechartsチャート実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DSH-022",
@@ -4980,7 +4980,7 @@
         "agent_type/cycle_idフィルタ実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DSH-023",
@@ -5035,7 +5035,7 @@
         "self_score推移チャート実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DSH-025",
@@ -5060,7 +5060,7 @@
         "成長指標ページ実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DSH-026",
@@ -5090,7 +5090,7 @@
         "バージョン一覧+改善提案表示",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DSH-027",
