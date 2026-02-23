@@ -71,7 +71,7 @@
         "CHECK(platform IN('youtube','tiktok','instagram','x'))追加",
         "TEST-DB-003,004実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DB-004",
@@ -95,7 +95,7 @@
         "CHECK+DEFAULT設定",
         "TEST-DB-005,006実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DB-005",
@@ -118,7 +118,7 @@
         "CHECK制約追加",
         "TEST-DB-007実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DB-006",
@@ -141,7 +141,7 @@
         "UNIQUE制約追加",
         "TEST-DB-008実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DB-007",
@@ -168,7 +168,7 @@
         "voice_id VARCHAR(32) NOT NULL設定",
         "TEST-DB-009,010実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DB-008",
@@ -191,7 +191,7 @@
         "CHECK制約追加",
         "TEST-DB-011実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DB-009",
@@ -214,7 +214,7 @@
         "CHECK(score>=0 AND score<=100)追加",
         "TEST-DB-012実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DB-010",
@@ -237,7 +237,7 @@
         "CHECK+DEFAULT設定",
         "TEST-DB-013実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DB-011",
@@ -260,7 +260,7 @@
         "CHECK+DEFAULT設定",
         "TEST-DB-014実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DB-012",
@@ -284,7 +284,7 @@
         "CHECK+DEFAULT設定",
         "TEST-DB-015,016実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DB-013",
@@ -307,7 +307,7 @@
         "CHECK制約追加",
         "TEST-DB-017実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DB-014",
@@ -330,7 +330,7 @@
         "CHECK(quality_score>=0 AND quality_score<=10)追加",
         "TEST-DB-018実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DB-015",
@@ -353,7 +353,7 @@
         "CHECK制約追加",
         "TEST-DB-019実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DB-016",
@@ -376,7 +376,7 @@
         "CHECK+DEFAULT設定",
         "TEST-DB-020実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DB-017",
@@ -399,7 +399,7 @@
         "CHECK制約追加",
         "TEST-DB-021実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DB-018",
@@ -422,7 +422,7 @@
         "CHECK制約追加",
         "TEST-DB-022実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DB-019",
@@ -445,7 +445,7 @@
         "CHECK+DEFAULT設定",
         "TEST-DB-023実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DB-020",
@@ -468,7 +468,7 @@
         "CHECK制約追加",
         "TEST-DB-024実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DB-021",
@@ -491,7 +491,7 @@
         "embedding vector(1536)設定",
         "TEST-DB-025実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DB-022",
@@ -514,7 +514,7 @@
         "CHECK制約追加",
         "TEST-DB-026実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DB-023",
@@ -537,7 +537,7 @@
         "CHECK制約追加",
         "TEST-DB-027実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DB-024",
@@ -561,7 +561,7 @@
         "CHECK+DEFAULT設定",
         "TEST-DB-028,029実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DB-025",
@@ -584,7 +584,7 @@
         "DEFAULT値設定",
         "TEST-DB-030実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DB-026",
@@ -607,7 +607,7 @@
         "CHECK制約追加",
         "TEST-DB-031実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DB-027",
@@ -630,7 +630,7 @@
         "DEFAULT+CHECK設定",
         "TEST-DB-032実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DB-028",
@@ -653,7 +653,7 @@
         "GENERATED ALWAYS AS(...)STORED設定",
         "TEST-DB-033実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DB-029",
@@ -676,7 +676,7 @@
         "CHECK制約追加",
         "TEST-DB-034実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DB-030",
@@ -699,7 +699,7 @@
         "全6テーブルで同一CHECK設定",
         "TEST-DB-035実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DB-031",
@@ -722,7 +722,7 @@
         "CHECK制約追加",
         "TEST-DB-036実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DB-032",
@@ -745,7 +745,7 @@
         "CHECK制約追加",
         "TEST-DB-037実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DB-033",
@@ -768,7 +768,7 @@
         "CHECK制約追加",
         "TEST-DB-038実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DB-034",
@@ -791,7 +791,7 @@
         "CHECK制約追加",
         "TEST-DB-039実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DB-035",
@@ -814,7 +814,7 @@
         "CHECK制約追加",
         "TEST-DB-040実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DB-036",
@@ -837,7 +837,7 @@
         "CHECK制約追加",
         "TEST-DB-041実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DB-037",
@@ -860,7 +860,7 @@
         "CHECK+DEFAULT設定",
         "TEST-DB-042実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DB-038",
@@ -4685,7 +4685,7 @@
         "全件取得API実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DSH-012",
@@ -4710,7 +4710,7 @@
         "min/max制約バリデーション",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DSH-013",
