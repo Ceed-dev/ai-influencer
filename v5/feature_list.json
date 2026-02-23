@@ -4435,7 +4435,7 @@
         "platformフィルタ実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DSH-002",
@@ -4460,7 +4460,7 @@
         "404レスポンス実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DSH-003",
