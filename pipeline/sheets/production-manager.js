@@ -18,6 +18,7 @@ const HEADERS = [
   'platform_post_ids',
   'yt_views', 'yt_engagement', 'tt_views', 'tt_engagement',
   'ig_views', 'ig_engagement', 'overall_score', 'analysis_date',
+  'hook_base_video_id', 'cta_base_video_id',
 ];
 
 const COL_COUNT = HEADERS.length; // 33
