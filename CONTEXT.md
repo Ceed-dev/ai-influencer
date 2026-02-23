@@ -2537,3 +2537,4 @@ Phase 2 (commit `3d4a7ac`): CJKピクセル幅補正
 - [x] 2.1-1: GCPプロジェクト新規作成
 - [x] 2.1-2: GCE VM プロビジョニング (ai-influencer-vm, e2-standard-4, asia-northeast1-b, External IP: 34.85.62.184)
 - [x] 2.1-3: Cloud SQL PostgreSQL 16 (ai-influencer-db, db-f1-micro, asia-northeast1-c, External IP: 35.243.93.204, pgvectorはDB接続後に有効化)
+- [x] 2.1-4: VPCネットワーク + ファイアウォール設定 (SSH:22, Dashboard:3000, MCP API:3001)
