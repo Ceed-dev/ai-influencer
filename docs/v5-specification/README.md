@@ -59,39 +59,49 @@ v5.0は、AI-Influencerシステムを**完全AIエージェント駆動**に刷
 
 ## アーキテクチャ概要図
 
-```
-+-------------------------------------------------------------+
-|                       Human Dashboard                       |
-|                    (Next.js + Shadcn/ui)                    |
-|          KPI Monitoring / Accuracy / Intervention           |
-+------------------------------+------------------------------+
-                               |
-+------------------------------v------------------------------+
-|              LangGraph.js v1.0 (Orchestration)              |
-|                                                             |
-|  Strategy  Research  Analyst  Tool Spec  Data       Planner |
-|  Agent     Agent     Agent    Agent      Curator    x N     |
-|  (Opus)    (Sonnet)  (Sonnet) (Sonnet)   (Sonnet)   (Sonnet)|
-|                                                             |
-|                        MCP Protocol                         |
-|                              |                              |
-|              Custom MCP Server (Node.js)                    |
-|   Business Logic + Queries (122ツール: 103 MCP + 19 REST API)   |
-|                              |                              |
-|  Video    Text     Posting        Measurement               |
-|  Worker   Worker   Worker         Worker                    |
-|  (fal.ai) (LLM)    (Platforms)    (Platform APIs)           |
-+------------------------------+------------------------------+
-                               |
-+------------------------------v------------------------------+
-|                   PostgreSQL + pgvector                     |
-|        Structured Data + Vector Search + Task Queue         |
-+------------------------------+------------------------------+
-                               |
-+------------------------------v------------------------------+
-|                         Google Drive                        |
-|               Video / Image / Audio Files                   |
-+-------------------------------------------------------------+
+```mermaid
+flowchart TB
+    subgraph L1["Human Dashboard"]
+        D1["Next.js + Shadcn/ui<br/>KPI Monitoring / Accuracy / Intervention"]
+    end
+
+    subgraph L2["LangGraph.js v1.0 Orchestration"]
+        direction TB
+
+        subgraph agents["AI Agents"]
+            direction LR
+            SA["Strategy<br/>(Opus)"]
+            RA["Research<br/>(Sonnet)"]
+            AA["Analyst<br/>(Sonnet)"]
+            TA["Tool Spec<br/>(Sonnet)"]
+            DC["Data Curator<br/>(Sonnet)"]
+            PA["Planner xN<br/>(Sonnet)"]
+        end
+
+        MCP["MCP Protocol"]
+
+        MCPS["Custom MCP Server — Node.js<br/>122 tools: 103 MCP + 19 REST API"]
+
+        subgraph workers["Workers"]
+            direction LR
+            VW["Video<br/>(fal.ai)"]
+            TW["Text<br/>(LLM)"]
+            PW["Posting<br/>(Platforms)"]
+            MW["Measurement<br/>(APIs)"]
+        end
+
+        agents --> MCP --> MCPS --> workers
+    end
+
+    subgraph L3["PostgreSQL + pgvector"]
+        DB["Structured Data + Vector Search + Task Queue"]
+    end
+
+    subgraph L4["Google Drive"]
+        GD["Video / Image / Audio Files"]
+    end
+
+    L1 --> L2 --> L3 --> L4
 ```
 
 ## 主要な技術的決定とその理由
