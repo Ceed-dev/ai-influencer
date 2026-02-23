@@ -118,194 +118,380 @@ v5.0のPostgreSQLスキーマは、AI-Influencerシステムの全構造化デ�
 
 ### ER図
 
-```
-┌─────────────┐       ┌─────────────┐       ┌─────────────────┐
-│  characters │       │  accounts   │       │   components    │
-│             │◄──────│             │       │                 │
-│ character_id│  uses │ account_id  │       │ component_id    │
-│ name        │       │ platform    │       │ type            │
-│ voice_id    │       │ niche       │       │ subtype         │
-│ appearance  │       │ status      │       │ data (JSONB)    │
-└──────┬──────┘       └─────────────┘       └────────┬────────┘
-       │                                             │
-       │  character_id                               │ component_id
-       │                                             │
-       │              ┌──────────────┐     ┌─────────▼─────────┐
-       └─────────────►│   content    │     │ content_sections  │
-                      │              │◄────│                   │
-                      │ content_id   │     │ content_id (FK)   │
-                      │ content_format│     │ component_id (FK) │
-                      │ recipe_id(FK)│     │ section_order     │
-                      │ status       │     │ section_label     │
-                      │ hypothesis_id│     └───────────────────┘
-                      └──────┬──────┘
-                             │
-                hypothesis_id│  content_id
-                             │         │
-                ┌────────────▼──┐      │    ┌──────────────┐
-                │  hypotheses   │      └───►│ publications │
-                │               │           │              │
-                │ statement     │           │ content_id   │
-                │ verdict       │           │ account_id   │
-                │ embedding     │           │ platform     │
-                │ (vector)      │           │ posted_at    │
-                └───────┬───────┘           └──────┬───────┘
-                        │                          │
-                  cycle_id                         │ publication_id
-                        │                          │
-                ┌───────▼───────┐   ┌──────────────▼───┐
-                │    cycles     │   │     metrics       │
-                │               │   │                   │
-                │ cycle_number  │   │ views, likes      │
-                │ status        │   │ platform_data     │
-                └───────┬───────┘   │ raw_data (JSONB)  │
-                        │           └──────────────────┘
-                  cycle_id
-                        │
-                ┌───────▼───────┐   ┌──────────────────┐
-                │   analyses    │   │  market_intel     │
-                │               │   │                  │
-                │ findings      │   │ intel_type       │
-                │ recommendations   │ data (JSONB)     │
-                └───────────────┘   │ embedding        │
-                                    │ (vector)         │
-                ┌───────────────┐   └──────────────────┘
-                │   learnings   │
-                │               │   ┌──────────────────┐
-                │ insight       │   │ human_directives │
-                │ confidence    │   │                  │
-                │ embedding     │   │ directive_type   │
-                │ (vector)      │   │ content          │
-                └───────────────┘   │ target_agents    │
-                                    │ priority         │
-                                    └──────────────────┘
-                ┌───────────────┐
-                │  task_queue   │   ┌──────────────────────┐
-                │               │   │ algorithm_performance│
-                │ task_type     │   │                      │
-                │ payload       │   │ hypothesis_accuracy  │
-                │ status        │   │ prediction_error     │
-                │ priority      │   │ improvement_rate     │
-                └───────────────┘   └──────────────────────┘
+```mermaid
+erDiagram
+    %% ===== Entity Tables =====
+    characters {
+        VARCHAR character_id PK "CHR_0001形式"
+        VARCHAR name "キャラクター名"
+        VARCHAR voice_id "Fish Audio 32-char hex"
+        JSONB appearance "外見設定"
+        JSONB personality "性格設定"
+        VARCHAR image_drive_id "Drive画像ID"
+        VARCHAR status "draft/pending_review/active/archived"
+    }
 
-                ┌─────────────────────┐   ┌──────────────────────┐
-                │agent_prompt_versions│   │  agent_thought_logs  │
-                │                     │   │                      │
-                │ agent_type          │   │ agent_type           │
-                │ version             │   │ cycle_id ────────────┼──► cycles
-                │ prompt_content      │   │ graph_name           │
-                │ active              │   │ node_name            │
-                │ performance_before  │   │ reasoning            │
-                │ performance_after   │   │ decision             │
-                └─────────────────────┘   └──────────────────────┘
+    accounts {
+        VARCHAR account_id PK "ACC_0001形式"
+        VARCHAR platform "youtube/tiktok/instagram/x"
+        VARCHAR character_id FK "→ characters"
+        VARCHAR niche "beauty/tech/fitness等"
+        VARCHAR cluster "A/Bテスト用グルーピング"
+        JSONB auth_credentials "OAuth tokens"
+        VARCHAR status "active/suspended/setup"
+        INTEGER follower_count "最新フォロワー数"
+    }
 
-                ┌─────────────────────┐   ┌────────────────────────────┐
-                │ agent_reflections   │   │agent_individual_learnings  │
-                │                     │   │                            │
-                │ agent_type          │   │ agent_type                 │
-                │ cycle_id ───────────┼─► │ category                   │
-                │ task_description    │   │ content                    │
-                │ self_score          │   │ confidence                 │
-                │ what_went_well      │   │ success_rate (generated)   │
-                │ what_to_improve     │   │ source_reflection_id ──────┼──► agent_reflections
-                │ next_actions        │   │ embedding (vector)         │
-                └──────────┬──────────┘   └────────────────────────────┘
-                           │
-                           │ cycle_id
-                           ▼
-                       cycles
+    components {
+        VARCHAR component_id PK "SCN_0001/MOT_0001等"
+        VARCHAR type "scenario/motion/audio/image"
+        VARCHAR subtype "hook/body/cta等"
+        JSONB data "コンポーネント固有データ"
+        VARCHAR drive_file_id "DriveファイルID"
+        VARCHAR status "draft/active/archived"
+    }
 
-                ┌─────────────────────────────┐
-                │   agent_communications      │
-                │                             │
-                │ agent_type                  │
-                │ message_type                │
-                │ priority                    │
-                │ content                     │
-                │ human_response              │
-                │ status                      │
-                │ cycle_id ───────────────────┼──► cycles
-                └─────────────────────────────┘
+    %% ===== Production Tables =====
+    content {
+        VARCHAR content_id PK "CNT_YYYYMM_NNNN形式"
+        VARCHAR content_format "short_video/text_post/image_post"
+        INTEGER recipe_id FK "→ production_recipes"
+        VARCHAR character_id FK "→ characters"
+        INTEGER hypothesis_id FK "→ hypotheses"
+        VARCHAR status "planned/pending_approval/producing/ready/cancelled/analyzed"
+        VARCHAR script_language "en/jp"
+        DATE planned_post_date "投稿予定日"
+    }
 
-                ┌─────────────────────┐   ┌──────────────────────┐
-                │   tool_catalog      │   │  tool_experiences    │
-                │                     │   │                      │
-                │ tool_name           │◄──│ tool_id ─────────────┤
-                │ tool_type           │   │ content_id ──────────┼──► content
-                │ provider            │   │ agent_id             │
-                │ cost_per_use        │   │ quality_score        │
-                │ strengths (JSONB)   │   │ success              │
-                │ quirks (JSONB)      │   │ content_type         │
-                │ is_active           │   └──────────────────────┘
-                └──────────┬──────────┘
-                           │
-                           │ tool_id (nullable)
-                           │
-                ┌──────────▼──────────┐   ┌──────────────────────┐
-                │tool_external_sources│   │ production_recipes   │
-                │                     │   │                      │
-                │ source_type         │   │ recipe_name          │
-                │ source_url          │   │ content_format       │
-                │ content_summary     │   │ target_platform      │
-                │ key_insights (JSONB)│   │ steps (JSONB)        │
-                │ embedding (vector)  │   │ avg_quality_score    │
-                └─────────────────────┘   │ success_rate         │
-                                          │ is_default           │
-                                          └──────────┬───────────┘
-                                                     │
-                                                     │ ◄── content.recipe_id (FK)
-                                                     │
-                ┌─────────────────────┐              │
-                │ prompt_suggestions  │
-                │                     │
-                │ agent_type          │
-                │ trigger_type        │
-                │ suggestion          │
-                │ confidence          │
-                │ status              │
-                └─────────────────────┘
+    content_sections {
+        INTEGER id PK
+        VARCHAR content_id FK "→ content"
+        VARCHAR component_id FK "→ components"
+        INTEGER section_order "1=hook, 2=body, 3=cta"
+        VARCHAR section_label "hook/body/cta"
+        TEXT script "セクションスクリプト"
+    }
 
-                ┌──────────────────────┐   ┌───────────────────────┐
-                │ prediction_weights   │   │  weight_audit_log     │
-                │                      │   │                       │
-                │ platform             │   │ platform              │
-                │ factor_name          │   │ factor_name           │
-                │ weight               │   │ old_weight → new_weight│
-                └──────────────────────┘   │ data_count            │
-                                           └───────────────────────┘
+    publications {
+        INTEGER id PK
+        VARCHAR content_id FK "→ content"
+        VARCHAR account_id FK "→ accounts"
+        VARCHAR platform "youtube/tiktok/instagram/x"
+        VARCHAR platform_post_id "プラットフォーム側投稿ID"
+        TIMESTAMPTZ posted_at "実際の投稿日時"
+        VARCHAR status "scheduled/posted/measured/failed"
+    }
 
-                ┌───────────────────────────────────────────┐
-                │         prediction_snapshots              │
-                │                                           │
-                │ publication_id ───────────────────────────┼──► publications
-                │ content_id ───────────────────────────────┼──► content
-                │ account_id ───────────────────────────────┼──► accounts
-                │ hypothesis_id ────────────────────────────┼──► hypotheses
-                │ baseline_used, baseline_source             │
-                │ adjustments_applied (JSONB)                │
-                │ predicted_impressions                      │
-                │ actual_impressions_48h / 7d / 30d          │
-                │ prediction_error_7d / 30d                  │
-                └───────────────────────────────────────────┘
+    %% ===== Intelligence Tables =====
+    hypotheses {
+        INTEGER id PK
+        VARCHAR hypothesis_text "仮説文"
+        VARCHAR status "active/confirmed/rejected/inconclusive"
+        VARCHAR verdict "confirmed/rejected/inconclusive"
+        JSONB predicted_kpis "予測KPI"
+        JSONB actual_kpis "実測KPI"
+        VECTOR embedding "vector(1536)"
+        INTEGER cycle_id FK "→ cycles"
+        INTEGER evidence_count "エビデンス数"
+    }
 
-                ┌──────────────────────┐   ┌───────────────────────┐
-                │   kpi_snapshots      │   │  account_baselines    │
-                │                      │   │                       │
-                │ platform             │   │ account_id ───────────┼──► accounts
-                │ year_month           │   │ baseline_impressions   │
-                │ kpi_target           │   │ source                │
-                │ avg_impressions      │   │ sample_count          │
-                │ achievement_rate     │   └───────────────────────┘
-                │ prediction_accuracy  │
-                │ is_reliable          │   ┌───────────────────────┐
-                └──────────────────────┘   │adjustment_factor_cache│
-                                           │                       │
-                                           │ platform              │
-                                           │ factor_name           │
-                                           │ factor_value          │
-                                           │ adjustment            │
-                                           │ is_active             │
-                                           └───────────────────────┘
+    market_intel {
+        INTEGER id PK
+        VARCHAR intel_type "trend/competitor/reference/niche_analysis"
+        VARCHAR platform "対象プラットフォーム"
+        JSONB data "情報データ"
+        VECTOR embedding "vector(1536)"
+    }
+
+    metrics {
+        INTEGER id PK
+        INTEGER publication_id FK "→ publications"
+        VARCHAR measurement_point "48h/7d/30d"
+        INTEGER views "再生回数"
+        INTEGER likes "いいね数"
+        INTEGER comments "コメント数"
+        INTEGER shares "シェア数"
+        FLOAT engagement_rate "エンゲージメント率"
+        FLOAT completion_rate "完視聴率"
+        INTEGER follower_delta "フォロワー増減"
+        JSONB platform_data "プラットフォーム固有データ"
+        JSONB raw_data "API生レスポンス"
+    }
+
+    analyses {
+        INTEGER id PK
+        INTEGER cycle_id FK "→ cycles"
+        VARCHAR analysis_type "分析種別"
+        TEXT findings "発見事項"
+        TEXT recommendations "推奨事項"
+    }
+
+    learnings {
+        INTEGER id PK
+        TEXT insight "学習内容"
+        FLOAT confidence "信頼度 0.0-1.0"
+        VECTOR embedding "vector(1536)"
+        VARCHAR category "カテゴリ"
+        INTEGER evidence_count "エビデンス数"
+    }
+
+    content_learnings {
+        INTEGER id PK
+        VARCHAR content_id FK "→ content"
+        INTEGER hypothesis_id FK "→ hypotheses"
+        INTEGER promoted_to_learning_id FK "→ learnings (NULLable)"
+        VARCHAR micro_verdict "confirmed/rejected/inconclusive"
+        JSONB predicted_kpis "予測KPI"
+        JSONB actual_kpis "実測KPI"
+        FLOAT prediction_error "予測誤差"
+        VECTOR embedding "vector(1536)"
+    }
+
+    prediction_weights {
+        INTEGER id PK
+        VARCHAR platform "対象プラットフォーム"
+        VARCHAR factor_name "要素名"
+        FLOAT weight "重み 0.0-1.0"
+    }
+
+    weight_audit_log {
+        INTEGER id PK
+        VARCHAR platform "対象プラットフォーム"
+        VARCHAR factor_name "要素名"
+        FLOAT old_weight "旧重み"
+        FLOAT new_weight "新重み"
+        INTEGER data_count "計算に使用したデータ数"
+    }
+
+    prediction_snapshots {
+        INTEGER id PK
+        INTEGER publication_id FK "→ publications"
+        VARCHAR content_id FK "→ content"
+        VARCHAR account_id FK "→ accounts"
+        INTEGER hypothesis_id FK "→ hypotheses (NULLable)"
+        FLOAT baseline_used "使用したベースライン"
+        VARCHAR baseline_source "own_history/cohort/default"
+        JSONB adjustments_applied "適用した補正係数"
+        FLOAT predicted_impressions "予測インプレッション"
+        FLOAT actual_impressions_48h "実測48h"
+        FLOAT actual_impressions_7d "実測7d"
+        FLOAT actual_impressions_30d "実測30d"
+        FLOAT prediction_error_7d "7d予測誤差"
+        FLOAT prediction_error_30d "30d予測誤差"
+    }
+
+    kpi_snapshots {
+        INTEGER id PK
+        VARCHAR platform "対象プラットフォーム"
+        VARCHAR year_month "YYYY-MM"
+        FLOAT kpi_target "KPI目標値"
+        FLOAT avg_impressions "平均インプレッション"
+        FLOAT achievement_rate "達成率"
+        FLOAT prediction_accuracy "予測精度"
+        BOOLEAN is_reliable "信頼性フラグ"
+    }
+
+    account_baselines {
+        INTEGER id PK
+        VARCHAR account_id FK "→ accounts"
+        FLOAT baseline_impressions "ベースライン値"
+        VARCHAR source "own_history/cohort/default"
+        INTEGER sample_count "サンプル数"
+    }
+
+    adjustment_factor_cache {
+        INTEGER id PK
+        VARCHAR platform "対象プラットフォーム"
+        VARCHAR factor_name "要素名"
+        VARCHAR factor_value "要素値"
+        FLOAT adjustment "補正係数"
+        BOOLEAN is_active "有効フラグ"
+    }
+
+    %% ===== Operations Tables =====
+    cycles {
+        INTEGER id PK
+        INTEGER cycle_number "サイクル番号"
+        VARCHAR status "planning/executing/analyzing/completed"
+    }
+
+    human_directives {
+        INTEGER id PK
+        VARCHAR directive_type "strategy/content/emergency"
+        TEXT content "指示内容"
+        TEXT target_agents "対象エージェント"
+        VARCHAR priority "low/medium/high/critical"
+    }
+
+    task_queue {
+        INTEGER id PK
+        VARCHAR task_type "produce/publish/measure"
+        JSONB payload "タスクデータ"
+        VARCHAR status "pending/processing/completed/failed"
+        INTEGER priority "優先度"
+    }
+
+    algorithm_performance {
+        INTEGER id PK
+        VARCHAR period "daily/weekly/monthly"
+        FLOAT hypothesis_accuracy "仮説精度"
+        FLOAT prediction_error "予測誤差"
+        FLOAT improvement_rate "改善率"
+        INTEGER learning_count "学習数"
+    }
+
+    %% ===== Observability Tables =====
+    agent_prompt_versions {
+        INTEGER id PK
+        VARCHAR agent_type "エージェント種別"
+        INTEGER version "バージョン番号"
+        TEXT prompt_content "プロンプト内容"
+        BOOLEAN active "有効フラグ"
+        JSONB performance_before "変更前パフォーマンス"
+        JSONB performance_after "変更後パフォーマンス"
+    }
+
+    agent_thought_logs {
+        INTEGER id PK
+        VARCHAR agent_type "エージェント種別"
+        INTEGER cycle_id FK "→ cycles"
+        VARCHAR graph_name "グラフ名"
+        VARCHAR node_name "ノード名"
+        TEXT reasoning "思考過程"
+        TEXT decision "決定事項"
+    }
+
+    agent_reflections {
+        INTEGER id PK
+        VARCHAR agent_type "エージェント種別"
+        INTEGER cycle_id FK "→ cycles"
+        TEXT task_description "タスク説明"
+        FLOAT self_score "自己評価スコア"
+        TEXT what_went_well "良かった点"
+        TEXT what_to_improve "改善点"
+        JSONB next_actions "次回アクション"
+    }
+
+    agent_individual_learnings {
+        INTEGER id PK
+        VARCHAR agent_type "エージェント種別"
+        VARCHAR category "カテゴリ"
+        TEXT content "学習内容"
+        FLOAT confidence "信頼度"
+        FLOAT success_rate "成功率 (generated)"
+        INTEGER source_reflection_id FK "→ agent_reflections"
+        VECTOR embedding "vector(1536)"
+    }
+
+    agent_communications {
+        INTEGER id PK
+        VARCHAR agent_type "エージェント種別"
+        VARCHAR message_type "メッセージ種別"
+        VARCHAR priority "優先度"
+        TEXT content "メッセージ内容"
+        TEXT human_response "人間の応答"
+        VARCHAR status "pending/read/responded"
+        INTEGER cycle_id FK "→ cycles"
+    }
+
+    %% ===== Tool Management Tables =====
+    tool_catalog {
+        INTEGER id PK
+        VARCHAR tool_name "ツール名"
+        VARCHAR tool_type "video_gen/tts/lipsync/image_gen等"
+        VARCHAR provider "プロバイダ"
+        FLOAT cost_per_use "1回あたりコスト"
+        JSONB strengths "強み"
+        JSONB quirks "癖・注意点"
+        BOOLEAN is_active "有効フラグ"
+    }
+
+    tool_experiences {
+        INTEGER id PK
+        INTEGER tool_id FK "→ tool_catalog"
+        VARCHAR content_id FK "→ content"
+        VARCHAR agent_id "エージェントID"
+        FLOAT quality_score "品質スコア"
+        BOOLEAN success "成功フラグ"
+        VARCHAR content_type "コンテンツ種別"
+    }
+
+    tool_external_sources {
+        INTEGER id PK
+        INTEGER tool_id FK "→ tool_catalog (NULLable)"
+        VARCHAR source_type "ソース種別"
+        VARCHAR source_url "ソースURL"
+        TEXT content_summary "内容要約"
+        JSONB key_insights "主要知見"
+        VECTOR embedding "vector(1536)"
+    }
+
+    production_recipes {
+        INTEGER id PK
+        VARCHAR recipe_name "レシピ名"
+        VARCHAR content_format "short_video/text_post/image_post"
+        VARCHAR target_platform "対象プラットフォーム"
+        JSONB steps "制作ステップ"
+        FLOAT avg_quality_score "平均品質スコア"
+        FLOAT success_rate "成功率"
+        BOOLEAN is_default "デフォルトフラグ"
+    }
+
+    prompt_suggestions {
+        INTEGER id PK
+        VARCHAR agent_type "エージェント種別"
+        VARCHAR trigger_type "トリガー種別"
+        TEXT suggestion "提案内容"
+        FLOAT confidence "信頼度"
+        VARCHAR status "proposed/applied/rejected"
+    }
+
+    %% ===== System Management Tables =====
+    system_settings {
+        INTEGER id PK
+        VARCHAR setting_key UK "設定キー"
+        TEXT setting_value "設定値"
+        VARCHAR data_type "string/integer/float/boolean/json/csv"
+        VARCHAR category "カテゴリ"
+        TEXT description "説明"
+    }
+
+    %% ===== Relationships =====
+    %% Entity
+    characters ||--o{ accounts : "1キャラクター = 複数アカウント"
+    characters ||--o{ content : "character_id"
+
+    %% Production
+    content ||--o{ content_sections : "content_id"
+    components ||--o{ content_sections : "component_id"
+    content ||--o{ publications : "content_id"
+    accounts ||--o{ publications : "account_id"
+    production_recipes ||--o{ content : "recipe_id"
+
+    %% Intelligence
+    hypotheses ||--o{ content : "hypothesis_id"
+    cycles ||--o{ hypotheses : "cycle_id"
+    publications ||--o{ metrics : "publication_id"
+    cycles ||--o{ analyses : "cycle_id"
+    content ||--o| content_learnings : "content_id (1:1)"
+    hypotheses ||--o{ content_learnings : "hypothesis_id"
+    learnings ||--o{ content_learnings : "promoted_to_learning_id"
+    publications ||--o| prediction_snapshots : "publication_id (1:1)"
+    content ||--o{ prediction_snapshots : "content_id"
+    accounts ||--o{ prediction_snapshots : "account_id"
+    hypotheses ||--o{ prediction_snapshots : "hypothesis_id"
+    accounts ||--o| account_baselines : "account_id (1:1)"
+
+    %% Observability
+    cycles ||--o{ agent_thought_logs : "cycle_id"
+    cycles ||--o{ agent_reflections : "cycle_id"
+    agent_reflections ||--o{ agent_individual_learnings : "source_reflection_id"
+    cycles ||--o{ agent_communications : "cycle_id"
+
+    %% Tool Management
+    tool_catalog ||--o{ tool_experiences : "tool_id"
+    content ||--o{ tool_experiences : "content_id"
+    tool_catalog ||--o{ tool_external_sources : "tool_id"
 ```
 
 ## 初期セットアップ
