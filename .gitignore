@@ -64,3 +64,11 @@ pipeline/temp/
 # Build outputs
 dist/
 build/
+
+# v5 Docker
+docker-compose.override.yml
+.docker/
+
+# v5 Database
+*.sql.bak
+*.dump
