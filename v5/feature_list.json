@@ -6388,7 +6388,7 @@
         "prediction_snapshots INSERT",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-ALG-005",
