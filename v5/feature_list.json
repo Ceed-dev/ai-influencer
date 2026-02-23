@@ -3433,7 +3433,7 @@
         "日次カウント+制限比較実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-TP-003",
@@ -3861,7 +3861,7 @@
         "ステータス変更間接通信パターン実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-INT-009",

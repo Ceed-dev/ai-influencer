@@ -111,3 +111,7 @@
 2026-02-23T09:20:00Z | dashboard-agent | SMOKE | - | passed | ALL 36/36 features complete. 178 tests, 36 suites, ALL PASSING
 2026-02-23T08:42:27Z | measure-agent | COMPLETE | FEAT-MS-003 | passed | TEST-WKR-017 green
 2026-02-23T08:42:35Z | measure-agent | START | FEAT-MS-004 | starting | キュレーションワーカー — コンポーネント作成+重複検出
+2026-02-23T08:43:00Z | text-post-agent | START | FEAT-TP-002 | starting | 1日投稿数制限(DAILY_POST_LIMIT)
+2026-02-23T08:43:43Z | intelligence-agent | COMPLETE | FEAT-INT-008 | passed | TEST-AGT-018 green (39 tests)
+2026-02-23T08:43:56Z | intelligence-agent | START | FEAT-INT-001 | starting | Production pipeline graph — content_format dispatch
+2026-02-23T08:44:23Z | text-post-agent | COMPLETE | FEAT-TP-002 | passed | TEST-WKR-013 green
