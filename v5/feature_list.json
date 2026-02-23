@@ -2983,7 +2983,7 @@
         "30秒ポーリング実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-VW-002",
@@ -3006,7 +3006,7 @@
         "Promise.all並列処理実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-VW-003",
@@ -3029,7 +3029,7 @@
         "セクション内並列実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-VW-004",
@@ -3054,7 +3054,7 @@
         "±20%ジッター実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-VW-005",
@@ -3077,7 +3077,7 @@
         "AbortControllerタイムアウト実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-VW-006",
@@ -3102,7 +3102,7 @@
         "復旧処理実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-VW-007",
@@ -3125,7 +3125,7 @@
         "ステータス遷移実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-VW-008",
@@ -3149,7 +3149,7 @@
         "blackdetect検証実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-VW-009",
@@ -3172,7 +3172,7 @@
         "resizeImageIfNeeded実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-VW-010",
@@ -3195,7 +3195,7 @@
         "セマフォ実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-VW-011",
@@ -3218,7 +3218,7 @@
         "failed_permanentスキップ実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-VW-012",
@@ -3241,7 +3241,7 @@
         "priority ASC, created_at ASCソート実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-VW-013",
@@ -3266,7 +3266,7 @@
         "422エラーenrichment",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-VW-014",
@@ -3292,7 +3292,7 @@
         "自動承認閾値実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-VW-015",
@@ -3316,7 +3316,7 @@
         "超過時cancelled遷移",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-VW-016",
@@ -3341,7 +3341,7 @@
         "予算チェック実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-VW-017",
@@ -3364,7 +3364,7 @@
         "upload_to_drive呼び出し実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-VW-018",
@@ -3387,7 +3387,7 @@
         "ポーリング毎のsystem_settings再読み込み実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-TP-001",
@@ -3697,7 +3697,7 @@
         "content_format振り分けロジック",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-INT-002",
@@ -3720,7 +3720,7 @@
         "production_recipesからレシピ読み込み",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-INT-003",
