@@ -2467,12 +2467,15 @@ Phase 2 (commit `3d4a7ac`): CJKピクセル幅補正
 5. **コスト構造**: 動画1本$2.31、制作APIが93%以上、v5.0は全ケースでv4.0より安い、少数精鋭100アカウントモデル推奨
 6. **リスクと制約**: 29リスク(Sランク4件)、7大ボトルネック、最大リスクはビジネスモデル前提
 
-**Mermaid図表化プロジェクト開始**:
-- v5仕様書内の全ASCII図（アーキテクチャ図、状態遷移図、フローチャート等）をMermaidコードブロックに置換
-- GitHub上でネイティブ描画される唯一のツール = Mermaid
-- UIワイヤーフレームのみDraw.io → SVGエクスポート（Mermaid非対応のため）
-- Agent Team方式で全13ファイル + v5/フォルダを並列調査・修正
-- 品質基準: 100人が同一実装を作れるレベルの仕様精度を維持しつつ可視化品質を向上
+**Mermaid図表化プロジェクト完了** (Session 20-22, 2026-02-23):
+- v5仕様書内の全ASCII図をMermaidコードブロックに変換完了
+- **変換**: ~86図 (flowchart TB/LR/TD, sequenceDiagram, stateDiagram-v2, gantt, erDiagram)
+- **ASCII維持**: ~74ブロック (UIワイヤーフレーム, 擬似コード, 折れ線/棒グラフ, 数式, ディレクトリツリー)
+- Agent Team方式: 10+並列エージェントで全13ファイル+README.mdを調査・変換
+- コミット: `54e2128`, `5b79cf0`, `290134f`, `88b01d1` (全てpush済み)
+- 修正: 02-architecture.md移行図 — 点線矢印(-.->)のサブグラフ間レンダリングエラーを修正
+- GitHub Playwrightで全ファイルのレンダリング検証完了
+- 消費リソース: 全エージェント合計 ~850K tokens, ~30分実行時間
 
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID
