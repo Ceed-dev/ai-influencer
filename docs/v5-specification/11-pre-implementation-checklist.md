@@ -49,8 +49,8 @@ Agent Teamが並列実装を開始する前に、人間（Shungo）が完了し�
 | 1 | Anthropic (Claude API) | console.anthropic.com → API Keys | 従量課金 | ☑ (取得済み, $5クレジット購入, 2026-02-23) |
 | 2 | fal.ai | fal.ai/dashboard → API Keys | 従量課金（$1,000+で40並列） | ☑ (取得済み, 2026-02-23) |
 | 3 | Fish Audio | fish.audio → API Keys (Plus plan必須) | $11/月 | ☑ (v4.0既存キー流用, 残高$3.21確認済み, 2026-02-23) |
-| 4 | OpenAI (Embedding) | platform.openai.com → API Keys | 従量課金（微小） | ☐ |
-| 5 | Anthropic APIキー有効性確認 | APIキーの有効性確認 + クレジット残高チェック ($50以上推奨) | - | ☐ |
+| 4 | OpenAI (Embedding) | platform.openai.com → API Keys | 従量課金（微小） | ☑ (v4.0既存キー流用, 有効性確認済み, 2026-02-23) |
+| 5 | Anthropic APIキー有効性確認 | APIキーの有効性確認 + クレジット残高チェック ($50以上推奨) | - | ☑ (取得済み, $5クレジット購入済み, 2026-02-23) |
 
 **注意**: 各サービスのアカウント登録 + クレジットカード登録が必要
 

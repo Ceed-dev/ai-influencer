@@ -2545,3 +2545,5 @@ Phase 2 (commit `3d4a7ac`): CJKピクセル幅補正
 - [x] 2.2-1: Anthropic APIキー取得 ($5クレジット購入)
 - [x] 2.2-2: fal.ai APIキー取得
 - [x] 2.2-3: Fish Audio APIキー (v4.0既存キー流用, 残高$3.21確認済み)
+- [x] 2.2-4: OpenAI Embedding APIキー (v4.0既存キー流用, 有効性確認済み)
+- [x] 2.2-5: Anthropic APIキー有効性確認 (取得済み, $5クレジット購入済み)
