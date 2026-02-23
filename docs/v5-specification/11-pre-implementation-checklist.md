@@ -34,7 +34,7 @@ Agent Teamが並列実装を開始する前に、人間（Shungo）が完了し�
 | # | 作業 | 詳細 | ステータス |
 |---|------|------|----------|
 | 1 | GCPプロジェクト新規作成 | GCPコンソールで新規プロジェクト作成。名称は作成時に決定 | ☑ (ai-influencer-ceed, 2026-02-23) |
-| 2 | GCE VM プロビジョニング | e2-standard-4: 4vCPU, 16GB RAM, 100GB SSD | ☐ |
+| 2 | GCE VM プロビジョニング | e2-standard-4: 4vCPU, 16GB RAM, 100GB SSD | ☑ (ai-influencer-vm, asia-northeast1-b, 2026-02-23) |
 | 3 | Cloud SQL PostgreSQL 16 インスタンス作成 | PostgreSQL 16 + pgvector 拡張有効化。初期: db-f1-micro → 本番時 db-custom-2-7680 | ☐ |
 | 4 | VPCネットワーク + ファイアウォール設定 | SSH, HTTP 3000 (Dashboard), API 3001 (MCP Server) | ☐ |
 | 5 | Docker + Docker Compose インストール | `docker --version`, `docker compose --version` 正常動作確認 | ☐ |

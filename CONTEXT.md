@@ -2535,3 +2535,4 @@ Phase 2 (commit `3d4a7ac`): CJKピクセル幅補正
 
 **Checklist progress (11-pre-implementation-checklist.md):**
 - [x] 2.1-1: GCPプロジェクト新規作成
+- [x] 2.1-2: GCE VM プロビジョニング (ai-influencer-vm, e2-standard-4, asia-northeast1-b, External IP: 34.85.62.184)
