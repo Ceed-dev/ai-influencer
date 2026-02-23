@@ -396,13 +396,24 @@ LangGraphの各ノード（Strategist, Researcher, Analyst, Planner, Tool Specia
 
 **ステータス遷移によるグラフ間連携**:
 
-```
-戦略サイクルG → content.status='planned' → 制作パイプラインG → content.status='ready'
-→ 投稿スケジューラーG → publications.status='posted' → 計測ジョブG → publications.status='measured'
+```mermaid
+stateDiagram-v2
+    direction LR
+
+    state "content.status" as content {
+        pending_approval --> planned : 戦略サイクルG（承認）
+        planned --> producing : 制作パイプラインG（着手）
+        producing --> ready : 制作パイプラインG（完了）
+    }
+
+    state "publications.status" as publications {
+        scheduled --> posted : 投稿スケジューラーG（投稿実行）
+        posted --> measured : 計測ジョブG（計測完了）
+    }
+
+    content --> publications : content.status=ready →\npublications作成（scheduled）
 ```
 
-- `content.status`: `pending_approval` → `planned` → `producing` → `ready`
-- `publications.status`: `scheduled` → `posted` → `measured`
 - 各グラフは自分が関心を持つステータスのレコードのみをポーリングで検出して処理する
 - グラフ間の直接関数呼び出しやメッセージングは**一切行わない**
 
@@ -424,20 +435,35 @@ LangGraphの各ノード（Strategist, Researcher, Analyst, Planner, Tool Specia
 
 ### 5.2 ブランチ戦略
 
-```
-main ── 本番ブランチ（直接コミット禁止）
-  └── develop ── 開発統合ブランチ
-       ├── feat/infra-agent/FEAT-DB-001
-       ├── feat/infra-agent/FEAT-INF-001
-       ├── feat/mcp-core-agent/FEAT-MCC-001
-       ├── feat/mcp-intel-agent/FEAT-MCI-001
-       ├── feat/video-worker-agent/FEAT-VW-001
-       ├── feat/text-post-agent/FEAT-TP-001
-       ├── feat/measure-agent/FEAT-MS-001
-       ├── feat/intelligence-agent/FEAT-INT-001
-       ├── feat/strategy-agent/FEAT-STR-001
-       ├── feat/dashboard-agent/FEAT-DSH-001
-       └── feat/test-agent/FEAT-TST-001
+```mermaid
+flowchart TD
+    main["main\n本番ブランチ（直接コミット禁止）"]
+    develop["develop\n開発統合ブランチ"]
+    main --> develop
+
+    feat_db["feat/infra-agent/FEAT-DB-001"]
+    feat_inf["feat/infra-agent/FEAT-INF-001"]
+    feat_mcc["feat/mcp-core-agent/FEAT-MCC-001"]
+    feat_mci["feat/mcp-intel-agent/FEAT-MCI-001"]
+    feat_vw["feat/video-worker-agent/FEAT-VW-001"]
+    feat_tp["feat/text-post-agent/FEAT-TP-001"]
+    feat_ms["feat/measure-agent/FEAT-MS-001"]
+    feat_int["feat/intelligence-agent/FEAT-INT-001"]
+    feat_str["feat/strategy-agent/FEAT-STR-001"]
+    feat_dsh["feat/dashboard-agent/FEAT-DSH-001"]
+    feat_tst["feat/test-agent/FEAT-TST-001"]
+
+    develop --> feat_db
+    develop --> feat_inf
+    develop --> feat_mcc
+    develop --> feat_mci
+    develop --> feat_vw
+    develop --> feat_tp
+    develop --> feat_ms
+    develop --> feat_int
+    develop --> feat_str
+    develop --> feat_dsh
+    develop --> feat_tst
 ```
 
 **ブランチ命名規則**: `feat/{agent-name}/{feature-id}` — 1機能=1ブランチ（詳細は [13-agent-harness.md §7](13-agent-harness.md) を参照）

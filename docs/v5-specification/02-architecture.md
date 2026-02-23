@@ -180,29 +180,12 @@ v5.0は **4層構造** で構成される。上位層が方針を決定し、下
 
 ### 層間の通信方向
 
-```
-                    ┌──────────────────┐
-                    │  Human Dashboard │
-                    └────────┬─────────┘
-                      読み取り│▲書き込み
-                 (KPI,ログ等) ││(仮説投入, 設定変更)
-                             │▼
-                    ┌────────┴─────────┐
-                    │   LangGraph.js   │
-                    │  (4つのグラフ)     │
-                    └────────┬─────────┘
-                  MCPツール呼│▲結果返却
-                  び出し     ││(JSON)
-                             │▼
-                    ┌────────┴─────────┐
-                    │   MCP Server     │
-                    └───┬─────────┬────┘
-             SQL実行│                  │ Drive API
-                        ▼         ▼
-               ┌──────────┐  ┌──────────┐
-               │PostgreSQL │  │Google   │
-               │           │  │Drive    │
-               └──────────┘  └──────────┘
+```mermaid
+flowchart TB
+    D["Human Dashboard"] <-- "読み取り(KPI,ログ等) / 書き込み(仮説投入, 設定変更)" --> LG["LangGraph.js<br/>(4つのグラフ)"]
+    LG <-- "MCPツール呼び出し / 結果返却(JSON)" --> MCP["MCP Server"]
+    MCP -- "SQL実行" --> PG["PostgreSQL"]
+    MCP -- "Drive API" --> GD["Google Drive"]
 ```
 
 **原則**: 上位層は下位層に「何をしたいか」を伝え、下位層は「結果」を返す。エージェントがSQLを直接書くことはない。全てMCPツールの呼び出しで抽象化する。
@@ -893,52 +876,28 @@ v5.0では1日の投稿数が大量になるため、複数のコンテンツを
 
 1つのコンテンツが `ready` になった後、N件の `publications` が作成され、それぞれが独立してステータス遷移する。
 
-```
-戦略サイクル          制作パイプライン        投稿スケジューラー       計測ジョブ
-グラフ               グラフ                グラフ                グラフ
-    │                    │                    │                    │
-    │ content.status     │                    │                    │
-    │ = 'pending_approval'│                   │                    │
-    │  (REQUIRE_HUMAN_   │                    │                    │
-    │   APPROVAL=true時) │                    │                    │
-    │                    │                    │                    │
-    │ 人間がDashboardで  │                    │                     │
-    │ 承認               │                    │                     │
-    │ → content.status   │                    │                    │
-    │   = 'planned'      │                    │                    │
-    │                    │                    │                    │
-    │ content.status     │                    │                    │
-    │ = 'planned'        │                    │                    │
-    ├──────────────────>│                    │                     │
-    │   (contentに書込) │ content.status      │                     │
-    │                    │ = 'producing'      │                    │
-    │                    ├─ (status更新)      │                     │
-    │                    │                    │                    │
-    │                    │ content.status      │                   │
-    │                    │ = 'ready'          │                    │
-    │                    ├──────────────────>│                     │
-    │                    │   (contentに書込) │ publications作成      │
-    │                    │                    │ (N件、各platformに  │
-    │                    │                    │  1レコードずつ)      │
-    │                    │                    ├─ pub.status        │
-    │                    │                    │  = 'scheduled'     │
-    │                    │                    │                    │
-    │                    │                    │ pub.status         │
-    │                    │                    │ = 'posted'         │
-    │                    │                    ├──────────────────> │
-    │                    │                    │  (各pubに書込)      │
-    │                    │                    │                    │ pub.status
-    │                    │                    │                    │ = 'measured'
-    │                    │                    │                    ├─(status更新)
-    │                    │                    │                    │
-    │                    │                    │                    │ content.status
-    │                    │                    │                    │ = 'analyzed'
-    │<───────────────────────────────────────────────────────────  ┤
-    │   (次サイクルで分析結果を読み取り、次の仮説生成に反映)               │
-    │                    │                    │                    │
-    ▼                    ▼                    ▼                    ▼
-─────────────────────────────────────────────────────────────────────
-                        PostgreSQL (共有データストア)
+```mermaid
+sequenceDiagram
+    participant SC as 戦略サイクル<br/>グラフ
+    participant PP as 制作パイプライン<br/>グラフ
+    participant PS as 投稿スケジューラー<br/>グラフ
+    participant MJ as 計測ジョブ<br/>グラフ
+    participant DB as PostgreSQL<br/>(共有データストア)
+
+    Note over SC: HUMAN_REVIEW_ENABLED=true時<br/>content.status='pending_approval'
+    Note over SC: 人間がDashboardで承認
+    SC->>DB: content.status='planned'
+    DB-->>PP: (ポーリング検出)
+    PP->>DB: content.status='producing'
+    PP->>DB: content.status='ready'
+    DB-->>PS: (ポーリング検出)
+    PS->>DB: publications作成 (N件, 各platformに1レコード)
+    PS->>DB: pub.status='scheduled'
+    PS->>DB: pub.status='posted'
+    DB-->>MJ: (ポーリング検出)
+    MJ->>DB: pub.status='measured'
+    MJ->>DB: content.status='analyzed'
+    DB-->>SC: 次サイクルで分析結果を読み取り、仮説生成に反映
 ```
 
 **ステータス遷移のまとめ**:
@@ -2704,52 +2663,78 @@ v5.0では **2層ステータス管理** を採用する。コンテンツの制
 
 **content.status** (制作ライフサイクル — 12ステータス):
 
-```
-HUMAN_REVIEW_ENABLED=true の場合:
+```mermaid
+stateDiagram-v2
+    direction LR
+    state "HUMAN_REVIEW_ENABLED = true" as review_on {
+        [*] --> planned
+        planned --> producing
+        producing --> ready
+        ready --> pending_review
 
-planned → producing → ready → pending_review
-  → (quality_score >= AUTO_APPROVE_SCORE_THRESHOLD=8.0 & 自動承認条件を満たす)
-    → approved (自動承認) → posted → measured → analyzed
-  → (quality_score < 8.0 or 自動承認条件を満たさない)
-    → pending_approval → approved → posted → measured → analyzed
-                       → rejected → revision_needed → producing (再制作ループ)
-                                    → cancelled (revision_count > MAX_CONTENT_REVISION_COUNT=3)
+        state review_fork <<choice>>
+        pending_review --> review_fork
+        review_fork --> approved_auto: quality >= 8.0\n& 自動承認条件
+        review_fork --> pending_approval: quality < 8.0\nor 条件外
 
-HUMAN_REVIEW_ENABLED=false の場合:
+        state approved_auto: approved\n(自動承認)
+        pending_approval --> approved
+        pending_approval --> rejected
+        rejected --> revision_needed
+        revision_needed --> producing: 再制作ループ
+        revision_needed --> cancelled: revision_count > 3
 
-planned → producing → ready → approved → posted → measured → analyzed
+        approved_auto --> posted
+        approved --> posted
+        posted --> measured
+        measured --> analyzed
+    }
+
+    state "HUMAN_REVIEW_ENABLED = false" as review_off {
+        [*] --> planned2: planned
+        planned2 --> producing2: producing
+        producing2 --> ready2: ready
+        ready2 --> approved2: approved
+        approved2 --> posted2: posted
+        posted2 --> measured2: measured
+        measured2 --> analyzed2: analyzed
+    }
 ```
 
 **publications.status** (投稿ライフサイクル、contentが `ready` になった後にN件作成):
 
-```
-content.status = 'ready'
-         │
-         ▼
-    ┌───────────────────────────────────────────────────┐
-    │  publications (N件、各platform/accountに1件)        │
-    │                                                   │
-    │  pub#1 (YouTube):  scheduled → posted → measured  │
-    │  pub#2 (TikTok):   scheduled → posted → measured  │
-    │  pub#3 (Instagram): scheduled → posted → measured │
-    └───────────────────────────────────────────────────┘
-         │
-         │ 全publicationsが measured になった後
-         ▼
-content.status = 'analyzed'
+```mermaid
+flowchart TB
+    ready["content.status = 'ready'"]
+    ready --> pubs
+
+    subgraph pubs["publications (N件、各platform/accountに1件)"]
+        direction LR
+        p1["pub#1 (YouTube)<br/>scheduled → posted → measured"]
+        p2["pub#2 (TikTok)<br/>scheduled → posted → measured"]
+        p3["pub#3 (Instagram)<br/>scheduled → posted → measured"]
+    end
+
+    pubs -->|"全publicationsが measured になった後"| analyzed["content.status = 'analyzed'"]
 ```
 
 **cycles.status** (戦略サイクルライフサイクル — 5ステータス):
 
-```
-planning → executing → measuring → analyzing → completed
-    │                                              │
-    │          ┌───────────────────────────────────┘
-    │          │ (次サイクル自動開始: HYPOTHESIS_CYCLE_INTERVAL_HOURS後)
-    │          ▼
-    │      planning (次のcycle_number)
-    │
-    └──→ (異常終了時: statusはplanningに留まり、agent_communicationsにmessage_type='struggle'で通知)
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> planning
+    planning --> executing
+    executing --> measuring
+    measuring --> analyzing
+    analyzing --> completed
+    completed --> planning: 次サイクル自動開始\n(HYPOTHESIS_CYCLE_INTERVAL_HOURS後)
+
+    note right of planning
+        異常終了時: statusはplanningに留まり
+        agent_communicationsに
+        message_type='struggle'で通知
+    end note
 ```
 
 | ステータス | 意味 | 遷移トリガー | 主要なカラム |
@@ -2764,19 +2749,19 @@ planning → executing → measuring → analyzing → completed
 
 **エラー時の分岐**:
 
-```
-content:
-  producing ──→ error (制作失敗、リトライ上限超過)
-                  │
-                  └──→ planned (リトライ対象として再キューイング)
+```mermaid
+flowchart LR
+    subgraph content["content エラー分岐"]
+        producing -->|"制作失敗\nリトライ上限超過"| error
+        error -->|"リトライ対象\n再キューイング"| planned
+        revision_needed -->|"revision_count > 3"| cancelled
+        pending_approval --> rejected --> revision_needed2[revision_needed] -->|"リビジョン上限超過"| cancelled2[cancelled]
+    end
 
-  revision_needed ──→ cancelled (revision_count > MAX_CONTENT_REVISION_COUNT=3)
-  pending_approval ──→ rejected ──→ revision_needed ──→ cancelled (人間が差戻し後、リビジョン上限超過)
-
-publications:
-  posted ──→ failed (投稿失敗)
-                │
-                └──→ scheduled (再投稿対象として戻す)
+    subgraph publications["publications エラー分岐"]
+        posted -->|"投稿失敗"| failed
+        failed -->|"再投稿対象"| scheduled
+    end
 ```
 
 **リトライポリシー**:

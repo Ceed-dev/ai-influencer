@@ -37,21 +37,28 @@ v5.0の実装は250以上の機能から構成される。これを1つのエー
 
 ### 1.2 Two-Phase モデル
 
-```
-Phase A: Initializer (リーダーAgent)
-  ├── feature_list.json を生成（全機能の定義）
-  ├── init.sh を生成（環境セットアップ）
-  ├── progress.txt を初期化
-  ├── types/ を生成・凍結（TypeScript型定義）
-  └── 10エージェントを起動・タスク割り当て（→ 付録B のテンプレートを使用）
+```mermaid
+flowchart TD
+    subgraph A["Phase A: Initializer（リーダーAgent）"]
+        A1["feature_list.json を生成（全機能の定義）"]
+        A2["init.sh を生成（環境セットアップ）"]
+        A3["progress.txt を初期化"]
+        A4["types/ を生成・凍結（TypeScript型定義）"]
+        A5["10エージェントを起動・タスク割り当て（→ 付録B のテンプレートを使用）"]
+        A1 --> A2 --> A3 --> A4 --> A5
+    end
 
-Phase B: Coding Agents (10チームメイト)
-  ├── セッション起動チェックリストを毎回実行
-  ├── feature_list.json から次の機能を1つ選択
-  ├── 単一機能ワークフローを実行
-  ├── 品質ゲートを全て通過
-  ├── progress.txt に記録
-  └── 次の機能へ（ループ）
+    subgraph B["Phase B: Coding Agents（10チームメイト）"]
+        B1["セッション起動チェックリストを毎回実行"]
+        B2["feature_list.json から次の機能を1つ選択"]
+        B3["単一機能ワークフローを実行"]
+        B4["品質ゲートを全て通過"]
+        B5["progress.txt に記録"]
+        B6["次の機能へ（ループ）"]
+        B1 --> B2 --> B3 --> B4 --> B5 --> B6 --> B1
+    end
+
+    A5 --> B1
 ```
 
 ### 1.3 10エージェントへのマッピング
@@ -1243,44 +1250,28 @@ echo "$(date -u '+%Y-%m-%dT%H:%M:%SZ') | {agent-name} | {EVENT} | {FEATURE_ID} |
 **全エージェントは、全てのコンテキストウィンドウの開始時に以下の8ステップを必ず実行する。**
 省略は禁止。1ステップでも飛ばすと、古い情報に基づいた実装や、リグレッションの見逃しが発生する。
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  セッション起動チェックリスト（毎回必須）                           │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  Step 1: 環境確認                                               │
-│    $ pwd                                                        │
-│    $ git status                                                 │
-│    $ git pull origin develop                                    │
-│                                                                 │
-│  Step 2: 進捗確認                                               │
-│    $ cat progress.txt | tail -50                                │
-│    → 自分の最後の COMPLETE/FAIL/BLOCKED を確認                   │
-│                                                                 │
-│  Step 3: 次の機能を特定                                         │
-│    → feature_list.json を読む                                   │
-│    → 自分の担当で passes=false かつ依存解決済みの最高優先度を選択  │
-│                                                                 │
-│  Step 4: コード履歴確認                                         │
-│    $ git log --oneline -20                                      │
-│    → 他エージェントの最近のコミットを把握                        │
-│                                                                 │
-│  Step 5: 環境ヘルスチェック                                     │
-│    $ bash init.sh --check-only                                  │
-│    → FAIL がある場合は bash init.sh（フルセットアップ）を実行    │
-│                                                                 │
-│  Step 6: スモークテスト                                         │
-│    $ npm run test:smoke                                         │
-│    → 失敗した場合: 新機能着手前にスモーク修復を最優先            │
-│                                                                 │
-│  Step 7: セッション記録                                         │
-│    → progress.txt に SESSION 行を追記                           │
-│                                                                 │
-│  Step 8: 作業開始                                               │
-│    → Step 3 で特定した1機能に着手                               │
-│    → 6. 単一機能ワークフロー に従う                             │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    S1["Step 1: 環境確認\npwd / git status / git pull origin develop"]
+    S2["Step 2: 進捗確認\ncat progress.txt | tail -50\n自分の最後の COMPLETE/FAIL/BLOCKED を確認"]
+    S3["Step 3: 次の機能を特定\nfeature_list.json を読む\npasses=false かつ依存解決済みの最高優先度を選択"]
+    S4["Step 4: コード履歴確認\ngit log --oneline -20\n他エージェントの最近のコミットを把握"]
+    S5["Step 5: 環境ヘルスチェック\nbash init.sh --check-only"]
+    S5d{"FAIL あり?"}
+    S5r["bash init.sh（フルセットアップ）を実行"]
+    S6["Step 6: スモークテスト\nnpm run test:smoke"]
+    S6d{"テスト失敗?"}
+    S6r["新機能着手前にスモーク修復を最優先"]
+    S7["Step 7: セッション記録\nprogress.txt に SESSION 行を追記"]
+    S8["Step 8: 作業開始\nStep 3 で特定した1機能に着手\n6. 単一機能ワークフロー に従う"]
+
+    S1 --> S2 --> S3 --> S4 --> S5
+    S5 --> S5d
+    S5d -- "FAIL" --> S5r --> S6
+    S5d -- "PASS" --> S6
+    S6 --> S6d
+    S6d -- "失敗" --> S6r --> S6
+    S6d -- "通過" --> S7 --> S8
 ```
 
 ### 5.2 各ステップの詳細
@@ -1361,54 +1352,32 @@ Step 3 で特定した1つの機能について、次章「6. 単一機能ワー
 
 ### 6.1 ワークフロー全体像
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  単一機能ワークフロー（1機能 = 1サイクル）                        │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  1. 機能選択                                                    │
-│     feature_list.json → passes=false + 依存解決済み + 最高優先度 │
-│     ↓                                                           │
-│  2. 仕様書読み込み                                              │
-│     spec_refs の仕様書セクションを Read ツールで読む              │
-│     ↓                                                           │
-│  3. テスト仕様読み込み                                          │
-│     test_ids で 12-test-specifications.md の該当テストを読む     │
-│     ↓                                                           │
-│  4. 実装                                                        │
-│     steps に従って1ステップずつ実装                              │
-│     ↓                                                           │
-│  5. テスト実行                                                  │
-│     test_ids に紐づくテストを全て実行                            │
-│     ↓                                                           │
-│  ┌─ 6a. テスト失敗                                              │
-│  │   → progress.txt に FAIL 記録                                │
-│  │   → デバッグ → 修正 → Step 5 に戻る                          │
-│  │   → 3回失敗 → BLOCKED 記録 → 次の機能へ                     │
-│  └─ 6b. テスト全通過                                            │
-│     ↓                                                           │
-│  7. git add + commit                                            │
-│     → コミットメッセージ規則に従う（§7参照）                     │
-│     ↓                                                           │
-│  8. progress.txt 更新                                           │
-│     → COMPLETE 行を追記                                         │
-│     ↓                                                           │
-│  9. feature_list.json 更新                                      │
-│     → passes: false → passes: true                              │
-│     ↓                                                           │
-│ 10. スモークテスト                                              │
-│     $ npm run test:smoke                                        │
-│     ↓                                                           │
-│  ┌─ 11a. スモーク失敗（リグレッション）                         │
-│  │   → git revert で直前コミットを取り消し                      │
-│  │   → passes を false に戻す                                   │
-│  │   → 原因調査 → 修正 → Step 4 に戻る                         │
-│  └─ 11b. スモーク通過                                           │
-│     ↓                                                           │
-│ 12. 次の機能へ                                                  │
-│     → Step 1 に戻る                                             │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    W1["1. 機能選択\nfeature_list.json → passes=false\n+ 依存解決済み + 最高優先度"]
+    W2["2. 仕様書読み込み\nspec_refs の仕様書セクションを\nRead ツールで読む"]
+    W3["3. テスト仕様読み込み\ntest_ids で 12-test-specifications.md\nの該当テストを読む"]
+    W4["4. 実装\nsteps に従って1ステップずつ実装"]
+    W5["5. テスト実行\ntest_ids に紐づくテストを全て実行"]
+    W6{"6. テスト結果"}
+    W6a["6a. テスト失敗\nprogress.txt に FAIL 記録\nデバッグ → 修正"]
+    W6ac{"3回失敗?"}
+    BLOCKED["BLOCKED 記録 → 次の機能へ"]
+    W7["7. git add + commit\nコミットメッセージ規則に従う（§7参照）"]
+    W8["8. progress.txt 更新\nCOMPLETE 行を追記"]
+    W9["9. feature_list.json 更新\npasses: false → passes: true"]
+    W10["10. スモークテスト\nnpm run test:smoke"]
+    W11{"11. スモーク結果"}
+    W11a["11a. スモーク失敗（リグレッション）\ngit revert で直前コミットを取り消し\npasses を false に戻す\n原因調査 → 修正"]
+    W12["12. 次の機能へ"]
+
+    W1 --> W2 --> W3 --> W4 --> W5 --> W6
+    W6 -- "6a: 失敗" --> W6a --> W6ac
+    W6ac -- "いいえ" --> W5
+    W6ac -- "はい（3回失敗）" --> BLOCKED --> W1
+    W6 -- "6b: 全通過" --> W7 --> W8 --> W9 --> W10 --> W11
+    W11 -- "11a: 失敗" --> W11a --> W4
+    W11 -- "11b: 通過" --> W12 --> W1
 ```
 
 ### 6.2 各ステップの詳細
@@ -1580,12 +1549,14 @@ Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
 
 ### 7.4 マージフロー
 
-```
-1. エージェントが feat/{agent}/{feature} ブランチで作業
-2. 機能完了 → テスト全通過 → コミット
-3. git push origin feat/{agent}/{feature}
-4. リーダーが develop にマージ（自動: CI全通過時）
-5. 全機能完了後、develop → main にマージ（人間承認）
+```mermaid
+flowchart LR
+    M1["1. エージェントが\nfeat/agent/feature\nブランチで作業"]
+    M2["2. 機能完了\nテスト全通過\nコミット"]
+    M3["3. git push origin\nfeat/agent/feature"]
+    M4["4. リーダーが develop に\nマージ（自動: CI全通過時）"]
+    M5["5. 全機能完了後\ndevelop → main にマージ\n（人間承認）"]
+    M1 --> M2 --> M3 --> M4 --> M5
 ```
 
 ### 7.5 禁止事項

@@ -138,27 +138,33 @@ Agent Teamが並列実装を開始する前に、人間（Shungo）が完了し�
 
 ## 4. タイムライン
 
-```
-実装開始2週間前:
-  ├── インフラ準備 (2.1) 完了
-  ├── APIキー取得 (2.2) 完了
-  └── API審査申請 (2.3) 提出済み
+```mermaid
+gantt
+    title 実装準備タイムライン
+    dateFormat X
+    axisFormat Week %s
+    tickInterval 1week
 
-実装開始1週間前:
-  ├── 仕様書最終確認 (2.6) 完了
-  └── キャラクターアセット (2.5) 準備開始
+    section 実装開始2週間前
+    インフラ準備 (2.1) 完了             :done, infra, 0, 1w
+    APIキー取得 (2.2) 完了              :done, apikey, 0, 1w
+    API審査申請 (2.3) 提出済み           :done, review, 0, 1w
 
-実装開始時:
-  ├── 全必須作業 (2.x) 完了確認
-  └── Agent Team起動
+    section 実装開始1週間前
+    仕様書最終確認 (2.6) 完了            :done, spec, 1w, 2w
+    キャラクターアセット (2.5) 準備開始     :active, asset, 1w, 2w
 
-実装中（並行作業）:
-  ├── アカウント作成 (2.4) 段階的に実施
-  ├── OAuth認証フロー 完了
-  └── 初期コンポーネント準備 (3.1)
+    section 実装開始時
+    全必須作業 (2.x) 完了確認            :milestone, check, after asset, 0d
+    Agent Team起動                     :milestone, launch, after check, 0d
 
-統合テスト時:
-  └── 全作業完了確認
+    section 実装中（並行作業）
+    アカウント作成 (2.4) 段階的に実施       :active, accounts, 2w, 4w
+    OAuth認証フロー 完了                 :active, oauth, 2w, 4w
+    初期コンポーネント準備 (3.1)           :active, comp, 2w, 4w
+
+    section 統合テスト時
+    全作業完了確認                       :crit, final, 4w, 5w
 ```
 
 ## 5. コスト概算（準備作業）

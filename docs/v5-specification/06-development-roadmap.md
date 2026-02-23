@@ -67,51 +67,63 @@
 | 前提条件 | なし（順次で安全） | 仕様の完全性・精度が生命線 |
 | KPI対応 | 月次でPhase完了に連動 | 7週後に全機能が一斉稼働 |
 
-```
-【Phase依存型（従来）】
-  DBを作る → 動くDBの上にワーカーを作る → 動くワーカーの上にエージェントを作る → ダッシュボード
-  ^^^^^^^^   ^^^^^^^^^^^^^^^^^^^^^^^^^   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^   ^^^^^^^^^^^^
-  3週間       3週間                        8週間                                    5週間 = 19週間
+```mermaid
+gantt
+    title 従来方式 vs 仕様駆動並列型
+    dateFormat X
+    axisFormat %s週
 
-【仕様駆動並列型（新方式）】
-  仕様を完全に確定 → 全モジュールを10エージェントで同時に実装 → 統合テスト + バグ修正
-  ^^^^^^^^^^^^^^^^   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^   ^^^^^^^^^^^^^^^^^^^^
-  1週間               4週間                                     2週間 = 7週間
+    section Phase依存型（従来）19週間
+    DBを作る (3週)                          :a1, 0, 3
+    動くDBの上にワーカーを作る (3週)          :a2, after a1, 3
+    動くワーカーの上にエージェントを作る (8週)  :a3, after a2, 8
+    ダッシュボード (5週)                     :a4, after a3, 5
+
+    section 仕様駆動並列型（新方式）7週間
+    仕様を完全に確定 (1週)                          :b1, 0, 1
+    全モジュールを10エージェントで同時に実装 (4週)     :b2, after b1, 4
+    統合テスト＋バグ修正 (2週)                       :b3, after b2, 2
 ```
 
 ## 3. 全体タイムライン
 
+```mermaid
+gantt
+    title 全体タイムライン概要
+    dateFormat X
+    axisFormat W%s
+
+    section フェーズ
+    仕様最終確定＋インターフェース凍結＋型定義ファイル生成  :a1, 0, 1
+    全モジュール並列実装（10エージェント）                 :a2, 1, 5
+    統合テスト＋バグ修正＋E2Eテスト                      :a3, 5, 7
 ```
-Week 0-1:  仕様最終確定 + インターフェース凍結 + 型定義ファイル生成
-Week 1-5:  全モジュール並列実装（10エージェント）
-Week 5-7:  統合テスト + バグ修正 + E2Eテスト
-```
 
-```
-Week  W0   W1        W2        W3        W4        W5        W6        W7
-      ──── ──────── ──────── ──────── ──────── ──────── ──────── ────────
+```mermaid
+gantt
+    title 仕様駆動並列実装タイムライン
+    dateFormat X
+    axisFormat W%s
 
-仕様凍結
-      ████ ████
-      仕様  型定義
-      レビュー 凍結
+    section 仕様凍結
+    仕様レビュー                          :a1, 0, 1
+    型定義凍結                            :a2, 1, 2
 
-並列実装（10エージェント）
-           ████████ ████████ ████████ ████████
-           infra    MCP完成   全モジュール  バグ修正
-           +全員    目標      単体テスト   +コードレビュー
-           開始
+    section 並列実装（10エージェント）
+    infra＋全員開始                        :b1, 1, 2
+    MCP完成目標                           :b2, 2, 3
+    全モジュール単体テスト                  :b3, 3, 4
+    バグ修正＋コードレビュー                :b4, 4, 5
 
-統合テスト
-                                             ████████ ████████
-                                             結合テスト E2E+
-                                                      本番準備
+    section 統合テスト
+    結合テスト                            :c1, 5, 6
+    E2E＋本番準備                         :c2, 6, 7
 
-マイルストーン
-      ▲              ▲                   ▲              ▲
-      M0             M1                  M3             M6
-      仕様凍結        DB稼働              モジュール       本番Ready
-                                         単体完成
+    section マイルストーン
+    M0 仕様凍結                           :milestone, m0, 0, 0
+    M1 DB稼働                            :milestone, m1, 2, 0
+    M3 モジュール単体完成                  :milestone, m3, 4, 0
+    M6 本番Ready                         :milestone, m6, 7, 0
 ```
 
 ### 3.1 Week 0-1: 仕様凍結フェーズ（人間 + リーダーAgent）
@@ -155,19 +167,32 @@ Week  W0   W1        W2        W3        W4        W5        W6        W7
 
 #### モジュール間の依存関係（型定義で解決）
 
-```
-[型定義ファイル] ← 全エージェントが参照（Week 0-1で凍結）
-    ↓
-    ├─ types/database.ts       — 全33テーブル (146 indexes)
-    ├─ types/mcp-tools.ts      — 全103 MCPツール (+ 19 REST API = 122総計)
-    ├─ types/langgraph-state.ts — 全4グラフ
-    └─ types/api-schemas.ts    — 19 REST APIエンドポイント
-    ↓
-infra-agent ─── Docker + DDL（Week 1-2で完成 → 他エージェントがDB接続可能に）
-    ↓
-[残り9エージェント: Week 1-5 で並列実装]
-    ↓ 型定義に従うため、DBが実際に動いていなくてもコード作成可能
-[Week 5: 統合]
+```mermaid
+flowchart TD
+    TYPES["型定義ファイル<br/>（Week 0-1で凍結）"]
+    DB_TS["types/database.ts<br/>全33テーブル (146 indexes)"]
+    MCP_TS["types/mcp-tools.ts<br/>全103 MCPツール (+ 19 REST API = 122総計)"]
+    LG_TS["types/langgraph-state.ts<br/>全4グラフ"]
+    API_TS["types/api-schemas.ts<br/>19 REST APIエンドポイント"]
+    INFRA["infra-agent<br/>Docker + DDL<br/>（Week 1-2で完成 → 他エージェントがDB接続可能に）"]
+    AGENTS["残り9エージェント<br/>Week 1-5 で並列実装<br/>（型定義に従うため、DBが実際に動いていなくてもコード作成可能）"]
+    INTEGRATE["Week 5: 統合"]
+
+    TYPES --> DB_TS
+    TYPES --> MCP_TS
+    TYPES --> LG_TS
+    TYPES --> API_TS
+    DB_TS --> INFRA
+    MCP_TS --> INFRA
+    LG_TS --> INFRA
+    API_TS --> INFRA
+    INFRA --> AGENTS
+    AGENTS --> INTEGRATE
+
+    style TYPES fill:#264653,color:#fff
+    style INFRA fill:#2a9d8f,color:#fff
+    style AGENTS fill:#e9c46a,color:#000
+    style INTEGRATE fill:#e76f51,color:#fff
 ```
 
 **注意**: infra-agentはWeek 1-2で完成を目指す。他エージェントはWeek 1-2はローカルモック/型定義ベースで開発し、Week 3以降で実DBに接続。
@@ -247,21 +272,21 @@ infra-agent ─── Docker + DDL（Week 1-2で完成 → 他エージェント
 
 統合テストは下位層から上位層へ段階的に実施する。
 
-```
-Step 1: DB + MCP Server接続テスト
-        └─ 33テーブル (146 indexes) + 103 MCPツールの実DB動作確認
+```mermaid
+flowchart TD
+    S1["Step 1: DB + MCP Server接続テスト<br/>33テーブル (146 indexes) + 103 MCPツールの実DB動作確認"]
+    S2["Step 2: Worker + MCP Server結合テスト<br/>動画制作WK、テキスト制作WK、投稿WK、計測WKがMCP経由でDB操作"]
+    S3["Step 3: LangGraph Agent + MCP Server結合テスト<br/>Researcher、Analyst、ToolSP、DataCuratorがMCPツールを正常呼出し"]
+    S4["Step 4: Dashboard + API結合テスト<br/>全15画面がAPIから正しくデータ取得・表示"]
+    S5["Step 5: 全体E2Eテスト<br/>仮説生成 → 計画策定 → 人間承認 → 制作 → 投稿 → 計測 → 分析 → 学習"]
 
-Step 2: Worker + MCP Server結合テスト
-        └─ 動画制作WK、テキスト制作WK、投稿WK、計測WKがMCP経由でDB操作
+    S1 --> S2 --> S3 --> S4 --> S5
 
-Step 3: LangGraph Agent + MCP Server結合テスト
-        └─ Researcher、Analyst、ToolSP、DataCuratorがMCPツールを正常呼出し
-
-Step 4: Dashboard + API結合テスト
-        └─ 全15画面がAPIから正しくデータ取得・表示
-
-Step 5: 全体E2Eテスト
-        └─ 仮説生成 → 計画策定 → [人間承認] → 制作 → 投稿 → 計測 → 分析 → 学習
+    style S1 fill:#1a535c,color:#fff
+    style S2 fill:#4ecdc4,color:#000
+    style S3 fill:#f7fff7,color:#000
+    style S4 fill:#ff6b6b,color:#fff
+    style S5 fill:#ffe66d,color:#000
 ```
 
 #### Week 7: 本番準備
@@ -387,13 +412,30 @@ Step 5: 全体E2Eテスト
 | Week 5- | レビュー・承認 | 統合テスト結果のレビュー、本番設定の承認 | NO |
 | Week 6- | v4.0切替判断 | v4.0パイプライン停止タイミングの最終判断 | NO |
 
-```
-【API審査クリティカルパス】
-Week 0          Week 2          Week 4          Week 5-6
-  │               │               │               │
-  ├─ API審査申請 ──┼── 審査中(2-4w) ┼── 審査完了? ──→ 統合テストでAPI接続必須
-  │               │               │               │
-  └─ 未申請の場合 ─────────────────────────────────→ ❌ 統合テスト全体がブロック
+```mermaid
+flowchart LR
+    W0["Week 0"]
+    W2["Week 2"]
+    W4["Week 4"]
+    W56["Week 5-6"]
+
+    APPLY["API審査申請"]
+    REVIEW["審査中 (2-4w)"]
+    DONE["審査完了?"]
+    INTEG["統合テストでAPI接続必須"]
+
+    NOAPPLY["未申請の場合"]
+    BLOCK["統合テスト全体がブロック"]
+
+    W0 --> APPLY --> REVIEW --> DONE --> INTEG
+    W0 --> NOAPPLY -->|"Week 0〜6 未対応のまま"| BLOCK
+
+    style APPLY fill:#2a9d8f,color:#fff
+    style REVIEW fill:#e9c46a,color:#000
+    style DONE fill:#e9c46a,color:#000
+    style INTEG fill:#264653,color:#fff
+    style NOAPPLY fill:#e76f51,color:#fff
+    style BLOCK fill:#d62828,color:#fff
 ```
 
 ## 7. 成功条件
@@ -446,48 +488,47 @@ v5.0の開発は5フェーズに分割する。各フェーズは前フェーズ
 
 ### 週単位スケジュール (ガントチャート)
 
-```
-2026年
-         2月              3月                  4月                  5月                  6月
-Week  W1   W2   W3   W4   W5   W6   W7   W8   W9   W10  W11  W12  W13  W14  W15  W16  W17  W18  W19
-日付  2/16 2/23 3/2  3/9  3/16 3/23 3/30 4/6  4/13 4/20 4/27 5/4  5/11 5/18 5/25 6/1  6/8  6/15 6/22
-      ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ────
+```mermaid
+gantt
+    title 従来Phase依存型ロードマップ（2026年 2月〜6月 / 19週間）
+    dateFormat YYYY-MM-DD
+    axisFormat %m/%d
 
-Phase 1: データ基盤
-      ████ ████ ████
-      Docker スキ  MCP
-      +DB    ーマ  Server
-      構築  26tbl
+    section Phase 1: データ基盤
+    Docker+DB構築                :p1w1, 2026-02-16, 1w
+    スキーマ 26tbl               :p1w2, after p1w1, 1w
+    MCP Server                  :p1w3, after p1w2, 1w
 
-Phase 2: ワーカー層
-                     ████ ████ ████
-                     動画+ 投稿  計測+
-                     テキスト WK  ツールMCP
-                     制作WK      +Docker化
+    section Phase 2: ワーカー層
+    動画+テキスト制作WK           :p2w1, 2026-03-09, 1w
+    投稿WK                      :p2w2, after p2w1, 1w
+    計測+ツールMCP+Docker化       :p2w3, after p2w2, 1w
 
-Phase 3: インテリジェンス層
-                                    ████ ████ ████ ████
-                                    LG   リサ  アナ  Embed
-                                    +ツール ーチ+ リスト+ +データ
-                                    SP   学習  提案  キュレータ
+    section Phase 3: インテリジェンス層
+    LG+ツールSP                  :p3w1, 2026-03-30, 1w
+    リサーチ+学習                 :p3w2, after p3w1, 1w
+    アナリスト+提案               :p3w3, after p3w2, 1w
+    Embed+データキュレータ         :p3w4, after p3w3, 1w
 
-Phase 4: 戦略・計画層
-                                                       ████ ████ ████ ████
-                                                       戦略  プラン 自動  マルチ
-                                                       Agent ナー  サイクル PF
+    section Phase 4: 戦略・計画層
+    戦略Agent                   :p4w1, 2026-04-27, 1w
+    プランナー                   :p4w2, after p4w1, 1w
+    自動サイクル                  :p4w3, after p4w2, 1w
+    マルチPF                    :p4w4, after p4w3, 1w
 
-Phase 5: ダッシュボード + スケール
-                                                                          ████ ████ ████ ████ ████
-                                                                          UI+  介入+ Docker 完全  本番
-                                                                          Docker ツール 移行  分離  運用
-                                                                               管理
+    section Phase 5: ダッシュボード+スケール
+    UI+Docker                   :p5w1, 2026-05-25, 1w
+    介入+ツール管理               :p5w2, after p5w1, 1w
+    Docker移行                  :p5w3, after p5w2, 1w
+    完全分離                     :p5w4, after p5w3, 1w
+    本番運用                     :p5w5, after p5w4, 1w
 
-マイルストーン
-      ▲                    ▲              ▲                   ▲                   ▲
-      M1                   M2             M3                  M4                  M5
-      Docker+DB            DB駆動PL       AI学習+             全自動               Docker
-      26tbl稼働            +Docker化      ツールSP             サイクル              完全移行
-                                                                                  +本番
+    section マイルストーン
+    M1 Docker+DB 26tbl稼働       :milestone, m1, 2026-03-07, 0d
+    M2 DB駆動PL+Docker化         :milestone, m2, 2026-03-28, 0d
+    M3 AI学習+ツールSP            :milestone, m3, 2026-04-25, 0d
+    M4 全自動サイクル              :milestone, m4, 2026-05-23, 0d
+    M5 Docker完全移行+本番        :milestone, m5, 2026-06-27, 0d
 ```
 
 ### Phase 1: データ基盤 (Week 1-3)
@@ -632,20 +673,24 @@ Phase 5: ダッシュボード + スケール
 
 ### 従来の依存関係
 
-```
-Phase 1: データ基盤
-    │ PostgreSQL + MCP Server が前提
-    ▼
-Phase 2: ワーカー層
-    │ DB駆動パイプラインが前提
-    ▼
-Phase 3: インテリジェンス層
-    │ LangGraph + リサーチャー + アナリストが前提
-    ▼
-Phase 4: 戦略・計画層
-    │ 全自動サイクルが前提
-    ▼
-Phase 5: ダッシュボード + スケール
+```mermaid
+flowchart TD
+    P1["Phase 1: データ基盤"]
+    P2["Phase 2: ワーカー層"]
+    P3["Phase 3: インテリジェンス層"]
+    P4["Phase 4: 戦略・計画層"]
+    P5["Phase 5: ダッシュボード + スケール"]
+
+    P1 -->|"PostgreSQL + MCP Server が前提"| P2
+    P2 -->|"DB駆動パイプラインが前提"| P3
+    P3 -->|"LangGraph + リサーチャー + アナリストが前提"| P4
+    P4 -->|"全自動サイクルが前提"| P5
+
+    style P1 fill:#264653,color:#fff
+    style P2 fill:#2a9d8f,color:#fff
+    style P3 fill:#e9c46a,color:#000
+    style P4 fill:#f4a261,color:#000
+    style P5 fill:#e76f51,color:#fff
 ```
 
 クリティカルパス: Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phase 5（全フェーズ直列依存）
