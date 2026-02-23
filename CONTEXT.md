@@ -2541,3 +2541,4 @@ Phase 2 (commit `3d4a7ac`): CJKピクセル幅補正
 - [x] 2.1-5: Docker + Docker Compose インストール (Docker 29.2.1, Compose v5.0.2)
 - [x] 2.1-6: Cloud SQL 接続設定 (Public IP + authorized-networks方式, VM→DB接続確認済み, pgvector v0.8.1有効化済み)
 - [x] 2.1-7: Git リポジトリ準備 (developブランチ作成, .gitignore更新)
+- [x] 2.1-8: 監視・アラート基盤の準備 (Cloud Monitoring + Error Reporting 有効化済み)
