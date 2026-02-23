@@ -3456,7 +3456,7 @@
         "platform→アダプター選択実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-TP-004",
@@ -4196,7 +4196,7 @@
         "ノード順序制御実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-STR-002",

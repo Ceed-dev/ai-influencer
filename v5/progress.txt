@@ -115,3 +115,6 @@
 2026-02-23T08:43:43Z | intelligence-agent | COMPLETE | FEAT-INT-008 | passed | TEST-AGT-018 green (39 tests)
 2026-02-23T08:43:56Z | intelligence-agent | START | FEAT-INT-001 | starting | Production pipeline graph — content_format dispatch
 2026-02-23T08:44:23Z | text-post-agent | COMPLETE | FEAT-TP-002 | passed | TEST-WKR-013 green
+2026-02-23T08:47:05Z | strategy-agent | COMPLETE | FEAT-STR-001 | passed | TEST-AGT-001 green (15/15 tests)
+2026-02-23T08:47:20Z | strategy-agent | START | FEAT-STR-002 | starting | cycles table status transition recording
+2026-02-23T08:49:27Z | text-post-agent | COMPLETE | FEAT-TP-003 | passed | TEST-WKR-014 green
