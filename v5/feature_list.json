@@ -4612,7 +4612,7 @@
         "API実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DSH-009",
@@ -4637,7 +4637,7 @@
         "verdict/categoryフィルタ実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DSH-010",
@@ -4662,7 +4662,7 @@
         "min_confidenceフィルタ実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DSH-011",
@@ -4735,7 +4735,7 @@
         "API実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DSH-014",
