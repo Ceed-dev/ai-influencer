@@ -6304,7 +6304,7 @@
         "BASELINE_WINDOW_DAYS/BASELINE_MIN_SAMPLE参照",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-ALG-002",
