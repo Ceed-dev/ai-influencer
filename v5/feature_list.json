@@ -4865,7 +4865,7 @@
         "SWR refetchInterval実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DSH-019",
@@ -4890,7 +4890,7 @@
         "system_settingsデフォルトページサイズ読み込み",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DSH-020",
@@ -4928,7 +4928,7 @@
         "KPIページコンポーネント実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DSH-021",
@@ -5010,7 +5010,7 @@
         "返信機能実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DSH-024",
@@ -5218,7 +5218,7 @@
         "日付範囲フィルタ実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DSH-031",
@@ -5244,7 +5244,7 @@
         "アカウント別パフォーマンス実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DSH-032",
@@ -5270,7 +5270,7 @@
         "pending/respondedフィルタ実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DSH-033",
@@ -5296,7 +5296,7 @@
         "コンポーネント一覧+承認UI実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DSH-034",
@@ -5342,7 +5342,7 @@
         "レスポンスタイム計測",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DSH-036",
