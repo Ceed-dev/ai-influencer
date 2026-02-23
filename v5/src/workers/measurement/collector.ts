@@ -7,7 +7,7 @@
  * All config values read from system_settings — no hardcoding.
  */
 import type { PoolClient, Pool } from 'pg';
-import type { Platform } from '../../types/database.js';
+import type { Platform } from '../../../types/database.js';
 
 export interface MeasurementTask {
   taskId: number;
@@ -50,13 +50,13 @@ export async function getMeasurementEligible(
 
   const res = await client.query(sql, [limit]);
   return res.rows.map((r: Record<string, unknown>) => ({
-    taskId: r.task_id as number,
-    publicationId: r.publication_id as number,
-    platform: r.platform as Platform,
-    platformPostId: r.platform_post_id as string,
-    accountId: r.account_id as string,
-    contentId: r.content_id as string,
-    measurementType: r.measurement_type as string,
+    taskId: r['task_id'] as number,
+    publicationId: r['publication_id'] as number,
+    platform: r['platform'] as Platform,
+    platformPostId: r['platform_post_id'] as string,
+    accountId: r['account_id'] as string,
+    contentId: r['content_id'] as string,
+    measurementType: r['measurement_type'] as string,
   }));
 }
 
@@ -93,11 +93,11 @@ export async function getPublicationsReadyForMeasurement(
 
   const res = await client.query(sql, [limit]);
   return res.rows.map((r: Record<string, unknown>) => ({
-    publicationId: r.publication_id as number,
-    platform: r.platform as Platform,
-    platformPostId: r.platform_post_id as string | null,
-    accountId: r.account_id as string,
-    contentId: r.content_id as string,
-    measureAfter: new Date(r.measure_after as string),
+    publicationId: r['publication_id'] as number,
+    platform: r['platform'] as Platform,
+    platformPostId: r['platform_post_id'] as string | null,
+    accountId: r['account_id'] as string,
+    contentId: r['content_id'] as string,
+    measureAfter: new Date(r['measure_after'] as string),
   }));
 }

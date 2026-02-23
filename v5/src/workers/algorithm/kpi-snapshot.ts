@@ -45,7 +45,9 @@ export async function calcKpiForPlatform(
   const kpiTarget = await getSettingNumber(KPI_TARGET_KEYS[platform], client);
   const startDay = await getSettingNumber('KPI_CALC_MONTH_START_DAY', client);
 
-  const [year, month] = yearMonth.split('-').map(Number);
+  const parts = yearMonth.split('-').map(Number);
+  const year = parts[0] ?? 2026;
+  const month = parts[1] ?? 1;
   const nextMonthStart = new Date(Date.UTC(year, month, 1));
   const eligibleStart = new Date(Date.UTC(year, month - 1, startDay));
 

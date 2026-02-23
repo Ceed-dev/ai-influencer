@@ -17,8 +17,10 @@ export class McpNotFoundError extends Error {
 }
 
 export class McpDbError extends Error {
-  constructor(message: string, public readonly cause?: unknown) {
+  public override readonly cause?: unknown;
+  constructor(message: string, cause?: unknown) {
     super(message);
     this.name = 'McpDbError';
+    this.cause = cause;
   }
 }

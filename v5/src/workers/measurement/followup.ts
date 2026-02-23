@@ -7,7 +7,7 @@
  * Creates task_queue entries with type='measure' and measurement_type='7d'/'30d'.
  */
 import type { PoolClient } from 'pg';
-import type { MeasurementPoint } from '../../types/database.js';
+import type { MeasurementPoint } from '../../../types/database.js';
 import { getSetting } from '../../lib/settings.js';
 
 /**

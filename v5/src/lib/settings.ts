@@ -5,7 +5,7 @@
  */
 import { Pool, type PoolClient } from 'pg';
 
-const DATABASE_URL = process.env.DATABASE_URL || 'postgres://dev:dev@localhost:5433/dev_ai_influencer';
+const DATABASE_URL = process.env['DATABASE_URL'] || 'postgres://dev:dev@localhost:5433/dev_ai_influencer';
 
 let pool: Pool | null = null;
 

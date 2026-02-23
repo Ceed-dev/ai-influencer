@@ -51,7 +51,7 @@ export function determineTier(
 function intervalToHours(interval: string): number {
   const match = interval.match(/^(\d+)(d|h)$/);
   if (!match) return 168; // 7 days default
-  const val = parseInt(match[1]);
+  const val = parseInt(match[1] ?? '7');
   return match[2] === 'd' ? val * 24 : val;
 }
 
@@ -179,14 +179,14 @@ export async function recalcWeightsForPlatform(
     // Uniform fallback
     for (const f of FACTORS) calculatedWeights[f] = 1 / FACTORS.length;
   } else {
-    for (const f of FACTORS) calculatedWeights[f] = rawContributions[f] / totalContribution;
+    for (const f of FACTORS) calculatedWeights[f] = (rawContributions[f] ?? 0) / totalContribution;
   }
 
   // Step 7-10: EMA → clip → floor → normalize
   const emaWeights: Record<string, number> = {};
   for (const f of FACTORS) {
     const old = oldWeights[f] ?? (1 / FACTORS.length);
-    const calc = calculatedWeights[f];
+    const calc = calculatedWeights[f] ?? (1 / FACTORS.length);
     // EMA
     let ema = alpha * calc + (1 - alpha) * old;
     // Clip to ±maxRate of old
@@ -202,7 +202,7 @@ export async function recalcWeightsForPlatform(
   const emaTotal = Object.values(emaWeights).reduce((a, b) => a + b, 0);
   const finalWeights: Record<string, number> = {};
   for (const f of FACTORS) {
-    finalWeights[f] = emaWeights[f] / emaTotal;
+    finalWeights[f] = (emaWeights[f] ?? 0) / emaTotal;
   }
 
   // Step 11: Transaction — UPDATE prediction_weights + INSERT weight_audit_log

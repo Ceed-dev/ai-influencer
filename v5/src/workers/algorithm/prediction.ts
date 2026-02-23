@@ -185,33 +185,33 @@ async function resolveFactorValues(
   // content_length bucket
   if (row.total_duration_seconds != null) {
     const dur = parseFloat(row.total_duration_seconds);
-    if (dur <= 15) values.content_length = '0-15s';
-    else if (dur <= 30) values.content_length = '16-30s';
-    else if (dur <= 60) values.content_length = '31-60s';
-    else values.content_length = '60s+';
+    if (dur <= 15) values['content_length'] = '0-15s';
+    else if (dur <= 30) values['content_length'] = '16-30s';
+    else if (dur <= 60) values['content_length'] = '31-60s';
+    else values['content_length'] = '60s+';
   } else {
-    values.content_length = null;
+    values['content_length'] = null;
   }
 
   // post_hour bucket
   if (row.posted_at) {
     const hour = new Date(row.posted_at).getUTCHours();
-    if (hour <= 5) values.post_hour = '00-05';
-    else if (hour <= 8) values.post_hour = '06-08';
-    else if (hour <= 11) values.post_hour = '09-11';
-    else if (hour <= 14) values.post_hour = '12-14';
-    else if (hour <= 17) values.post_hour = '15-17';
-    else if (hour <= 20) values.post_hour = '18-20';
-    else values.post_hour = '21-23';
+    if (hour <= 5) values['post_hour'] = '00-05';
+    else if (hour <= 8) values['post_hour'] = '06-08';
+    else if (hour <= 11) values['post_hour'] = '09-11';
+    else if (hour <= 14) values['post_hour'] = '12-14';
+    else if (hour <= 17) values['post_hour'] = '15-17';
+    else if (hour <= 20) values['post_hour'] = '18-20';
+    else values['post_hour'] = '21-23';
   } else {
-    values.post_hour = null;
+    values['post_hour'] = null;
   }
 
   // post_weekday
   if (row.posted_at) {
-    values.post_weekday = String(new Date(row.posted_at).getUTCDay());
+    values['post_weekday'] = String(new Date(row.posted_at).getUTCDay());
   } else {
-    values.post_weekday = null;
+    values['post_weekday'] = null;
   }
 
   // sound_bgm (from components via content_sections)
@@ -222,13 +222,13 @@ async function resolveFactorValues(
     WHERE cs.content_id = $1 AND comp.component_type = 'audio'
     LIMIT 1
   `, [contentId]);
-  values.sound_bgm = bgmRes.rows[0]?.bgm || null;
+  values['sound_bgm'] = bgmRes.rows[0]?.bgm || null;
 
   // hashtag_keyword (first/most common tag from publication metadata)
   if (row.pub_metadata?.tags && Array.isArray(row.pub_metadata.tags) && row.pub_metadata.tags.length > 0) {
-    values.hashtag_keyword = row.pub_metadata.tags[0];
+    values['hashtag_keyword'] = row.pub_metadata.tags[0];
   } else {
-    values.hashtag_keyword = null;
+    values['hashtag_keyword'] = null;
   }
 
   return values;
