@@ -5124,7 +5124,7 @@
         "承認/差戻しUI実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DSH-028",
@@ -5158,7 +5158,7 @@
         "カテゴリ別グルーピング実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DSH-029",
@@ -5192,7 +5192,7 @@
         "CRUD UI実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DSH-030",
