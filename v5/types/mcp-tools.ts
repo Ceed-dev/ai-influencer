@@ -12,7 +12,7 @@ import type {
   PublicationRow,
   HypothesisRow,
   MarketIntelRow,
-  MetricsRow,
+  MetricRow,
   AnalysisRow,
   LearningRow,
   CycleRow,
@@ -37,9 +37,8 @@ import type {
   PublicationStatus,
   HypothesisVerdict,
   Platform,
-  IntelType,
+  MarketIntelType,
   ComponentType,
-  ComponentSubtype,
 } from './database';
 
 // ============================================================================
@@ -234,7 +233,7 @@ export interface SavePlatformUpdateOutput {
 
 /** #6 — 最近の市場情報取得 */
 export interface GetRecentIntelInput {
-  intel_type?: IntelType;
+  intel_type?: MarketIntelType;
   platform?: Platform;
   limit: number; // default: 20
 }
@@ -314,7 +313,7 @@ export interface GetIntelGapsInput {
 }
 export interface GetIntelGapsOutput {
   gaps: Array<{
-    intel_type: IntelType;
+    intel_type: MarketIntelType;
     last_collected: string | null;
     gap_hours: number;
   }>;
@@ -433,7 +432,7 @@ export interface DetectAnomaliesOutput {
 /** #9 — コンポーネント別スコア取得 */
 export interface GetComponentScoresInput {
   type: ComponentType;
-  subtype: ComponentSubtype;
+  subtype: string;
   limit: number; // default: 20
 }
 export interface GetComponentScoresOutput {
@@ -604,7 +603,7 @@ export interface GetAccountPerformanceOutput {
 export interface GetAvailableComponentsInput {
   type: ComponentType;
   niche: string;
-  subtype?: ComponentSubtype;
+  subtype?: string;
 }
 export interface GetAvailableComponentsOutput {
   components: Array<{
@@ -832,7 +831,7 @@ export interface GetComponentDataInput {
 }
 export interface GetComponentDataOutput {
   type: ComponentType;
-  subtype: ComponentSubtype;
+  subtype: string;
   data: Record<string, unknown>;
   drive_file_id: string | null;
 }
@@ -1219,7 +1218,7 @@ export interface GetCurationQueueOutput {
 /** #2 — 構造化コンポーネントの作成 */
 export interface CreateComponentInput {
   type: ComponentType;
-  subtype: ComponentSubtype;
+  subtype: string;
   name: string;
   data: Record<string, unknown>;
   tags: string[];

@@ -24,7 +24,7 @@ services:
       - ai-influencer-net
 
   pgbouncer:
-    image: edoburu/pgbouncer:1.22
+    image: edoburu/pgbouncer:1.22.1-p0
     container_name: v5-pgbouncer
     depends_on:
       postgres:

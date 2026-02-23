@@ -2548,3 +2548,58 @@ Phase 2 (commit `3d4a7ac`): CJKピクセル幅補正
 - [x] 2.2-4: OpenAI Embedding APIキー (v4.0既存キー流用, 有効性確認済み)
 - [x] 2.2-5: Anthropic APIキー有効性確認 (取得済み, $5クレジット購入済み)
 - [x] 2.6: 仕様書最終確認 — 全10ファイル承認済み (01〜10)
+
+### 2026-02-23: v5.0 開発環境セットアップ完了 — 実装開始準備
+
+**What was done:**
+
+1. **Google Service Account作成**
+   - サービスアカウント: `ai-influencer-sa@ai-influencer-ceed.iam.gserviceaccount.com`
+   - JSONキーファイル: `v5/credentials/service-account.json`
+   - Google Drive API + Sheets API 有効化
+   - Shared Drive (Root Folder) への共有アクセス付与（編集者権限）
+   - Drive読み取り・書き込み・Sheets読み取り全て動作確認済み
+
+2. **APIキー有効性テスト（全キー）**
+   - Anthropic: HTTP 200, Claude応答確認
+   - fal.ai: HTTP 200, キュー受付確認
+   - Fish Audio: v4既存キー、残高$3.21確認済み
+   - OpenAI: v4既存キー、有効性確認済み
+   - Google Service Account: Drive/Sheets読み書き確認済み
+
+3. **v5開発環境セットアップ**
+   - `.env` ファイル作成（8環境変数、全APIキー設定済み）
+   - `npm install` 完了（653パッケージ）
+   - `package.json` 修正: `fal-client` → `@fal-ai/client@1.9.3`（旧パッケージ名が存在しなかったため）
+   - `docker-compose.yml` 修正: `edoburu/pgbouncer:1.22` → `1.22.1-p0`（旧タグが存在しなかったため）
+   - Docker起動: v5-postgres (pgvector/pgvector:pg16) + v5-pgbouncer 稼働中
+   - DBスキーマ適用: 5 SQLファイル実行 → 32テーブル作成、インデックス・トリガー・シード投入完了
+   - pgvector拡張有効化済み
+   - TypeScript型エラー修正: `types/mcp-tools.ts` の3箇所（MetricsRow→MetricRow, IntelType→MarketIntelType, ComponentSubtype→string）
+   - ディレクトリ構造作成: `src/`, `dashboard/`, `prompts/`
+   - `progress.txt` 作成（空、実装開始時に使用）
+   - `.gitignore` に `v5/credentials/` 追加
+
+4. **ヘルスチェック（`bash init.sh --check-only`）全項目OK**
+   - Docker: OK (29.2.1, Compose v5.0.2)
+   - Node.js: OK (v22.22.0, npm 10.9.4)
+   - PostgreSQL: healthy (32 tables)
+   - pgvector: OK
+   - Dependencies: up to date
+   - TypeScript: compilation passed
+   - Database connection: OK
+
+**Key decisions:**
+1. **Google Service Account方式**: v4のOAuth2方式ではなく、自動化に適したService Account認証を採用
+2. **開発はcloudlab VM上**: コード実装はcloudlab VMで行い、本番VMへはgcloud SSH経由でデプロイ
+3. **VMスペック据え置き**: e2-standard-4 (4vCPU/16GB) のまま。エージェントはAPI呼び出し中心のためローカルリソース負荷は低い。重くなれば随時変更可能
+4. **Claude Max 20xプラン**: 10エージェント並列実装に十分。auto-topup有効化推奨、monthly spending limit $500推奨
+
+**エージェント実行順序:**
+- Phase 1: infra-agent（DB・インフラ基盤）→ test-agent（テストフレームワーク）
+- Phase 2: 残り8エージェント並列（mcp-core, mcp-intel, video-worker, text-post, measure, intelligence, strategy, dashboard）
+
+**次のステップ:**
+- 新しいセッションで `v5/` に移動 →「実装を開始して」で10エージェント並列実装が開始される
+- `CLAUDE.md` が自動読み込みされ、ハーネスワークフロー（13-agent-harness.md）に従って自律的に進行
+- 人間の並行作業: 2.3 プラットフォームAPI審査、2.4 アカウント作成、2.5 キャラクターアセット
