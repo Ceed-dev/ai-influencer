@@ -2519,7 +2519,7 @@ Phase 2 (commit `3d4a7ac`): CJKピクセル幅補正
 - `.ig-credentials.json` - Instagram per-account long-lived tokens
 - `_config` sheet in spreadsheet - contains OpenAI API key
 
-### 2026-02-23: v5.0 実装準備 — インフラ構築開始
+### 2026-02-23: v5.0 実装準備完了 — インフラ・APIキー・仕様承認
 
 **What was done:**
 - GCPプロジェクト `ai-influencer-ceed` 新規作成 (Project Number: 347561606860)
