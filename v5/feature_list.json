@@ -884,7 +884,7 @@
         "psql実行",
         "TEST-DB-043実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DB-039",
@@ -907,7 +907,7 @@
         "CHECK制約追加",
         "TEST-DB-044実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DB-040",
@@ -930,7 +930,7 @@
         "CHECK制約追加",
         "TEST-DB-045実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DB-041",
@@ -1001,7 +1001,7 @@
         "FK制約追加",
         "TEST-DB-049,050実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DB-044",
@@ -1024,7 +1024,7 @@
         "CREATE FUNCTION+TRIGGER作成",
         "TEST-DB-051実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DB-045",
@@ -1048,7 +1048,7 @@
         "インデックスDDL追記",
         "TEST-DB-052実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DB-046",
@@ -1071,7 +1071,7 @@
         "インデックスDDL追記",
         "TEST-DB-053実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DB-047",
@@ -1094,7 +1094,7 @@
         "CREATE INDEX USING hnsw実行",
         "TEST-DB-054実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DB-048",
@@ -1139,7 +1139,7 @@
         "ヘルスチェック設定",
         "起動確認"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-INF-002",
@@ -1160,7 +1160,7 @@
         "tsconfig.json作成",
         "package.json設定"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-INF-003",
@@ -4758,7 +4758,7 @@
         "CSS変数定義",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DSH-015",
@@ -4786,7 +4786,7 @@
         "テーマ切替コンポーネント",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DSH-016",
@@ -4809,7 +4809,7 @@
         "body font-family設定",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DSH-017",
@@ -4841,7 +4841,7 @@
         "Tailwind CSSブレイクポイント設定",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DSH-018",
@@ -6138,7 +6138,7 @@
         "マイグレーション実行",
         "TEST-DB-002 (33テーブル存在確認) 実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-MCI-030",
