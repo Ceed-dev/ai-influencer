@@ -127,9 +127,9 @@ ai-influencer/v5/
 │ ─── SQL（infra-agentのみ実行・変更可） ───
 ├── sql/
 │   ├── 001_create_tables.sql  # DDL（33テーブル）
-│   ├── 002_create_indexes.sql # インデックス（146件）
-│   ├── 003_create_triggers.sql # トリガー（13件）
-│   ├── 004_seed_settings.sql  # system_settings初期データ（118件）
+│   ├── 002_create_indexes.sql # インデックス（156件）
+│   ├── 003_create_triggers.sql # トリガー（15件）
+│   ├── 004_seed_settings.sql  # system_settings初期データ（124件）
 │   └── 005_seed_prompts.sql   # agent_prompt_versions初期データ（6エージェント分）
 │
 │ ─── 実装コード ───
@@ -377,7 +377,7 @@ LangGraphの各ノード（Strategist, Researcher, Analyst, Planner, Tool Specia
 |------|------|
 | 通信方式 | `src/lib/settings.ts` → PostgreSQL直接クエリ（MCP非経由） |
 | 呼び出し元 | 全エージェント、全ワーカー、ダッシュボード |
-| テーブル | `system_settings`（118件、8カテゴリ: production(13), posting(8), review(4), agent(75), measurement(6), cost_control(4), dashboard(3), credentials(5)） |
+| テーブル | `system_settings`（124件、8カテゴリ: agent(79), production(14), posting(8), measurement(6), credentials(5), cost_control(4), review(5), dashboard(3)） |
 | 契約 | `getSetting(key: string): Promise<string>` — 初期実装は infra-agent（[02-architecture.md §10](02-architecture.md) 参照） |
 | ルール | 全設定値はこのユーティリティ経由で取得する。ハードコーディング禁止 |
 

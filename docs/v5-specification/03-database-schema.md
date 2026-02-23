@@ -3504,7 +3504,7 @@ COMMENT ON COLUMN system_settings.updated_by IS '最終更新者。"system"=初�
 
 ### 7.2 デフォルト設定値（初期INSERT）
 
-システム初期化時にINSERTされるデフォルト設定値。全カテゴリの設定を網羅する（合計118件: production 13, posting 8, review 4, agent 75, measurement 6, cost_control 4, dashboard 3, credentials 5）。
+システム初期化時にINSERTされるデフォルト設定値。全カテゴリの設定を網羅する（合計124件: agent 79, production 14, posting 8, measurement 6, credentials 5, cost_control 4, review 5, dashboard 3）。
 
 ```sql
 -- ========================================
@@ -3587,6 +3587,7 @@ INSERT INTO system_settings (setting_key, setting_value, category, description, 
 ('LEARNING_DEACTIVATE_THRESHOLD', '0.2', 'agent', '学びの信頼度がこの値未満に下がったらis_active=falseに自動更新', '0.2', 'float', '{"min": 0.05, "max": 0.5}'),
 ('LEARNING_AUTO_PROMOTE_ENABLED', 'false', 'agent', '学びの自動昇格（グローバル知見化）を有効にするか', 'false', 'boolean', null),
 ('LEARNING_SUCCESS_INCREMENT', '0.1', 'agent', '学び適用成功時のconfidence増加量', '0.1', 'float', '{"min": 0.01, "max": 0.3}'),
+('CONFIDENCE_INCREMENT_INCONCLUSIVE', '0.02', 'agent', '仮説判定がinconclusive時の学びconfidence微増量', '0.02', 'float', '{"min": 0.001, "max": 0.1}'),
 ('LEARNING_FAILURE_DECREMENT', '0.15', 'agent', '学び適用失敗時のconfidence減少量', '0.15', 'float', '{"min": 0.01, "max": 0.3}'),
 ('LEARNING_SIMILARITY_THRESHOLD', '0.8', 'agent', '重複学び検出のコサイン類似度閾値。この値以上で重複とみなす', '0.8', 'float', '{"min": 0.5, "max": 0.99}'),
 ('MAX_LEARNINGS_PER_CONTEXT', '20', 'agent', 'タスク実行時にベクトル検索で取得する学びの最大数', '20', 'integer', '{"min": 5, "max": 50}'),
@@ -3668,7 +3669,16 @@ INSERT INTO system_settings (setting_key, setting_value, category, description, 
 -- cross_account_performance
 ('CROSS_ACCOUNT_MIN_SAMPLE', '2', 'agent', '同一コンテンツの他アカウント実績を補正に使用するための最小アカウント数（自分除く）', '2', 'integer', '{"min": 1, "max": 10}'),
 -- Embedding管理
-('EMBEDDING_MODEL_VERSION', 'v1', 'agent', 'embeddingモデルバージョン管理。変更時に全embedding再生成バッチを実行', 'v1', 'string', null);
+('EMBEDDING_MODEL_VERSION', 'v1', 'agent', 'embeddingモデルバージョン管理。変更時に全embedding再生成バッチを実行', 'v1', 'string', null),
+-- ツールスコアリング重み (04-agent-design.md §4.9 ツールスペシャリスト)
+('TOOL_SCORE_WEIGHT_SUCCESS', '0.4', 'agent', 'ツールランキング: 成功率の重み', '0.4', 'float', '{"min": 0, "max": 1}'),
+('TOOL_SCORE_WEIGHT_QUALITY', '0.3', 'agent', 'ツールランキング: 品質スコアの重み', '0.3', 'float', '{"min": 0, "max": 1}'),
+('TOOL_SCORE_WEIGHT_COST', '0.2', 'agent', 'ツールランキング: コスト効率の重み', '0.2', 'float', '{"min": 0, "max": 1}'),
+('TOOL_SCORE_WEIGHT_RECENCY', '0.1', 'agent', 'ツールランキング: 直近使用ボーナスの重み', '0.1', 'float', '{"min": 0, "max": 1}'),
+-- LangGraphチェックポイント管理 (02-architecture.md §9.2)
+('CHECKPOINT_RETENTION_DAYS', '7', 'production', 'LangGraphチェックポイントの保持日数。超過分は自動クリーンアップ', '7', 'integer', '{"min": 1, "max": 30}'),
+-- キュレーション自動承認制御 (04-agent-design.md §1.5, 02-architecture.md §6.12)
+('REQUIRE_AUTO_CURATION', 'true', 'review', 'trueの場合キュレーション結果を人間レビューパネルに表示。falseで自動承認', 'true', 'boolean', null);
 ```
 
 ### 7.3 JSONB 内部スキーマ定義

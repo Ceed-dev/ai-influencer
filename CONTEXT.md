@@ -2491,7 +2491,21 @@ Phase 2 (commit `3d4a7ac`): CJKピクセル幅補正
 - feature_list.json と仕様書の整合性確認
 - 発見した問題の修正 → 再検証ループ
 
-**ステータス**: 作業中
+**修正内容** (10ファイル, +850/-167行):
+1. **数値整合性修正**: indexes 146→156, triggers 13→15, system_settings 118→124 (全ファイル)
+2. **system_settings 6件追加** (03-database-schema.md): TOOL_SCORE_WEIGHT_* 4件(agent), CHECKPOINT_RETENTION_DAYS(production), REQUIRE_AUTO_CURATION(review) — 仕様で参照されていたがDB INSERT未登録だった
+3. **system_settings マスターテーブル作成** (02-architecture.md §11.5): 全124件をカテゴリ別に一覧
+4. **engagement_rate数式定義** (08-algorithm-analysis.md §12.0): saves含む完全定義、エッジケース、SQL実装
+5. **platform_niche_median算出アルゴリズム** (08-algorithm-analysis.md §12.5): 3ステップ擬似コード、フォールバック値、SQL
+6. **08-algorithm-analysis.md §27再構成**: 27.1(新規31件) + 27.2(既存参照22件) に分割
+7. **04-agent-design.md engagement_rate修正**: saves追加 + 08参照
+8. **feature_list.json オーファンテスト修正**: 147件を既存276フィーチャーに紐付け (全489テスト = 全フィーチャーに割当済)
+9. **13-agent-harness.md カテゴリ追加**: algorithm(15 features) + agent-intelligence(3 features) 追加
+10. **TEST-DB-047 カテゴリ別件数更新**: agent:44→79, production:13→14, review:4→5
+
+**最終検証**: 10/10チェック PASS（数値整合性、テスト件数、カテゴリ一致、数式一致）
+
+**ステータス**: 完了
 
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID

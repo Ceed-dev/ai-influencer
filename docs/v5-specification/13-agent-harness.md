@@ -65,16 +65,18 @@ flowchart TD
 
 | # | エージェント名 | 担当カテゴリ | feature_list.json のカテゴリ |
 |---|-------------|------------|---------------------------|
-| 1 | infra-agent | Docker + PostgreSQL + DDL | `database`, `infra` |
+| 1 | infra-agent | Docker + PostgreSQL + DDL + アルゴリズムバッチ | `database`, `infra`, `algorithm` |
 | 2 | mcp-core-agent | MCP Server コアCRUD (~50ツール) | `mcp-core` |
-| 3 | mcp-intel-agent | MCP Server インテリジェンス (~52ツール) | `mcp-intel` |
+| 3 | mcp-intel-agent | MCP Server インテリジェンス (~52ツール) + アルゴリズム分析 | `mcp-intel`, `algorithm` |
 | 4 | video-worker-agent | 動画制作ワーカー | `video-worker` |
 | 5 | text-post-agent | テキスト制作 + 投稿 | `text-post` |
 | 6 | measure-agent | 計測ワーカー | `measure` |
-| 7 | intelligence-agent | LangGraph + 4エージェント | `intelligence` |
+| 7 | intelligence-agent | LangGraph + 4エージェント + データキュレーション | `intelligence`, `agent-intelligence` |
 | 8 | strategy-agent | 戦略Agent + プランナー | `strategy` |
 | 9 | dashboard-agent | Next.js ダッシュボード全15画面 | `dashboard` |
 | 10 | test-agent | テストスイート + CI | `test` |
+
+> **注**: `algorithm` カテゴリ（15機能）はベースライン計算・weight再計算・補正係数キャッシュ等のアルゴリズムバッチ処理で構成され、infra-agent（12機能: バッチジョブ・エッジケース）とmcp-intel-agent（3機能: per-content分析・累積分析）に分散して割り当てられる。`agent-intelligence` カテゴリ（3機能）はデータキュレーター機能（キャラクタープロフィール自動生成・画像生成・音声選定）で、intelligence-agentが担当する。
 
 ### 1.4 コンテキストウィンドウ管理
 
@@ -123,7 +125,7 @@ flowchart TD
           },
           "category": {
             "type": "string",
-            "enum": ["database", "infra", "mcp-core", "mcp-intel", "video-worker", "text-post", "measure", "intelligence", "strategy", "dashboard", "test"]
+            "enum": ["database", "infra", "mcp-core", "mcp-intel", "video-worker", "text-post", "measure", "intelligence", "strategy", "dashboard", "test", "algorithm", "agent-intelligence"]
           },
           "module": {
             "type": "string",

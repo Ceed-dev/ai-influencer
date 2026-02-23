@@ -5155,7 +5155,7 @@ Phase 4以降 (エージェント運用中):
 | `RECIPE_APPROVAL_REQUIRED` | true | bool | §17 | ツールレシピ変更の人間承認 |
 | `LEARNING_AUTO_PROMOTE_ENABLED` | false | bool | §18.3 | 自動昇格の有効化（true: 人間確認不要） |
 
-> **注**: 上記は04-agent-design.mdで定義されるエージェント関連閾値のみ。アルゴリズム関連の設定値（重み初期値・クリッピング・ベースライン等 31件）は08-algorithm-analysis.md §27を参照。全118件のsystem_settingsの完全一覧はv5/sql/004_seed_settings.sqlに定義される。
+> **注**: 上記は04-agent-design.mdで定義されるエージェント関連閾値のみ。アルゴリズム関連の設定値（重み初期値・クリッピング・ベースライン等 31件）は [08-algorithm-analysis.md](08-algorithm-analysis.md) §27を参照。全124件のsystem_settingsの完全一覧は [02-architecture.md](02-architecture.md) §11.5 マスターテーブルおよび [03-database-schema.md](03-database-schema.md) §7.2 初期INSERT文を参照。
 
 ### 17.1 仮説判定 (verdict)
 
@@ -6019,7 +6019,7 @@ analysesテーブルのfindings / recommendationsをJSON形式で記録します
 | メトリクス | 意味 | 注意点 |
 |-----------|------|--------|
 | views | 再生/表示回数 | プラットフォームごとにカウント方法が異なる（TikTok: 1秒以上、YouTube: 意味のある視聴） |
-| engagement_rate | (likes + comments + shares) / views | プラットフォーム平均との比較が重要。絶対値だけで判断しない |
+| engagement_rate | (likes + comments + shares + saves) / views | プラットフォーム平均との比較が重要。絶対値だけで判断しない。saves は YouTube/X では NULL → 0 として加算（詳細: 08-algorithm-analysis.md §12.0） |
 | followers_gained | フォロワー純増数 | バズ直後は一時的に急増するため、3日間の推移で判断 |
 | watch_time | 平均視聴時間 | 動画の長さに対する割合（完了率）が重要 |
 | shares | 共有数 | 最もバイラル性を示す指標。少数でも注目に値する |

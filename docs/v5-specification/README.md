@@ -51,11 +51,11 @@ v5.0は、AI-Influencerシステムを**完全AIエージェント駆動**に刷
 |------|------|------|
 | データベース | 33テーブル | エンティティ8 / 仮説駆動6 / 計測・学習8 / アルゴリズム7 / 他4 |
 | MCPツール | 103 MCP (ユニーク実装) + 19 REST API = **122ツール** | mcp-core: 45 / mcp-intel: 58 / Dashboard REST: 19 ※04-agent-design.md §4ではエージェント別利用ツール合計として106 MCP/125ツールと記載（3ツールが§4.3/§4.12で共有） |
-| システム設定 | 118キー | エージェント: 75 / production: 13 / posting: 8 / measurement: 6 / credentials: 5 / cost_control: 4 / review: 4 / dashboard: 3 |
+| システム設定 | 124キー | エージェント: 79 / production: 14 / posting: 8 / measurement: 6 / credentials: 5 / cost_control: 4 / review: 5 / dashboard: 3 |
 | 機能一覧 | 276 Features | DB+Infra: 54 / MCP: 78 (core:43+intel:35) / Worker: 30 / Agent: 31 / Dashboard: 36 / Test: 32 / Algorithm: 15 |
 | テスト仕様 | **489テスト** | DB: 59 / MCP: 137 / Worker: 40 / Agent: 35 / Dashboard: 156 / Integration: 20 / E2E: 12 / Algorithm: 30 |
 | LangGraphグラフ | 4グラフ | 戦略サイクル / 制作パイプライン / 投稿スケジューラー / 計測ジョブ |
-| ダッシュボード | 15ページ + 13 API | 概要 / KPI監視 / エージェント進化 / キュレーション / プロンプト管理 / 他10ページ |
+| ダッシュボード | 15ページ + 19 REST API | 概要 / KPI監視 / エージェント進化 / キュレーション / プロンプト管理 / 他10ページ |
 
 ## アーキテクチャ概要図
 

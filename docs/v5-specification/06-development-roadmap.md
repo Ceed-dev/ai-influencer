@@ -134,7 +134,7 @@ gantt
 
 1. **全仕様書（01-13）の最終レビュー完了**
 2. **TypeScript型定義ファイル生成**:
-   - `types/database.ts`: 全33テーブル (146 indexes) のRow型
+   - `types/database.ts`: 全33テーブル (156 indexes) のRow型
    - `types/mcp-tools.ts`: 全103 MCPツールの入出力型
    - `types/langgraph-state.ts`: 全4グラフのステート型
    - `types/api-schemas.ts`: ダッシュボード19 REST APIのリクエスト/レスポンス型
@@ -170,7 +170,7 @@ gantt
 ```mermaid
 flowchart TD
     TYPES["型定義ファイル<br/>（Week 0-1で凍結）"]
-    DB_TS["types/database.ts<br/>全33テーブル (146 indexes)"]
+    DB_TS["types/database.ts<br/>全33テーブル (156 indexes)"]
     MCP_TS["types/mcp-tools.ts<br/>全103 MCPツール (+ 19 REST API = 122総計)"]
     LG_TS["types/langgraph-state.ts<br/>全4グラフ"]
     API_TS["types/api-schemas.ts<br/>19 REST APIエンドポイント"]
@@ -218,7 +218,7 @@ flowchart TD
 
 | エージェント | 作業内容 | 成果物 |
 |-------------|---------|--------|
-| infra-agent | 全33テーブルDDL完了 + 146インデックス + トリガー + 初期データ投入 | **33テーブル (146 indexes) 完成、M1達成** |
+| infra-agent | 全33テーブルDDL完了 + 156インデックス + トリガー + 初期データ投入 | **33テーブル (156 indexes) 完成、M1達成** |
 | mcp-core-agent | Production系 + Operations系CRUDツール | content/publications/task_queue CRUD |
 | mcp-intel-agent | 仮説検索 + 知見検索 + 異常検知ツール | pgvector検索対応ツール |
 | video-worker-agent | Sync Lipsync連携 + ffmpeg concat + リトライ処理 | 動画制作E2Eフロー完成 |
@@ -274,7 +274,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    S1["Step 1: DB + MCP Server接続テスト<br/>33テーブル (146 indexes) + 103 MCPツールの実DB動作確認"]
+    S1["Step 1: DB + MCP Server接続テスト<br/>33テーブル (156 indexes) + 103 MCPツールの実DB動作確認"]
     S2["Step 2: Worker + MCP Server結合テスト<br/>動画制作WK、テキスト制作WK、投稿WK、計測WKがMCP経由でDB操作"]
     S3["Step 3: LangGraph Agent + MCP Server結合テスト<br/>Researcher、Analyst、ToolSP、DataCuratorがMCPツールを正常呼出し"]
     S4["Step 4: Dashboard + API結合テスト<br/>全15画面がAPIから正しくデータ取得・表示"]
@@ -316,8 +316,8 @@ flowchart TD
 
 | ID | 時期 | 名称 | 判定基準 | Feature達成 |
 |----|------|------|---------|------------|
-| M0 | Week 0 | 仕様凍結 | 全仕様書（01-13）承認完了。型定義ファイル4種の生成・凍結完了。全プロンプトファイル作成完了。全118 system_settings凍結 | — |
-| M1 | Week 2 | DB稼働 | 33テーブル (146 indexes) DDL適用完了。インデックス・トリガー動作確認。Cloud SQL接続テスト通過 | 54/276 (DB features) |
+| M0 | Week 0 | 仕様凍結 | 全仕様書（01-13）承認完了。型定義ファイル4種の生成・凍結完了。全プロンプトファイル作成完了。全124 system_settings凍結 | — |
+| M1 | Week 2 | DB稼働 | 33テーブル (156 indexes) DDL適用完了。インデックス・トリガー動作確認。Cloud SQL接続テスト通過 | 54/276 (DB features) |
 | M2 | Week 3 | MCP Server 70% | 70+ MCPツール実装完了。ユニットテスト通過。pgvector検索動作確認 | 100/276 |
 | M3 | Week 4 | モジュール単体完成 | 全モジュール（Worker/Agent/Dashboard）の単体テスト通過。per-content学習 micro-cycle (~30秒) 動作確認。アルゴリズム精度上限: 92% の理論的到達パスを検証 | 150/276 |
 | M4 | Week 5 | MCP Server 100% + Worker完成 | 全103 MCPツール完成 (+ 19 REST API = 122総計)。全Worker E2Eテスト通過。ダッシュボード全15画面完成。content_learnings + 6 micro-cycleツール完全稼働 | 220/276 |
@@ -328,12 +328,12 @@ flowchart TD
 
 **M0: 仕様凍結**
 - [ ] 全仕様書（01-13）の最終レビュー完了・承認済み
-- [ ] `types/database.ts` — 全33テーブル (146 indexes) のRow型が定義済み
+- [ ] `types/database.ts` — 全33テーブル (156 indexes) のRow型が定義済み
 - [ ] `types/mcp-tools.ts` — 全103 MCPツール (+ 19 REST API = 122総計) の入出力型が定義済み
 - [ ] `types/langgraph-state.ts` — 全4グラフのステート型が定義済み
 - [ ] `types/api-schemas.ts` — ダッシュボード19 REST APIスキーマが定義済み
 - [ ] `prompts/*.md` — 全エージェントのプロンプト全文が作成済み
-- [ ] 全118 system_settings完成・凍結（agent系75設定を含む）
+- [ ] 全124 system_settings完成・凍結（agent系79設定を含む）
 - [ ] Docker Compose定義（dev/prod分離設計）が確定
 - [ ] ディレクトリ構造が確定し、全エージェントに通知済み
 
@@ -342,7 +342,7 @@ flowchart TD
 - [ ] PostgreSQL 16+ が稼働（Cloud SQL本番 + Docker開発環境）
 - [ ] pgvector拡張が有効
 - [ ] 33テーブル全て作成済み（Entity 3 + Production 3 + Intelligence 6 + Operations 4 + Observability 5 + Tool Management 5 + System Management 1 + Algorithm 6）— content_learningsテーブル含む
-- [ ] 146インデックス・全トリガー作成済み・動作確認済み
+- [ ] 156インデックス・全トリガー作成済み・動作確認済み
 - [ ] 既存Sheetsデータの移行完了（accounts, characters, components, content）
 
 **M2: MCP Server 70%** (Feature: 100/276)
@@ -443,9 +443,9 @@ flowchart LR
 並列実装が成功するための前提条件:
 
 1. **全仕様書（01-13）が最終承認済み** — 仕様の曖昧さがゼロであること
-2. **TypeScript型定義ファイルが生成・凍結済み** — 全モジュール間のインターフェースが確定（33テーブル, 146 indexes, 103 MCP, 19 REST API）
+2. **TypeScript型定義ファイルが生成・凍結済み** — 全モジュール間のインターフェースが確定（33テーブル, 156 indexes, 103 MCP, 19 REST API）
 3. **全プロンプトファイルが作成済み** — エージェントの判断ロジック・閾値が明記
-4. **全118 system_settings（agent系75設定含む）が凍結済み** — ハードコーディング禁止、全設定値がDB管理
+4. **全124 system_settings（agent系79設定含む）が凍結済み** — ハードコーディング禁止、全設定値がDB管理
 5. **VM環境が安定** — 16GB RAM, スワップなし → 10エージェント以内で運用
 6. **人間が日次でレビュー・承認を実施可能** — リーダーAgentからの質問・PRレビューに即応
 7. **アルゴリズム精度上限: 92%** — per-content学習（micro-cycle ~30秒 + macro-cycle日次）による到達目標。12ヶ月運用後の維持レンジ: 88-93%

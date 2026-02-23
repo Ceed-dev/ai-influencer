@@ -39,7 +39,7 @@
 - [24. エッジケース (E1-E10)](#24-エッジケース-e1-e10)
 - [25. 精度向上の数学的根拠](#25-精度向上の数学的根拠)
 - [26. content_format別適用マトリクス](#26-content_format別適用マトリクス-p5)
-- [27. 新規system_settings一覧（アルゴリズム関連）](#27-新規system_settings一覧アルゴリズム関連)
+- [27. system_settings一覧（アルゴリズム関連）](#27-system_settings一覧アルゴリズム関連)
 - [28. 結論](#28-結論)
 
 
@@ -388,7 +388,7 @@ v5.0の品質評価は以下のメトリクスで構成される:
 | メトリクス | 重み | 測定方法 | 目標値 |
 |---|---|---|---|
 | **完視聴率** | 35%（system_settings: `QUALITY_WEIGHT_COMPLETION`、デフォルト: 0.35） | プラットフォームAnalytics | 70%以上 |
-| **エンゲージメント率** | 25%（system_settings: `QUALITY_WEIGHT_ENGAGEMENT`、デフォルト: 0.25） | (いいね+コメント+シェア)/Imp | 3%以上 |
+| **エンゲージメント率** | 25%（system_settings: `QUALITY_WEIGHT_ENGAGEMENT`、デフォルト: 0.25） | (likes+comments+shares+saves)/views（セクション12.0参照） | 3%以上 |
 | **シェア率** | 20%（system_settings: `QUALITY_WEIGHT_SHARE`、デフォルト: 0.20） | シェア数/Imp | 0.5%以上 |
 | **3秒離脱率** | 15%（system_settings: `QUALITY_WEIGHT_RETENTION`、デフォルト: 0.15） | Analytics | 40%以下 |
 | **コメント感情** | 5%（system_settings: `QUALITY_WEIGHT_SENTIMENT`、デフォルト: 0.05） | NLP分析 | ポジティブ60%以上 |
@@ -1273,6 +1273,47 @@ flowchart TB
 
 本セクションでは、アルゴリズム精度に関わる各判断の数式・閾値・アルゴリズムを定義する。全ての閾値は `system_settings` テーブルで管理され、ハードコーディングは禁止される。04-agent-design.md セクション17の数式定義と整合する。
 
+### 12.0 メトリクス算出式 (engagement_rate / share_rate)
+
+本ドキュメント全体で使用する基本メトリクスの算出式を定義する。データソースは `metrics` テーブル（03-database-schema.md §3.4参照）。
+
+#### engagement_rate（エンゲージメント率）
+
+```
+engagement_rate = (likes + comments + shares + COALESCE(saves, 0)) / NULLIF(views, 0)
+```
+
+| 変数 | 型 | 説明 | ソース |
+|---|---|---|---|
+| `likes` | INTEGER | いいね数 | `metrics.likes` |
+| `comments` | INTEGER | コメント数 | `metrics.comments` |
+| `shares` | INTEGER | 共有数 / リポスト数 | `metrics.shares` |
+| `saves` | INTEGER | 保存数（Instagram, TikTok のみ。YouTube, X は NULL） | `metrics.saves` |
+| `views` | INTEGER | 再生/表示回数 | `metrics.views` |
+
+- **値域**: 0.0000 〜 1.0000（`NUMERIC(5,4)`、DB制約: `chk_metrics_engagement_rate`）
+- **saves の扱い**: `COALESCE(saves, 0)` により NULL（YouTube, X）は 0 として加算。プラットフォーム間で公平に比較可能
+- **views = 0 の場合**: `NULLIF(views, 0)` により NULL を返す（ゼロ除算回避）。MCP Server は engagement_rate = NULL として保存
+- **算出タイミング**: MCP Server（`report_measurement_complete` ツール）が計測データ保存時に算出・保存（エージェントは計算しない）
+- **プラットフォーム差異**: 絶対値での比較は避け、必ず同プラットフォーム・同ニッチ内での相対比較（`platform_niche_median` 基準）を使用する
+
+```sql
+-- MCP Serverでの算出SQL（metricsテーブルINSERT時に実行）
+INSERT INTO metrics (..., engagement_rate, ...)
+VALUES (...,
+  (likes + comments + shares + COALESCE(saves, 0))::NUMERIC / NULLIF(views, 0),
+  ...);
+```
+
+#### share_rate（シェア率）
+
+```
+share_rate = shares / NULLIF(views, 0)
+```
+
+- **値域**: 0.0 〜 1.0
+- **views = 0 の場合**: NULL（engagement_rate と同じゼロ除算回避）
+
 ### 12.1 仮説的中率 (hypothesis_accuracy)
 
 ```
@@ -1418,7 +1459,87 @@ normalized_metric を0.0〜1.0に正規化した後、10倍して0-10点スケ�
 | 3秒離脱率 | `QUALITY_WEIGHT_RETENTION`（system_settings） | 0.15 | `min(10, (1 - rate) / 0.06)` | 40%以下で10点満点（40%は業界平均） |
 | ポジティブ感情比率 | `QUALITY_WEIGHT_SENTIMENT`（system_settings） | 0.05 | `min(10, ratio / 0.06)` | 60%以上で10点満点 |
 
-> **動的中央値**: 十分なデータ（>= `ANALYSIS_MIN_SAMPLE_SIZE`）が蓄積された後は、上記の固定基準値の代わりにlearningsテーブルの同プラットフォーム・同ニッチの実績中央値を `platform_niche_median` として動的に算出し、より正確なスコアリングを行う。
+> **動的中央値**: 十分なデータ（>= `ANALYSIS_MIN_SAMPLE_SIZE`）が蓄積された後は、上記の固定基準値の代わりに `metrics` テーブルの同プラットフォーム・同ニッチの実績中央値を `platform_niche_median` として動的に算出し、より正確なスコアリングを行う。
+
+#### platform_niche_median 算出アルゴリズム
+
+`platform_niche_median` は、品質スコアの正規化基準値として使用される、プラットフォーム×ニッチ別のメトリクス中央値である。
+
+**算出ステップ**:
+
+```
+platform_niche_median 算出アルゴリズム:
+
+入力:
+  platform     -- 対象プラットフォーム (例: 'tiktok')
+  niche        -- 対象ニッチ (例: 'beauty')
+  metric_name  -- 対象メトリクス名 (例: 'engagement_rate')
+
+Step 1: サンプル収集
+  対象データ = metrics テーブルから以下の条件で抽出:
+    - accounts.platform = :platform
+    - accounts.niche = :niche
+    - metrics.created_at > NOW() - INTERVAL ':DATA_DECAY_HARD_CUTOFF_DAYS days'
+      (system_settings、デフォルト: 90日)
+    - metrics.measurement_point = '48h'  (初回計測値を使用、7d/30dは除外)
+    - metric_value IS NOT NULL
+
+Step 2: サンプル数チェック
+  IF COUNT(対象データ) < ANALYSIS_MIN_SAMPLE_SIZE (system_settings、デフォルト: 5)
+    THEN RETURN デフォルト固定基準値（下記フォールバック値テーブル参照）
+  END IF
+
+Step 3: 中央値算出
+  RETURN PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY metric_value)
+    FROM 対象データ
+```
+
+**フォールバック固定基準値**（データ不足時に使用）:
+
+| メトリクス | フォールバック値 | system_settings キー | 根拠 |
+|---|---|---|---|
+| completion_rate | 0.07 (7%) | `DEFAULT_MEDIAN_COMPLETION_RATE` | ショート動画の業界標準完視聴率 |
+| engagement_rate | 0.003 (0.3%) | `DEFAULT_MEDIAN_ENGAGEMENT_RATE` | ショート動画の業界標準エンゲージメント率 |
+| share_rate | 0.005 (0.5%) | `DEFAULT_MEDIAN_SHARE_RATE` | 業界標準シェア率 |
+| 3秒離脱率 | 0.40 (40%) | `DEFAULT_MEDIAN_RETENTION_RATE` | 業界平均離脱率 |
+| ポジティブ感情比率 | 0.60 (60%) | `DEFAULT_MEDIAN_SENTIMENT_RATIO` | ニュートラル以上が過半の前提 |
+
+```sql
+-- platform_niche_median 算出SQL（品質スコア計算時に実行）
+-- メトリクスごとに1回ずつ呼び出し
+WITH filtered AS (
+    SELECT m.engagement_rate AS metric_value  -- ← メトリクス名に応じて列を切替
+    FROM metrics m
+    JOIN publications p ON m.publication_id = p.id
+    JOIN accounts a ON p.account_id = a.id
+    WHERE a.platform = :platform
+      AND a.niche = :niche
+      AND m.created_at > NOW() - make_interval(
+            days => (SELECT value::int FROM system_settings
+                     WHERE key = 'DATA_DECAY_HARD_CUTOFF_DAYS'))
+      AND m.measurement_point = '48h'
+      AND m.engagement_rate IS NOT NULL  -- ← メトリクス名に応じて列を切替
+),
+sample_check AS (
+    SELECT COUNT(*) AS n FROM filtered
+)
+SELECT
+    CASE
+        WHEN sc.n >= (SELECT value::int FROM system_settings
+                      WHERE key = 'ANALYSIS_MIN_SAMPLE_SIZE')
+        THEN (SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY metric_value)
+              FROM filtered)
+        ELSE (SELECT value::numeric FROM system_settings
+              WHERE key = 'DEFAULT_MEDIAN_ENGAGEMENT_RATE')  -- ← フォールバックキーを切替
+    END AS platform_niche_median
+FROM sample_check sc;
+```
+
+**エッジケース**:
+- **全メトリクスが NULL**: フォールバック固定基準値を使用（アカウント開設直後等）
+- **外れ値の影響**: PERCENTILE_CONT は中央値のため、バイラルコンテンツ等の外れ値に対して頑健
+- **ニッチ横断**: 特定ニッチのサンプルが不足でも、プラットフォーム全体のデータは使用しない（ニッチ間の特性差が大きいため）。必ずフォールバック固定値に倒す
+- **measurement_point**: `48h` のみを使用する理由は、7d/30d 計測は遅延が大きく中央値が上方バイアスを持つため
 
 **計算例**:
 
@@ -1642,6 +1763,9 @@ concurrent_per_planner = MAX_CONCURRENT_PRODUCTIONS / planner_count
 | F12 | **weightクリップ** | `CLAMP(ema, old x 0.8, old x 1.2)` + floor 0.02 + normalize to 1.0 | section 18.1 |
 | F13 | **異常検知** | `\|value - rolling_mean\| > sigma x rolling_stddev` (sigma=2.0) | section 12.4 |
 | F14 | **学習速度倍率** | `per-content月間イベント / 日次サイクル月間イベント = 1,000-3,000x` | section 3.2 |
+| F15 | **エンゲージメント率** | `(likes + comments + shares + COALESCE(saves, 0)) / NULLIF(views, 0)` | section 12.0 |
+| F16 | **シェア率** | `shares / NULLIF(views, 0)` | section 12.0 |
+| F17 | **platform_niche_median** | `PERCENTILE_CONT(0.5)` over same platform+niche metrics (48h, 90d window). Fallback to fixed defaults if n < 5 | section 12.5 |
 
 > **設計原則**: 全ての閾値・定数は `system_settings` テーブルで管理される。上記の数値（0.3, 0.5, 0.10, 0.15, 0.02等）は全てデフォルト値であり、ダッシュボードから動的に変更可能。
 
@@ -2602,43 +2726,99 @@ G8のSQLは全てNULLチェック付き（`WHERE hook_type IS NOT NULL`等）。
 **weightはplatform単位**（content_format別に分けない）: 動画が90%以上なのでweightは自然に動画最適化される。テキスト/画像が増えた場合は将来的にplatform×format別weightに拡張可能。
 
 
-## 27. 新規system_settings一覧（アルゴリズム関連）
+## 27. system_settings一覧（アルゴリズム関連）
 
-本セクションで参照される全settings（31キー）:
+### 27.1 本章で新規追加された設定キー（31キー）
 
-| # | キー | デフォルト値 | カテゴリ |
+08-algorithm-analysis.md で新規導入されたアルゴリズム固有の設定値。全て `category='agent'`。SSOT: [03-database-schema.md](03-database-schema.md) §7.2。
+
+| # | キー | デフォルト値 | 型 | 説明 |
+|---|---|---|---|---|
+| 1 | ADJUSTMENT_INDIVIDUAL_MIN | -0.5 | float | 個別補正係数の下限 |
+| 2 | ADJUSTMENT_INDIVIDUAL_MAX | 0.5 | float | 個別補正係数の上限 |
+| 3 | ADJUSTMENT_TOTAL_MIN | -0.7 | float | 補正係数合計の下限 |
+| 4 | ADJUSTMENT_TOTAL_MAX | 1.0 | float | 補正係数合計の上限 |
+| 5 | WEIGHT_RECALC_TIER_1_THRESHOLD | 500 | integer | Tier1→Tier2の切替閾値（metricsレコード数） |
+| 6 | WEIGHT_RECALC_TIER_1_INTERVAL | 7d | string | Tier1の再計算間隔（週次） |
+| 7 | WEIGHT_RECALC_TIER_2_THRESHOLD | 5000 | integer | Tier2→Tier3の切替閾値 |
+| 8 | WEIGHT_RECALC_TIER_2_INTERVAL | 3d | string | Tier2の再計算間隔（3日ごと） |
+| 9 | WEIGHT_RECALC_TIER_3_THRESHOLD | 50000 | integer | Tier3→Tier4の切替閾値 |
+| 10 | WEIGHT_RECALC_TIER_3_INTERVAL | 1d | string | Tier3の再計算間隔（日次） |
+| 11 | WEIGHT_RECALC_TIER_4_INTERVAL | 12h | string | Tier4の再計算間隔（12時間） |
+| 12 | WEIGHT_RECALC_MIN_NEW_DATA | 100 | integer | 再計算に必要な最小新規データ数 |
+| 13 | WEIGHT_SMOOTHING_ALPHA | 0.3 | float | EMA平滑化係数α |
+| 14 | WEIGHT_CHANGE_MAX_RATE | 0.2 | float | 1回あたりのweight変更上限率 |
+| 15 | WEIGHT_FLOOR | 0.02 | float | weightの下限値（0防止） |
+| 16 | ADJUSTMENT_DATA_DECAY_DAYS | 90 | integer | データ減衰日数（hard cutoff） |
+| 17 | BASELINE_WINDOW_DAYS | 14 | integer | ベースラインのローリングウィンドウ日数 |
+| 18 | BASELINE_MIN_SAMPLE | 3 | integer | ベースライン算出の最小サンプル数 |
+| 19 | KPI_CALC_MONTH_START_DAY | 21 | integer | KPI計算の対象期間開始日 |
+| 20 | KPI_TARGET_TIKTOK | 15000 | integer | TikTok KPI目標インプレッション数/投稿 |
+| 21 | KPI_TARGET_INSTAGRAM | 10000 | integer | Instagram KPI目標インプレッション数/投稿 |
+| 22 | KPI_TARGET_YOUTUBE | 20000 | integer | YouTube KPI目標インプレッション数/投稿 |
+| 23 | KPI_TARGET_TWITTER | 10000 | integer | X(Twitter) KPI目標インプレッション数/投稿 |
+| 24 | PREDICTION_VALUE_MIN_RATIO | 0.3 | float | 予測値の下限比率（baseline基準） |
+| 25 | PREDICTION_VALUE_MAX_RATIO | 2.0 | float | 予測値の上限比率（baseline基準） |
+| 26 | CUMULATIVE_SEARCH_TOP_K | 10 | integer | 累積分析の各テーブル検索上位件数 |
+| 27 | CUMULATIVE_SIMILARITY_THRESHOLD | 0.7 | float | 累積分析のコサイン類似度閾値 |
+| 28 | CUMULATIVE_CONFIDENCE_THRESHOLD | 0.5 | float | 累積分析のconfidence閾値 |
+| 29 | BASELINE_DEFAULT_IMPRESSIONS | 500 | integer | フォールバック最終デフォルトのベースライン値 |
+| 30 | EMBEDDING_MODEL_VERSION | v1 | string | embeddingモデルバージョン管理 |
+| 31 | CROSS_ACCOUNT_MIN_SAMPLE | 2 | integer | クロスアカウント補正の最小アカウント数 |
+
+### 27.2 本章の数式で参照される既存設定キー（22キー）
+
+以下は [04-agent-design.md](04-agent-design.md) §17 閾値統合マスターテーブルで定義済みだが、本章の数式・アルゴリズムで頻繁に参照される設定キー。
+
+**仮説判定 (§12.1)**:
+
+| キー | デフォルト値 | 型 | 参照セクション |
 |---|---|---|---|
-| 1 | ADJUSTMENT_INDIVIDUAL_MIN | -0.5 | agent |
-| 2 | ADJUSTMENT_INDIVIDUAL_MAX | 0.5 | agent |
-| 3 | ADJUSTMENT_TOTAL_MIN | -0.7 | agent |
-| 4 | ADJUSTMENT_TOTAL_MAX | 1.0 | agent |
-| 5 | WEIGHT_RECALC_TIER_1_THRESHOLD | 500 | agent |
-| 6 | WEIGHT_RECALC_TIER_1_INTERVAL | 7d | agent |
-| 7 | WEIGHT_RECALC_TIER_2_THRESHOLD | 5000 | agent |
-| 8 | WEIGHT_RECALC_TIER_2_INTERVAL | 3d | agent |
-| 9 | WEIGHT_RECALC_TIER_3_THRESHOLD | 50000 | agent |
-| 10 | WEIGHT_RECALC_TIER_3_INTERVAL | 1d | agent |
-| 11 | WEIGHT_RECALC_TIER_4_INTERVAL | 12h | agent |
-| 12 | WEIGHT_RECALC_MIN_NEW_DATA | 100 | agent |
-| 13 | WEIGHT_SMOOTHING_ALPHA | 0.3 | agent |
-| 14 | WEIGHT_CHANGE_MAX_RATE | 0.2 | agent |
-| 15 | WEIGHT_FLOOR | 0.02 | agent |
-| 16 | ADJUSTMENT_DATA_DECAY_DAYS | 90 | agent |
-| 17 | BASELINE_WINDOW_DAYS | 14 | agent |
-| 18 | BASELINE_MIN_SAMPLE | 3 | agent |
-| 19 | KPI_CALC_MONTH_START_DAY | 21 | agent |
-| 20 | KPI_TARGET_TIKTOK | 15000 | agent |
-| 21 | KPI_TARGET_INSTAGRAM | 10000 | agent |
-| 22 | KPI_TARGET_YOUTUBE | 20000 | agent |
-| 23 | KPI_TARGET_TWITTER | 10000 | agent |
-| 24 | PREDICTION_VALUE_MIN_RATIO | 0.3 | agent |
-| 25 | PREDICTION_VALUE_MAX_RATIO | 2.0 | agent |
-| 26 | CUMULATIVE_SEARCH_TOP_K | 10 | agent |
-| 27 | CUMULATIVE_SIMILARITY_THRESHOLD | 0.7 | agent |
-| 28 | CUMULATIVE_CONFIDENCE_THRESHOLD | 0.5 | agent |
-| 29 | BASELINE_DEFAULT_IMPRESSIONS | 500 | agent |
-| 30 | EMBEDDING_MODEL_VERSION | v1 | agent |
-| 31 | CROSS_ACCOUNT_MIN_SAMPLE | 2 | agent |
+| HYPOTHESIS_CONFIRM_THRESHOLD | 0.3 | float | §12.1 verdict判定式 |
+| HYPOTHESIS_INCONCLUSIVE_THRESHOLD | 0.5 | float | §12.1 verdict判定式 |
+| ANALYSIS_MIN_SAMPLE_SIZE | 5 | integer | §12.1 データ不足時判定 |
+
+**異常検知 (§12.3)**:
+
+| キー | デフォルト値 | 型 | 参照セクション |
+|---|---|---|---|
+| ANOMALY_DETECTION_SIGMA | 2.0 | float | §12.3 異常検知閾値 |
+| ANOMALY_DETECTION_WINDOW_DAYS | 14 | integer | §12.3 基準期間 |
+| ANOMALY_MIN_DATAPOINTS | 7 | integer | §12.3 最小データポイント |
+
+**品質スコア (§12.5)**:
+
+| キー | デフォルト値 | 型 | 参照セクション |
+|---|---|---|---|
+| QUALITY_WEIGHT_COMPLETION | 0.35 | float | §12.5 品質スコア計算 |
+| QUALITY_WEIGHT_ENGAGEMENT | 0.25 | float | §12.5 品質スコア計算 |
+| QUALITY_WEIGHT_SHARE | 0.20 | float | §12.5 品質スコア計算 |
+| QUALITY_WEIGHT_RETENTION | 0.15 | float | §12.5 品質スコア計算 |
+| QUALITY_WEIGHT_SENTIMENT | 0.05 | float | §12.5 品質スコア計算 |
+
+**学習信頼度更新 (§13)**:
+
+| キー | デフォルト値 | 型 | 参照セクション |
+|---|---|---|---|
+| LEARNING_SUCCESS_INCREMENT | 0.10 | float | §13 confidence更新 |
+| CONFIDENCE_INCREMENT_INCONCLUSIVE | 0.02 | float | §13 confidence微増 |
+| LEARNING_FAILURE_DECREMENT | 0.15 | float | §13 confidence減少 |
+| LEARNING_CONFIDENCE_THRESHOLD | 0.7 | float | §13, §17 有効知見閾値 |
+| LEARNING_DEACTIVATE_THRESHOLD | 0.2 | float | §13 自動非活性化 |
+| LEARNING_AUTO_PROMOTE_COUNT | 10 | integer | §13 mature判定 |
+| LEARNING_AUTO_PROMOTE_ENABLED | false | boolean | §13 自動昇格フラグ |
+
+**リソース配分 (§14)**:
+
+| キー | デフォルト値 | 型 | 参照セクション |
+|---|---|---|---|
+| PLANNER_ACCOUNTS_PER_INSTANCE | 50 | integer | §14 プランナー配分 |
+| MAX_POSTS_PER_ACCOUNT_PER_DAY | 2 | integer | §14 投稿上限 |
+| MAX_CONCURRENT_PRODUCTIONS | 5 | integer | §14 同時制作上限 |
+| EXPLORATION_RATE | 0.15 | float | §14, §15 探索率 |
+| COMPONENT_DUPLICATE_THRESHOLD | 0.9 | float | §17 重複判定 |
+
+> **注**: 本章で参照されるsystem_settings = 31（新規、§27.1）+ 22（04-agent-design.md定義済み、§27.2）= 計53キー。加えてcost_controlカテゴリの `DAILY_BUDGET_LIMIT_USD` も§14で参照される。全124件のsystem_settingsの完全一覧は [02-architecture.md](02-architecture.md) §11.5 および [03-database-schema.md](03-database-schema.md) §7.2 を参照。
 
 
 ## 28. 結論

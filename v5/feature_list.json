@@ -155,7 +155,10 @@
       ],
       "test_ids": [
         "TEST-DB-009",
-        "TEST-DB-010"
+        "TEST-DB-010",
+        "TEST-DB-056",
+        "TEST-DB-057",
+        "TEST-DB-058"
       ],
       "dependencies": [
         "FEAT-DB-001"
@@ -1034,7 +1037,8 @@
         "03-database-schema.md §8.1"
       ],
       "test_ids": [
-        "TEST-DB-052"
+        "TEST-DB-052",
+        "TEST-DB-059"
       ],
       "dependencies": [
         "FEAT-DB-002"
@@ -1126,7 +1130,9 @@
         "01-tech-stack.md §サーバー・インフラ",
         "10-implementation-guide.md §4"
       ],
-      "test_ids": ["TEST-DB-001"],
+      "test_ids": [
+        "TEST-DB-001"
+      ],
       "dependencies": [],
       "steps": [
         "docker-compose.yml設定",
@@ -1145,7 +1151,9 @@
       "spec_refs": [
         "01-tech-stack.md §開発ツール"
       ],
-      "test_ids": ["TEST-INT-001"],
+      "test_ids": [
+        "TEST-INT-001"
+      ],
       "dependencies": [],
       "steps": [
         ".env.example作成",
@@ -1164,7 +1172,9 @@
       "spec_refs": [
         "03-database-schema.md §8.4"
       ],
-      "test_ids": ["TEST-DB-002"],
+      "test_ids": [
+        "TEST-DB-002"
+      ],
       "dependencies": [
         "FEAT-INF-001"
       ],
@@ -1185,7 +1195,9 @@
       "spec_refs": [
         "01-tech-stack.md §本番環境"
       ],
-      "test_ids": ["TEST-INT-002"],
+      "test_ids": [
+        "TEST-INT-002"
+      ],
       "dependencies": [
         "FEAT-INF-001"
       ],
@@ -1205,7 +1217,9 @@
       "spec_refs": [
         "01-tech-stack.md §データアクセス"
       ],
-      "test_ids": ["TEST-INT-003"],
+      "test_ids": [
+        "TEST-INT-003"
+      ],
       "dependencies": [
         "FEAT-INF-001"
       ],
@@ -1367,7 +1381,8 @@
         "04-mcp-tools.md §2.4"
       ],
       "test_ids": [
-        "TEST-MCP-027"
+        "TEST-MCP-027",
+        "TEST-MCP-118"
       ],
       "dependencies": [
         "FEAT-DB-002"
@@ -2009,7 +2024,9 @@
         "04-mcp-tools.md §2.9"
       ],
       "test_ids": [
-        "TEST-MCP-065"
+        "TEST-MCP-065",
+        "TEST-MCP-123",
+        "TEST-MCP-124"
       ],
       "dependencies": [
         "FEAT-DB-031"
@@ -2081,7 +2098,8 @@
         "04-mcp-tools.md §2.9"
       ],
       "test_ids": [
-        "TEST-MCP-069"
+        "TEST-MCP-069",
+        "TEST-MCP-125"
       ],
       "dependencies": [
         "FEAT-DB-002"
@@ -2273,7 +2291,9 @@
         "04-mcp-tools.md §2.2"
       ],
       "test_ids": [
-        "TEST-MCP-012"
+        "TEST-MCP-012",
+        "TEST-MCP-107",
+        "TEST-MCP-110"
       ],
       "dependencies": [
         "FEAT-DB-022"
@@ -2296,7 +2316,8 @@
         "04-mcp-tools.md §2.2"
       ],
       "test_ids": [
-        "TEST-MCP-013"
+        "TEST-MCP-013",
+        "TEST-MCP-108"
       ],
       "dependencies": [
         "FEAT-DB-022"
@@ -2344,7 +2365,9 @@
       "test_ids": [
         "TEST-MCP-015",
         "TEST-MCP-016",
-        "TEST-MCP-017"
+        "TEST-MCP-017",
+        "TEST-MCP-109",
+        "TEST-MCP-111"
       ],
       "dependencies": [
         "FEAT-DB-022"
@@ -2391,7 +2414,9 @@
       ],
       "test_ids": [
         "TEST-MCP-019",
-        "TEST-MCP-020"
+        "TEST-MCP-020",
+        "TEST-MCP-112",
+        "TEST-MCP-116"
       ],
       "dependencies": [
         "FEAT-DB-019"
@@ -2416,7 +2441,8 @@
       ],
       "test_ids": [
         "TEST-MCP-021",
-        "TEST-MCP-022"
+        "TEST-MCP-022",
+        "TEST-MCP-117"
       ],
       "dependencies": [
         "FEAT-DB-002"
@@ -2463,7 +2489,9 @@
         "04-mcp-tools.md §2.3"
       ],
       "test_ids": [
-        "TEST-MCP-024"
+        "TEST-MCP-024",
+        "TEST-MCP-106",
+        "TEST-MCP-115"
       ],
       "dependencies": [
         "FEAT-DB-002"
@@ -2509,7 +2537,8 @@
         "04-mcp-tools.md §2.3"
       ],
       "test_ids": [
-        "TEST-MCP-026"
+        "TEST-MCP-026",
+        "TEST-MCP-120"
       ],
       "dependencies": [
         "FEAT-DB-027"
@@ -2532,7 +2561,8 @@
         "04-mcp-tools.md §2.5"
       ],
       "test_ids": [
-        "TEST-MCP-034"
+        "TEST-MCP-034",
+        "TEST-MCP-121"
       ],
       "dependencies": [
         "FEAT-DB-033"
@@ -2555,7 +2585,8 @@
         "04-mcp-tools.md §2.5"
       ],
       "test_ids": [
-        "TEST-MCP-035"
+        "TEST-MCP-035",
+        "TEST-MCP-122"
       ],
       "dependencies": [
         "FEAT-DB-033"
@@ -2601,7 +2632,9 @@
         "04-mcp-tools.md §2.10"
       ],
       "test_ids": [
-        "TEST-MCP-071"
+        "TEST-MCP-071",
+        "TEST-MCP-119",
+        "TEST-MCP-127"
       ],
       "dependencies": [
         "FEAT-DB-008"
@@ -2625,7 +2658,10 @@
       ],
       "test_ids": [
         "TEST-MCP-072",
-        "TEST-MCP-073"
+        "TEST-MCP-073",
+        "TEST-MCP-113",
+        "TEST-MCP-114",
+        "TEST-MCP-126"
       ],
       "dependencies": [
         "FEAT-DB-008"
@@ -2697,7 +2733,8 @@
       "test_ids": [
         "TEST-MCP-079",
         "TEST-MCP-080",
-        "TEST-MCP-093"
+        "TEST-MCP-093",
+        "TEST-MCP-131"
       ],
       "dependencies": [
         "FEAT-DB-002"
@@ -4075,7 +4112,8 @@
         "04-agent-design.md §4.10"
       ],
       "test_ids": [
-        "TEST-AGT-040"
+        "TEST-AGT-040",
+        "TEST-MCP-128"
       ],
       "dependencies": [
         "FEAT-INT-018"
@@ -4098,7 +4136,8 @@
         "04-agent-design.md §4.10"
       ],
       "test_ids": [
-        "TEST-AGT-041"
+        "TEST-AGT-041",
+        "TEST-MCP-129"
       ],
       "dependencies": [
         "FEAT-INT-019"
@@ -4121,7 +4160,8 @@
         "04-agent-design.md §4.10"
       ],
       "test_ids": [
-        "TEST-AGT-042"
+        "TEST-AGT-042",
+        "TEST-MCP-130"
       ],
       "dependencies": [
         "FEAT-INT-019"
@@ -4481,7 +4521,15 @@
         "09-dashboard-ui.md §2.2"
       ],
       "test_ids": [
-        "TEST-DSH-008"
+        "TEST-DSH-008",
+        "TEST-DSH-079",
+        "TEST-DSH-080",
+        "TEST-DSH-118",
+        "TEST-DSH-119",
+        "TEST-DSH-120",
+        "TEST-DSH-121",
+        "TEST-DSH-122",
+        "TEST-DSH-147"
       ],
       "dependencies": [
         "FEAT-DB-012"
@@ -4577,7 +4625,9 @@
         "09-dashboard-ui.md §2.4"
       ],
       "test_ids": [
-        "TEST-DSH-013"
+        "TEST-DSH-013",
+        "TEST-DSH-083",
+        "TEST-DSH-123"
       ],
       "dependencies": [
         "FEAT-DB-018"
@@ -4600,7 +4650,9 @@
         "09-dashboard-ui.md §2.5"
       ],
       "test_ids": [
-        "TEST-DSH-014"
+        "TEST-DSH-014",
+        "TEST-DSH-124",
+        "TEST-DSH-125"
       ],
       "dependencies": [
         "FEAT-DB-026"
@@ -4671,7 +4723,9 @@
         "09-dashboard-ui.md §2.7"
       ],
       "test_ids": [
-        "TEST-DSH-018"
+        "TEST-DSH-018",
+        "TEST-DSH-132",
+        "TEST-DSH-133"
       ],
       "dependencies": [
         "FEAT-DB-002"
@@ -4694,7 +4748,9 @@
         "09-dashboard-ui.md §3.1"
       ],
       "test_ids": [
-        "TEST-DSH-019"
+        "TEST-DSH-019",
+        "TEST-DSH-058",
+        "TEST-DSH-059"
       ],
       "dependencies": [],
       "steps": [
@@ -4715,7 +4771,11 @@
         "09-dashboard-ui.md §3.1"
       ],
       "test_ids": [
-        "TEST-DSH-020"
+        "TEST-DSH-020",
+        "TEST-DSH-054",
+        "TEST-DSH-055",
+        "TEST-DSH-056",
+        "TEST-DSH-057"
       ],
       "dependencies": [
         "FEAT-DSH-014"
@@ -4739,7 +4799,8 @@
         "09-dashboard-ui.md §3.2"
       ],
       "test_ids": [
-        "TEST-DSH-021"
+        "TEST-DSH-021",
+        "TEST-DSH-060"
       ],
       "dependencies": [],
       "steps": [
@@ -4764,7 +4825,13 @@
         "TEST-DSH-022",
         "TEST-DSH-023",
         "TEST-DSH-024",
-        "TEST-DSH-025"
+        "TEST-DSH-025",
+        "TEST-DSH-061",
+        "TEST-DSH-062",
+        "TEST-DSH-063",
+        "TEST-DSH-064",
+        "TEST-DSH-065",
+        "TEST-DSH-066"
       ],
       "dependencies": [
         "FEAT-DSH-014"
@@ -4787,7 +4854,8 @@
         "09-dashboard-ui.md §3.4"
       ],
       "test_ids": [
-        "TEST-DSH-026"
+        "TEST-DSH-026",
+        "TEST-DSH-131"
       ],
       "dependencies": [
         "FEAT-DB-042"
@@ -4810,7 +4878,9 @@
         "09-dashboard-ui.md §3.5"
       ],
       "test_ids": [
-        "TEST-DSH-027"
+        "TEST-DSH-027",
+        "TEST-DSH-081",
+        "TEST-DSH-082"
       ],
       "dependencies": [
         "FEAT-DB-042"
@@ -4833,7 +4903,22 @@
         "09-dashboard-ui.md §4.1"
       ],
       "test_ids": [
-        "TEST-DSH-028"
+        "TEST-DSH-028",
+        "TEST-DSH-048",
+        "TEST-DSH-049",
+        "TEST-DSH-050",
+        "TEST-DSH-051",
+        "TEST-DSH-052",
+        "TEST-DSH-053",
+        "TEST-DSH-134",
+        "TEST-DSH-135",
+        "TEST-DSH-137",
+        "TEST-DSH-138",
+        "TEST-DSH-141",
+        "TEST-DSH-142",
+        "TEST-DSH-143",
+        "TEST-DSH-144",
+        "TEST-DSH-145"
       ],
       "dependencies": [
         "FEAT-DSH-008"
@@ -4856,7 +4941,8 @@
         "09-dashboard-ui.md §4.2"
       ],
       "test_ids": [
-        "TEST-DSH-029"
+        "TEST-DSH-029",
+        "TEST-DSH-146"
       ],
       "dependencies": [
         "FEAT-DSH-008"
@@ -4879,7 +4965,12 @@
         "09-dashboard-ui.md §4.3"
       ],
       "test_ids": [
-        "TEST-DSH-030"
+        "TEST-DSH-030",
+        "TEST-DSH-091",
+        "TEST-DSH-092",
+        "TEST-DSH-093",
+        "TEST-DSH-094",
+        "TEST-DSH-095"
       ],
       "dependencies": [
         "FEAT-STR-008"
@@ -4903,7 +4994,12 @@
       ],
       "test_ids": [
         "TEST-DSH-031",
-        "TEST-DSH-032"
+        "TEST-DSH-032",
+        "TEST-DSH-076",
+        "TEST-DSH-096",
+        "TEST-DSH-097",
+        "TEST-DSH-098",
+        "TEST-DSH-130"
       ],
       "dependencies": [
         "FEAT-MCC-034"
@@ -4927,7 +5023,9 @@
         "09-dashboard-ui.md §4.5"
       ],
       "test_ids": [
-        "TEST-DSH-033"
+        "TEST-DSH-033",
+        "TEST-DSH-099",
+        "TEST-DSH-100"
       ],
       "dependencies": [
         "FEAT-MCI-020"
@@ -4950,7 +5048,9 @@
         "09-dashboard-ui.md §4.6"
       ],
       "test_ids": [
-        "TEST-DSH-034"
+        "TEST-DSH-034",
+        "TEST-DSH-107",
+        "TEST-DSH-108"
       ],
       "dependencies": [
         "FEAT-MCI-022"
@@ -4974,7 +5074,13 @@
       ],
       "test_ids": [
         "TEST-DSH-035",
-        "TEST-DSH-036"
+        "TEST-DSH-036",
+        "TEST-DSH-101",
+        "TEST-DSH-102",
+        "TEST-DSH-103",
+        "TEST-DSH-104",
+        "TEST-DSH-105",
+        "TEST-DSH-106"
       ],
       "dependencies": [
         "FEAT-MCC-037"
@@ -4997,7 +5103,16 @@
         "09-dashboard-ui.md §4.8"
       ],
       "test_ids": [
-        "TEST-DSH-037"
+        "TEST-DSH-037",
+        "TEST-DSH-073",
+        "TEST-DSH-074",
+        "TEST-DSH-075",
+        "TEST-DSH-114",
+        "TEST-DSH-115",
+        "TEST-DSH-149",
+        "TEST-DSH-150",
+        "TEST-DSH-151",
+        "TEST-DSH-152"
       ],
       "dependencies": [
         "FEAT-DSH-006",
@@ -5022,7 +5137,18 @@
         "09-dashboard-ui.md §4.9"
       ],
       "test_ids": [
-        "TEST-DSH-038"
+        "TEST-DSH-038",
+        "TEST-DSH-070",
+        "TEST-DSH-071",
+        "TEST-DSH-072",
+        "TEST-DSH-077",
+        "TEST-DSH-085",
+        "TEST-DSH-086",
+        "TEST-DSH-087",
+        "TEST-DSH-088",
+        "TEST-DSH-140",
+        "TEST-DSH-153",
+        "TEST-DSH-154"
       ],
       "dependencies": [
         "FEAT-DSH-011"
@@ -5045,7 +5171,16 @@
         "09-dashboard-ui.md §4.10"
       ],
       "test_ids": [
-        "TEST-DSH-039"
+        "TEST-DSH-039",
+        "TEST-DSH-067",
+        "TEST-DSH-068",
+        "TEST-DSH-069",
+        "TEST-DSH-078",
+        "TEST-DSH-084",
+        "TEST-DSH-112",
+        "TEST-DSH-113",
+        "TEST-DSH-116",
+        "TEST-DSH-117"
       ],
       "dependencies": [
         "FEAT-DSH-001",
@@ -5070,7 +5205,10 @@
         "09-dashboard-ui.md §4.11"
       ],
       "test_ids": [
-        "TEST-DSH-040"
+        "TEST-DSH-040",
+        "TEST-DSH-089",
+        "TEST-DSH-155",
+        "TEST-DSH-156"
       ],
       "dependencies": [
         "FEAT-DSH-013"
@@ -5093,7 +5231,10 @@
         "09-dashboard-ui.md §4.12"
       ],
       "test_ids": [
-        "TEST-DSH-041"
+        "TEST-DSH-041",
+        "TEST-DSH-128",
+        "TEST-DSH-129",
+        "TEST-DSH-148"
       ],
       "dependencies": [
         "FEAT-DSH-008"
@@ -5116,7 +5257,10 @@
         "09-dashboard-ui.md §4.13"
       ],
       "test_ids": [
-        "TEST-DSH-042"
+        "TEST-DSH-042",
+        "TEST-DSH-109",
+        "TEST-DSH-110",
+        "TEST-DSH-111"
       ],
       "dependencies": [
         "FEAT-MCI-024"
@@ -5139,7 +5283,10 @@
         "09-dashboard-ui.md §4.14"
       ],
       "test_ids": [
-        "TEST-DSH-043"
+        "TEST-DSH-043",
+        "TEST-DSH-090",
+        "TEST-DSH-126",
+        "TEST-DSH-127"
       ],
       "dependencies": [
         "FEAT-MCC-039"
@@ -5183,7 +5330,8 @@
         "09-dashboard-ui.md §5.2"
       ],
       "test_ids": [
-        "TEST-DSH-045"
+        "TEST-DSH-045",
+        "TEST-DSH-136"
       ],
       "dependencies": [
         "FEAT-DSH-001"
@@ -5208,7 +5356,8 @@
       ],
       "test_ids": [
         "TEST-DSH-046",
-        "TEST-DSH-047"
+        "TEST-DSH-047",
+        "TEST-DSH-139"
       ],
       "dependencies": [],
       "steps": [
@@ -6001,7 +6150,9 @@
       "spec_refs": [
         "04-agent-design.md §4.12"
       ],
-      "test_ids": ["TEST-MCP-132"],
+      "test_ids": [
+        "TEST-MCP-132"
+      ],
       "dependencies": [
         "FEAT-DB-049"
       ],
@@ -6022,7 +6173,9 @@
       "spec_refs": [
         "04-agent-design.md §4.12"
       ],
-      "test_ids": ["TEST-MCP-133"],
+      "test_ids": [
+        "TEST-MCP-133"
+      ],
       "dependencies": [
         "FEAT-DB-049"
       ],
@@ -6043,7 +6196,9 @@
       "spec_refs": [
         "04-agent-design.md §4.12"
       ],
-      "test_ids": ["TEST-MCP-134"],
+      "test_ids": [
+        "TEST-MCP-134"
+      ],
       "dependencies": [
         "FEAT-MCI-031"
       ],
@@ -6064,7 +6219,9 @@
       "spec_refs": [
         "04-agent-design.md §4.12"
       ],
-      "test_ids": ["TEST-MCP-135"],
+      "test_ids": [
+        "TEST-MCP-135"
+      ],
       "dependencies": [
         "FEAT-DB-049"
       ],
@@ -6085,7 +6242,9 @@
       "spec_refs": [
         "04-agent-design.md §4.12"
       ],
-      "test_ids": ["TEST-MCP-136"],
+      "test_ids": [
+        "TEST-MCP-136"
+      ],
       "dependencies": [
         "FEAT-DB-049"
       ],
@@ -6106,7 +6265,9 @@
       "spec_refs": [
         "04-agent-design.md §4.12"
       ],
-      "test_ids": ["TEST-MCP-137"],
+      "test_ids": [
+        "TEST-MCP-137"
+      ],
       "dependencies": [
         "FEAT-MCI-031"
       ],
@@ -6128,8 +6289,15 @@
         "algorithm-kpi-design.md §G15",
         "03-database-schema.md §account_baselines"
       ],
-      "test_ids": ["TEST-ALG-001", "TEST-ALG-002"],
-      "dependencies": ["FEAT-DB-002"],
+      "test_ids": [
+        "TEST-ALG-001",
+        "TEST-ALG-002",
+        "TEST-ALG-028",
+        "TEST-ALG-029"
+      ],
+      "dependencies": [
+        "FEAT-DB-002"
+      ],
       "steps": [
         "account_baselinesテーブルDDL確認",
         "日次ベースライン計算SQL実装（CTE UPSERT: own_history→cohort×3段階→default）",
@@ -6148,8 +6316,16 @@
       "spec_refs": [
         "algorithm-kpi-design.md §G1, §G9, §G11, §G16"
       ],
-      "test_ids": ["TEST-ALG-003", "TEST-ALG-004"],
-      "dependencies": ["FEAT-ALG-001"],
+      "test_ids": [
+        "TEST-ALG-003",
+        "TEST-ALG-004",
+        "TEST-ALG-024",
+        "TEST-ALG-026",
+        "TEST-ALG-030"
+      ],
+      "dependencies": [
+        "FEAT-ALG-001"
+      ],
       "steps": [
         "tier判定（プラットフォーム別metricsレコード数）",
         "誤差相関方式でraw_contribution算出",
@@ -6169,8 +6345,13 @@
       "spec_refs": [
         "algorithm-kpi-design.md §G8, §G17"
       ],
-      "test_ids": ["TEST-ALG-005", "TEST-ALG-006"],
-      "dependencies": ["FEAT-ALG-001"],
+      "test_ids": [
+        "TEST-ALG-005",
+        "TEST-ALG-006"
+      ],
+      "dependencies": [
+        "FEAT-ALG-001"
+      ],
       "steps": [
         "8本のバッチSQL実装（hook_type/content_length/post_hour/post_weekday/niche/narrative_structure/sound_bgm/hashtag_keyword）",
         "共通CTE（prediction_snapshots JOIN publications/accounts/metrics）",
@@ -6189,8 +6370,16 @@
       "spec_refs": [
         "algorithm-kpi-design.md §G5"
       ],
-      "test_ids": ["TEST-ALG-007", "TEST-ALG-008"],
-      "dependencies": ["FEAT-ALG-001", "FEAT-ALG-003"],
+      "test_ids": [
+        "TEST-ALG-007",
+        "TEST-ALG-008",
+        "TEST-ALG-025",
+        "TEST-ALG-027"
+      ],
+      "dependencies": [
+        "FEAT-ALG-001",
+        "FEAT-ALG-003"
+      ],
       "steps": [
         "baseline取得（account_baselines→リアルタイムフォールバック）",
         "8要素adjustment_factor_cacheから取得",
@@ -6211,8 +6400,13 @@
       "spec_refs": [
         "algorithm-kpi-design.md §G18"
       ],
-      "test_ids": ["TEST-ALG-009", "TEST-ALG-010"],
-      "dependencies": ["FEAT-ALG-004"],
+      "test_ids": [
+        "TEST-ALG-009",
+        "TEST-ALG-010"
+      ],
+      "dependencies": [
+        "FEAT-ALG-004"
+      ],
       "steps": [
         "KPI計算SQL（対象: created_at<月初, posted_at>=21日, measurement_point='7d'）",
         "achievement_rate = LEAST(1.0, avg/target)",
@@ -6232,8 +6426,13 @@
       "spec_refs": [
         "algorithm-kpi-design.md §G19"
       ],
-      "test_ids": ["TEST-ALG-011", "TEST-ALG-012"],
-      "dependencies": ["FEAT-ALG-004"],
+      "test_ids": [
+        "TEST-ALG-011",
+        "TEST-ALG-012"
+      ],
+      "dependencies": [
+        "FEAT-ALG-004"
+      ],
       "steps": [
         "毎時ポーリングバッチ実装",
         "3ラウンド（48h/7d/30d）順次処理",
@@ -6253,8 +6452,12 @@
       "spec_refs": [
         "algorithm-kpi-design.md §G6"
       ],
-      "test_ids": ["TEST-ALG-013"],
-      "dependencies": ["FEAT-ALG-006"],
+      "test_ids": [
+        "TEST-ALG-013"
+      ],
+      "dependencies": [
+        "FEAT-ALG-006"
+      ],
       "steps": [
         "48h計測完了をトリガーにマイクロ分析実行",
         "content_learnings micro_verdict/contributing_factors/detractors書込",
@@ -6272,8 +6475,13 @@
       "spec_refs": [
         "algorithm-kpi-design.md §項目11"
       ],
-      "test_ids": ["TEST-ALG-014"],
-      "dependencies": ["FEAT-ALG-007"],
+      "test_ids": [
+        "TEST-ALG-014",
+        "TEST-ALG-023"
+      ],
+      "dependencies": [
+        "FEAT-ALG-007"
+      ],
       "steps": [
         "7d計測完了をトリガーに累積分析実行",
         "5テーブルpgvector検索（hypotheses/content_learnings/learnings/research_data/agent_learnings）",
@@ -6293,8 +6501,12 @@
       "spec_refs": [
         "algorithm-kpi-design.md §G4"
       ],
-      "test_ids": ["TEST-ALG-015"],
-      "dependencies": ["FEAT-ALG-004"],
+      "test_ids": [
+        "TEST-ALG-015"
+      ],
+      "dependencies": [
+        "FEAT-ALG-004"
+      ],
       "steps": [
         "同一content_id・同一platformの他アカウントAVG(actual/baseline-1.0)算出SQL",
         "CROSS_ACCOUNT_MIN_SAMPLE(2)チェック",
@@ -6313,8 +6525,12 @@
       "spec_refs": [
         "algorithm-kpi-design.md §G19"
       ],
-      "test_ids": ["TEST-ALG-016"],
-      "dependencies": ["FEAT-ALG-006"],
+      "test_ids": [
+        "TEST-ALG-016"
+      ],
+      "dependencies": [
+        "FEAT-ALG-006"
+      ],
       "steps": [
         "7d計測後: prediction_error_7d = abs(predicted-actual_7d)/actual_7d",
         "30d計測後: prediction_error_30d = abs(predicted-actual_30d)/actual_30d",
@@ -6333,8 +6549,14 @@
       "spec_refs": [
         "algorithm-kpi-design.md §エッジケース一覧"
       ],
-      "test_ids": ["TEST-ALG-017", "TEST-ALG-018"],
-      "dependencies": ["FEAT-ALG-001", "FEAT-ALG-004"],
+      "test_ids": [
+        "TEST-ALG-017",
+        "TEST-ALG-018"
+      ],
+      "dependencies": [
+        "FEAT-ALG-001",
+        "FEAT-ALG-004"
+      ],
       "steps": [
         "E1: コホートフォールバック4段階（platform×niche×age→platform×niche→platform→default(500)）",
         "E2: predicted=0 AND actual=0 → accuracy=1.0",
@@ -6355,8 +6577,12 @@
       "spec_refs": [
         "algorithm-kpi-design.md §weight監査ログ"
       ],
-      "test_ids": ["TEST-ALG-019"],
-      "dependencies": ["FEAT-ALG-002"],
+      "test_ids": [
+        "TEST-ALG-019"
+      ],
+      "dependencies": [
+        "FEAT-ALG-002"
+      ],
       "steps": [
         "weight再計算バッチにweight_audit_log INSERT統合",
         "old_weight/new_weight/data_count/metrics_count記録",
@@ -6374,8 +6600,13 @@
       "spec_refs": [
         "algorithm-kpi-design.md §G2"
       ],
-      "test_ids": ["TEST-ALG-020"],
-      "dependencies": ["FEAT-ALG-002", "FEAT-ALG-003"],
+      "test_ids": [
+        "TEST-ALG-020"
+      ],
+      "dependencies": [
+        "FEAT-ALG-002",
+        "FEAT-ALG-003"
+      ],
       "steps": [
         "補正係数算出SQL全てにADJUSTMENT_DATA_DECAY_DAYSフィルタ適用",
         "weight再計算SQLにも同フィルタ適用",
@@ -6393,8 +6624,12 @@
       "spec_refs": [
         "algorithm-kpi-design.md §G22"
       ],
-      "test_ids": ["TEST-ALG-021"],
-      "dependencies": ["FEAT-DB-002"],
+      "test_ids": [
+        "TEST-ALG-021"
+      ],
+      "dependencies": [
+        "FEAT-DB-002"
+      ],
       "steps": [
         "対象5テーブル（hypotheses/content_learnings/learnings/research_data/agent_learnings）",
         "バッチサイズ100件、id順OFFSET処理",
@@ -6414,8 +6649,12 @@
       "spec_refs": [
         "algorithm-kpi-design.md §P5"
       ],
-      "test_ids": ["TEST-ALG-022"],
-      "dependencies": ["FEAT-ALG-003"],
+      "test_ids": [
+        "TEST-ALG-022"
+      ],
+      "dependencies": [
+        "FEAT-ALG-003"
+      ],
       "steps": [
         "8本の補正係数SQLにNULLチェック組込（WHERE hook_type IS NOT NULL等）",
         "text_postのcontent_length代替（content.metadata->>'char_count'→4バケット）",

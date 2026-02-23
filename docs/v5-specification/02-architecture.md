@@ -66,6 +66,7 @@
   - [11.2 設定値の読み込みパターン](#112-設定値の読み込みパターン)
   - [11.3 ダッシュボードの設定画面](#113-ダッシュボードの設定画面)
   - [11.4 プラットフォームAPIレート制限](#114-プラットフォームapiレート制限)
+  - [11.5 system_settings マスターテーブル（全124件）](#115-system_settings-マスターテーブル全124件)
 - [12. クレデンシャル管理アーキテクチャ](#12-クレデンシャル管理アーキテクチャ)
   - [12.1 プラットフォーム認証情報](#121-プラットフォーム認証情報)
   - [12.2 ツールAPIキー](#122-ツールapiキー)
@@ -2686,6 +2687,257 @@ async function getSetting(key: string): Promise<any> {
 | X (Twitter) | Post Tweet | 300 tweets/3hrs, 500 DMs/day | 指数バックオフ (1min, 5min, 30min) |
 
 > **注**: レート制限の具体値は `system_settings` テーブルで管理し、各プラットフォームのAPI仕様変更に応じてダッシュボードから変更可能。
+
+### 11.5 system_settings マスターテーブル（全124件）
+
+全カテゴリの全設定キーを一覧する。SSOT: [03-database-schema.md](03-database-schema.md) §7.2（初期INSERT文）。各設定の詳細な使用箇所は [04-agent-design.md](04-agent-design.md) §17 および [08-algorithm-analysis.md](08-algorithm-analysis.md) §27 を参照。
+
+**カテゴリ別件数**: agent: 79, production: 14, posting: 8, measurement: 6, credentials: 5, cost_control: 4, review: 5, dashboard: 3 = **合計124件**
+
+#### Production（14件）
+
+| # | setting_key | default_value | value_type | description |
+|---|---|---|---|---|
+| 1 | MAX_CONCURRENT_PRODUCTIONS | 5 | integer | 同時動画制作数上限。fal.aiの並列タスク制限(40)以下に設定 |
+| 2 | PRODUCTION_POLL_INTERVAL_SEC | 30 | integer | パイプラインのタスクキューポーリング間隔（秒） |
+| 3 | MAX_RETRY_ATTEMPTS | 3 | integer | 外部API呼び出し失敗時の最大リトライ回数 |
+| 4 | RETRY_BACKOFF_BASE_SEC | 2 | integer | リトライ時の指数バックオフ基準秒数（実際の待機 = base x 2^attempt） |
+| 5 | QUALITY_FILTER_THRESHOLD | 5.0 | float | 品質スコアがこの値未満のスクリプトは制作をスキップ |
+| 6 | VIDEO_SECTION_TIMEOUT_SEC | 600 | integer | 動画セクション1つの制作タイムアウト（秒） |
+| 7 | RETRY_JITTER_MAX_SEC | 1 | integer | リトライ時のジッター最大秒数 |
+| 8 | MAX_CONTENT_REVISION_COUNT | 3 | integer | コンテンツの最大差し戻し回数。超過時はcancelledに遷移 |
+| 9 | WORKER_THROUGHPUT_PER_HOUR | 5 | integer | ワーカー1インスタンスあたりの1時間処理能力目安 |
+| 10 | MAX_TASK_RETRIES | 3 | integer | task_queueアイテムの最大リトライ回数 |
+| 11 | RETRY_DELAY_BASE_MS | 1000 | integer | task_queueリトライ時のベース遅延（ミリ秒） |
+| 12 | RETRY_BACKOFF_MULTIPLIER | 2.0 | float | task_queueリトライ時の指数バックオフ乗数 |
+| 13 | RETRY_MAX_DELAY_MS | 300000 | integer | task_queueリトライ時の最大遅延キャップ（ミリ秒） |
+| 14 | CHECKPOINT_RETENTION_DAYS | 7 | integer | LangGraphチェックポイントの保持日数。超過分は自動クリーンアップ |
+
+#### Posting（8件）
+
+| # | setting_key | default_value | value_type | description |
+|---|---|---|---|---|
+| 1 | POSTING_POLL_INTERVAL_SEC | 120 | integer | 投稿スケジューラーのポーリング間隔（秒） |
+| 2 | MAX_POSTS_PER_ACCOUNT_PER_DAY | 2 | integer | アカウントあたりの1日最大投稿数 |
+| 3 | POSTING_TIME_JITTER_MIN | 5 | integer | 投稿時刻のランダムずらし幅（分）。Bot検知回避 |
+| 4 | PLATFORM_COOLDOWN_HOURS | 24 | integer | プラットフォーム一時停止時の保留時間 |
+| 5 | YOUTUBE_DAILY_UPLOAD_LIMIT | 6 | integer | YouTube 1日あたりの最大アップロード数 |
+| 6 | TIKTOK_DAILY_UPLOAD_LIMIT | 50 | integer | TikTok 1日あたりの最大アップロード数 |
+| 7 | INSTAGRAM_HOURLY_API_LIMIT | 25 | integer | Instagram 1時間あたりのAPI呼び出し上限 |
+| 8 | X_DAILY_POST_LIMIT | 50 | integer | X(Twitter) 1日あたりの最大投稿数 |
+
+#### Review（5件）
+
+| # | setting_key | default_value | value_type | description |
+|---|---|---|---|---|
+| 1 | HUMAN_REVIEW_ENABLED | true | boolean | コンテンツ投稿前に人間のレビューを要求するか |
+| 2 | AUTO_APPROVE_SCORE_THRESHOLD | 8.0 | float | 品質スコアがこの値以上なら自動承認 |
+| 3 | STRATEGY_APPROVAL_REQUIRED | true | boolean | 戦略サイクルのポリシー決定に人間の承認を要求するか |
+| 4 | RECIPE_APPROVAL_REQUIRED | true | boolean | 新しいプロダクションレシピの使用に人間の承認を要求するか |
+| 5 | REQUIRE_AUTO_CURATION | true | boolean | trueの場合キュレーション結果を人間レビューパネルに表示。falseで自動承認 |
+
+#### Agent（79件）
+
+**仮説・サイクル管理（8件）**:
+
+| # | setting_key | default_value | value_type | description |
+|---|---|---|---|---|
+| 1 | HYPOTHESIS_CYCLE_INTERVAL_HOURS | 24 | integer | 仮説駆動サイクルの実行間隔（時間） |
+| 2 | HYPOTHESIS_CONFIRM_THRESHOLD | 0.3 | float | 予測と実測の誤差がこの値以内ならconfirmed |
+| 3 | HYPOTHESIS_INCONCLUSIVE_THRESHOLD | 0.5 | float | 誤差がこの値以上ならrejected |
+| 4 | HYPOTHESIS_DIVERSITY_WINDOW | 5 | integer | 仮説多様性チェックの直近サイクル数 |
+| 5 | HYPOTHESIS_SAME_CATEGORY_MAX | 3 | integer | 同一カテゴリ仮説の最大数 |
+| 6 | ANALYSIS_MIN_SAMPLE_SIZE | 5 | integer | 分析に必要な最小サンプルサイズ |
+| 7 | EXPLORATION_RATE | 0.15 | float | 探索率。この確率で新しいアプローチを試行 |
+| 8 | PLANNER_ACCOUNTS_PER_INSTANCE | 50 | integer | プランナー1インスタンスあたりの担当アカウント数 |
+
+**異常検知（3件）**:
+
+| # | setting_key | default_value | value_type | description |
+|---|---|---|---|---|
+| 9 | ANOMALY_DETECTION_SIGMA | 2.0 | float | 異常検知の標準偏差閾値 |
+| 10 | ANOMALY_DETECTION_WINDOW_DAYS | 14 | integer | 異常検知の基準期間（日） |
+| 11 | ANOMALY_MIN_DATAPOINTS | 7 | integer | 異常検知に必要な最小データポイント数 |
+
+**品質スコア重み（5件）**:
+
+| # | setting_key | default_value | value_type | description |
+|---|---|---|---|---|
+| 12 | QUALITY_WEIGHT_COMPLETION | 0.35 | float | 品質スコア: 完視聴率の重み |
+| 13 | QUALITY_WEIGHT_ENGAGEMENT | 0.25 | float | 品質スコア: エンゲージメント率の重み |
+| 14 | QUALITY_WEIGHT_SHARE | 0.20 | float | 品質スコア: シェア率の重み |
+| 15 | QUALITY_WEIGHT_RETENTION | 0.15 | float | 品質スコア: リテンション率の重み |
+| 16 | QUALITY_WEIGHT_SENTIMENT | 0.05 | float | 品質スコア: センチメント分析の重み |
+
+**学習・知見管理（12件）**:
+
+| # | setting_key | default_value | value_type | description |
+|---|---|---|---|---|
+| 17 | LEARNING_CONFIDENCE_THRESHOLD | 0.7 | float | 知見の信頼度がこの値以上で有効 |
+| 18 | LEARNING_AUTO_PROMOTE_COUNT | 10 | integer | 自動昇格に必要な成功回数 |
+| 19 | LEARNING_DEACTIVATE_THRESHOLD | 0.2 | float | この値未満でis_active=false |
+| 20 | LEARNING_AUTO_PROMOTE_ENABLED | false | boolean | 学びの自動昇格を有効にするか |
+| 21 | LEARNING_SUCCESS_INCREMENT | 0.1 | float | 成功時のconfidence増加量 |
+| 22 | CONFIDENCE_INCREMENT_INCONCLUSIVE | 0.02 | float | inconclusive時のconfidence微増量 |
+| 23 | LEARNING_FAILURE_DECREMENT | 0.15 | float | 失敗時のconfidence減少量 |
+| 24 | LEARNING_SIMILARITY_THRESHOLD | 0.8 | float | 重複学び検出のコサイン類似度閾値 |
+| 25 | MAX_LEARNINGS_PER_CONTEXT | 20 | integer | タスク実行時に取得する学びの最大数 |
+| 26 | CROSS_NICHE_LEARNING_THRESHOLD | 0.75 | float | クロスニッチ学習のコサイン類似度閾値 |
+| 27 | MICRO_ANALYSIS_MAX_DURATION_SEC | 30 | integer | マイクロサイクル分析の最大所要時間（秒） |
+| 28 | RESEARCHER_POLL_INTERVAL_HOURS | 6 | integer | リサーチャーの市場情報収集間隔（時間） |
+
+**コンポーネント・キュレーション（8件）**:
+
+| # | setting_key | default_value | value_type | description |
+|---|---|---|---|---|
+| 29 | COMPONENT_DUPLICATE_THRESHOLD | 0.9 | float | コンポーネント重複判定のコサイン類似度閾値 |
+| 30 | CHARACTER_AUTO_GENERATION_ENABLED | false | boolean | キャラクター自動生成の有効化 |
+| 31 | CHARACTER_REVIEW_REQUIRED | true | boolean | キャラクター生成の人間レビュー必須 |
+| 32 | CHARACTER_GENERATION_CONFIDENCE_THRESHOLD | 0.8 | float | キャラクター自動生成の自信度閾値 |
+| 33 | CURATION_MIN_QUALITY | 4.0 | float | キュレーション自動承認の最低品質スコア |
+| 34 | CURATION_RETRY_VARIANTS | 2 | integer | 品質不足時の再生成バリエーション数 |
+| 35 | CURATION_BATCH_SIZE | 10 | integer | 1バッチあたりの処理件数 |
+| 36 | RESEARCHER_RETRY_INTERVAL_HOURS | 1 | integer | 情報収集失敗時のリトライ間隔（時間） |
+
+**レシピ管理（3件）**:
+
+| # | setting_key | default_value | value_type | description |
+|---|---|---|---|---|
+| 37 | RECIPE_FAILURE_THRESHOLD | 3 | integer | 連続失敗回数でレシピを一時停止 |
+| 38 | RECIPE_MIN_SUCCESS_RATE | 0.8 | float | レシピの最低成功率 |
+| 39 | RECIPE_MIN_QUALITY | 6.0 | float | レシピの最低平均品質スコア |
+
+**プロンプト自動提案（3件）**:
+
+| # | setting_key | default_value | value_type | description |
+|---|---|---|---|---|
+| 40 | PROMPT_SUGGEST_LOW_SCORE | 5 | integer | パフォーマンススコアがこの値以下で改善提案 |
+| 41 | PROMPT_SUGGEST_HIGH_SCORE | 8 | integer | この値以上で知見共有提案 |
+| 42 | PROMPT_SUGGEST_FAILURE_COUNT | 3 | integer | 同一パターン失敗がこの回数以上で変更提案 |
+
+**Embedding（2件）**:
+
+| # | setting_key | default_value | value_type | description |
+|---|---|---|---|---|
+| 43 | EMBEDDING_MODEL | text-embedding-3-small | string | ベクトル埋め込みに使用するモデル |
+| 44 | EMBEDDING_DIMENSION | 1536 | integer | ベクトル埋め込みの次元数 |
+
+**予測補正係数（4件）**:
+
+| # | setting_key | default_value | value_type | description |
+|---|---|---|---|---|
+| 45 | ADJUSTMENT_INDIVIDUAL_MIN | -0.5 | float | 個別補正係数の下限 |
+| 46 | ADJUSTMENT_INDIVIDUAL_MAX | 0.5 | float | 個別補正係数の上限 |
+| 47 | ADJUSTMENT_TOTAL_MIN | -0.7 | float | 補正係数合計の下限 |
+| 48 | ADJUSTMENT_TOTAL_MAX | 1.0 | float | 補正係数合計の上限 |
+
+**Weight再計算（8件）**:
+
+| # | setting_key | default_value | value_type | description |
+|---|---|---|---|---|
+| 49 | WEIGHT_RECALC_TIER_1_THRESHOLD | 500 | integer | Tier1→Tier2の切替閾値 |
+| 50 | WEIGHT_RECALC_TIER_1_INTERVAL | 7d | string | Tier1の再計算間隔（週次） |
+| 51 | WEIGHT_RECALC_TIER_2_THRESHOLD | 5000 | integer | Tier2→Tier3の切替閾値 |
+| 52 | WEIGHT_RECALC_TIER_2_INTERVAL | 3d | string | Tier2の再計算間隔（3日ごと） |
+| 53 | WEIGHT_RECALC_TIER_3_THRESHOLD | 50000 | integer | Tier3→Tier4の切替閾値 |
+| 54 | WEIGHT_RECALC_TIER_3_INTERVAL | 1d | string | Tier3の再計算間隔（日次） |
+| 55 | WEIGHT_RECALC_TIER_4_INTERVAL | 12h | string | Tier4の再計算間隔（12時間） |
+| 56 | WEIGHT_RECALC_MIN_NEW_DATA | 100 | integer | 再計算に必要な最小新規データ数 |
+
+**Weight平滑化（3件）**:
+
+| # | setting_key | default_value | value_type | description |
+|---|---|---|---|---|
+| 57 | WEIGHT_SMOOTHING_ALPHA | 0.3 | float | EMA平滑化係数α |
+| 58 | WEIGHT_CHANGE_MAX_RATE | 0.2 | float | 1回あたりのweight変更上限率 |
+| 59 | WEIGHT_FLOOR | 0.02 | float | weightの下限値（0防止） |
+
+**ベースライン・KPI（9件）**:
+
+| # | setting_key | default_value | value_type | description |
+|---|---|---|---|---|
+| 60 | ADJUSTMENT_DATA_DECAY_DAYS | 90 | integer | データ減衰日数（hard cutoff） |
+| 61 | BASELINE_WINDOW_DAYS | 14 | integer | ベースラインのローリングウィンドウ日数 |
+| 62 | BASELINE_MIN_SAMPLE | 3 | integer | ベースライン算出の最小サンプル数 |
+| 63 | BASELINE_DEFAULT_IMPRESSIONS | 500 | integer | フォールバック最終デフォルトのベースライン値 |
+| 64 | KPI_CALC_MONTH_START_DAY | 21 | integer | KPI計算の対象期間開始日 |
+| 65 | KPI_TARGET_TIKTOK | 15000 | integer | TikTok KPI目標インプレッション数/投稿 |
+| 66 | KPI_TARGET_INSTAGRAM | 10000 | integer | Instagram KPI目標インプレッション数/投稿 |
+| 67 | KPI_TARGET_YOUTUBE | 20000 | integer | YouTube KPI目標インプレッション数/投稿 |
+| 68 | KPI_TARGET_TWITTER | 10000 | integer | X(Twitter) KPI目標インプレッション数/投稿 |
+
+**予測値範囲（2件）**:
+
+| # | setting_key | default_value | value_type | description |
+|---|---|---|---|---|
+| 69 | PREDICTION_VALUE_MIN_RATIO | 0.3 | float | 予測値の下限比率（baseline基準） |
+| 70 | PREDICTION_VALUE_MAX_RATIO | 2.0 | float | 予測値の上限比率（baseline基準） |
+
+**累積分析（3件）**:
+
+| # | setting_key | default_value | value_type | description |
+|---|---|---|---|---|
+| 71 | CUMULATIVE_SEARCH_TOP_K | 10 | integer | 累積分析の各テーブル検索上位件数 |
+| 72 | CUMULATIVE_SIMILARITY_THRESHOLD | 0.7 | float | 累積分析のコサイン類似度閾値 |
+| 73 | CUMULATIVE_CONFIDENCE_THRESHOLD | 0.5 | float | 累積分析のconfidence閾値 |
+
+**ツールスコアリング（4件）**:
+
+| # | setting_key | default_value | value_type | description |
+|---|---|---|---|---|
+| 74 | TOOL_SCORE_WEIGHT_SUCCESS | 0.4 | float | ツールランキング: 成功率の重み |
+| 75 | TOOL_SCORE_WEIGHT_QUALITY | 0.3 | float | ツールランキング: 品質スコアの重み |
+| 76 | TOOL_SCORE_WEIGHT_COST | 0.2 | float | ツールランキング: コスト効率の重み |
+| 77 | TOOL_SCORE_WEIGHT_RECENCY | 0.1 | float | ツールランキング: 直近使用ボーナスの重み |
+
+**その他（2件）**:
+
+| # | setting_key | default_value | value_type | description |
+|---|---|---|---|---|
+| 78 | CROSS_ACCOUNT_MIN_SAMPLE | 2 | integer | クロスアカウント補正の最小アカウント数 |
+| 79 | EMBEDDING_MODEL_VERSION | v1 | string | embeddingモデルバージョン管理 |
+
+#### Measurement（6件）
+
+| # | setting_key | default_value | value_type | description |
+|---|---|---|---|---|
+| 1 | METRICS_COLLECTION_DELAY_HOURS | 48 | integer | コンテンツ投稿後、メトリクス収集開始までの遅延（時間） |
+| 2 | METRICS_COLLECTION_RETRY_HOURS | 6 | integer | メトリクス収集失敗時のリトライ間隔（時間） |
+| 3 | METRICS_MAX_COLLECTION_ATTEMPTS | 5 | integer | メトリクス収集の最大試行回数 |
+| 4 | MEASUREMENT_POLL_INTERVAL_SEC | 300 | integer | 計測ジョブのポーリング間隔（秒） |
+| 5 | METRICS_BACKFILL_MAX_DAYS | 7 | integer | メトリクス遡及取得の最大日数 |
+| 6 | METRICS_FOLLOWUP_DAYS | [7, 30] | json | フォローアップ計測を実施する日数 |
+
+#### Cost Control（4件）
+
+| # | setting_key | default_value | value_type | description |
+|---|---|---|---|---|
+| 1 | DAILY_BUDGET_LIMIT_USD | 100 | float | 1日あたりの最大API支出（USD） |
+| 2 | MONTHLY_BUDGET_LIMIT_USD | 3000 | float | 月間最大API支出（USD） |
+| 3 | FAL_AI_BALANCE_ALERT_USD | 50 | float | fal.ai残高がこの値を下回ったらアラート |
+| 4 | COST_TRACKING_ENABLED | true | boolean | API利用コストの自動追跡を有効にするか |
+
+#### Dashboard（3件）
+
+| # | setting_key | default_value | value_type | description |
+|---|---|---|---|---|
+| 1 | DASHBOARD_THEME | dark | enum | ダッシュボードのカラーテーマ（dark/light） |
+| 2 | DASHBOARD_ITEMS_PER_PAGE | 20 | integer | 一覧画面のデフォルト表示件数 |
+| 3 | DASHBOARD_AUTO_REFRESH_SEC | 30 | integer | ダッシュボードの自動リフレッシュ間隔（秒） |
+
+#### Credentials（5件）
+
+| # | setting_key | default_value | value_type | description |
+|---|---|---|---|---|
+| 1 | CRED_FAL_AI_API_KEY | "" | string | fal.ai APIキー |
+| 2 | CRED_FISH_AUDIO_API_KEY | "" | string | Fish Audio APIキー |
+| 3 | CRED_OPENAI_API_KEY | "" | string | OpenAI APIキー（Embedding用） |
+| 4 | CRED_ANTHROPIC_API_KEY | "" | string | Anthropic APIキー（Claude API） |
+| 5 | CRED_GOOGLE_SERVICE_ACCOUNT_KEY | "" | string | Google Cloud サービスアカウントキー |
+
+> **注1**: 全設定値のSQLレベルの詳細定義（constraints、INSERT文）は [03-database-schema.md](03-database-schema.md) §7.2 を参照。
+>
+> **注2**: agentカテゴリ79件のうち、48件は [04-agent-design.md](04-agent-design.md) §17で定義（44件 + TOOL_SCORE_WEIGHT_* 4件）、31件は [08-algorithm-analysis.md](08-algorithm-analysis.md) §27で定義。残りのproduction 1件（CHECKPOINT_RETENTION_DAYS）は02-architecture.md §9.2、review 1件（REQUIRE_AUTO_CURATION）は04-agent-design.md §1.5で定義。
 
 ## 12. クレデンシャル管理アーキテクチャ
 

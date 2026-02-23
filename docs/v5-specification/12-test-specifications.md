@@ -568,15 +568,15 @@ TEST-{LAYER}-{NUMBER}
 - **Pass Criteria**: 6値成功 AND 不正値が拒否
 - **Fail Indicators**: 不正値が成功
 
-### TEST-DB-046: system_settings 初期データ件数 (118件)
+### TEST-DB-046: system_settings 初期データ件数 (124件)
 - **Category**: database
 - **Priority**: P0
 - **Prerequisites**: 初期INSERTマイグレーション実行済み
 - **Steps**:
   1. `SELECT COUNT(*) FROM system_settings;`
-- **Expected Result**: `count = 118`
-- **Pass Criteria**: COUNT = 118
-- **Fail Indicators**: COUNT ≠ 118
+- **Expected Result**: `count = 124`
+- **Pass Criteria**: COUNT = 124
+- **Fail Indicators**: COUNT ≠ 124
 
 ### TEST-DB-047: system_settings カテゴリ別件数
 - **Category**: database
@@ -587,14 +587,14 @@ TEST-{LAYER}-{NUMBER}
 - **Expected Result**:
   | category | count |
   |----------|-------|
-  | agent | 44 |
+  | agent | 79 |
   | cost_control | 4 |
   | credentials | 5 |
   | dashboard | 3 |
   | measurement | 6 |
   | posting | 8 |
-  | production | 13 |
-  | review | 4 |
+  | production | 14 |
+  | review | 5 |
 - **Pass Criteria**: 8カテゴリの件数が全て一致
 - **Fail Indicators**: いずれかのカテゴリの件数が不一致
 
@@ -749,15 +749,15 @@ TEST-{LAYER}-{NUMBER}
 - **Pass Criteria**: デフォルト = NULL AND 有効なJSONBが保存される
 - **Fail Indicators**: デフォルトが NULL でない、または JSONB挿入が失敗
 
-### TEST-DB-059: 全インデックス数の確認 (155個)
+### TEST-DB-059: 全インデックス数の確認 (156個)
 - **Category**: database
 - **Priority**: P1
 - **Prerequisites**: インデックスマイグレーション実行済み
 - **Steps**:
   1. `SELECT COUNT(*) FROM pg_indexes WHERE schemaname = 'public' AND indexname LIKE 'idx_%';`
-- **Expected Result**: `count = 155`
-- **Pass Criteria**: COUNT = 155
-- **Fail Indicators**: COUNT ≠ 155
+- **Expected Result**: `count = 156`
+- **Pass Criteria**: COUNT = 156
+- **Fail Indicators**: COUNT ≠ 156
 
 ## 2. MCP Server Layer Tests (TEST-MCP)
 
@@ -3159,12 +3159,12 @@ TEST-{LAYER}-{NUMBER}
 ### TEST-DSH-015: GET /api/settings — 全設定取得
 - **Category**: dashboard
 - **Priority**: P0
-- **Prerequisites**: system_settings に118件のデータ
+- **Prerequisites**: system_settings に124件のデータ
 - **Steps**:
   1. `GET /api/settings` を呼び出し
-- **Expected Result**: HTTP 200。`{ settings: SystemSetting[] }`。118件。カテゴリ別にグルーピング
-- **Pass Criteria**: settings の件数 = 118
-- **Fail Indicators**: 件数が 118 でない
+- **Expected Result**: HTTP 200。`{ settings: SystemSetting[] }`。124件。カテゴリ別にグルーピング
+- **Pass Criteria**: settings の件数 = 124
+- **Fail Indicators**: 件数が 124 でない
 
 ### TEST-DSH-016: PUT /api/settings/:key — 設定更新
 - **Category**: dashboard
@@ -3474,7 +3474,7 @@ TEST-{LAYER}-{NUMBER}
 ### TEST-DSH-045: REST API — レスポンスタイム
 - **Category**: dashboard
 - **Priority**: P2
-- **Prerequisites**: system_settings に118件のデータ
+- **Prerequisites**: system_settings に124件のデータ
 - **Steps**:
   1. `GET /api/settings` を10回呼び出し、レスポンスタイムを計測
 - **Expected Result**: 平均レスポンスタイム < 500ms
@@ -5556,7 +5556,7 @@ TEST-{LAYER}-{NUMBER}
 - **Priority**: P0
 - **Prerequisites**: クリーンインストール完了
 - **Steps**:
-  1. PostgreSQL マイグレーション実行 (33テーブル + 118設定値)
+  1. PostgreSQL マイグレーション実行 (33テーブル + 124設定値)
   2. MCP Server 起動
   3. LangGraph 4グラフ起動
   4. ダッシュボード起動
