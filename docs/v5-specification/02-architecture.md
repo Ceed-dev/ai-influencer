@@ -2788,41 +2788,39 @@ async function getSetting(key: string): Promise<any> {
 ### 14.2 移行アーキテクチャ図
 
 ```mermaid
-flowchart TD
+flowchart LR
     subgraph v4["v4.0 (現行)"]
         direction TB
-        v4_ui["Google Sheets UI<br/>(手動キューイング)"]
-        v4_gas["PipelineUI.gs<br/>(GAS メニュー)"]
-        v4_watch["watch-pipeline.js<br/>(PM2 ポーリング)"]
-        v4_orch["orchestrator.js + media/*<br/>(fal.ai, Fish Audio, ffmpeg)"]
-        v4_inv["inventory-reader<br/>production-manager<br/>(Sheets API)"]
-        v4_sheets["Google Sheets<br/>(5 Spreadsheet)"]
-        v4_gas_a["GAS Analytics<br/>(14モジュール)"]
-        v4_drive["Google Drive<br/>(Shared Drive)"]
-        v4_ui --> v4_gas --> v4_watch --> v4_orch --> v4_inv --> v4_sheets
+        v4_ui["Google Sheets UI"]
+        v4_gas["PipelineUI.gs"]
+        v4_watch["watch-pipeline.js"]
+        v4_orch["orchestrator.js"]
+        v4_inv["inventory-reader"]
+        v4_sheets["Google Sheets"]
+        v4_gas_a["GAS Analytics"]
+        v4_drive["Google Drive"]
     end
 
     subgraph v5["v5.0 (新)"]
         direction TB
-        v5_dash["Human Dashboard<br/>(Next.js, 監視+介入)"]
-        v5_strat["戦略サイクルグラフ<br/>(LangGraph.js)"]
-        v5_prod["制作パイプライングラフ<br/>(LangGraph.js)"]
-        v5_orch["orchestrator.js + media/*<br/>(同じ。タスク取得元のみ変更)"]
-        v5_mcp["MCP Server<br/>(PostgreSQL経由)"]
-        v5_pg["PostgreSQL 16+<br/>+ pgvector"]
-        v5_analyst["アナリストエージェント<br/>+ 計測ジョブグラフ<br/>+ MCP Server"]
-        v5_drive["Google Drive<br/>(Shared Drive, 同じ構造)"]
-        v5_dash --> v5_strat --> v5_prod --> v5_orch --> v5_mcp --> v5_pg
+        v5_dash["Human Dashboard"]
+        v5_strat["戦略サイクルグラフ"]
+        v5_prod["制作パイプライングラフ"]
+        v5_orch["orchestrator.js (再利用)"]
+        v5_mcp["MCP Server"]
+        v5_pg["PostgreSQL 16+"]
+        v5_analyst["アナリスト+計測"]
+        v5_drive["Google Drive (継続)"]
     end
 
-    v4_ui -.->|置換| v5_dash
-    v4_gas -.->|置換| v5_strat
-    v4_watch -.->|置換| v5_prod
-    v4_orch -.->|再利用| v5_orch
-    v4_inv -.->|置換| v5_mcp
-    v4_sheets -.->|データ移行| v5_pg
-    v4_gas_a -.->|段階的移行| v5_analyst
-    v4_drive -.->|継続利用| v5_drive
+    v4_ui -->|置換| v5_dash
+    v4_gas -->|置換| v5_strat
+    v4_watch -->|置換| v5_prod
+    v4_orch -->|再利用| v5_orch
+    v4_inv -->|置換| v5_mcp
+    v4_sheets -->|データ移行| v5_pg
+    v4_gas_a -->|段階的移行| v5_analyst
+    v4_drive -->|継続利用| v5_drive
 ```
 
 ### 14.3 段階的移行の順序
