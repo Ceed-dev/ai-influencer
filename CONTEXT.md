@@ -2477,6 +2477,22 @@ Phase 2 (commit `3d4a7ac`): CJKピクセル幅補正
 - GitHub Playwrightで全ファイルのレンダリング検証完了
 - 消費リソース: 全エージェント合計 ~850K tokens, ~30分実行時間
 
+### Session 23 (2026-02-23): v5仕様 最終品質監査 — 「100人が同じものを実装できる」レベルへ
+
+**目的**: v5実装開始前の最終品質チェック。仕様の精度・詳細度・具体度・整合性を検証し、「100人がこの仕様を見て実装したら100個の全く同じプロダクトが作られる」基準を達成する。
+
+**モード**: Q&Aモード一時解除 — ユーザー指示により docs/v5-specification/ の修正を許可（本セッション限定）
+
+**作業内容**:
+- Agent Teamによる全13仕様書の並列監査
+- 整合性チェック: ファイル間の数値・テーブル名・ツール名・設定キーの一致
+- 曖昧性チェック: デフォルト値・閾値・計算式・エラーハンドリングの明記漏れ
+- v5/types/ と仕様書の整合性確認
+- feature_list.json と仕様書の整合性確認
+- 発見した問題の修正 → 再検証ループ
+
+**ステータス**: 作業中
+
 ### Sensitive Data Locations (NOT in git)
 - `.clasp.json` - clasp config with Script ID
 - `.gsheets_token.json` - OAuth token for Sheets/Drive API
