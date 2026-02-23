@@ -6333,7 +6333,7 @@
         "prediction_weights UPDATE + weight_audit_log INSERT",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-ALG-003",
@@ -6358,7 +6358,7 @@
         "adjustment_factor_cache UPSERT",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-ALG-004",
