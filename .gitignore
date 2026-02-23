@@ -69,6 +69,9 @@ build/
 docker-compose.override.yml
 .docker/
 
+# v5 Credentials
+v5/credentials/
+
 # v5 Database
 *.sql.bak
 *.dump
