@@ -955,7 +955,7 @@
         "sql/003_seed_system_settings.sqlにINSERT記述",
         "TEST-DB-046,047実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DB-042",
@@ -977,7 +977,7 @@
         "§7.3読み取り",
         "TEST-DB-048実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DB-043",
@@ -1117,7 +1117,7 @@
         "sql/001_create_tables.sql順序検証",
         "TEST-DB-055実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-INF-001",
