@@ -119,3 +119,5 @@
 2026-02-23T08:47:20Z | strategy-agent | START | FEAT-STR-002 | starting | cycles table status transition recording
 2026-02-23T08:49:27Z | text-post-agent | COMPLETE | FEAT-TP-003 | passed | TEST-WKR-014 green
 2026-02-23T08:49:44Z | text-post-agent | START | FEAT-TP-006 | starting | publicationsレコード作成+measure_after自動設定
+2026-02-23T08:50:03Z | strategy-agent | COMPLETE | FEAT-STR-002 | passed | TEST-AGT-002 green (6/6 tests)
+2026-02-23T08:50:10Z | strategy-agent | START | FEAT-STR-003 | starting | STRATEGY_APPROVAL_REQUIRED=true human approval flow
