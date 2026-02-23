@@ -1,0 +1,44 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url("https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap");
+
+:root {
+  /* Solarized Dark (default) */
+  --bg: #002b36;
+  --fg: #839496;
+  --sidebar-bg: #073642;
+  --accent-blue: #268bd2;
+  --accent-cyan: #2aa198;
+  --warning: #b58900;
+  --error: #dc322f;
+  --success: #859900;
+  --info: #268bd2;
+  --muted: #586e75;
+  --border: #073642;
+  --card-bg: #073642;
+}
+
+[data-theme="light"] {
+  --bg: #fdf6e3;
+  --fg: #657b83;
+  --sidebar-bg: #eee8d5;
+  --accent-blue: #268bd2;
+  --accent-cyan: #2aa198;
+  --warning: #b58900;
+  --error: #dc322f;
+  --success: #859900;
+  --info: #268bd2;
+  --muted: #93a1a1;
+  --border: #eee8d5;
+  --card-bg: #eee8d5;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--fg);
+  font-family: "Nunito", sans-serif;
+  font-size: 14px;
+}
