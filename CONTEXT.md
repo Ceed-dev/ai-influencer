@@ -2518,3 +2518,20 @@ Phase 2 (commit `3d4a7ac`): CJKピクセル幅補正
 - `.tiktok-credentials.json` - TikTok per-account OAuth 2.0 tokens
 - `.ig-credentials.json` - Instagram per-account long-lived tokens
 - `_config` sheet in spreadsheet - contains OpenAI API key
+
+### 2026-02-23: v5.0 実装準備 — インフラ構築開始
+
+**What was done:**
+- GCPプロジェクト `ai-influencer-ceed` 新規作成 (Project Number: 347561606860)
+- 請求先アカウント `015BE3-A17C2E-482806` を紐付け
+- 不要プロジェクト `gen-lang-client-0571579427` の請求先を解除（枠確保のため）
+- 請求先アカウントのプロジェクト枠増加申請を提出（5→10）
+- gcloud CLI認証: `pochi@0xqube.xyz` でVM上から操作可能に
+
+**Key decisions:**
+1. **プロジェクトID**: `ai-influencer-ceed` (ai-influencerは既に使用済みだったため)
+2. **v4.0 (video-analytics-hub) とは別プロジェクト**: 完全分離で運用
+3. **gen-lang-client解除**: Gemini API試用で自動生成された未使用プロジェクト、請求先解除で枠確保
+
+**Checklist progress (11-pre-implementation-checklist.md):**
+- [x] 2.1-1: GCPプロジェクト新規作成
