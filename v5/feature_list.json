@@ -4485,7 +4485,7 @@
         "platformバリデーション",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DSH-004",
