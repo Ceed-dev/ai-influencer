@@ -1227,7 +1227,7 @@
         "src/db/pool.ts実装",
         "ヘルスチェック関数作成"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-MCC-001",
@@ -1252,7 +1252,7 @@
         "periodバリデーション実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-MCC-002",
@@ -1275,7 +1275,7 @@
         "ツール実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-MCC-003",
@@ -1298,7 +1298,7 @@
         "cycles INSERT実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-MCC-004",
@@ -1321,7 +1321,7 @@
         "ツール実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-MCC-005",
@@ -1344,7 +1344,7 @@
         "ツール実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-MCC-006",
@@ -1368,7 +1368,7 @@
         "両ツール実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-MCC-007",
@@ -1392,7 +1392,7 @@
         "ツール実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-MCC-008",
@@ -1417,7 +1417,7 @@
         "content_formatバリデーション",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-MCC-009",
@@ -1440,7 +1440,7 @@
         "ツール実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-MCC-010",
@@ -1463,7 +1463,7 @@
         "task_queue INSERT実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-MCC-011",
@@ -1488,7 +1488,7 @@
         "categoryバリデーション(5値)",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-MCC-012",
@@ -1511,7 +1511,7 @@
         "ツール実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-MCC-013",
@@ -1536,7 +1536,7 @@
         "優先度順ソート実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-MCC-014",
@@ -1559,7 +1559,7 @@
         "ツール実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-MCC-015",
@@ -1582,7 +1582,7 @@
         "ツール実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-MCC-016",
@@ -1607,7 +1607,7 @@
         "voice_idバリデーション",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-MCC-017",
@@ -1630,7 +1630,7 @@
         "ツール実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-MCC-018",
@@ -1653,7 +1653,7 @@
         "ツール実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-MCC-019",
@@ -1678,7 +1678,7 @@
         "ステータスバリデーション",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-MCC-020",
@@ -1701,7 +1701,7 @@
         "ツール実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-MCC-021",
@@ -1724,7 +1724,7 @@
         "ツール実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-MCC-022",
@@ -1818,7 +1818,7 @@
         "ツール実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-MCC-026",
@@ -1844,7 +1844,7 @@
         "4ツール実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-MCC-027",
@@ -1867,7 +1867,7 @@
         "ツール実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-MCC-028",
@@ -2230,7 +2230,7 @@
         "DBエラーハンドリング",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-MCC-043",
@@ -3410,7 +3410,7 @@
         "POSTING_JITTER_MINUTESランダム遅延実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-TP-002",
@@ -3552,7 +3552,7 @@
         "measure_after比較実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-MS-002",
@@ -3647,7 +3647,7 @@
         "FOLLOW_UP_MEASURE_INTERVALS読み込み",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-MS-006",
@@ -5532,7 +5532,7 @@
         "エラー時のロールバック確認を実装",
         "TEST-INT-007 を実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-TST-008",
@@ -6414,7 +6414,7 @@
         "kpi_snapshots UPSERT",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-ALG-006",

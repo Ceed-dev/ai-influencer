@@ -121,3 +121,31 @@
 2026-02-23T08:49:44Z | text-post-agent | START | FEAT-TP-006 | starting | publicationsレコード作成+measure_after自動設定
 2026-02-23T08:50:03Z | strategy-agent | COMPLETE | FEAT-STR-002 | passed | TEST-AGT-002 green (6/6 tests)
 2026-02-23T08:50:10Z | strategy-agent | START | FEAT-STR-003 | starting | STRATEGY_APPROVAL_REQUIRED=true human approval flow
+2026-02-23T08:50:24Z | measure-agent | COMPLETE | FEAT-MS-005 | passed | TEST-WKR-031 green
+2026-02-23T08:50:30Z | measure-agent | START | FEAT-MS-006 | starting | リトライ間隔+最大試行回数
+2026-02-23T08:51:26Z | mcp-core-agent | COMPLETE | FEAT-MCC-001 | passed | TEST-MCP-001,TEST-MCP-002 green
+2026-02-23T10:00:00Z | mcp-core-agent | SESSION | - | resumed | New context window - P0 MCP core tools implementation
+2026-02-23T10:00:00Z | mcp-core-agent | COMPLETE | FEAT-MCC-002 | passed | TEST-MCP-003 green
+2026-02-23T10:00:00Z | mcp-core-agent | COMPLETE | FEAT-MCC-003 | passed | TEST-MCP-006 green
+2026-02-23T10:00:00Z | mcp-core-agent | COMPLETE | FEAT-MCC-004 | passed | TEST-MCP-007 green
+2026-02-23T10:00:00Z | mcp-core-agent | COMPLETE | FEAT-MCC-005 | passed | TEST-MCP-008 green
+2026-02-23T10:00:00Z | mcp-core-agent | COMPLETE | FEAT-MCC-006 | passed | TEST-MCP-009,TEST-MCP-010 green
+2026-02-23T10:00:00Z | mcp-core-agent | COMPLETE | FEAT-MCC-007 | passed | TEST-MCP-027 green
+2026-02-23T10:00:00Z | mcp-core-agent | COMPLETE | FEAT-MCC-008 | passed | TEST-MCP-028,TEST-MCP-029 green
+2026-02-23T10:00:00Z | mcp-core-agent | COMPLETE | FEAT-MCC-009 | passed | TEST-MCP-030 green
+2026-02-23T10:00:00Z | mcp-core-agent | COMPLETE | FEAT-MCC-010 | passed | TEST-MCP-031 green
+2026-02-23T10:00:00Z | mcp-core-agent | COMPLETE | FEAT-MCC-011 | passed | TEST-MCP-032,TEST-MCP-096 green
+2026-02-23T10:00:00Z | mcp-core-agent | COMPLETE | FEAT-MCC-012 | passed | TEST-MCP-033 green
+2026-02-23T10:00:00Z | mcp-core-agent | COMPLETE | FEAT-MCC-013 | passed | TEST-MCP-034 green
+2026-02-23T10:00:00Z | mcp-core-agent | COMPLETE | FEAT-MCC-014 | passed | TEST-MCP-035 green
+2026-02-23T10:00:00Z | mcp-core-agent | COMPLETE | FEAT-MCC-015 | passed | TEST-MCP-036 green
+2026-02-23T10:00:00Z | mcp-core-agent | COMPLETE | FEAT-MCC-016 | passed | TEST-MCP-037 green
+2026-02-23T10:00:00Z | mcp-core-agent | COMPLETE | FEAT-MCC-017 | passed | TEST-MCP-038 green
+2026-02-23T10:00:00Z | mcp-core-agent | COMPLETE | FEAT-MCC-018 | passed | TEST-MCP-039 green
+2026-02-23T10:00:00Z | mcp-core-agent | COMPLETE | FEAT-MCC-019 | passed | TEST-MCP-040 green
+2026-02-23T10:00:00Z | mcp-core-agent | COMPLETE | FEAT-MCC-020 | passed | TEST-MCP-041 green
+2026-02-23T10:00:00Z | mcp-core-agent | COMPLETE | FEAT-MCC-021 | passed | TEST-MCP-042 green
+2026-02-23T10:00:00Z | mcp-core-agent | COMPLETE | FEAT-MCC-025 | passed | TEST-MCP-049 green
+2026-02-23T10:00:00Z | mcp-core-agent | COMPLETE | FEAT-MCC-026 | passed | TEST-MCP-050,TEST-MCP-051,TEST-MCP-052,TEST-MCP-053 green
+2026-02-23T10:00:00Z | mcp-core-agent | COMPLETE | FEAT-MCC-027 | passed | TEST-MCP-054 green
+2026-02-23T10:00:00Z | mcp-core-agent | COMPLETE | FEAT-MCC-042 | passed | TEST-MCP-087,TEST-MCP-088 green
