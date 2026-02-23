@@ -4508,7 +4508,7 @@
         "PUT実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DSH-005",
@@ -4540,7 +4540,7 @@
         "statusフィルタ+ページネーション",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DSH-006",
@@ -4564,7 +4564,7 @@
         "pending_review→approved遷移",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DSH-007",
@@ -4589,7 +4589,7 @@
         "comment必須バリデーション",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DSH-008",
