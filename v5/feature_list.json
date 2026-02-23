@@ -5317,7 +5317,7 @@
         "CORSミドルウェア設定",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DSH-035",
@@ -5366,7 +5366,7 @@
         "404エラー実装",
         "テスト実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-TST-001",
