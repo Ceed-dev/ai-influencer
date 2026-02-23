@@ -23,7 +23,7 @@
         "CREATE EXTENSION IF NOT EXISTS vector実行",
         "TEST-DB-001,TEST-DB-002実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DB-002",
@@ -47,7 +47,7 @@
         "psqlで実行",
         "TEST-DB-002実行"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FEAT-DB-003",
