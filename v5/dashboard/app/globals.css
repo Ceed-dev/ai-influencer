@@ -9,7 +9,7 @@
   :root {
     /* Legacy Solarized variables (preserved for backward compatibility) */
     --bg: #002b36;
-    --fg: #839496;
+    --fg: #93a1a1;
     --sidebar-bg: #073642;
     --accent-blue: #268bd2;
     --accent-cyan: #2aa198;
@@ -18,25 +18,25 @@
     --success: #859900;
     --info: #268bd2;
 
-    /* Shadcn/ui CSS variables — Solarized Dark */
+    /* Shadcn/ui CSS variables — Solarized Dark (high contrast) */
     --background: 192 100% 11%;       /* #002b36 base03 */
-    --foreground: 186 8% 55%;         /* #839496 base0 */
+    --foreground: 180 7% 60%;         /* #93a1a1 base1 — brighter body text */
     --card: 192 49% 14%;              /* #073642 base02 */
-    --card-foreground: 186 8% 55%;    /* #839496 base0 */
+    --card-foreground: 180 7% 60%;    /* #93a1a1 base1 */
     --popover: 192 49% 14%;           /* #073642 base02 */
-    --popover-foreground: 186 8% 55%; /* #839496 base0 */
+    --popover-foreground: 180 7% 60%; /* #93a1a1 base1 */
     --primary: 205 82% 49%;           /* #268bd2 blue */
     --primary-foreground: 0 0% 100%;  /* white */
     --secondary: 192 49% 14%;         /* #073642 base02 */
-    --secondary-foreground: 186 8% 55%; /* #839496 base0 */
+    --secondary-foreground: 180 7% 60%; /* #93a1a1 base1 */
     --muted: 192 49% 14%;             /* #073642 base02 */
-    --muted-foreground: 194 14% 40%;  /* #586e75 base01 */
+    --muted-foreground: 186 8% 55%;   /* #839496 base0 — readable secondary text */
     --accent: 192 49% 14%;            /* #073642 base02 */
-    --accent-foreground: 186 8% 55%;  /* #839496 base0 */
+    --accent-foreground: 180 7% 60%;  /* #93a1a1 base1 */
     --destructive: 1 79% 52%;         /* #dc322f red */
     --destructive-foreground: 0 0% 100%;
-    --border: 192 49% 14%;            /* #073642 base02 */
-    --input: 192 49% 14%;             /* #073642 base02 */
+    --border: 192 20% 24%;            /* #314b54 — visible border between base02/base01 */
+    --input: 192 20% 24%;             /* #314b54 — visible input border */
     --ring: 205 82% 49%;              /* #268bd2 blue */
     --radius: 0.5rem;
   }
@@ -44,7 +44,7 @@
   [data-theme="light"] {
     /* Legacy Solarized variables (preserved for backward compatibility) */
     --bg: #fdf6e3;
-    --fg: #657b83;
+    --fg: #586e75;
     --sidebar-bg: #eee8d5;
     --accent-blue: #268bd2;
     --accent-cyan: #2aa198;
@@ -53,25 +53,25 @@
     --success: #859900;
     --info: #268bd2;
 
-    /* Shadcn/ui CSS variables — Solarized Light */
+    /* Shadcn/ui CSS variables — Solarized Light (high contrast) */
     --background: 44 87% 94%;         /* #fdf6e3 base3 */
-    --foreground: 194 14% 46%;        /* #657b83 base00 */
+    --foreground: 194 14% 40%;        /* #586e75 base01 — darker body text */
     --card: 44 44% 87%;               /* #eee8d5 base2 */
-    --card-foreground: 194 14% 46%;   /* #657b83 base00 */
+    --card-foreground: 194 14% 40%;   /* #586e75 base01 */
     --popover: 44 44% 87%;            /* #eee8d5 base2 */
-    --popover-foreground: 194 14% 46%;/* #657b83 base00 */
+    --popover-foreground: 194 14% 40%;/* #586e75 base01 */
     --primary: 205 82% 49%;           /* #268bd2 blue */
     --primary-foreground: 0 0% 100%;  /* white */
     --secondary: 44 44% 87%;          /* #eee8d5 base2 */
-    --secondary-foreground: 194 14% 46%;/* #657b83 base00 */
+    --secondary-foreground: 194 14% 40%;/* #586e75 base01 */
     --muted: 44 44% 87%;              /* #eee8d5 base2 */
-    --muted-foreground: 180 7% 60%;   /* #93a1a1 base1 */
+    --muted-foreground: 194 14% 46%;  /* #657b83 base00 — readable secondary text */
     --accent: 44 44% 87%;             /* #eee8d5 base2 */
-    --accent-foreground: 194 14% 46%;
+    --accent-foreground: 194 14% 40%; /* #586e75 base01 */
     --destructive: 1 79% 52%;         /* #dc322f red */
     --destructive-foreground: 0 0% 100%;
-    --border: 44 44% 87%;             /* #eee8d5 base2 */
-    --input: 44 44% 87%;              /* #eee8d5 base2 */
+    --border: 46 15% 76%;             /* #c5bfae — visible border between base2/base1 */
+    --input: 46 15% 76%;              /* #c5bfae — visible input border */
     --ring: 205 82% 49%;              /* #268bd2 blue */
   }
 

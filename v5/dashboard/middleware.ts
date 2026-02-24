@@ -1,11 +1,64 @@
 import { NextRequest, NextResponse } from "next/server";
 
 /**
- * CORS middleware for API routes.
- * Since this is a single-user localhost dashboard, CORS is permissive.
+ * Dashboard middleware: Basic Authentication + CORS
+ *
+ * Auth is enforced on all routes when DASHBOARD_USER and DASHBOARD_PASSWORD
+ * environment variables are set. When either is unset, auth is bypassed
+ * (local development mode).
  */
+
+function checkBasicAuth(request: NextRequest): NextResponse | null {
+  const user = process.env.DASHBOARD_USER;
+  const pass = process.env.DASHBOARD_PASSWORD;
+
+  // Skip auth if credentials not configured (dev mode)
+  if (!user || !pass) return null;
+
+  const authHeader = request.headers.get("authorization");
+  if (!authHeader || !authHeader.startsWith("Basic ")) {
+    return new NextResponse("Authentication required", {
+      status: 401,
+      headers: {
+        "WWW-Authenticate": 'Basic realm="AI Influencer Dashboard"',
+      },
+    });
+  }
+
+  const base64 = authHeader.slice(6);
+  let decoded: string;
+  try {
+    decoded = atob(base64);
+  } catch {
+    return new NextResponse("Invalid credentials", {
+      status: 401,
+      headers: {
+        "WWW-Authenticate": 'Basic realm="AI Influencer Dashboard"',
+      },
+    });
+  }
+
+  const [inputUser, ...passParts] = decoded.split(":");
+  const inputPass = passParts.join(":");
+
+  if (inputUser !== user || inputPass !== pass) {
+    return new NextResponse("Invalid credentials", {
+      status: 401,
+      headers: {
+        "WWW-Authenticate": 'Basic realm="AI Influencer Dashboard"',
+      },
+    });
+  }
+
+  return null; // Auth passed
+}
+
 export function middleware(request: NextRequest) {
-  // Only apply CORS to API routes
+  // 1. Basic Auth check (all routes)
+  const authResponse = checkBasicAuth(request);
+  if (authResponse) return authResponse;
+
+  // 2. CORS headers for API routes
   if (request.nextUrl.pathname.startsWith("/api/")) {
     const response = NextResponse.next();
 
@@ -35,5 +88,8 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: "/api/:path*",
+  matcher: [
+    // Match all routes except Next.js internals and static files
+    "/((?!_next/static|_next/image|favicon.ico).*)",
+  ],
 };

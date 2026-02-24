@@ -20,7 +20,7 @@ describe('FEAT-DSH-014: Solarized Dark theme CSS variables', () => {
   test('TEST-DSH-019: defines Solarized Dark CSS variables', () => {
     // Check all required dark theme values
     expect(cssContent).toContain('--bg: #002b36');
-    expect(cssContent).toContain('--fg: #839496');
+    expect(cssContent).toContain('--fg: #93a1a1');
     expect(cssContent).toContain('--sidebar-bg: #073642');
     expect(cssContent).toContain('--accent-blue: #268bd2');
     expect(cssContent).toContain('--accent-cyan: #2aa198');

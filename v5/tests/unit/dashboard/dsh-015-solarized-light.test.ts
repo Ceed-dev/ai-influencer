@@ -23,7 +23,7 @@ describe('FEAT-DSH-015: Solarized Light theme + toggle', () => {
     const lightBlock = lightMatch![1];
 
     expect(lightBlock).toContain('--bg: #fdf6e3');     // base3
-    expect(lightBlock).toContain('--fg: #657b83');     // base00
+    expect(lightBlock).toContain('--fg: #586e75');     // base01 — higher contrast
     expect(lightBlock).toContain('--sidebar-bg: #eee8d5'); // base2
   });
 
@@ -38,9 +38,9 @@ describe('FEAT-DSH-015: Solarized Light theme + toggle', () => {
     expect(rootMatch![1]).toContain('--bg: #002b36');
     expect(lightMatch![1]).toContain('--bg: #fdf6e3');
 
-    // Dark fg = #839496, Light fg = #657b83
-    expect(rootMatch![1]).toContain('--fg: #839496');
-    expect(lightMatch![1]).toContain('--fg: #657b83');
+    // Dark fg = #93a1a1 (base1), Light fg = #586e75 (base01) — high contrast
+    expect(rootMatch![1]).toContain('--fg: #93a1a1');
+    expect(lightMatch![1]).toContain('--fg: #586e75');
   });
 
   test('accent colors are consistent between themes', () => {
