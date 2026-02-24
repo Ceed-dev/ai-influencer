@@ -22,7 +22,7 @@ services:
       DASHBOARD_USER: ${DASHBOARD_USER:-}
       DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD:-}
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3001:3000"
     command: ["npm", "run", "start"]
     deploy:
       resources:
