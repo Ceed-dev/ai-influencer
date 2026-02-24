@@ -25,6 +25,7 @@ services:
     container_name: v5-app
     working_dir: /app
     restart: unless-stopped
+    depends_on: {}
     volumes:
       - ./dist:/app/dist
       - ./package.json:/app/package.json
@@ -65,9 +66,7 @@ services:
     container_name: v5-dashboard
     working_dir: /dashboard
     restart: unless-stopped
-    depends_on:
-      app:
-        condition: service_healthy
+    depends_on: {}
     volumes:
       - ./dashboard/.next:/dashboard/.next
       - ./dashboard/public:/dashboard/public
