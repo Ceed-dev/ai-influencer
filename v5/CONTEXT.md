@@ -145,8 +145,30 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 - VM: Node.js 20 installed, repo cloned, npm install + build (app tsc + dashboard next build)
 - All 31 API routes: `export const dynamic = "force-dynamic"` (prevents build-time pre-rendering)
 - Standalone compose: `docker-compose.production.yml` (dashboard + Cloud SQL, no local postgres)
-- Container: `v5-dashboard` running on `34.85.62.184:3000`, health check HTTP 200
-- Access: **http://34.85.62.184:3000**
+- Container: `v5-dashboard` on `127.0.0.1:3001`, nginx reverse proxy on `:3000`/`:443`
+- HTTPS: nginx + self-signed cert (TLS 1.2/1.3), HTTP→HTTPS redirect
+- Basic Auth: `DASHBOARD_USER`/`DASHBOARD_PASSWORD` env vars (middleware.ts)
+- Access: **https://34.85.62.184:3000** (user: admin)
+
+### Session 10: Security + UI Contrast Hardening
+
+**UI contrast improvement (globals.css):**
+- Dark mode: foreground base0→base1 (#93a1a1), muted-foreground base01→base0 (#839496)
+- Dark mode: border invisible base02→visible #314b54 (lightness 14%→24%)
+- Light mode: foreground base00→base01 (#586e75), muted-foreground base1→base00 (#657b83)
+- Light mode: border invisible base2→visible #c5bfae (lightness 87%→76%)
+- Playwright verified: Dark/Light on Home, KPI, Settings, Content, Errors + mobile responsive
+
+**HTTPS (nginx reverse proxy):**
+- nginx 1.18.0 on VM, self-signed cert (365d, RSA 2048)
+- Listens on :3000 SSL + :443 SSL, proxies to 127.0.0.1:3001
+- Security headers: HSTS, X-Content-Type-Options, X-Frame-Options, X-XSS-Protection
+- Docker binds only to localhost (127.0.0.1:3001:3000), no direct external access
+
+**Basic Authentication (middleware.ts):**
+- Next.js middleware: checks Authorization: Basic header on all routes
+- Env-var driven: `DASHBOARD_USER` + `DASHBOARD_PASSWORD` (bypassed when unset = dev mode)
+- Credentials passed via docker-compose.production.yml + .env.production
 
 ## Remaining Items
 
@@ -158,6 +180,8 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 ### Non-Critical Improvements:
 - MemorySaver → PostgresSaver (LangGraph checkpointer persistence)
 - ESLint 15 warnings cleanup
+- HTTPS: Replace self-signed cert with Let's Encrypt (requires domain name)
+- GCP Firewall: Open port 443, close direct 3000 access after domain setup
 
 ## Architecture Reference
 
