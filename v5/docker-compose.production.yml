@@ -19,6 +19,8 @@ services:
       NODE_ENV: production
       DATABASE_URL: ${DATABASE_URL}
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
+      DASHBOARD_USER: ${DASHBOARD_USER:-}
+      DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD:-}
     ports:
       - "3000:3000"
     command: ["npm", "run", "start"]
