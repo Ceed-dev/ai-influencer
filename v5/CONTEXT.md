@@ -140,6 +140,14 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 
 **Quality gates:** TypeScript 0 errors, 244/244 suites, 1124/1124 tests passing
 
+**Production deployment:**
+- Cloud SQL: `ai_influencer` DB created, pgvector enabled, 9 migration files applied (33 tables)
+- VM: Node.js 20 installed, repo cloned, npm install + build (app tsc + dashboard next build)
+- All 31 API routes: `export const dynamic = "force-dynamic"` (prevents build-time pre-rendering)
+- Standalone compose: `docker-compose.production.yml` (dashboard + Cloud SQL, no local postgres)
+- Container: `v5-dashboard` running on `34.85.62.184:3000`, health check HTTP 200
+- Access: **http://34.85.62.184:3000**
+
 ## Remaining Items
 
 ### External Dependencies (code complete, awaiting approvals):
