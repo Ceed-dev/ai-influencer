@@ -24,3 +24,16 @@ export const swrConfig = {
   revalidateOnFocus: true,
   dedupingInterval: 5000,
 };
+
+/**
+ * Default fetcher for useSWR.
+ * Returns parsed JSON; throws on non-OK responses.
+ */
+export const fetcher = async (url: string) => {
+  const res = await fetch(url);
+  if (!res.ok) {
+    const error = new Error("Failed to fetch");
+    throw error;
+  }
+  return res.json();
+};

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import useSWR from "swr";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { NativeSelect } from "@/components/ui/select";
@@ -12,6 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { fetcher, swrConfig } from "@/lib/swr-config";
 
 interface ContentItem {
   content_id: string;
@@ -22,34 +24,31 @@ interface ContentItem {
   created_at: string;
 }
 
+interface ContentResponse {
+  content: ContentItem[];
+  total: number;
+}
+
 export default function ContentPage() {
-  const [content, setContent] = useState<ContentItem[]>([]);
-  const [total, setTotal] = useState(0);
   const [statusFilter, setStatusFilter] = useState("");
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
   const limit = 20;
 
-  const fetchContent = useCallback(() => {
-    setLoading(true);
-    const params = new URLSearchParams();
-    if (statusFilter) params.set("status", statusFilter);
-    params.set("page", page.toString());
-    params.set("limit", limit.toString());
+  // Build SWR key from filter params
+  const params = new URLSearchParams();
+  if (statusFilter) params.set("status", statusFilter);
+  params.set("page", page.toString());
+  params.set("limit", limit.toString());
+  const swrKey = `/api/content?${params.toString()}`;
 
-    fetch(`/api/content?${params}`)
-      .then((res) => res.json())
-      .then((data) => {
-        setContent(data.content || []);
-        setTotal(data.total || 0);
-      })
-      .finally(() => setLoading(false));
-  }, [statusFilter, page]);
+  const { data, isLoading } = useSWR<ContentResponse>(swrKey, fetcher, {
+    refreshInterval: swrConfig.refreshInterval,
+    revalidateOnFocus: swrConfig.revalidateOnFocus,
+    dedupingInterval: swrConfig.dedupingInterval,
+  });
 
-  useEffect(() => {
-    fetchContent();
-  }, [fetchContent]);
-
+  const content = data?.content ?? [];
+  const total = data?.total ?? 0;
   const totalPages = Math.ceil(total / limit);
 
   return (
@@ -71,7 +70,7 @@ export default function ContentPage() {
           <option value="published">published</option>
         </NativeSelect>
       </div>
-      {loading ? (
+      {isLoading ? (
         <div role="progressbar">Loading...</div>
       ) : content.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">

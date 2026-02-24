@@ -7,6 +7,39 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { NativeSelect } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
+
+const COLORS = {
+  blue: "#268bd2",
+  cyan: "#2aa198",
+  green: "#859900",
+  yellow: "#b58900",
+  red: "#dc322f",
+  violet: "#6c71c4",
+  magenta: "#d33682",
+  orange: "#cb4b16",
+};
+
+const AGENT_COLORS: Record<string, string> = {
+  strategist: COLORS.blue,
+  researcher: COLORS.cyan,
+  analyst: COLORS.green,
+  planner: COLORS.yellow,
+  tool_specialist: COLORS.violet,
+  data_curator: COLORS.magenta,
+};
 
 const AGENT_TYPES = [
   "strategist",
@@ -287,7 +320,7 @@ function EvolutionPanel() {
   );
 
   useState(() => {
-    fetch("/api/reflections")
+    fetch("/api/reflections?limit=200")
       .then((res) => res.json())
       .then((d) => setReflections(d.reflections || []));
   });
@@ -299,33 +332,172 @@ function EvolutionPanel() {
     return acc;
   }, {} as Record<string, Record<string, unknown>[]>);
 
+  // Latest self_score per agent for the bar chart
+  const latestScores = AGENT_TYPES.map((t) => {
+    const data = agentGroups[t] || [];
+    const latest = data.length > 0 ? data[data.length - 1] : null;
+    return {
+      agent: AGENT_LABELS[t] || t,
+      agent_type: t,
+      self_score: latest ? (latest.self_score as number) : 0,
+    };
+  }).filter((d) => d.self_score > 0);
+
+  // Build line chart data: pivot by cycle_id with agents as columns
+  const cycleMap = new Map<number, Record<string, unknown>>();
+  for (const t of AGENT_TYPES) {
+    const data = agentGroups[t] || [];
+    for (const r of data) {
+      const cycleId = r.cycle_id as number;
+      const existing = cycleMap.get(cycleId) || { cycle: cycleId };
+      existing[t] = r.self_score as number;
+      cycleMap.set(cycleId, existing);
+    }
+  }
+  const progressionData = Array.from(cycleMap.values()).sort(
+    (a, b) => (a.cycle as number) - (b.cycle as number)
+  );
+
+  // Determine which agents actually have data
+  const activeAgents = AGENT_TYPES.filter(
+    (t) => (agentGroups[t] || []).length > 0
+  );
+
   return (
     <div>
+      {/* Bar chart: current self_score per agent */}
+      {latestScores.length > 0 && (
+        <Card className="mb-6">
+          <CardContent className="pt-6">
+            <h3 className="text-lg font-semibold mb-4">
+              エージェント別 self_score (最新)
+            </h3>
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={latestScores}>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="var(--border)"
+                />
+                <XAxis
+                  dataKey="agent"
+                  tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
+                />
+                <YAxis
+                  tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
+                  domain={[0, 10]}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "var(--card)",
+                    border: "1px solid var(--border)",
+                    color: "var(--fg)",
+                  }}
+                />
+                <Bar dataKey="self_score" name="self_score" radius={[4, 4, 0, 0]}>
+                  {latestScores.map((entry) => (
+                    <Cell
+                      key={`bar-${entry.agent_type}`}
+                      fill={AGENT_COLORS[entry.agent_type] || COLORS.violet}
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Line chart: self_score progression over cycles */}
+      {progressionData.length > 1 && (
+        <Card className="mb-6">
+          <CardContent className="pt-6">
+            <h3 className="text-lg font-semibold mb-4">
+              self_score 推移 (サイクル別)
+            </h3>
+            <ResponsiveContainer width="100%" height={320}>
+              <LineChart data={progressionData}>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="var(--border)"
+                />
+                <XAxis
+                  dataKey="cycle"
+                  tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
+                  label={{
+                    value: "サイクル",
+                    position: "insideBottom",
+                    offset: -5,
+                    fill: "var(--muted-foreground)",
+                  }}
+                />
+                <YAxis
+                  tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
+                  domain={[0, 10]}
+                  label={{
+                    value: "self_score",
+                    angle: -90,
+                    position: "insideLeft",
+                    fill: "var(--muted-foreground)",
+                  }}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "var(--card)",
+                    border: "1px solid var(--border)",
+                    color: "var(--fg)",
+                  }}
+                />
+                <Legend />
+                {activeAgents.map((t) => (
+                  <Line
+                    key={t}
+                    type="monotone"
+                    dataKey={t}
+                    name={AGENT_LABELS[t] || t}
+                    stroke={AGENT_COLORS[t] || COLORS.violet}
+                    strokeWidth={2}
+                    dot={{ r: 4 }}
+                    connectNulls
+                  />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Individual agent detail cards (legacy section, simplified) */}
       {AGENT_TYPES.map((t) => {
         const data = agentGroups[t] || [];
         if (data.length === 0) return null;
+        const latest = data[data.length - 1]!;
         return (
-          <Card key={t} className="mb-6">
+          <Card key={t} className="mb-4">
             <CardContent className="pt-4">
-              <h3 className="font-semibold mb-2">
-                {AGENT_LABELS[t]} - self_score 推移
-              </h3>
-              <div className="flex items-end gap-1 h-24">
-                {data.map((r, i) => (
-                  <div key={i} className="flex flex-col items-center">
-                    <div
-                      className="bg-primary rounded-t"
-                      style={{
-                        width: 20,
-                        height: `${(r.self_score as number) * 10}%`,
-                      }}
-                      title={`Cycle ${r.cycle_id}: ${r.self_score}`}
-                    />
-                    <span className="text-xs mt-1">
-                      {r.self_score as number}
-                    </span>
-                  </div>
-                ))}
+              <div className="flex justify-between items-center">
+                <h3 className="font-semibold">
+                  {AGENT_LABELS[t]}
+                </h3>
+                <Badge variant="secondary">
+                  {data.length} リフレクション
+                </Badge>
+              </div>
+              <div className="mt-2 text-sm space-y-1">
+                <p>
+                  最新 self_score:{" "}
+                  <strong>{latest.self_score as number}</strong> (Cycle{" "}
+                  {latest.cycle_id as number})
+                </p>
+                {(latest.what_went_well as string) ? (
+                  <p className="text-muted-foreground">
+                    良かった点: {latest.what_went_well as string}
+                  </p>
+                ) : null}
+                {(latest.what_to_improve as string) ? (
+                  <p className="text-muted-foreground">
+                    改善点: {latest.what_to_improve as string}
+                  </p>
+                ) : null}
               </div>
             </CardContent>
           </Card>
@@ -475,17 +647,24 @@ function SuggestionsPanel() {
 
 function GrowthPanel() {
   const [learnings, setLearnings] = useState<Record<string, unknown>[]>([]);
+  const [reflections, setReflections] = useState<Record<string, unknown>[]>([]);
 
   useState(() => {
-    Promise.all(
-      AGENT_TYPES.map((t) =>
-        fetch(`/api/individual-learnings?agent_type=${t}&limit=100`)
-          .then((res) => res.json())
-          .then((d) => ({ agent_type: t, data: d.learnings || [] }))
-      )
-    ).then((results) => {
+    // Fetch both individual learnings and reflections for growth charts
+    Promise.all([
+      Promise.all(
+        AGENT_TYPES.map((t) =>
+          fetch(`/api/individual-learnings?agent_type=${t}&limit=100`)
+            .then((res) => res.json())
+            .then((d) => ({ agent_type: t, data: d.learnings || [] }))
+        )
+      ),
+      fetch("/api/reflections?limit=200")
+        .then((res) => res.json())
+        .then((d) => d.reflections || []),
+    ]).then(([learningResults, reflectionData]) => {
       setLearnings(
-        results.map((r) => ({
+        learningResults.map((r) => ({
           agent_type: r.agent_type,
           count: r.data.length,
           avg_confidence:
@@ -512,11 +691,154 @@ function GrowthPanel() {
               : "0",
         }))
       );
+      setReflections(reflectionData as Record<string, unknown>[]);
     });
   });
 
+  // Build cross-agent self_score comparison line chart data
+  const agentGroups = AGENT_TYPES.reduce((acc, t) => {
+    acc[t] = reflections
+      .filter((r) => r.agent_type === t)
+      .sort((a, b) => (a.cycle_id as number) - (b.cycle_id as number));
+    return acc;
+  }, {} as Record<string, Record<string, unknown>[]>);
+
+  const cycleMap = new Map<number, Record<string, unknown>>();
+  for (const t of AGENT_TYPES) {
+    const data = agentGroups[t] || [];
+    for (const r of data) {
+      const cycleId = r.cycle_id as number;
+      const existing = cycleMap.get(cycleId) || { cycle: cycleId };
+      existing[t] = r.self_score as number;
+      cycleMap.set(cycleId, existing);
+    }
+  }
+  const comparisonData = Array.from(cycleMap.values()).sort(
+    (a, b) => (a.cycle as number) - (b.cycle as number)
+  );
+  const activeAgents = AGENT_TYPES.filter(
+    (t) => (agentGroups[t] || []).length > 0
+  );
+
+  // Learning velocity: compute delta of self_score between first and last cycle
+  const velocityData = AGENT_TYPES.map((t) => {
+    const data = agentGroups[t] || [];
+    if (data.length < 2) return null;
+    const first = data[0]!.self_score as number;
+    const last = data[data.length - 1]!.self_score as number;
+    const cycles = data.length;
+    const velocity = cycles > 1 ? ((last - first) / (cycles - 1)).toFixed(2) : "0";
+    return {
+      agent: AGENT_LABELS[t] || t,
+      agent_type: t,
+      velocity: parseFloat(velocity),
+      first_score: first,
+      latest_score: last,
+      cycles,
+    };
+  }).filter((d): d is NonNullable<typeof d> => d !== null);
+
   return (
     <div>
+      {/* Cross-agent self_score comparison */}
+      {comparisonData.length > 1 && (
+        <Card className="mb-6">
+          <CardContent className="pt-6">
+            <h3 className="text-lg font-semibold mb-4">
+              全エージェント self_score 比較
+            </h3>
+            <ResponsiveContainer width="100%" height={320}>
+              <LineChart data={comparisonData}>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="var(--border)"
+                />
+                <XAxis
+                  dataKey="cycle"
+                  tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
+                  label={{
+                    value: "サイクル",
+                    position: "insideBottom",
+                    offset: -5,
+                    fill: "var(--muted-foreground)",
+                  }}
+                />
+                <YAxis
+                  tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
+                  domain={[0, 10]}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "var(--card)",
+                    border: "1px solid var(--border)",
+                    color: "var(--fg)",
+                  }}
+                />
+                <Legend />
+                {activeAgents.map((t) => (
+                  <Line
+                    key={t}
+                    type="monotone"
+                    dataKey={t}
+                    name={AGENT_LABELS[t] || t}
+                    stroke={AGENT_COLORS[t] || COLORS.violet}
+                    strokeWidth={2}
+                    dot={{ r: 4 }}
+                    connectNulls
+                  />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Learning velocity */}
+      {velocityData.length > 0 && (
+        <Card className="mb-6">
+          <CardContent className="pt-6">
+            <h3 className="text-lg font-semibold mb-4">
+              学習速度 (サイクルあたりのスコア変化)
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {velocityData.map((v) => (
+                <div
+                  key={v.agent_type}
+                  className="flex items-center gap-3 p-3 rounded-md border"
+                >
+                  <div
+                    className="w-3 h-3 rounded-full flex-shrink-0"
+                    style={{
+                      backgroundColor:
+                        AGENT_COLORS[v.agent_type] || COLORS.violet,
+                    }}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">{v.agent}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {v.first_score} → {v.latest_score} ({v.cycles} cycles)
+                    </p>
+                  </div>
+                  <span
+                    className={`text-lg font-bold ${
+                      v.velocity > 0
+                        ? "text-[#859900]"
+                        : v.velocity < 0
+                        ? "text-[#dc322f]"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    {v.velocity > 0 ? "+" : ""}
+                    {v.velocity}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Agent growth cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {learnings.map((agent) => (
           <Card key={agent.agent_type as string} data-agent-card>

@@ -13,7 +13,7 @@
 
 ### Source Stats
 - ~200+ source files
-- 4 LangGraph graphs, 111 MCP tools, 27 REST API routes
+- 4 LangGraph graphs, 111 MCP tools, 31 REST API routes
 - 33 DB tables, 156 indexes, 15 triggers, 124 system_settings
 
 ## Session History
@@ -94,6 +94,51 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 - Updated `globals.css` with Shadcn/ui CSS variables mapped to Solarized palette
 - Updated all 17 page files to use Shadcn/ui components
 - All 38 dashboard test suites / 186 tests passing
+
+### Session 9: Dashboard 100% Spec Compliance + Playwright Verification
+
+**Home page rework (5 Recharts components):**
+- KPISummaryCards: 4 cards (Total Accounts, Active %, Avg Quality, Daily Budget)
+- EngagementTrendChart: Recharts AreaChart, 30-day, cyan gradient
+- AccountGrowthChart: Recharts BarChart, weekly deltas
+- RecentContentTable: Latest 20 items with status badges
+- PlatformBreakdownPie: Donut PieChart, 4 platform colors
+- SWR auto-refresh (30s interval)
+
+**Recharts on data pages (6 pages):**
+- KPI: Period selector (7d/30d/90d), KPI trend LineChart, Goal vs Actual BarChart, Achievement Rate LineChart
+- Performance: Engagement rate LineChart, Top 10 followers BarChart
+- Hypotheses: Verdict/category filters, accuracy trend LineChart, verdict distribution PieChart
+- Learnings: Min confidence/category filters, confidence histogram BarChart, category PieChart
+- Agents Evolution: BarChart for self_score, LineChart for progression
+- Agents Growth: Cross-agent LineChart comparison, learning velocity display
+
+**4 stub pages implemented (4 new API routes):**
+- Characters: `/api/characters` — summary cards, status filter, table with pagination
+- Costs: `/api/costs` — budget cards, alert banner, daily history, recent tasks
+- Production: `/api/production` — 5 summary cards, dual filters, task table with priority badges
+- Tools: `/api/tools` — Tools/Recipes view toggle, tool table, recipe cards
+
+**UI polish features (6 items):**
+- Theme toggle: Dark/Light via data-theme, localStorage persistence, Sun/Moon icons
+- Directives creation form: type/agent/priority dropdowns + content textarea
+- Error log retry/abandon: PUT /api/errors endpoint, Retry/Abandon buttons per row
+- Content review radar chart: Recharts RadarChart for 5 quality dimensions
+- Mobile responsive sidebar: Hamburger menu, slide-in/out, overlay, auto-close on nav
+- SWR auto-refresh: 30s interval, revalidate on focus, 5s deduplication on Home/KPI/Errors/Content
+
+**Test fixes:**
+- dsh-030: Added bg-red-900/bg-yellow-900 CSS classes for status color coding
+- dsh-020: Added 総アカウント数/総コンテンツ数/レビュー待ち labels to KPI page
+
+**Playwright UI/UX verification (all 15 pages):**
+- Home, KPI, Accounts, Characters, Content, Production, Review, Curation
+- Performance, Hypotheses, Learnings, Agents, Directives, Tools, Errors, Costs, Settings
+- Theme toggle: Dark → Light verified with screenshots
+- Mobile responsive: 375x812 viewport, hamburger menu, sidebar slide-in, auto-close on nav
+- All pages render without errors (only favicon 404)
+
+**Quality gates:** TypeScript 0 errors, 244/244 suites, 1124/1124 tests passing
 
 ## Remaining Items
 

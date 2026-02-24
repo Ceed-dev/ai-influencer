@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -40,7 +41,12 @@ const SECTIONS: Record<string, string> = {
   system: "System",
 };
 
-export function Sidebar() {
+interface SidebarProps {
+  open?: boolean;
+  onClose?: () => void;
+}
+
+export function Sidebar({ open, onClose }: SidebarProps) {
   const pathname = usePathname();
 
   const grouped = Object.entries(SECTIONS).map(([key, label]) => ({
@@ -48,11 +54,35 @@ export function Sidebar() {
     items: NAV_ITEMS.filter((item) => item.section === key),
   }));
 
+  const handleNavClick = () => {
+    // Close sidebar on navigation (mobile)
+    if (onClose) onClose();
+  };
+
   return (
-    <aside className="w-56 min-h-screen bg-card border-r flex flex-col">
-      <div className="p-4">
-        <h2 className="text-lg font-bold text-primary">AI Influencer</h2>
-        <p className="text-xs text-muted-foreground">v5.0 Dashboard</p>
+    <aside
+      className={cn(
+        "w-56 min-h-screen bg-card border-r flex flex-col",
+        // Mobile: fixed overlay, hidden by default
+        "fixed inset-y-0 left-0 z-40 transition-transform duration-200 ease-in-out md:static md:translate-x-0",
+        open ? "translate-x-0" : "-translate-x-full"
+      )}
+    >
+      <div className="p-4 flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-bold text-primary">AI Influencer</h2>
+          <p className="text-xs text-muted-foreground">v5.0 Dashboard</p>
+        </div>
+        {/* Close button visible only on mobile */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="md:hidden"
+          onClick={onClose}
+          aria-label="Close sidebar"
+        >
+          <X className="h-5 w-5" />
+        </Button>
       </div>
       <Separator />
       <nav className="flex-1 p-2 space-y-4 overflow-y-auto">
@@ -76,6 +106,7 @@ export function Sidebar() {
                       isActive && "font-semibold"
                     )}
                     asChild
+                    onClick={handleNavClick}
                   >
                     <Link href={item.href}>{item.label}</Link>
                   </Button>

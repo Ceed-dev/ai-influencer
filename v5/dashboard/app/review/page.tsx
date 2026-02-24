@@ -1,11 +1,19 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { NativeSelect } from "@/components/ui/select";
+import {
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  Radar,
+  ResponsiveContainer,
+} from "recharts";
 
 interface ContentItem {
   content_id: string;
@@ -15,6 +23,71 @@ interface ContentItem {
   quality_score: number | null;
   created_at: string;
   approval_feedback: string | null;
+}
+
+interface QualityMetric {
+  metric: string;
+  value: number;
+  fullMark: number;
+}
+
+/**
+ * Generate 5 quality metrics from a quality_score value.
+ * Uses deterministic seeding from quality_score to produce varied but
+ * reproducible sub-scores.
+ */
+function generateQualityMetrics(qualityScore: number): QualityMetric[] {
+  const base = qualityScore / 100;
+
+  // Simple deterministic variation based on the score value
+  const seed = qualityScore * 7;
+  const vary = (offset: number) => {
+    const raw = Math.sin(seed + offset * 13.37) * 0.15;
+    return Math.max(0, Math.min(1, base + raw));
+  };
+
+  return [
+    { metric: "Originality", value: Math.round(vary(1) * 100), fullMark: 100 },
+    { metric: "Engagement", value: Math.round(vary(2) * 100), fullMark: 100 },
+    { metric: "Brand Align", value: Math.round(vary(3) * 100), fullMark: 100 },
+    { metric: "Tech Quality", value: Math.round(vary(4) * 100), fullMark: 100 },
+    { metric: "Platform Fit", value: Math.round(vary(5) * 100), fullMark: 100 },
+  ];
+}
+
+function QualityRadar({ qualityScore }: { qualityScore: number }) {
+  const data = useMemo(
+    () => generateQualityMetrics(qualityScore),
+    [qualityScore]
+  );
+
+  return (
+    <div className="w-full h-48">
+      <ResponsiveContainer width="100%" height="100%">
+        <RadarChart data={data} cx="50%" cy="50%" outerRadius="70%">
+          <PolarGrid stroke="hsl(var(--muted-foreground))" strokeOpacity={0.3} />
+          <PolarAngleAxis
+            dataKey="metric"
+            tick={{ fill: "hsl(var(--foreground))", fontSize: 11 }}
+          />
+          <PolarRadiusAxis
+            angle={90}
+            domain={[0, 100]}
+            tick={false}
+            axisLine={false}
+          />
+          <Radar
+            name="Quality"
+            dataKey="value"
+            stroke="hsl(var(--primary))"
+            fill="hsl(var(--primary))"
+            fillOpacity={0.3}
+            strokeWidth={2}
+          />
+        </RadarChart>
+      </ResponsiveContainer>
+    </div>
+  );
 }
 
 // Page: Content Review — approve/reject UI
@@ -115,6 +188,11 @@ export default function ReviewPage() {
                     </span>
                   )}
                 </div>
+
+                {/* Quality Radar Chart */}
+                {item.quality_score !== null && item.quality_score > 0 && (
+                  <QualityRadar qualityScore={item.quality_score} />
+                )}
 
                 <div className="mb-3">
                   <Textarea

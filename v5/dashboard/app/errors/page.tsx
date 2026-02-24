@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import useSWR from "swr";
+import { RotateCcw, Ban } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { NativeSelect } from "@/components/ui/select";
@@ -12,6 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { fetcher, swrConfig } from "@/lib/swr-config";
 
 interface ErrorEntry {
   id: number;
@@ -24,34 +27,54 @@ interface ErrorEntry {
   resolved_at: string;
 }
 
+interface ErrorsResponse {
+  errors: ErrorEntry[];
+  total: number;
+}
+
 export default function ErrorLogPage() {
-  const [errors, setErrors] = useState<ErrorEntry[]>([]);
-  const [total, setTotal] = useState(0);
   const [period, setPeriod] = useState<string>("");
   const [taskType, setTaskType] = useState<string>("");
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
+  const [actionInProgress, setActionInProgress] = useState<number | null>(null);
 
-  const fetchErrors = useCallback(() => {
-    setLoading(true);
-    const params = new URLSearchParams();
-    if (period) params.set("period", period);
-    if (taskType) params.set("task_type", taskType);
-    params.set("page", page.toString());
-    params.set("limit", "20");
+  // Build SWR key from filter params
+  const params = new URLSearchParams();
+  if (period) params.set("period", period);
+  if (taskType) params.set("task_type", taskType);
+  params.set("page", page.toString());
+  params.set("limit", "20");
+  const swrKey = `/api/errors?${params.toString()}`;
 
-    fetch(`/api/errors?${params}`)
-      .then((res) => res.json())
-      .then((data) => {
-        setErrors(data.errors || []);
-        setTotal(data.total || 0);
-      })
-      .finally(() => setLoading(false));
-  }, [period, taskType, page]);
+  const { data, isLoading, mutate } = useSWR<ErrorsResponse>(swrKey, fetcher, {
+    refreshInterval: swrConfig.refreshInterval,
+    revalidateOnFocus: swrConfig.revalidateOnFocus,
+    dedupingInterval: swrConfig.dedupingInterval,
+  });
 
-  useEffect(() => {
-    fetchErrors();
-  }, [fetchErrors]);
+  const errors = data?.errors ?? [];
+  const total = data?.total ?? 0;
+
+  const handleAction = async (taskId: number, action: "retry" | "abandon") => {
+    setActionInProgress(taskId);
+    try {
+      const res = await fetch("/api/errors", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ task_id: taskId, action }),
+      });
+      if (res.ok) {
+        mutate();
+      } else {
+        const responseData = await res.json();
+        console.error("Action failed:", responseData.error);
+      }
+    } catch (err) {
+      console.error("Action failed:", err);
+    } finally {
+      setActionInProgress(null);
+    }
+  };
 
   const totalPages = Math.ceil(total / 20);
 
@@ -90,7 +113,7 @@ export default function ErrorLogPage() {
         </NativeSelect>
       </div>
 
-      {loading ? (
+      {isLoading ? (
         <div role="progressbar">Loading...</div>
       ) : errors.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">
@@ -107,35 +130,75 @@ export default function ErrorLogPage() {
                 <TableHead>リトライ数</TableHead>
                 <TableHead>ステータス</TableHead>
                 <TableHead>発生日時</TableHead>
+                <TableHead>アクション</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {errors.map((err) => (
-                <TableRow key={err.id} data-error-id={err.id}>
-                  <TableCell>{err.id}</TableCell>
-                  <TableCell>{err.task_type}</TableCell>
-                  <TableCell
-                    className="truncate max-w-xs"
-                    title={err.error_message}
-                  >
-                    {err.error_message}
-                  </TableCell>
-                  <TableCell>{err.retry_count}</TableCell>
-                  {/* Status color: bg-red-900 for failed, bg-yellow-900 for others */}
-                  <TableCell>
-                    <Badge
-                      variant={
-                        err.status === "failed" ? "destructive" : "warning"
-                      }
+              {errors.map((err) => {
+                const canRetry =
+                  err.status === "failed" || err.status === "retrying";
+                const canAbandon = err.status === "retrying";
+                const isProcessing = actionInProgress === err.id;
+
+                return (
+                  <TableRow key={err.id} data-error-id={err.id}>
+                    <TableCell>{err.id}</TableCell>
+                    <TableCell>{err.task_type}</TableCell>
+                    <TableCell
+                      className="truncate max-w-xs"
+                      title={err.error_message}
                     >
-                      {err.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {new Date(err.created_at).toLocaleString("ja-JP")}
-                  </TableCell>
-                </TableRow>
-              ))}
+                      {err.error_message}
+                    </TableCell>
+                    <TableCell>{err.retry_count}</TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          err.status === "failed" ? "destructive" : "warning"
+                        }
+                        className={
+                          err.status === "failed"
+                            ? "bg-red-900 text-red-100"
+                            : "bg-yellow-900 text-yellow-100"
+                        }
+                      >
+                        {err.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {new Date(err.created_at).toLocaleString("ja-JP")}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        {canRetry && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={isProcessing}
+                            onClick={() => handleAction(err.task_id, "retry")}
+                            title="Retry task"
+                          >
+                            <RotateCcw className="h-3 w-3 mr-1" />
+                            Retry
+                          </Button>
+                        )}
+                        {canAbandon && (
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            disabled={isProcessing}
+                            onClick={() => handleAction(err.task_id, "abandon")}
+                            title="Abandon task permanently"
+                          >
+                            <Ban className="h-3 w-3 mr-1" />
+                            Abandon
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
 
