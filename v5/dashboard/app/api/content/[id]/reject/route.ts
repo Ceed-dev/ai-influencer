@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query, queryOne } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 const VALID_REJECTION_CATEGORIES = [
   "plan_revision", "data_insufficient", "hypothesis_weak",
 ] as const;

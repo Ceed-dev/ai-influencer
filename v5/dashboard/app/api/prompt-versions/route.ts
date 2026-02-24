@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query, queryCount } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 /**
  * GET /api/prompt-versions
  * List agent prompt versions with agent_type filter.

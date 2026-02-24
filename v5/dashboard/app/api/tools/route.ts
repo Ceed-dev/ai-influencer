@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query, queryCount } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 const VALID_TOOL_TYPES = [
   "video_generation", "tts", "lipsync", "image_generation",
   "embedding", "llm", "search", "social_api", "analytics_api",

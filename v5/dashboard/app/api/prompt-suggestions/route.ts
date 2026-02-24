@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query, queryCount } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 /**
  * GET /api/prompt-suggestions
  * List prompt improvement suggestions with status/agent_type filter.

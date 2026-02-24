@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query, queryCount } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 /**
  * GET /api/errors
  * List error logs with period/task_type filter.

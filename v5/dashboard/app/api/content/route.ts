@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query, queryCount } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 const VALID_STATUSES = [
   "planned", "producing", "ready", "pending_review", "pending_approval",
   "approved", "rejected", "revision_needed", "posted", "measured",

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query, queryOne } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 /**
  * PUT /api/settings/:key
  * Update a system setting value with constraint validation.

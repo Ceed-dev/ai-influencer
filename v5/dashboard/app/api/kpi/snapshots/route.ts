@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query, pool } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 const VALID_PLATFORMS = ["youtube", "tiktok", "instagram", "x"] as const;
 type Platform = (typeof VALID_PLATFORMS)[number];
 

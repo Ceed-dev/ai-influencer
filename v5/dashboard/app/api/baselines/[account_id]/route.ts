@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { queryOne } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 /**
  * GET /api/baselines/:account_id
  * Returns the baseline data for a specific account.

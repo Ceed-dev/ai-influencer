@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query, queryOne } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 async function getSettingValue(key: string): Promise<unknown> {
   const row = await queryOne<{ setting_value: unknown }>(
     `SELECT setting_value FROM system_settings WHERE setting_key = $1`,

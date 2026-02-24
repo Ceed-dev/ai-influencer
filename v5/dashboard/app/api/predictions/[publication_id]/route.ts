@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { queryOne } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 /**
  * GET /api/predictions/:publication_id
  * Returns prediction snapshot for a specific publication.

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query, queryCount } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 const VALID_STATUSES = [
   "pending", "queued", "waiting", "processing", "retrying",
   "completed", "failed", "failed_permanent",

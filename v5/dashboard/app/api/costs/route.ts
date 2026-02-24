@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { query, queryOne } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 interface CostSettings {
   daily_budget_usd: number;
   monthly_budget_usd: number;
