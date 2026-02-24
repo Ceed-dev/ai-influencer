@@ -22,7 +22,7 @@ export async function PUT(
   const { status, human_feedback } = body;
 
   const validStatuses = ["accepted", "rejected", "expired"];
-  if (!status || !validStatuses.includes(status)) {
+  if (!status || !validStatuses.includes(status as string)) {
     return NextResponse.json(
       { error: `status must be one of: ${validStatuses.join(", ")}` },
       { status: 400 }

@@ -5,40 +5,83 @@
 @import url("https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;500;600;700&display=swap");
 @import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap");
 
-:root {
-  /* Solarized Dark (default) */
-  --bg: #002b36;
-  --fg: #839496;
-  --sidebar-bg: #073642;
-  --accent-blue: #268bd2;
-  --accent-cyan: #2aa198;
-  --warning: #b58900;
-  --error: #dc322f;
-  --success: #859900;
-  --info: #268bd2;
-  --muted: #586e75;
-  --border: #073642;
-  --card-bg: #073642;
-}
+@layer base {
+  :root {
+    /* Legacy Solarized variables (preserved for backward compatibility) */
+    --bg: #002b36;
+    --fg: #839496;
+    --sidebar-bg: #073642;
+    --accent-blue: #268bd2;
+    --accent-cyan: #2aa198;
+    --warning: #b58900;
+    --error: #dc322f;
+    --success: #859900;
+    --info: #268bd2;
 
-[data-theme="light"] {
-  --bg: #fdf6e3;
-  --fg: #657b83;
-  --sidebar-bg: #eee8d5;
-  --accent-blue: #268bd2;
-  --accent-cyan: #2aa198;
-  --warning: #b58900;
-  --error: #dc322f;
-  --success: #859900;
-  --info: #268bd2;
-  --muted: #93a1a1;
-  --border: #eee8d5;
-  --card-bg: #eee8d5;
-}
+    /* Shadcn/ui CSS variables — Solarized Dark */
+    --background: 192 100% 11%;       /* #002b36 base03 */
+    --foreground: 186 8% 55%;         /* #839496 base0 */
+    --card: 192 49% 14%;              /* #073642 base02 */
+    --card-foreground: 186 8% 55%;    /* #839496 base0 */
+    --popover: 192 49% 14%;           /* #073642 base02 */
+    --popover-foreground: 186 8% 55%; /* #839496 base0 */
+    --primary: 205 82% 49%;           /* #268bd2 blue */
+    --primary-foreground: 0 0% 100%;  /* white */
+    --secondary: 192 49% 14%;         /* #073642 base02 */
+    --secondary-foreground: 186 8% 55%; /* #839496 base0 */
+    --muted: 192 49% 14%;             /* #073642 base02 */
+    --muted-foreground: 194 14% 40%;  /* #586e75 base01 */
+    --accent: 192 49% 14%;            /* #073642 base02 */
+    --accent-foreground: 186 8% 55%;  /* #839496 base0 */
+    --destructive: 1 79% 52%;         /* #dc322f red */
+    --destructive-foreground: 0 0% 100%;
+    --border: 192 49% 14%;            /* #073642 base02 */
+    --input: 192 49% 14%;             /* #073642 base02 */
+    --ring: 205 82% 49%;              /* #268bd2 blue */
+    --radius: 0.5rem;
+  }
 
-body {
-  background-color: var(--bg);
-  color: var(--fg);
-  font-family: "Nunito", sans-serif;
-  font-size: 14px;
+  [data-theme="light"] {
+    /* Legacy Solarized variables (preserved for backward compatibility) */
+    --bg: #fdf6e3;
+    --fg: #657b83;
+    --sidebar-bg: #eee8d5;
+    --accent-blue: #268bd2;
+    --accent-cyan: #2aa198;
+    --warning: #b58900;
+    --error: #dc322f;
+    --success: #859900;
+    --info: #268bd2;
+
+    /* Shadcn/ui CSS variables — Solarized Light */
+    --background: 44 87% 94%;         /* #fdf6e3 base3 */
+    --foreground: 194 14% 46%;        /* #657b83 base00 */
+    --card: 44 44% 87%;               /* #eee8d5 base2 */
+    --card-foreground: 194 14% 46%;   /* #657b83 base00 */
+    --popover: 44 44% 87%;            /* #eee8d5 base2 */
+    --popover-foreground: 194 14% 46%;/* #657b83 base00 */
+    --primary: 205 82% 49%;           /* #268bd2 blue */
+    --primary-foreground: 0 0% 100%;  /* white */
+    --secondary: 44 44% 87%;          /* #eee8d5 base2 */
+    --secondary-foreground: 194 14% 46%;/* #657b83 base00 */
+    --muted: 44 44% 87%;              /* #eee8d5 base2 */
+    --muted-foreground: 180 7% 60%;   /* #93a1a1 base1 */
+    --accent: 44 44% 87%;             /* #eee8d5 base2 */
+    --accent-foreground: 194 14% 46%;
+    --destructive: 1 79% 52%;         /* #dc322f red */
+    --destructive-foreground: 0 0% 100%;
+    --border: 44 44% 87%;             /* #eee8d5 base2 */
+    --input: 44 44% 87%;              /* #eee8d5 base2 */
+    --ring: 205 82% 49%;              /* #268bd2 blue */
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Nunito", sans-serif;
+    font-size: 14px;
+  }
 }

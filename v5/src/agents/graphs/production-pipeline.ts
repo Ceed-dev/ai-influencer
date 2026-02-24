@@ -33,19 +33,9 @@ import type {
   ContentSectionRow,
 } from '@/types/database';
 
-// MCP tool imports (same Node.js process, not remote)
-import { getProductionTask } from '../../mcp-server/tools/production/get-production-task.js';
-import { getCharacterInfo } from '../../mcp-server/tools/production/get-character-info.js';
-import { getComponentData } from '../../mcp-server/tools/production/get-component-data.js';
-import { updateContentStatus } from '../../mcp-server/tools/production/update-content-status.js';
-import { startVideoGeneration } from '../../mcp-server/tools/production/start-video-generation.js';
-import { startTts } from '../../mcp-server/tools/production/start-tts.js';
-import { startLipsync } from '../../mcp-server/tools/production/start-lipsync.js';
-import { checkVideoStatus } from '../../mcp-server/tools/production/check-video-status.js';
-import { uploadToDrive } from '../../mcp-server/tools/production/upload-to-drive.js';
-import { reportProductionComplete } from '../../mcp-server/tools/production/report-production-complete.js';
-import { generateScript } from '../../mcp-server/tools/production/generate-script.js';
-import { runQualityCheck } from '../../mcp-server/tools/production/run-quality-check.js';
+// MCP tool access via langchain-mcp-adapters (spec: 02-architecture.md SS4.3)
+// All tool calls go through MCP Protocol instead of direct imports.
+import { callMcpTool } from '../common/mcp-client.js';
 
 // Settings
 import { getSettingNumber, getSettingBoolean, getSettingString } from '../../lib/settings.js';
@@ -151,7 +141,7 @@ async function buildProductionTask(
   // Build sections with component data
   const sections: ProductionSection[] = await Promise.all(
     sectionsRes.rows.map(async (row) => {
-      const compData = await getComponentData({ component_id: row.component_id });
+      const compData = await callMcpTool<{ type: string; data: Record<string, unknown>; drive_file_id?: string | null }>('get_component_data', { component_id: row.component_id });
       return {
         section_order: row.section_order,
         section_label: row.section_label,
@@ -192,7 +182,7 @@ async function buildProductionTask(
 
 async function pollVideoUntilDone(requestId: string): Promise<string> {
   for (let i = 0; i < VIDEO_STATUS_MAX_POLLS; i++) {
-    const status = await checkVideoStatus({ request_id: requestId });
+    const status = await callMcpTool<{ status: string; video_url?: string }>('check_video_status', { job_id: requestId });
     if (status.status === 'completed') {
       return status.video_url ?? '';
     }
@@ -265,7 +255,7 @@ async function pollTasks(
   state: typeof ProductionPipelineAnnotation.State,
 ): Promise<Partial<typeof ProductionPipelineAnnotation.State>> {
   try {
-    const taskResult = await getProductionTask({});
+    const taskResult = await callMcpTool<{ task_id: number; content_id: string } | null>('get_production_task', {});
 
     if (!taskResult) {
       return {
@@ -322,7 +312,7 @@ async function fetchData(
 
   try {
     // Transition content status to 'producing'
-    await updateContentStatus({
+    await callMcpTool('update_content_status', {
       content_id: task.content_id,
       status: 'producing',
     });
@@ -330,7 +320,7 @@ async function fetchData(
     // Fetch character info
     let character: ProductionCharacter | null = null;
     if (task.character_id) {
-      const charInfo = await getCharacterInfo({ character_id: task.character_id });
+      const charInfo = await callMcpTool<{ name: string; voice_id: string; image_drive_id: string }>('get_character_info', { character_id: task.character_id });
       character = {
         name: charInfo.name,
         voice_id: charInfo.voice_id,
@@ -341,7 +331,7 @@ async function fetchData(
     // Refresh component data for each section (may have been updated since poll)
     const updatedSections: ProductionSection[] = await Promise.all(
       task.sections.map(async (section) => {
-        const compData = await getComponentData({
+        const compData = await callMcpTool<{ type: string; data: Record<string, unknown>; drive_file_id?: string | null }>('get_component_data', {
           component_id: section.component.component_id,
         });
         return {
@@ -465,7 +455,7 @@ async function generateVideoNode(
         const videoGenStep = recipeSteps.find((s) => getStepToolCategory(s.step_name) === 'video_gen');
         const videoGenParams = videoGenStep?.params ?? {};
 
-        const videoGen = await startVideoGeneration({
+        const videoGen = await callMcpTool<{ request_id: string }>('start_video_generation', {
           image_url: imageUrl,
           motion_data: motionData,
           section: section.section_label,
@@ -485,7 +475,7 @@ async function generateVideoNode(
         const ttsStep = recipeSteps.find((s) => getStepToolCategory(s.step_name) === 'tts');
         const ttsParams = ttsStep?.params ?? {};
 
-        const ttsResult = await startTts({
+        const ttsResult = await callMcpTool<{ audio_url: string }>('start_tts', {
           text: script,
           voice_id: character?.voice_id ?? '',
           language: task.script_language,
@@ -499,7 +489,7 @@ async function generateVideoNode(
         const lipsyncStep = recipeSteps.find((s) => getStepToolCategory(s.step_name) === 'lipsync');
         const lipsyncParams = lipsyncStep?.params ?? {};
 
-        const lipsyncResult = await startLipsync({
+        const lipsyncResult = await callMcpTool<{ request_id: string }>('start_lipsync', {
           video_url: videoUrl,
           audio_url: audioUrl,
           ...lipsyncParams,
@@ -529,14 +519,14 @@ async function generateVideoNode(
 
     // Upload to Google Drive
     const driveFolderId = await getSettingString('PRODUCTION_OUTPUT_DRIVE_FOLDER_ID').catch(() => 'default_production_folder');
-    const driveResult = await uploadToDrive({
+    const driveResult = await callMcpTool<{ drive_file_id: string; drive_url: string }>('upload_to_drive', {
       file_url: finalVideoUrl,
       folder_id: driveFolderId,
       filename: `${task.content_id}_final.mp4`,
     });
 
     // Report production complete
-    await reportProductionComplete({
+    await callMcpTool('report_production_complete', {
       task_id: task.task_id,
       content_id: task.content_id,
       drive_folder_id: driveFolderId,
@@ -611,7 +601,7 @@ async function generateTextNode(
       scenarioData['character_name'] = state.character.name;
     }
 
-    const scriptResult = await generateScript({
+    const scriptResult = await callMcpTool<{ hook_script: string; body_script: string; cta_script: string }>('generate_script', {
       content_id: task.content_id,
       scenario_data: scenarioData,
       script_language: task.script_language,
@@ -625,7 +615,7 @@ async function generateTextNode(
     ].join('\n\n');
 
     // Update content status to ready (text generation is quick, no separate upload needed)
-    await updateContentStatus({
+    await callMcpTool('update_content_status', {
       content_id: task.content_id,
       status: 'producing',
       metadata: {
@@ -683,7 +673,7 @@ async function qualityCheck(
   const videoUrl = state.production.final_video_url ?? '';
 
   try {
-    const qcResult = await runQualityCheck({
+    const qcResult = await callMcpTool<{ passed: boolean; checks: Array<{ name: string; passed: boolean; details?: string }> }>('run_quality_check', {
       content_id: task.content_id,
       video_url: isVideo ? videoUrl : (state.production.generated_text ?? ''),
     });
@@ -716,7 +706,7 @@ async function qualityCheck(
       }
 
       // Store quality_score in content metadata
-      await updateContentStatus({
+      await callMcpTool('update_content_status', {
         content_id: task.content_id,
         status: contentStatus,
         metadata: { quality_score: qualityScore },
@@ -832,7 +822,7 @@ async function handleError(
       );
 
       // Mark content as cancelled
-      await updateContentStatus({
+      await callMcpTool('update_content_status', {
         content_id: task.content_id,
         status: 'cancelled',
         metadata: { error_message: errorMessage },
@@ -873,7 +863,7 @@ async function revisionPlanning(
 
     if (revisionCount > maxRevisions) {
       // Exceeded max revisions — cancel content
-      await updateContentStatus({
+      await callMcpTool('update_content_status', {
         content_id: task.content_id,
         status: 'cancelled',
         metadata: { reason: `Exceeded MAX_CONTENT_REVISION_COUNT (${maxRevisions})` },

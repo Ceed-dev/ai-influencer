@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 
 interface Directive {
   id: number;
@@ -24,29 +26,45 @@ export default function DirectivesPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => { fetchDirectives(); }, [fetchDirectives]);
+  useEffect(() => {
+    fetchDirectives();
+  }, [fetchDirectives]);
 
-  if (loading) return <main className="p-6"><div role="progressbar">Loading...</div></main>;
+  if (loading)
+    return (
+      <div>
+        <div role="progressbar">Loading...</div>
+      </div>
+    );
 
   return (
-    <main className="p-6">
-      <h1 className="text-2xl font-bold mb-6">Human Directives</h1>
+    <div>
       {directives.length === 0 ? (
-        <div className="text-center py-8 text-[var(--muted)]">データがありません</div>
+        <div className="text-center py-8 text-muted-foreground">
+          データがありません
+        </div>
       ) : (
         <div className="space-y-3">
           {directives.map((d) => (
-            <div key={d.id} className="p-4 rounded border border-[var(--border)] bg-[var(--card-bg)]">
-              <div className="flex justify-between">
-                <span className="font-semibold">{d.directive_type}</span>
-                <span className={`px-2 py-1 rounded text-xs ${d.status === "applied" ? "bg-green-900 text-green-200" : "bg-yellow-900 text-yellow-200"}`}>{d.status}</span>
-              </div>
-              <p className="mt-1">{d.content}</p>
-              <p className="text-sm text-[var(--muted)] mt-1">Priority: {d.priority}</p>
-            </div>
+            <Card key={d.id}>
+              <CardContent className="pt-4">
+                <div className="flex justify-between">
+                  <span className="font-semibold">{d.directive_type}</span>
+                  <Badge
+                    variant={d.status === "applied" ? "success" : "warning"}
+                  >
+                    {d.status}
+                  </Badge>
+                </div>
+                <p className="mt-1">{d.content}</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Priority: {d.priority}
+                </p>
+              </CardContent>
+            </Card>
           ))}
         </div>
       )}
-    </main>
+    </div>
   );
 }

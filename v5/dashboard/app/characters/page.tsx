@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { Card, CardContent } from "@/components/ui/card";
 
 export default function CharactersPage() {
   const [characters, setCharacters] = useState<Record<string, unknown>[]>([]);
@@ -13,20 +14,34 @@ export default function CharactersPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <main className="p-6"><div role="progressbar">Loading...</div></main>;
+  if (loading)
+    return (
+      <div>
+        <div role="progressbar">Loading...</div>
+      </div>
+    );
 
   return (
-    <main className="p-6">
-      <h1 className="text-2xl font-bold mb-6">Characters</h1>
+    <div>
       {characters.length === 0 ? (
-        <div className="text-center py-8 text-[var(--muted)]">データがありません</div>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center py-8 text-muted-foreground">
+              データがありません
+            </div>
+          </CardContent>
+        </Card>
       ) : (
         <div className="space-y-3">
           {characters.map((c, i) => (
-            <div key={i} className="p-4 rounded border border-[var(--border)]">{c.name as string}</div>
+            <Card key={i}>
+              <CardContent className="pt-4">
+                {c.name as string}
+              </CardContent>
+            </Card>
           ))}
         </div>
       )}
-    </main>
+    </div>
   );
 }

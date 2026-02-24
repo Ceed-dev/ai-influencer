@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { Card, CardContent } from "@/components/ui/card";
 
 interface KpiSummary {
   total_accounts: number;
@@ -14,6 +15,18 @@ interface KpiSummary {
   total_views: number;
 }
 
+function KpiCard({ label, value }: { label: string; value: string | number }) {
+  return (
+    <Card>
+      <CardContent className="pt-6">
+        <p className="text-sm text-muted-foreground">{label}</p>
+        <p className="text-2xl font-bold">{value}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+// Page: KPI Dashboard — <main> content provided by layout shell
 export default function KpiDashboardPage() {
   const [kpi, setKpi] = useState<KpiSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -30,49 +43,46 @@ export default function KpiDashboardPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <main className="p-6"><div role="progressbar">Loading...</div></main>;
-  if (error) return <main className="p-6"><div className="text-[var(--error)]">エラー: {error}</div></main>;
+  if (loading)
+    return (
+      <div>
+        <div role="progressbar">Loading...</div>
+      </div>
+    );
+  if (error)
+    return (
+      <div>
+        <div className="text-destructive">エラー: {error}</div>
+      </div>
+    );
 
   return (
-    <main className="p-6">
-      <h1 className="text-2xl font-bold mb-6">KPI Dashboard</h1>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-8" data-testid="kpi-cards">
-        <div className="p-4 rounded-lg bg-[var(--card-bg)] border border-[var(--border)]">
-          <p className="text-sm text-[var(--muted)]">総アカウント数</p>
-          <p className="text-2xl font-bold">{kpi?.total_accounts ?? 0}</p>
-        </div>
-        <div className="p-4 rounded-lg bg-[var(--card-bg)] border border-[var(--border)]">
-          <p className="text-sm text-[var(--muted)]">アクティブアカウント数</p>
-          <p className="text-2xl font-bold">{kpi?.active_accounts ?? 0}</p>
-        </div>
-        <div className="p-4 rounded-lg bg-[var(--card-bg)] border border-[var(--border)]">
-          <p className="text-sm text-[var(--muted)]">総フォロワー数</p>
-          <p className="text-2xl font-bold">{kpi?.total_followers?.toLocaleString() ?? 0}</p>
-        </div>
-        <div className="p-4 rounded-lg bg-[var(--card-bg)] border border-[var(--border)]">
-          <p className="text-sm text-[var(--muted)]">平均エンゲージメント率</p>
-          <p className="text-2xl font-bold">{kpi?.avg_engagement_rate?.toFixed(2) ?? 0}%</p>
-        </div>
-        <div className="p-4 rounded-lg bg-[var(--card-bg)] border border-[var(--border)]">
-          <p className="text-sm text-[var(--muted)]">収益化アカウント数</p>
-          <p className="text-2xl font-bold">{kpi?.monetizable_accounts ?? 0}</p>
-        </div>
+    <div>
+      <div
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-8"
+        data-testid="kpi-cards"
+      >
+        <KpiCard label="総アカウント数" value={kpi?.total_accounts ?? 0} />
+        <KpiCard label="アクティブアカウント数" value={kpi?.active_accounts ?? 0} />
+        <KpiCard
+          label="総フォロワー数"
+          value={kpi?.total_followers?.toLocaleString() ?? 0}
+        />
+        <KpiCard
+          label="平均エンゲージメント率"
+          value={`${kpi?.avg_engagement_rate?.toFixed(2) ?? 0}%`}
+        />
+        <KpiCard
+          label="収益化アカウント数"
+          value={kpi?.monetizable_accounts ?? 0}
+        />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="p-4 rounded-lg bg-[var(--card-bg)] border border-[var(--border)]">
-          <p className="text-sm text-[var(--muted)]">総コンテンツ数</p>
-          <p className="text-2xl font-bold">{kpi?.total_content ?? 0}</p>
-        </div>
-        <div className="p-4 rounded-lg bg-[var(--card-bg)] border border-[var(--border)]">
-          <p className="text-sm text-[var(--muted)]">レビュー待ち</p>
-          <p className="text-2xl font-bold">{kpi?.pending_review ?? 0}</p>
-        </div>
-        <div className="p-4 rounded-lg bg-[var(--card-bg)] border border-[var(--border)]">
-          <p className="text-sm text-[var(--muted)]">公開済み</p>
-          <p className="text-2xl font-bold">{kpi?.published_count ?? 0}</p>
-        </div>
+        <KpiCard label="総コンテンツ数" value={kpi?.total_content ?? 0} />
+        <KpiCard label="レビュー待ち" value={kpi?.pending_review ?? 0} />
+        <KpiCard label="公開済み" value={kpi?.published_count ?? 0} />
       </div>
-    </main>
+    </div>
   );
 }

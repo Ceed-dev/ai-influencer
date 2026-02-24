@@ -28,13 +28,8 @@ import type {
 } from '@/types/langgraph-state';
 import { getPool } from '../../db/pool.js';
 import { getSettingNumber } from '../../lib/settings.js';
-import {
-  collectYoutubeMetrics,
-  collectTiktokMetrics,
-  collectInstagramMetrics,
-  collectXMetrics,
-} from '../../mcp-server/tools/measurement/collect-platform-metrics.js';
-import { collectAccountMetrics } from '../../mcp-server/tools/measurement/collect-account-metrics.js';
+// MCP tool access via langchain-mcp-adapters (spec: 02-architecture.md SS4.3)
+import { callMcpTool } from '../common/mcp-client.js';
 
 // ---------------------------------------------------------------------------
 // Analysis trigger type (spec: 04-agent-design.md §5.4 ステート構造)
@@ -234,7 +229,7 @@ async function collect(
 
     switch (target.platform) {
       case 'youtube': {
-        const yt = await collectYoutubeMetrics({ platform_post_id: postId });
+        const yt = await callMcpTool<{ views: number; likes: number; comments: number; shares: number; watch_time: number; completion_rate: number }>('collect_youtube_metrics', { platform_post_id: postId });
         views = yt.views;
         likes = yt.likes;
         comments = yt.comments;
@@ -245,7 +240,7 @@ async function collect(
         break;
       }
       case 'tiktok': {
-        const tt = await collectTiktokMetrics({ platform_post_id: postId });
+        const tt = await callMcpTool<{ views: number; likes: number; comments: number; shares: number; saves: number; completion_rate: number }>('collect_tiktok_metrics', { platform_post_id: postId });
         views = tt.views;
         likes = tt.likes;
         comments = tt.comments;
@@ -256,7 +251,7 @@ async function collect(
         break;
       }
       case 'instagram': {
-        const ig = await collectInstagramMetrics({ platform_post_id: postId });
+        const ig = await callMcpTool<{ views: number; likes: number; comments: number; saves: number; impressions: number; reach: number }>('collect_instagram_metrics', { platform_post_id: postId });
         views = ig.views;
         likes = ig.likes;
         comments = ig.comments;
@@ -267,7 +262,7 @@ async function collect(
         break;
       }
       case 'x': {
-        const xm = await collectXMetrics({ platform_post_id: postId });
+        const xm = await callMcpTool<{ impressions: number; likes: number; replies: number; retweets: number; quotes: number }>('collect_x_metrics', { platform_post_id: postId });
         views = xm.impressions; // X uses impressions as view equivalent
         likes = xm.likes;
         comments = xm.replies;
@@ -284,7 +279,7 @@ async function collect(
     // Collect account-level metrics for follower_delta
     let followerDelta = 0;
     try {
-      const accountMetrics = await collectAccountMetrics({
+      const accountMetrics = await callMcpTool<{ follower_delta: number }>('collect_account_metrics', {
         account_id: target.account_id,
       });
       followerDelta = accountMetrics.follower_delta;

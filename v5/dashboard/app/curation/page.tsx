@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { NativeSelect } from "@/components/ui/select";
 
 interface Component {
   id: number;
@@ -42,20 +45,20 @@ export default function CurationReviewPage() {
   }, [fetchComponents]);
 
   const handleApprove = async (id: number) => {
-    // In a real app this would call an API to update the component
     setComponents((prev) => prev.filter((c) => c.id !== id));
   };
 
   return (
-    <main className="p-6">
-      <h1 className="text-2xl font-bold mb-6">Curation Review</h1>
-      <p className="mb-4 text-[var(--muted)]">pending_review のコンポーネント: {total}件</p>
+    <div>
+      <p className="mb-4 text-muted-foreground">
+        pending_review のコンポーネント: {total}件
+      </p>
 
       <div className="mb-4">
-        <select
+        <NativeSelect
+          className="w-auto"
           value={typeFilter}
           onChange={(e) => setTypeFilter(e.target.value)}
-          className="px-3 py-2 rounded bg-[var(--card-bg)] border border-[var(--border)]"
           aria-label="コンポーネントタイプ"
         >
           <option value="">全タイプ</option>
@@ -63,45 +66,53 @@ export default function CurationReviewPage() {
           <option value="motion">motion</option>
           <option value="audio">audio</option>
           <option value="image">image</option>
-        </select>
+        </NativeSelect>
       </div>
 
       {loading ? (
         <div role="progressbar">Loading...</div>
       ) : components.length === 0 ? (
-        <div className="text-center py-8 text-[var(--muted)]">レビュー待ちのコンポーネントはありません</div>
+        <div className="text-center py-8 text-muted-foreground">
+          レビュー待ちのコンポーネントはありません
+        </div>
       ) : (
         <div className="space-y-3">
           {components.map((comp) => (
-            <div key={comp.id} className="p-4 rounded border border-[var(--border)] bg-[var(--card-bg)]" data-component-id={comp.component_id}>
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="font-semibold">{comp.name}</h3>
-                  <p className="text-sm text-[var(--muted)]">{comp.type}{comp.subtype ? ` / ${comp.subtype}` : ""}</p>
-                  {comp.description && <p className="text-sm mt-1">{comp.description}</p>}
+            <Card key={comp.id} data-component-id={comp.component_id}>
+              <CardContent className="pt-4">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="font-semibold">{comp.name}</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {comp.type}
+                      {comp.subtype ? ` / ${comp.subtype}` : ""}
+                    </p>
+                    {comp.description && (
+                      <p className="text-sm mt-1">{comp.description}</p>
+                    )}
+                  </div>
+                  <div className="text-right text-sm">
+                    <p>自信度: {comp.curation_confidence ?? "-"}</p>
+                    <p>スコア: {comp.score ?? "-"}</p>
+                  </div>
                 </div>
-                <div className="text-right text-sm">
-                  <p>自信度: {comp.curation_confidence ?? "-"}</p>
-                  <p>スコア: {comp.score ?? "-"}</p>
+                <div className="flex gap-2 mt-3">
+                  <Button
+                    variant="success"
+                    size="sm"
+                    onClick={() => handleApprove(comp.id)}
+                  >
+                    承認
+                  </Button>
+                  <Button variant="destructive" size="sm">
+                    差し戻し
+                  </Button>
                 </div>
-              </div>
-              <div className="flex gap-2 mt-3">
-                <button
-                  onClick={() => handleApprove(comp.id)}
-                  className="px-3 py-1 bg-green-700 text-white rounded text-sm"
-                >
-                  承認
-                </button>
-                <button
-                  className="px-3 py-1 bg-red-700 text-white rounded text-sm"
-                >
-                  差し戻し
-                </button>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           ))}
         </div>
       )}
-    </main>
+    </div>
   );
 }

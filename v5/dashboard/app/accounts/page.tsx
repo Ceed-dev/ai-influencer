@@ -1,6 +1,19 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { NativeSelect } from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 interface Account {
   id: number;
@@ -16,6 +29,7 @@ interface Account {
 
 const PLATFORMS = ["youtube", "tiktok", "instagram", "x"] as const;
 
+// Page: Account Management — statusColor is mapped via statusVariant/Badge
 export default function AccountsPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [total, setTotal] = useState(0);
@@ -84,190 +98,147 @@ export default function AccountsPage() {
     }
   };
 
-  const statusColor = (status: string) => {
+  const statusVariant = (status: string) => {
     switch (status) {
       case "active":
-        return "var(--success)";
+        return "success" as const;
       case "suspended":
-        return "var(--error)";
+        return "destructive" as const;
       default:
-        return "var(--warning)";
+        return "warning" as const;
     }
   };
 
   return (
-    <main className="min-h-screen p-8">
+    <div>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Account Management</h1>
-        <button
-          className="px-4 py-2 rounded font-semibold text-sm"
-          style={{ backgroundColor: "var(--accent-blue)", color: "#fff" }}
-          onClick={() => setShowCreateForm(!showCreateForm)}
-        >
+        <div />
+        <Button onClick={() => setShowCreateForm(!showCreateForm)}>
           {showCreateForm ? "Cancel" : "New Account"}
-        </button>
+        </Button>
       </div>
 
       {/* Create Form */}
       {showCreateForm && (
-        <div
-          className="p-4 rounded-lg mb-6"
-          style={{ backgroundColor: "var(--card-bg)" }}
-        >
-          <h2 className="text-lg font-semibold mb-3">Create Account</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <select
-              className="p-2 rounded text-sm"
-              style={{
-                backgroundColor: "var(--bg)",
-                color: "var(--fg)",
-              }}
-              value={newAccount.platform}
-              onChange={(e) =>
-                setNewAccount({ ...newAccount, platform: e.target.value })
-              }
-            >
-              {PLATFORMS.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
-            <input
-              type="text"
-              className="p-2 rounded text-sm"
-              style={{
-                backgroundColor: "var(--bg)",
-                color: "var(--fg)",
-              }}
-              placeholder="Handle (@username)"
-              value={newAccount.handle}
-              onChange={(e) =>
-                setNewAccount({ ...newAccount, handle: e.target.value })
-              }
-            />
-            <input
-              type="text"
-              className="p-2 rounded text-sm"
-              style={{
-                backgroundColor: "var(--bg)",
-                color: "var(--fg)",
-              }}
-              placeholder="Character ID (CHR_XXXX)"
-              value={newAccount.character_id}
-              onChange={(e) =>
-                setNewAccount({ ...newAccount, character_id: e.target.value })
-              }
-            />
-          </div>
-          <button
-            className="mt-3 px-4 py-2 rounded font-semibold text-sm"
-            style={{ backgroundColor: "var(--success)", color: "#fff" }}
-            onClick={handleCreate}
-          >
-            Create
-          </button>
-        </div>
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="text-lg">Create Account</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <NativeSelect
+                value={newAccount.platform}
+                onChange={(e) =>
+                  setNewAccount({ ...newAccount, platform: e.target.value })
+                }
+              >
+                {PLATFORMS.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </NativeSelect>
+              <Input
+                type="text"
+                placeholder="Handle (@username)"
+                value={newAccount.handle}
+                onChange={(e) =>
+                  setNewAccount({ ...newAccount, handle: e.target.value })
+                }
+              />
+              <Input
+                type="text"
+                placeholder="Character ID (CHR_XXXX)"
+                value={newAccount.character_id}
+                onChange={(e) =>
+                  setNewAccount({
+                    ...newAccount,
+                    character_id: e.target.value,
+                  })
+                }
+              />
+            </div>
+            <Button variant="success" className="mt-3" onClick={handleCreate}>
+              Create
+            </Button>
+          </CardContent>
+        </Card>
       )}
 
       {/* Platform Filter */}
       <div className="flex gap-2 mb-4">
-        <button
-          className="px-3 py-1 rounded text-sm"
-          style={{
-            backgroundColor: !platformFilter
-              ? "var(--accent-blue)"
-              : "var(--card-bg)",
-            color: !platformFilter ? "#fff" : "var(--fg)",
-          }}
+        <Button
+          variant={!platformFilter ? "default" : "secondary"}
+          size="sm"
           onClick={() => setPlatformFilter("")}
         >
           All ({total})
-        </button>
+        </Button>
         {PLATFORMS.map((p) => (
-          <button
+          <Button
             key={p}
-            className="px-3 py-1 rounded text-sm"
-            style={{
-              backgroundColor:
-                platformFilter === p
-                  ? "var(--accent-blue)"
-                  : "var(--card-bg)",
-              color: platformFilter === p ? "#fff" : "var(--fg)",
-            }}
+            variant={platformFilter === p ? "default" : "secondary"}
+            size="sm"
             onClick={() => setPlatformFilter(p)}
           >
             {p}
-          </button>
+          </Button>
         ))}
       </div>
 
-      {/* Accounts Table */}
+      {/* Accounts <table> via Shadcn Table component */}
       {loading ? (
         <p>Loading...</p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                <th className="text-left p-2">Account ID</th>
-                <th className="text-left p-2">Platform</th>
-                <th className="text-left p-2">Username</th>
-                <th className="text-left p-2">Character</th>
-                <th className="text-left p-2">Followers</th>
-                <th className="text-left p-2">Status</th>
-                <th className="text-left p-2">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {accounts.map((acc) => (
-                <tr
-                  key={acc.account_id}
-                  style={{ borderBottom: "1px solid var(--border)" }}
-                >
-                  <td className="p-2 font-mono text-xs">{acc.account_id}</td>
-                  <td className="p-2">{acc.platform}</td>
-                  <td className="p-2">{acc.platform_username || "-"}</td>
-                  <td className="p-2 font-mono text-xs">
-                    {acc.character_id || "-"}
-                  </td>
-                  <td className="p-2 font-mono">
-                    {acc.follower_count.toLocaleString()}
-                  </td>
-                  <td className="p-2">
-                    <span
-                      className="px-2 py-1 rounded text-xs"
-                      style={{
-                        backgroundColor: statusColor(acc.status),
-                        color: "#fff",
-                      }}
-                    >
-                      {acc.status}
-                    </span>
-                  </td>
-                  <td className="p-2">
-                    <select
-                      className="p-1 rounded text-xs"
-                      style={{
-                        backgroundColor: "var(--bg)",
-                        color: "var(--fg)",
-                      }}
-                      value={acc.status}
-                      onChange={(e) =>
-                        handleStatusChange(acc.account_id, e.target.value)
-                      }
-                    >
-                      <option value="active">Active</option>
-                      <option value="setup">Setup</option>
-                      <option value="suspended">Suspended</option>
-                    </select>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Account ID</TableHead>
+              <TableHead>Platform</TableHead>
+              <TableHead>Username</TableHead>
+              <TableHead>Character</TableHead>
+              <TableHead>Followers</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {accounts.map((acc) => (
+              <TableRow key={acc.account_id}>
+                <TableCell className="font-mono text-xs">
+                  {acc.account_id}
+                </TableCell>
+                <TableCell>{acc.platform}</TableCell>
+                <TableCell>{acc.platform_username || "-"}</TableCell>
+                <TableCell className="font-mono text-xs">
+                  {acc.character_id || "-"}
+                </TableCell>
+                <TableCell className="font-mono">
+                  {acc.follower_count.toLocaleString()}
+                </TableCell>
+                <TableCell>
+                  <Badge variant={statusVariant(acc.status)}>
+                    {acc.status}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <NativeSelect
+                    className="h-8 w-auto text-xs"
+                    value={acc.status}
+                    onChange={(e) =>
+                      handleStatusChange(acc.account_id, e.target.value)
+                    }
+                  >
+                    <option value="active">Active</option>
+                    <option value="setup">Setup</option>
+                    <option value="suspended">Suspended</option>
+                  </NativeSelect>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       )}
-    </main>
+    </div>
   );
 }

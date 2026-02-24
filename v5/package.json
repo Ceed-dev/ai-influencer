@@ -26,8 +26,9 @@
   "dependencies": {
     "@fal-ai/client": "1.9.3",
     "@langchain/anthropic": "0.3.14",
-    "@langchain/core": "0.3.30",
+    "@langchain/core": "^0.3.44",
     "@langchain/langgraph": "0.2.19",
+    "@langchain/mcp-adapters": "^0.4.3",
     "@modelcontextprotocol/sdk": "1.7.0",
     "@monaco-editor/react": "4.6.0",
     "@tremor/react": "3.17.4",

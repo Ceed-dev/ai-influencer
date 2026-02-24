@@ -24,3 +24,10 @@ export {
   countPendingTasks,
   type TaskQueueEntry,
 } from './graph-communication';
+
+export {
+  getMcpTools,
+  callMcpTool,
+  closeMcpClient,
+  getMcpClient,
+} from './mcp-client';

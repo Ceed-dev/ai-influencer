@@ -20,6 +20,7 @@
  */
 import { healthCheck, closePool, getPool } from './db/pool.js';
 import { closeSettingsPool } from './lib/settings.js';
+import { closeMcpClient } from './agents/common/mcp-client.js';
 
 const SERVICE = process.argv[2] || 'health';
 
@@ -175,9 +176,10 @@ async function shutdown(signal: string): Promise<void> {
   } catch {
     // Batch orchestrator may not be loaded
   }
+  await closeMcpClient();
   await closePool();
   await closeSettingsPool();
-  console.log('[shutdown] Pools closed. Exiting.');
+  console.log('[shutdown] Pools and MCP client closed. Exiting.');
   process.exit(0);
 }
 

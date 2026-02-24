@@ -75,6 +75,26 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 - Changed test cluster from 'cluster_a' to 'cluster_pub027' to prevent cross-test pollution
 - Added account_baselines + prediction_snapshots cleanup in afterAll
 
+### Session 8: 4-Layer Architecture Compliance (2 deviations fixed)
+
+**langchain-mcp-adapters (Layer 2→3 bridge):**
+- Created `src/agents/common/mcp-client.ts` — MCP client utility (getMcpTools, callMcpTool, closeMcpClient)
+- Uses dynamic `import()` for `@langchain/mcp-adapters` (CJS/ESM compatibility)
+- Singleton pattern with stdio transport spawning MCP Server as child process
+- Modified 4 graph files + strategy-nodes.ts: all direct MCP tool imports → `callMcpTool()` via MCP Protocol
+- Architecture: `LangGraph node → callMcpTool() → langchain-mcp-adapters → MCP Protocol (stdio) → MCP Server → PostgreSQL`
+- Added `@langchain/mcp-adapters@0.4.3`, updated `@langchain/core` 0.3.30→0.3.44
+
+**Shadcn/ui (Layer 1 Dashboard):**
+- Installed: class-variance-authority, clsx, tailwind-merge, lucide-react, 6 @radix-ui/* primitives, tailwindcss-animate
+- Created 9 Shadcn/ui components: Button, Card, Input, Textarea, Badge, Table, Tabs, Select, Separator
+- Created 3 layout components: Sidebar, Header, LayoutShell
+- Created `dashboard/lib/utils.ts` with `cn()` utility
+- Updated `tailwind.config.ts` with Shadcn/ui semantic color tokens + Solarized HSL mapping
+- Updated `globals.css` with Shadcn/ui CSS variables mapped to Solarized palette
+- Updated all 17 page files to use Shadcn/ui components
+- All 38 dashboard test suites / 186 tests passing
+
 ## Remaining Items
 
 ### External Dependencies (code complete, awaiting approvals):
@@ -104,6 +124,14 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 | Cumulative analysis | Claude Haiku 4.5 | Rule-based if/else |
 | Script generation | Claude Haiku 4.5 | Template strings |
 | Embeddings | OpenAI text-embedding-3-small | Zero vectors |
+
+### 4-Layer Architecture (100% Compliant)
+| Layer | Technology | Status |
+|-------|-----------|--------|
+| L1: Human Dashboard | Next.js 15 + Shadcn/ui + Tailwind CSS + Recharts | Complete |
+| L2: LangGraph Orchestration | LangGraph.js 4 graphs → langchain-mcp-adapters → MCP Protocol | Complete |
+| L3: MCP Tool Server | 111 tools via stdio transport | Complete |
+| L4: Data Stores | PostgreSQL 16 + pgvector + Google Drive | Complete |
 
 ### DB Schema Key Facts
 - `system_settings`: columns are `setting_key`, `setting_value`

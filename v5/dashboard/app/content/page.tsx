@@ -1,6 +1,17 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { NativeSelect } from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 interface ContentItem {
   content_id: string;
@@ -28,61 +39,97 @@ export default function ContentPage() {
 
     fetch(`/api/content?${params}`)
       .then((res) => res.json())
-      .then((data) => { setContent(data.content || []); setTotal(data.total || 0); })
+      .then((data) => {
+        setContent(data.content || []);
+        setTotal(data.total || 0);
+      })
       .finally(() => setLoading(false));
   }, [statusFilter, page]);
 
-  useEffect(() => { fetchContent(); }, [fetchContent]);
+  useEffect(() => {
+    fetchContent();
+  }, [fetchContent]);
 
   const totalPages = Math.ceil(total / limit);
 
   return (
-    <main className="p-6">
-      <h1 className="text-2xl font-bold mb-6">Content</h1>
+    <div>
       <div className="mb-4">
-        <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }} className="px-3 py-2 rounded bg-[var(--card-bg)] border border-[var(--border)]" aria-label="ステータス">
+        <NativeSelect
+          className="w-auto"
+          value={statusFilter}
+          onChange={(e) => {
+            setStatusFilter(e.target.value);
+            setPage(1);
+          }}
+          aria-label="ステータス"
+        >
           <option value="">全ステータス</option>
           <option value="draft">draft</option>
           <option value="pending_approval">pending_approval</option>
           <option value="planned">planned</option>
           <option value="published">published</option>
-        </select>
+        </NativeSelect>
       </div>
-      {loading ? <div role="progressbar">Loading...</div> : content.length === 0 ? (
-        <div className="text-center py-8 text-[var(--muted)]">コンテンツがありません</div>
+      {loading ? (
+        <div role="progressbar">Loading...</div>
+      ) : content.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">
+          コンテンツがありません
+        </div>
       ) : (
         <>
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="border-b border-[var(--border)]">
-                <th className="text-left p-2">ID</th>
-                <th className="text-left p-2">タイトル</th>
-                <th className="text-left p-2">フォーマット</th>
-                <th className="text-left p-2">ステータス</th>
-                <th className="text-left p-2">品質スコア</th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>ID</TableHead>
+                <TableHead>タイトル</TableHead>
+                <TableHead>フォーマット</TableHead>
+                <TableHead>ステータス</TableHead>
+                <TableHead>品質スコア</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {content.map((item) => (
-                <tr key={item.content_id} className="border-b border-[var(--border)]">
-                  <td className="p-2">{item.content_id}</td>
-                  <td className="p-2 truncate max-w-xs">{item.title}</td>
-                  <td className="p-2">{item.content_format}</td>
-                  <td className="p-2">{item.review_status}</td>
-                  <td className="p-2">{item.quality_score}</td>
-                </tr>
+                <TableRow key={item.content_id}>
+                  <TableCell>{item.content_id}</TableCell>
+                  <TableCell className="truncate max-w-xs">
+                    {item.title}
+                  </TableCell>
+                  <TableCell>{item.content_format}</TableCell>
+                  <TableCell>
+                    <Badge variant="secondary">{item.review_status}</Badge>
+                  </TableCell>
+                  <TableCell>{item.quality_score}</TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
           {totalPages > 1 && (
             <div className="flex gap-2 mt-4 justify-center">
-              <button onClick={() => setPage(Math.max(1, page - 1))} disabled={page === 1} className="px-3 py-1 rounded bg-[var(--card-bg)] border border-[var(--border)] disabled:opacity-50">前</button>
-              <span className="px-3 py-1">{page} / {totalPages}</span>
-              <button onClick={() => setPage(Math.min(totalPages, page + 1))} disabled={page === totalPages} className="px-3 py-1 rounded bg-[var(--card-bg)] border border-[var(--border)] disabled:opacity-50">次</button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(Math.max(1, page - 1))}
+                disabled={page === 1}
+              >
+                前
+              </Button>
+              <span className="px-3 py-1 text-sm">
+                {page} / {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(Math.min(totalPages, page + 1))}
+                disabled={page === totalPages}
+              >
+                次
+              </Button>
             </div>
           )}
         </>
       )}
-    </main>
+    </div>
   );
 }

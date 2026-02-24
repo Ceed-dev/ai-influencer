@@ -22,8 +22,8 @@ import type {
 } from '@/types/langgraph-state';
 import type { Platform as DbPlatform } from '@/types/database';
 
-// MCP tool imports (same Node.js process, not remote)
-import { publishToYoutube, publishToTiktok, publishToInstagram, publishToX } from '../../mcp-server/tools/publishing/publish-to-platform.js';
+// MCP tool access via langchain-mcp-adapters (spec: 02-architecture.md SS4.3)
+import { callMcpTool } from '../common/mcp-client.js';
 // Infrastructure imports
 import { getPool } from '../../db/pool.js';
 import { getSettingNumber } from '../../lib/settings.js';
@@ -210,7 +210,7 @@ async function publish(
 
     switch (platform) {
       case 'youtube': {
-        const result = await publishToYoutube({
+        const result = await callMcpTool<{ platform_post_id: string; post_url: string }>('publish_to_youtube', {
           content_id,
           title: metadata.title ?? '',
           description: metadata.description ?? '',
@@ -222,7 +222,7 @@ async function publish(
         break;
       }
       case 'tiktok': {
-        const result = await publishToTiktok({
+        const result = await callMcpTool<{ platform_post_id: string; post_url: string }>('publish_to_tiktok', {
           content_id,
           description: metadata.description ?? metadata.caption ?? '',
           tags: metadata.tags ?? [],
@@ -233,7 +233,7 @@ async function publish(
         break;
       }
       case 'instagram': {
-        const result = await publishToInstagram({
+        const result = await callMcpTool<{ platform_post_id: string; post_url: string }>('publish_to_instagram', {
           content_id,
           caption: metadata.caption ?? metadata.description ?? '',
           tags: metadata.tags ?? [],
@@ -244,7 +244,7 @@ async function publish(
         break;
       }
       case 'x': {
-        const result = await publishToX({
+        const result = await callMcpTool<{ platform_post_id: string; post_url: string }>('publish_to_x', {
           content_id,
           text: metadata.text ?? metadata.description ?? '',
           video_drive_id,

@@ -1,6 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 interface PerformanceEntry {
   account_id: string;
@@ -27,44 +35,61 @@ export default function PerformancePage() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <main className="p-6"><div role="progressbar">Loading...</div></main>;
+  if (loading)
+    return (
+      <div>
+        <div role="progressbar">Loading...</div>
+      </div>
+    );
 
   return (
-    <main className="p-6">
-      <h1 className="text-2xl font-bold mb-6">Performance</h1>
-
+    <div>
       {data.length === 0 ? (
-        <div className="text-center py-8 text-[var(--muted)]">データがありません</div>
+        <div className="text-center py-8 text-muted-foreground">
+          データがありません
+        </div>
       ) : (
-        <table className="w-full border-collapse">
-          <thead>
-            <tr className="border-b border-[var(--border)]">
-              <th className="text-left p-2">アカウント</th>
-              <th className="text-left p-2">プラットフォーム</th>
-              <th className="text-right p-2">フォロワー</th>
-              <th className="text-right p-2">総ビュー</th>
-              <th className="text-right p-2">いいね</th>
-              <th className="text-right p-2">コメント</th>
-              <th className="text-right p-2">投稿数</th>
-              <th className="text-right p-2">エンゲージメント率</th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>アカウント</TableHead>
+              <TableHead>プラットフォーム</TableHead>
+              <TableHead className="text-right">フォロワー</TableHead>
+              <TableHead className="text-right">総ビュー</TableHead>
+              <TableHead className="text-right">いいね</TableHead>
+              <TableHead className="text-right">コメント</TableHead>
+              <TableHead className="text-right">投稿数</TableHead>
+              <TableHead className="text-right">エンゲージメント率</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {data.map((item) => (
-              <tr key={item.account_id} className="border-b border-[var(--border)] hover:bg-[var(--sidebar-bg)]">
-                <td className="p-2">{item.platform_username}</td>
-                <td className="p-2">{item.platform}</td>
-                <td className="p-2 text-right">{(item.follower_count || 0).toLocaleString()}</td>
-                <td className="p-2 text-right">{(item.total_views || 0).toLocaleString()}</td>
-                <td className="p-2 text-right">{(item.total_likes || 0).toLocaleString()}</td>
-                <td className="p-2 text-right">{(item.total_comments || 0).toLocaleString()}</td>
-                <td className="p-2 text-right">{item.publication_count}</td>
-                <td className="p-2 text-right">{item.engagement_rate}%</td>
-              </tr>
+              <TableRow key={item.account_id}>
+                <TableCell>{item.platform_username}</TableCell>
+                <TableCell>{item.platform}</TableCell>
+                <TableCell className="text-right font-mono">
+                  {(item.follower_count || 0).toLocaleString()}
+                </TableCell>
+                <TableCell className="text-right font-mono">
+                  {(item.total_views || 0).toLocaleString()}
+                </TableCell>
+                <TableCell className="text-right font-mono">
+                  {(item.total_likes || 0).toLocaleString()}
+                </TableCell>
+                <TableCell className="text-right font-mono">
+                  {(item.total_comments || 0).toLocaleString()}
+                </TableCell>
+                <TableCell className="text-right font-mono">
+                  {item.publication_count}
+                </TableCell>
+                <TableCell className="text-right font-mono">
+                  {item.engagement_rate}%
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       )}
-    </main>
+    </div>
   );
 }

@@ -3,11 +3,14 @@
  * Spec: 04-agent-design.md SS5.1
  *
  * Each node:
- * 1. Calls MCP tool functions directly (not via MCP protocol)
+ * 1. Calls MCP tools via langchain-mcp-adapters (MCP Protocol)
  * 2. Uses ChatAnthropic for LLM reasoning
  * 3. Returns Partial<StrategyCycleAnnotationType>
  * 4. Reads config from system_settings (no hardcoding)
  * 5. Wraps errors gracefully into state.errors
+ *
+ * Architecture (02-architecture.md SS4.3):
+ *   LangGraph node -> langchain-mcp-adapters -> MCP Protocol (stdio) -> MCP Server -> PostgreSQL
  */
 import { ChatAnthropic } from '@langchain/anthropic';
 import { NodeInterrupt } from '@langchain/langgraph';
@@ -31,60 +34,54 @@ import type {
 } from '../../../types/langgraph-state.js';
 
 // ---------------------------------------------------------------------------
-// MCP Tool imports — intelligence category
+// MCP Tool access via langchain-mcp-adapters (spec: 02-architecture.md SS4.3)
+// All tool calls go through MCP Protocol instead of direct imports.
 // ---------------------------------------------------------------------------
-import { getRecentIntel } from '../../mcp-server/tools/intelligence/get-recent-intel.js';
-import { getPlatformChanges } from '../../mcp-server/tools/intelligence/get-platform-changes.js';
-import { getCompetitorAnalysis } from '../../mcp-server/tools/intelligence/get-competitor-analysis.js';
-import { searchSimilarIntel } from '../../mcp-server/tools/intelligence/search-similar-intel.js';
-import { getMetricsForAnalysis } from '../../mcp-server/tools/intelligence/get-metrics-for-analysis.js';
-import { getHypothesisResults } from '../../mcp-server/tools/intelligence/get-hypothesis-results.js';
-import { verifyHypothesis } from '../../mcp-server/tools/intelligence/verify-hypothesis.js';
-import { detectAnomalies } from '../../mcp-server/tools/intelligence/detect-anomalies.js';
-import { extractLearning } from '../../mcp-server/tools/intelligence/extract-learning.js';
-import { calculateAlgorithmPerformance } from '../../mcp-server/tools/intelligence/calculate-algorithm-performance.js';
-import { createAnalysis } from '../../mcp-server/tools/intelligence/create-analysis.js';
-import { getActiveHypotheses } from '../../mcp-server/tools/intelligence/get-active-hypotheses.js';
+import { callMcpTool } from '../common/mcp-client.js';
 
 // ---------------------------------------------------------------------------
-// MCP Tool imports — strategy category
+// MCP Tool result type interfaces
+// These match the JSON shapes returned by the MCP Server tools.
 // ---------------------------------------------------------------------------
-import { getPortfolioKpiSummary } from '../../mcp-server/tools/strategy/get-portfolio-kpi-summary.js';
-import { getPendingDirectives } from '../../mcp-server/tools/strategy/get-pending-directives.js';
-import { createCycle } from '../../mcp-server/tools/strategy/create-cycle.js';
-import { setCyclePlan } from '../../mcp-server/tools/strategy/set-cycle-plan.js';
-import { allocateResources } from '../../mcp-server/tools/strategy/allocate-resources.js';
-import { sendPlannerDirective } from '../../mcp-server/tools/strategy/send-planner-directive.js';
 
-// ---------------------------------------------------------------------------
-// MCP Tool imports — learning category
-// ---------------------------------------------------------------------------
-import { getTopLearnings } from '../../mcp-server/tools/learning/get-top-learnings.js';
-import { getRecentReflections } from '../../mcp-server/tools/learning/get-recent-reflections.js';
-import { getIndividualLearnings } from '../../mcp-server/tools/learning/get-individual-learnings.js';
-import { saveReflection } from '../../mcp-server/tools/intelligence/save-reflection.js';
-import { saveIndividualLearning } from '../../mcp-server/tools/learning/save-individual-learning.js';
-import { submitAgentMessage } from '../../mcp-server/tools/learning/submit-agent-message.js';
+interface McpLearning {
+  category: string;
+  content: string;
+  confidence?: number;
+  applicable_niches?: string[];
+  learning_id?: number;
+}
 
-// ---------------------------------------------------------------------------
-// MCP Tool imports — planner category
-// ---------------------------------------------------------------------------
-import { getAssignedAccounts } from '../../mcp-server/tools/planner/get-assigned-accounts.js';
-import { getAccountPerformance } from '../../mcp-server/tools/planner/get-account-performance.js';
-import { getAvailableComponents } from '../../mcp-server/tools/planner/get-available-components.js';
-import { createHypothesis } from '../../mcp-server/tools/planner/create-hypothesis.js';
-import { planContent } from '../../mcp-server/tools/planner/plan-content.js';
-import { scheduleContent } from '../../mcp-server/tools/planner/schedule-content.js';
-import { getContentPoolStatus } from '../../mcp-server/tools/planner/get-content-pool-status.js';
-import { getNicheLearnings } from '../../mcp-server/tools/planner/get-niche-learnings.js';
+interface McpReflection {
+  self_score: number;
+  score_reasoning: string;
+}
 
-// ---------------------------------------------------------------------------
-// MCP Tool imports — tool-knowledge category
-// ---------------------------------------------------------------------------
-import { getToolKnowledge } from '../../mcp-server/tools/tool-knowledge/get-tool-knowledge.js';
-import { searchSimilarToolUsage } from '../../mcp-server/tools/tool-knowledge/search-similar-tool-usage.js';
-import { getToolRecommendations } from '../../mcp-server/tools/tool-knowledge/get-tool-recommendations.js';
-import { saveToolExperience } from '../../mcp-server/tools/tool-knowledge/save-tool-experience.js';
+interface McpAnomaly {
+  metric: string;
+  account_id: string;
+  expected: number;
+  actual: number;
+  deviation: number;
+}
+
+interface McpMetric {
+  views: number;
+  engagement_rate: number;
+}
+
+interface McpHypothesis {
+  id: number;
+  statement: string;
+}
+
+interface McpDirective {
+  id: number;
+}
+
+interface McpAccount {
+  account_id: string;
+}
 
 // ---------------------------------------------------------------------------
 // Retry & Thought Logging
@@ -237,14 +234,14 @@ export async function collectIntelNode(
       prevReflections,
       prevLearnings,
     ] = await Promise.all([
-      getRecentIntel({ limit: 30 }).catch((e: unknown) => {
+      callMcpTool<{ intel: Array<Record<string, unknown>> }>('get_recent_intel', { limit: 30 }).catch((e: unknown) => {
         errors.push(makeError('collect_intel', 'researcher', e));
         return { intel: [] };
       }),
       // Get platform changes for all 4 platforms
       Promise.all(
         PLATFORMS.map((p) =>
-          getPlatformChanges({ platform: p, since: '30d' }).catch((e: unknown) => {
+          callMcpTool<{ changes: Array<Record<string, unknown>> }>('get_platform_changes', { platform: p, since: '30d' }).catch((e: unknown) => {
             errors.push(makeError('collect_intel', 'researcher', e));
             return { changes: [] };
           }),
@@ -253,23 +250,23 @@ export async function collectIntelNode(
       // Get competitor analysis for all platforms with "general" niche
       Promise.all(
         PLATFORMS.map((p) =>
-          getCompetitorAnalysis({ platform: p, niche: 'general' }).catch((e: unknown) => {
+          callMcpTool<{ competitors: Array<Record<string, unknown>> }>('get_competitor_analysis', { platform: p, niche: 'general' }).catch((e: unknown) => {
             errors.push(makeError('collect_intel', 'researcher', e));
             return { competitors: [] };
           }),
         ),
       ),
-      searchSimilarIntel({ query_text: 'latest trends and audience signals', limit: 10 }).catch(
+      callMcpTool<{ results: Array<Record<string, unknown>> }>('search_similar_intel', { query_text: 'latest trends and audience signals', limit: 10 }).catch(
         (e: unknown) => {
           errors.push(makeError('collect_intel', 'researcher', e));
           return { results: [] };
         },
       ),
-      getRecentReflections({ agent_type: 'researcher', limit: 3 }).catch(() => ({
-        reflections: [],
+      callMcpTool<{ reflections: McpReflection[] }>('get_recent_reflections', { agent_type: 'researcher', limit: 3 }).catch(() => ({
+        reflections: [] as McpReflection[],
       })),
-      getIndividualLearnings({ agent_type: 'researcher', limit: 10 }).catch(() => ({
-        learnings: [],
+      callMcpTool<{ learnings: McpLearning[] }>('get_individual_learnings', { agent_type: 'researcher', limit: 10 }).catch(() => ({
+        learnings: [] as McpLearning[],
       })),
     ]);
 
@@ -381,21 +378,21 @@ export async function analyzeCycleNode(
   try {
     // 1. Gather metrics and hypothesis data
     const [metricsResult, anomalyResult, algoResult, pendingHypotheses] = await Promise.all([
-      getMetricsForAnalysis({ since: '7d', status: 'measured' }).catch((e: unknown) => {
+      callMcpTool<{ metrics: McpMetric[] }>('get_metrics_for_analysis', { since: '7d', status: 'measured' }).catch((e: unknown) => {
         errors.push(makeError('analyze_cycle', 'analyst', e));
         return { metrics: [] };
       }),
-      detectAnomalies({ period: '7d', threshold: 2.0 }).catch((e: unknown) => {
+      callMcpTool<{ anomalies: McpAnomaly[] }>('detect_anomalies', { period: '7d', threshold: 2.0 }).catch((e: unknown) => {
         errors.push(makeError('analyze_cycle', 'analyst', e));
         return { anomalies: [] };
       }),
-      calculateAlgorithmPerformance({ period: 'daily' }).catch((e: unknown) => {
+      callMcpTool<{ hypothesis_accuracy: number; prediction_error: number; learning_count: number; improvement_rate: number }>('calculate_algorithm_performance', { period: 'daily' }).catch((e: unknown) => {
         errors.push(makeError('analyze_cycle', 'analyst', e));
         return { hypothesis_accuracy: 0, prediction_error: 0, learning_count: 0, improvement_rate: 0 };
       }),
-      getActiveHypotheses({ verdict: 'pending' }).catch((e: unknown) => {
+      callMcpTool<{ hypotheses: McpHypothesis[] }>('get_active_hypotheses', { verdict: 'pending' }).catch((e: unknown) => {
         errors.push(makeError('analyze_cycle', 'analyst', e));
-        return { hypotheses: [] };
+        return { hypotheses: [] as McpHypothesis[] };
       }),
     ]);
 
@@ -403,7 +400,7 @@ export async function analyzeCycleNode(
     const verifications: HypothesisVerification[] = [];
     for (const hyp of pendingHypotheses.hypotheses.slice(0, 10)) {
       try {
-        const results = await getHypothesisResults({ hypothesis_id: hyp.id });
+        const results = await callMcpTool<{ content_count: number; raw_metrics: Array<Record<string, unknown>>; predicted_kpis: Record<string, number>; actual_kpis: Record<string, number> }>('get_hypothesis_results', { hypothesis_id: hyp.id });
         if (results.content_count > 0 && results.raw_metrics.length > 0) {
           // Use LLM to determine verdict
           const model = createSonnetModel(2048);
@@ -443,7 +440,7 @@ Output ONLY valid JSON: {"verdict": "confirmed"|"rejected"|"inconclusive", "conf
 
           if (verdictParsed) {
             // Save the verification to DB
-            await verifyHypothesis({
+            await callMcpTool('verify_hypothesis', {
               hypothesis_id: hyp.id,
               verdict: verdictParsed.verdict,
               confidence: verdictParsed.confidence,
@@ -545,7 +542,7 @@ Output ONLY valid JSON:
     if (analysisParsed?.new_learnings) {
       for (const learning of analysisParsed.new_learnings) {
         try {
-          const result = await extractLearning({
+          const result = await callMcpTool<{ id: number }>('extract_learning', {
             insight: learning.insight,
             category: learning.category,
             confidence: learning.confidence,
@@ -562,7 +559,7 @@ Output ONLY valid JSON:
 
     // 6. Create analysis report in DB
     if (state.cycle_id) {
-      await createAnalysis({
+      await callMcpTool('create_analysis', {
         cycle_id: state.cycle_id,
         analysis_type: 'daily_cycle',
         findings: JSON.stringify({
@@ -621,7 +618,7 @@ export async function setStrategyNode(
   try {
     // 1. Gather strategic inputs
     const [kpiSummary, topLearnings, pendingDirectives] = await Promise.all([
-      getPortfolioKpiSummary({ period: '7d' }).catch((e: unknown) => {
+      callMcpTool<{ total_accounts: number; active_accounts: number; total_views: number; avg_engagement_rate: number; follower_growth: number; monetized_count: number }>('get_portfolio_kpi_summary', { period: '7d' }).catch((e: unknown) => {
         errors.push(makeError('set_strategy', 'strategist', e));
         return {
           total_accounts: 0,
@@ -632,18 +629,18 @@ export async function setStrategyNode(
           monetized_count: 0,
         };
       }),
-      getTopLearnings({ limit: 10, min_confidence: 0.6 }).catch((e: unknown) => {
+      callMcpTool<{ learnings: McpLearning[] }>('get_top_learnings', { limit: 10, min_confidence: 0.6 }).catch((e: unknown) => {
         errors.push(makeError('set_strategy', 'strategist', e));
-        return { learnings: [] };
+        return { learnings: [] as McpLearning[] };
       }),
-      getPendingDirectives({}).catch((e: unknown) => {
+      callMcpTool<{ directives: McpDirective[] }>('get_pending_directives', {}).catch((e: unknown) => {
         errors.push(makeError('set_strategy', 'strategist', e));
-        return { directives: [] };
+        return { directives: [] as McpDirective[] };
       }),
     ]);
 
     // 2. Create new cycle in DB
-    const cycleResult = await createCycle({
+    const cycleResult = await callMcpTool<{ id: number }>('create_cycle', {
       cycle_number: state.cycle_number,
     }).catch((e: unknown) => {
       errors.push(makeError('set_strategy', 'strategist', e));
@@ -720,7 +717,7 @@ Output ONLY valid JSON:
 
     // 4. Save cycle plan to DB
     if (cycleId) {
-      await setCyclePlan({
+      await callMcpTool('set_cycle_plan', {
         cycle_id: cycleId,
         summary: {
           focus_niches: strategyParsed.focus_niches,
@@ -731,7 +728,7 @@ Output ONLY valid JSON:
 
       // 5. Allocate resources
       if (strategyParsed.resource_allocation.length > 0) {
-        await allocateResources({
+        await callMcpTool('allocate_resources', {
           cycle_id: cycleId,
           allocations: strategyParsed.resource_allocation.map((r) => ({
             cluster: r.cluster,
@@ -745,7 +742,7 @@ Output ONLY valid JSON:
     // 6. Send directives to planners
     if (strategyParsed.planner_directives) {
       for (const directive of strategyParsed.planner_directives) {
-        await sendPlannerDirective({
+        await callMcpTool('send_planner_directive', {
           cluster: directive.cluster,
           directive_text: directive.directive_text,
         }).catch((e: unknown) => errors.push(makeError('set_strategy', 'strategist', e)));
@@ -806,18 +803,18 @@ export async function planContentNode(
       try {
         // 1. Get accounts and performance for this cluster
         const [accounts, poolStatus, nicheLearnings] = await Promise.all([
-          getAssignedAccounts({ cluster: allocation.cluster }).catch((e: unknown) => {
+          callMcpTool<{ accounts: McpAccount[] }>('get_assigned_accounts', { cluster: allocation.cluster }).catch((e: unknown) => {
             errors.push(makeError('plan_content', 'planner', e));
             return { accounts: [] };
           }),
-          getContentPoolStatus({ cluster: allocation.cluster }).catch((e: unknown) => {
+          callMcpTool<{ content: Record<string, number>; publications: Record<string, number> }>('get_content_pool_status', { cluster: allocation.cluster }).catch((e: unknown) => {
             errors.push(makeError('plan_content', 'planner', e));
             return {
               content: { pending_approval: 0, planned: 0, producing: 0, ready: 0, analyzed: 0 },
               publications: { scheduled: 0, posted: 0, measured: 0 },
             };
           }),
-          getNicheLearnings({
+          callMcpTool<{ learnings: Array<Record<string, unknown>> }>('get_niche_learnings', {
             niche: allocation.cluster,
             min_confidence: 0.5,
             limit: 10,
@@ -829,7 +826,7 @@ export async function planContentNode(
         // 2. Get performance for a sample of accounts
         const accountPerfs = await Promise.all(
           accounts.accounts.slice(0, 5).map((acc) =>
-            getAccountPerformance({ account_id: acc.account_id, period: '7d' }).catch(() => ({
+            callMcpTool<{ avg_views: number; avg_engagement: number; top_content: string; trend: string }>('get_account_performance', { account_id: acc.account_id, period: '7d' }).catch(() => ({
               avg_views: 0,
               avg_engagement: 0,
               top_content: '',
@@ -839,7 +836,7 @@ export async function planContentNode(
         );
 
         // 3. Get available components
-        const components = await getAvailableComponents({
+        const components = await callMcpTool<{ components: Array<Record<string, unknown>> }>('get_available_components', {
           type: 'scenario',
           niche: allocation.cluster,
         }).catch((e: unknown) => {
@@ -930,7 +927,7 @@ Output ONLY valid JSON:
         for (const plan of planParsed.plans) {
           try {
             // Create hypothesis
-            const hypResult = await createHypothesis({
+            const hypResult = await callMcpTool<{ id: number }>('create_hypothesis', {
               category: plan.hypothesis.category,
               statement: plan.hypothesis.statement,
               rationale: plan.hypothesis.rationale,
@@ -939,7 +936,7 @@ Output ONLY valid JSON:
             });
 
             // Create content plan
-            const contentResult = await planContent({
+            const contentResult = await callMcpTool<{ content_id: string }>('plan_content', {
               hypothesis_id: hypResult.id,
               character_id: plan.character_id,
               script_language: plan.script_language,
@@ -951,7 +948,7 @@ Output ONLY valid JSON:
             });
 
             // Schedule content
-            await scheduleContent({
+            await callMcpTool('schedule_content', {
               content_id: contentResult.content_id,
               planned_post_date: plan.planned_post_date,
             }).catch((e: unknown) => errors.push(makeError('plan_content', 'planner', e)));
@@ -1004,12 +1001,12 @@ export async function selectToolsNode(
   try {
     // Get tool knowledge base
     const [toolKnowledge, prevLearnings] = await Promise.all([
-      getToolKnowledge({}).catch((e: unknown) => {
+      callMcpTool<{ tools: Array<Record<string, unknown>> }>('get_tool_knowledge', {}).catch((e: unknown) => {
         errors.push(makeError('select_tools', 'tool_specialist', e));
         return { tools: [] };
       }),
-      getIndividualLearnings({ agent_type: 'tool_specialist', limit: 10 }).catch(() => ({
-        learnings: [],
+      callMcpTool<{ learnings: McpLearning[] }>('get_individual_learnings', { agent_type: 'tool_specialist', limit: 10 }).catch(() => ({
+        learnings: [] as McpLearning[],
       })),
     ]);
 
@@ -1022,11 +1019,11 @@ export async function selectToolsNode(
       try {
         // Get similar tool usage and recommendations
         const [similarUsage, recommendations] = await Promise.all([
-          searchSimilarToolUsage({
+          callMcpTool<{ results: Array<Record<string, unknown>> }>('search_similar_tool_usage', {
             requirements: { content_type: plan.content_format },
             limit: 5,
           }).catch(() => ({ results: [] })),
-          getToolRecommendations({
+          callMcpTool<{ recipe: Record<string, string>; rationale: string; confidence: number; alternatives: unknown[] }>('get_tool_recommendations', {
             content_requirements: {
               character_id: plan.character_id,
               niche: 'general',
@@ -1107,7 +1104,7 @@ Output ONLY valid JSON:
           });
 
           // Save tool experience for future reference
-          await saveToolExperience({
+          await callMcpTool('save_tool_experience', {
             tool_combination: [toolParsed.video_gen, toolParsed.tts, toolParsed.lipsync],
             content_id: plan.content_id,
             quality_score: 0.5, // Initial prediction, will be updated after production
@@ -1180,7 +1177,7 @@ export async function approvePlanNode(
 
     // Get additional context for approval
     const [kpiSummary, activeHypotheses, poolStatuses] = await Promise.all([
-      getPortfolioKpiSummary({ period: '7d' }).catch((e: unknown) => {
+      callMcpTool<{ total_accounts: number; active_accounts: number; total_views: number; avg_engagement_rate: number; follower_growth: number; monetized_count: number }>('get_portfolio_kpi_summary', { period: '7d' }).catch((e: unknown) => {
         errors.push(makeError('approve_plan', 'strategist', e));
         return {
           total_accounts: 0,
@@ -1191,14 +1188,14 @@ export async function approvePlanNode(
           monetized_count: 0,
         };
       }),
-      getActiveHypotheses({ verdict: 'pending' }).catch((e: unknown) => {
+      callMcpTool<{ hypotheses: Array<Record<string, unknown>> }>('get_active_hypotheses', { verdict: 'pending' }).catch((e: unknown) => {
         errors.push(makeError('approve_plan', 'strategist', e));
         return { hypotheses: [] };
       }),
       // Get pool status for each allocation cluster
       Promise.all(
         state.strategy.resource_allocation.map((a) =>
-          getContentPoolStatus({ cluster: a.cluster }).catch(() => ({
+          callMcpTool<{ content: Record<string, number>; publications: Record<string, number> }>('get_content_pool_status', { cluster: a.cluster }).catch(() => ({
             content: { pending_approval: 0, planned: 0, producing: 0, ready: 0, analyzed: 0 },
             publications: { scheduled: 0, posted: 0, measured: 0 },
           })),
@@ -1490,7 +1487,7 @@ Output ONLY valid JSON:
         reflections.push(reflection);
 
         // Save reflection to DB
-        await saveReflection({
+        await callMcpTool('save_reflection', {
           agent_type: agentType,
           cycle_id: state.cycle_id,
           task_description: `Strategy cycle #${state.cycle_number} — ${agentType} role`,
@@ -1503,7 +1500,7 @@ Output ONLY valid JSON:
 
         // Save key learnings as individual learning
         if (reflectParsed.what_to_improve.length > 0) {
-          await saveIndividualLearning({
+          await callMcpTool('save_individual_learning', {
             agent_type: agentType,
             content: reflectParsed.what_to_improve.join('; '),
             category: 'insight',
@@ -1513,7 +1510,7 @@ Output ONLY valid JSON:
         }
 
         // Submit status report to human
-        await submitAgentMessage({
+        await callMcpTool('submit_agent_message', {
           agent_type: agentType,
           message_type: 'status_report',
           content: `Cycle #${state.cycle_number} reflection: Score ${reflection.self_score}/10. ${reflection.score_reasoning}`,

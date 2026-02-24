@@ -1,6 +1,17 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 interface SystemSetting {
   setting_key: string;
@@ -81,127 +92,95 @@ export default function SettingsPage() {
   );
 
   return (
-    <main className="min-h-screen p-8">
-      <h1 className="text-2xl font-bold mb-6">Settings</h1>
-
+    <div>
       {/* Category Tabs */}
       <div className="flex flex-wrap gap-2 mb-6">
         {CATEGORIES.map((cat) => (
-          <button
+          <Button
             key={cat}
-            className="px-3 py-1 rounded text-sm font-medium"
-            style={{
-              backgroundColor:
-                activeCategory === cat
-                  ? "var(--accent-blue)"
-                  : "var(--card-bg)",
-              color: activeCategory === cat ? "#fff" : "var(--fg)",
-            }}
+            variant={activeCategory === cat ? "default" : "secondary"}
+            size="sm"
             onClick={() => setActiveCategory(cat)}
           >
             {cat}
-          </button>
+          </Button>
         ))}
       </div>
 
+      {/* Settings <table> via Shadcn Table component */}
       {loading ? (
         <p>Loading...</p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                <th className="text-left p-2">Key</th>
-                <th className="text-left p-2">Value</th>
-                <th className="text-left p-2">Type</th>
-                <th className="text-left p-2">Description</th>
-                <th className="text-left p-2">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredSettings.map((s) => (
-                <tr
-                  key={s.setting_key}
-                  style={{ borderBottom: "1px solid var(--border)" }}
-                >
-                  <td className="p-2 font-mono text-xs">{s.setting_key}</td>
-                  <td className="p-2">
-                    {editingKey === s.setting_key ? (
-                      <input
-                        type="text"
-                        className="w-full p-1 rounded text-sm"
-                        style={{
-                          backgroundColor: "var(--bg)",
-                          color: "var(--fg)",
-                        }}
-                        value={editValue}
-                        onChange={(e) => setEditValue(e.target.value)}
-                      />
-                    ) : (
-                      <span className="font-mono text-xs">
-                        {JSON.stringify(s.setting_value)}
-                      </span>
-                    )}
-                  </td>
-                  <td className="p-2">
-                    <span
-                      className="px-2 py-1 rounded text-xs"
-                      style={{
-                        backgroundColor: "var(--card-bg)",
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Key</TableHead>
+              <TableHead>Value</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead>Description</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredSettings.map((s) => (
+              <TableRow key={s.setting_key}>
+                <TableCell className="font-mono text-xs">
+                  {s.setting_key}
+                </TableCell>
+                <TableCell>
+                  {editingKey === s.setting_key ? (
+                    <Input
+                      className="h-8"
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                    />
+                  ) : (
+                    <span className="font-mono text-xs">
+                      {JSON.stringify(s.setting_value)}
+                    </span>
+                  )}
+                </TableCell>
+                <TableCell>
+                  <Badge variant="secondary">{s.value_type}</Badge>
+                </TableCell>
+                <TableCell className="text-xs text-muted-foreground">
+                  {s.description}
+                </TableCell>
+                <TableCell>
+                  {editingKey === s.setting_key ? (
+                    <div className="flex gap-1">
+                      <Button
+                        variant="success"
+                        size="sm"
+                        onClick={() => handleSave(s.setting_key)}
+                      >
+                        Save
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setEditingKey(null)}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        setEditingKey(s.setting_key);
+                        setEditValue(JSON.stringify(s.setting_value));
                       }}
                     >
-                      {s.value_type}
-                    </span>
-                  </td>
-                  <td className="p-2 text-xs" style={{ color: "var(--muted)" }}>
-                    {s.description}
-                  </td>
-                  <td className="p-2">
-                    {editingKey === s.setting_key ? (
-                      <div className="flex gap-1">
-                        <button
-                          className="px-2 py-1 rounded text-xs"
-                          style={{
-                            backgroundColor: "var(--success)",
-                            color: "#fff",
-                          }}
-                          onClick={() => handleSave(s.setting_key)}
-                        >
-                          Save
-                        </button>
-                        <button
-                          className="px-2 py-1 rounded text-xs"
-                          style={{
-                            backgroundColor: "var(--muted)",
-                            color: "#fff",
-                          }}
-                          onClick={() => setEditingKey(null)}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        className="px-2 py-1 rounded text-xs"
-                        style={{
-                          backgroundColor: "var(--accent-blue)",
-                          color: "#fff",
-                        }}
-                        onClick={() => {
-                          setEditingKey(s.setting_key);
-                          setEditValue(JSON.stringify(s.setting_value));
-                        }}
-                      >
-                        Edit
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                      Edit
+                    </Button>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       )}
-    </main>
+    </div>
   );
 }
