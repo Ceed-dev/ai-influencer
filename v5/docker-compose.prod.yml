@@ -70,10 +70,13 @@ services:
         condition: service_healthy
     volumes:
       - ./dashboard/.next:/dashboard/.next
+      - ./dashboard/public:/dashboard/public
       - ./dashboard/package.json:/dashboard/package.json
+      - ./dashboard/next.config.js:/dashboard/next.config.js
       - ./dashboard/node_modules:/dashboard/node_modules
     environment:
       NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL:-postgres://postgres:password@35.243.93.204:5432/ai_influencer}
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://app:3001}
     ports:
       - "3000:3000"
