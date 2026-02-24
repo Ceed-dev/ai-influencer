@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query, queryOne } from "@/lib/db";
 
+async function getSettingValue(key: string): Promise<unknown> {
+  const row = await queryOne<{ setting_value: unknown }>(
+    `SELECT setting_value FROM system_settings WHERE setting_key = $1`,
+    [key]
+  );
+  return row?.setting_value ?? null;
+}
+
 /**
  * GET /api/kpi/summary
  * KPI dashboard data — targets vs actuals, by period.
@@ -64,29 +72,43 @@ export async function GET(request: NextRequest) {
   );
 
   // Prediction accuracy (from algorithm_performance if available)
+  // The table stores prediction_error; accuracy ≈ 1 - error
   const predictionResult = await queryOne<{ accuracy: string | null }>(
-    `SELECT AVG(prediction_accuracy)::text as accuracy
+    `SELECT (1 - COALESCE(AVG(prediction_error), 0))::text as accuracy
      FROM algorithm_performance
-     WHERE calculated_at >= NOW() - $1::interval`,
+     WHERE measured_at >= NOW() - $1::interval`,
     [interval]
   );
 
-  // Engagement (from metrics if available)
+  // Engagement (from metrics table — engagement_rate is a direct column)
   const engagementResult = await queryOne<{
     avg_rate: string;
   }>(
-    `SELECT COALESCE(AVG((metric_value->>'engagement_rate')::numeric), 0)::text as avg_rate
+    `SELECT COALESCE(AVG(engagement_rate), 0)::text as avg_rate
      FROM metrics
-     WHERE metric_name = 'engagement_rate'
-       AND recorded_at >= NOW() - $1::interval`,
+     WHERE measured_at >= NOW() - $1::interval
+       AND engagement_rate IS NOT NULL`,
     [interval]
   );
+
+  // Read targets from system_settings (no hardcoding)
+  let followerTarget = 0;
+  let revenuePerEngagement = 0;
+  try {
+    const ft = await getSettingValue('KPI_FOLLOWER_TARGET');
+    if (ft != null) followerTarget = Number(ft);
+    const rpe = await getSettingValue('KPI_REVENUE_PER_ENGAGEMENT');
+    if (rpe != null) revenuePerEngagement = Number(rpe);
+  } catch { /* settings may not exist yet */ }
+
+  const totalEngagement = parseInt(contentResult?.total_posted ?? "0", 10);
+  const revenueEstimate = totalEngagement * revenuePerEngagement;
 
   return NextResponse.json({
     accounts,
     followers: {
       current: parseInt(followerResult?.current ?? "0", 10),
-      target: 0, // Set from system_settings
+      target: followerTarget,
       growth_rate: parseFloat(followerResult?.growth_rate ?? "0"),
     },
     engagement: {
@@ -100,7 +122,7 @@ export async function GET(request: NextRequest) {
     },
     monetization: {
       monetized_count: parseInt(monetizationResult?.monetized_count ?? "0", 10),
-      revenue_estimate: 0,
+      revenue_estimate: revenueEstimate,
     },
     prediction_accuracy: predictionResult?.accuracy
       ? parseFloat(predictionResult.accuracy)

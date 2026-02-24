@@ -42,12 +42,12 @@ export async function GET(request: NextRequest) {
        SELECT
          p.account_id,
          COUNT(*)::int as publication_count,
-         SUM(COALESCE((m.raw_data->>'views')::int, 0)) as total_views,
-         SUM(COALESCE((m.raw_data->>'likes')::int, 0)) as total_likes,
-         SUM(COALESCE((m.raw_data->>'comments')::int, 0)) as total_comments,
-         SUM(COALESCE((m.raw_data->>'shares')::int, 0)) as total_shares
+         SUM(COALESCE(m.views, 0)) as total_views,
+         SUM(COALESCE(m.likes, 0)) as total_likes,
+         SUM(COALESCE(m.comments, 0)) as total_comments,
+         SUM(COALESCE(m.shares, 0)) as total_shares
        FROM publications p
-       LEFT JOIN metrics m ON m.publication_id = p.publication_id
+       LEFT JOIN metrics m ON m.publication_id = p.id
        GROUP BY p.account_id
      ) stats ON stats.account_id = a.account_id
      ${whereClause}

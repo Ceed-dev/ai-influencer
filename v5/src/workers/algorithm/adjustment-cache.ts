@@ -149,8 +149,8 @@ const FACTOR_SQLS: Record<string, string> = {
       COUNT(*)::int AS sample_count
     FROM base
     JOIN content_sections cs ON base.content_id = cs.content_id
-    JOIN components comp ON cs.component_id = comp.id
-    WHERE comp.component_type = 'audio'
+    JOIN components comp ON cs.component_id = comp.component_id
+    WHERE comp.type = 'audio'
       AND comp.data->>'bgm_category' IS NOT NULL
     GROUP BY comp.data->>'bgm_category'
   `,

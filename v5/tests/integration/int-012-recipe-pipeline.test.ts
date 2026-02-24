@@ -42,8 +42,8 @@ describe('FEAT-TST-012: Tool Specialist → production worker recipe', () => {
     let recipeId: number;
     if (recipeRes.rows.length === 0) {
       const ins = await client.query(
-        `INSERT INTO production_recipes (name, content_format, tools_config, created_by)
-         VALUES ('INT012 Recipe', 'short_video', '{"fal_model":"minimax"}', 'tool_specialist')
+        `INSERT INTO production_recipes (recipe_name, content_format, steps, created_by)
+         VALUES ('INT012 Recipe', 'short_video', '{"steps":["generate","lipsync"]}', 'tool_specialist')
          RETURNING id`
       );
       recipeId = ins.rows[0].id;
@@ -63,8 +63,8 @@ describe('FEAT-TST-012: Tool Specialist → production worker recipe', () => {
     let toolId: number;
     if (toolRes.rows.length === 0) {
       const ins = await client.query(
-        `INSERT INTO tool_catalog (tool_name, provider, capabilities, status)
-         VALUES ('fal_minimax', 'fal.ai', '{"video_gen":true}', 'active')
+        `INSERT INTO tool_catalog (tool_name, tool_type, provider, is_active)
+         VALUES ('fal_minimax', 'video_generation', 'fal.ai', true)
          RETURNING id`
       );
       toolId = ins.rows[0].id;
@@ -73,8 +73,8 @@ describe('FEAT-TST-012: Tool Specialist → production worker recipe', () => {
     }
 
     await client.query(
-      `INSERT INTO tool_experiences (tool_id, content_id, agent_id, recipe_used, quality_score)
-       VALUES ($1, $2, 'video_worker', $3, 0.85)`,
+      `INSERT INTO tool_experiences (tool_id, content_id, agent_id, recipe_used, quality_score, success)
+       VALUES ($1, $2, 'video_worker', $3, 0.85, true)`,
       [toolId, testContentId, JSON.stringify({ recipe_id: recipeId })]
     );
 

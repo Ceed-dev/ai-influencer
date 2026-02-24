@@ -16,9 +16,17 @@ import { getSetting } from '../../lib/settings.js';
  */
 export async function getFollowupDays(client: PoolClient): Promise<number[]> {
   const val = await getSetting('METRICS_FOLLOWUP_DAYS', client);
-  if (Array.isArray(val)) return val.map(Number);
+  if (Array.isArray(val)) {
+    const nums = val.map(Number);
+    if (nums.some((n) => isNaN(n) || n <= 0)) return [7, 30];
+    return nums;
+  }
   if (typeof val === 'string') {
-    try { return JSON.parse(val).map(Number); } catch { return [7, 30]; }
+    try {
+      const parsed = JSON.parse(val).map(Number);
+      if (parsed.some((n: number) => isNaN(n) || n <= 0)) return [7, 30];
+      return parsed;
+    } catch { return [7, 30]; }
   }
   return [7, 30];
 }

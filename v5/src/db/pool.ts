@@ -21,9 +21,9 @@ export interface PoolConfig {
 
 const DEFAULT_CONFIG: Required<PoolConfig> = {
   connectionString: DATABASE_URL,
-  max: 20,
+  max: Number(process.env['DB_POOL_MAX']) || 20,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  connectionTimeoutMillis: Number(process.env['DB_CONNECTION_TIMEOUT_MS']) || 2000,
   application_name: 'ai-influencer-v5',
 };
 

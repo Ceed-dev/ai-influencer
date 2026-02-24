@@ -12,7 +12,7 @@
  * 7. Normalize to sum=1.0
  * 8. prediction_weights UPDATE + weight_audit_log INSERT (transaction)
  */
-import { getSettingNumber, getSettingString, getSharedPool, closeSettingsPool } from '../../lib/settings';
+import { getSettingNumber, getSharedPool, closeSettingsPool } from '../../lib/settings';
 import type { Pool, PoolClient } from 'pg';
 
 const FACTORS = [

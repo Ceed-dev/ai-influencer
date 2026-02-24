@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { query, queryCount } from "@/lib/db";
 
 const VALID_PLATFORMS = ["youtube", "tiktok", "instagram", "x"] as const;
-const VALID_STATUSES = ["active", "paused", "suspended", "setup"] as const;
+const VALID_STATUSES = ["active", "suspended", "setup"] as const;
 
 /**
  * GET /api/accounts

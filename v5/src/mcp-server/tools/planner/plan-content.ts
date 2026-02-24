@@ -45,10 +45,19 @@ export async function planContent(
         [contentId, input.hypothesis_id, input.character_id, input.script_language, input.content_format],
       );
 
-      // Insert content_sections
+      // Insert content_sections — ensure referenced components exist (FK)
       for (let i = 0; i < input.sections.length; i++) {
         const section = input.sections[i];
         if (!section) continue;
+
+        // Ensure component record exists
+        await client.query(
+          `INSERT INTO components (component_id, type, name)
+           VALUES ($1, 'scenario', $1)
+           ON CONFLICT (component_id) DO NOTHING`,
+          [section.component_id],
+        );
+
         await client.query(
           `
           INSERT INTO content_sections (content_id, section_label, component_id, section_order)

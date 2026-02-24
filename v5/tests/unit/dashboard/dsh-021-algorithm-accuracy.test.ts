@@ -9,7 +9,7 @@ import { query, withClient } from '../../helpers/db';
 describe('FEAT-DSH-021: Algorithm Accuracy page', () => {
   const agentsPagePath = path.join(__dirname, '../../../dashboard/app/agents/page.tsx');
   let agentsContent: string;
-  const apiPath = path.join(__dirname, '../../../dashboard/app/api/algorithm-performance/route.ts');
+  const apiPath = path.join(__dirname, '../../../dashboard/app/api/algorithm/performance/route.ts');
   let apiContent: string;
 
   beforeAll(async () => {

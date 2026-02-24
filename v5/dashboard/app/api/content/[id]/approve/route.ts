@@ -3,7 +3,7 @@ import { query, queryOne } from "@/lib/db";
 
 /**
  * POST /api/content/:id/approve
- * Approve content (pending_approval -> planned).
+ * Approve content (pending_approval -> approved).
  */
 export async function POST(
   request: NextRequest,
@@ -42,7 +42,7 @@ export async function POST(
 
   const result = await query(
     `UPDATE content
-     SET status = 'planned',
+     SET status = 'approved',
          approved_by = 'dashboard_user',
          approved_at = NOW(),
          approval_feedback = $1,

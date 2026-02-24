@@ -19,6 +19,20 @@ import type {
 } from '../../../types/langgraph-state';
 
 // ---------------------------------------------------------------------------
+// Real node implementations (imported from strategy-nodes)
+// ---------------------------------------------------------------------------
+import {
+  collectIntelNode,
+  analyzeCycleNode,
+  setStrategyNode,
+  planContentNode,
+  selectToolsNode,
+  approvePlanNode,
+  humanReviewGateNode,
+  reflectAllNode,
+} from '../nodes/strategy-nodes.js';
+
+// ---------------------------------------------------------------------------
 // Node name constants
 // ---------------------------------------------------------------------------
 
@@ -59,18 +73,18 @@ export type NodeFn = (
 ) => Promise<Partial<StrategyCycleAnnotationType>>;
 
 // ---------------------------------------------------------------------------
-// Default (stub) node implementations
-// Each real node will be imported from src/agents/nodes/
+// Default node implementations — use real implementations from strategy-nodes
+// Override via StrategyGraphOptions for testing
 // ---------------------------------------------------------------------------
 
-const defaultCollectIntel: NodeFn = async (_state) => ({});
-const defaultAnalyzeCycle: NodeFn = async (_state) => ({});
-const defaultSetStrategy: NodeFn = async (_state) => ({});
-const defaultPlanContent: NodeFn = async (_state) => ({});
-const defaultSelectTools: NodeFn = async (_state) => ({});
-const defaultApprovePlan: NodeFn = async (_state) => ({});
-const defaultHumanReviewGate: NodeFn = async (_state) => ({});
-const defaultReflectAll: NodeFn = async (_state) => ({});
+const defaultCollectIntel: NodeFn = collectIntelNode;
+const defaultAnalyzeCycle: NodeFn = analyzeCycleNode;
+const defaultSetStrategy: NodeFn = setStrategyNode;
+const defaultPlanContent: NodeFn = planContentNode;
+const defaultSelectTools: NodeFn = selectToolsNode;
+const defaultApprovePlan: NodeFn = approvePlanNode;
+const defaultHumanReviewGate: NodeFn = humanReviewGateNode;
+const defaultReflectAll: NodeFn = reflectAllNode;
 
 // ---------------------------------------------------------------------------
 // Edge routing types (graph-internal, maps to spec types via HUMAN_REVIEW_NODE)

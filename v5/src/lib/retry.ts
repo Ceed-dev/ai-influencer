@@ -36,7 +36,7 @@ export function withTimeout<T>(
     const controller = new AbortController();
     const timer = setTimeout(() => {
       controller.abort();
-      reject(new TimeoutError(`Operation timed out after ${timeoutMs}ms`));
+      reject(new TimeoutError(`Timeout: operation exceeded ${timeoutMs}ms`));
     }, timeoutMs);
 
     fn(controller.signal)

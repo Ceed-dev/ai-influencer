@@ -14,7 +14,7 @@
  * 6. Predicted = baseline × (1 + total_adj), value-clipped
  * 7. INSERT into prediction_snapshots
  */
-import { getSettingNumber, getSharedPool, closeSettingsPool } from '../../lib/settings';
+import { getSettingNumber, getSharedPool } from '../../lib/settings';
 import type { Pool, PoolClient } from 'pg';
 
 const FACTORS = [
@@ -218,8 +218,8 @@ async function resolveFactorValues(
   const bgmRes = await client.query(`
     SELECT comp.data->>'bgm_category' AS bgm
     FROM content_sections cs
-    JOIN components comp ON cs.component_id = comp.id
-    WHERE cs.content_id = $1 AND comp.component_type = 'audio'
+    JOIN components comp ON cs.component_id = comp.component_id
+    WHERE cs.content_id = $1 AND comp.type = 'audio'
     LIMIT 1
   `, [contentId]);
   values['sound_bgm'] = bgmRes.rows[0]?.bgm || null;

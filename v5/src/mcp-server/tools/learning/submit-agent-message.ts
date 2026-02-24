@@ -36,18 +36,31 @@ export async function submitAgentMessage(
 
   const pool = getPool();
 
+  // Map numeric priority to text value expected by DB constraint
+  let priorityText = 'normal';
+  if (input.priority !== undefined && input.priority !== null) {
+    if (typeof input.priority === 'string') {
+      priorityText = input.priority;
+    } else {
+      if (input.priority <= 2) priorityText = 'low';
+      else if (input.priority <= 4) priorityText = 'normal';
+      else if (input.priority <= 7) priorityText = 'high';
+      else priorityText = 'urgent';
+    }
+  }
+
   const res = await pool.query(
     `INSERT INTO agent_communications
        (agent_type, message_type, content, priority)
      VALUES ($1, $2, $3, $4)
-     RETURNING id`,
+     RETURNING id, ('x' || substr(id::text, 1, 8))::bit(32)::int AS numeric_id`,
     [
       input.agent_type,
       input.message_type,
       input.content,
-      input.priority ?? 0,
+      priorityText,
     ],
   );
 
-  return { id: res.rows[0]['id'] as number };
+  return { id: Number(res.rows[0]['numeric_id']) };
 }

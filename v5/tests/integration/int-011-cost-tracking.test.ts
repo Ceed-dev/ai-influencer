@@ -15,11 +15,11 @@ describe('FEAT-TST-011: cost tracking and alert pipeline', () => {
   beforeAll(async () => {
     client = new Client({ connectionString: TEST_DB_URL });
     await client.connect();
-    await client.query(`DELETE FROM agent_communications WHERE message LIKE '%INT011%'`);
+    await client.query(`DELETE FROM agent_communications WHERE content LIKE '%INT011%'`);
   });
 
   afterAll(async () => {
-    await client.query(`DELETE FROM agent_communications WHERE message LIKE '%INT011%'`);
+    await client.query(`DELETE FROM agent_communications WHERE content LIKE '%INT011%'`);
     await client.end();
   });
 
@@ -34,8 +34,8 @@ describe('FEAT-TST-011: cost tracking and alert pipeline', () => {
     // Step 1: Generate alert when below threshold
     if (belowThreshold) {
       await client.query(
-        `INSERT INTO agent_communications (sender, receiver, message, message_type, status)
-         VALUES ('system', 'human', $1, 'alert', 'pending')`,
+        `INSERT INTO agent_communications (agent_type, content, message_type, status)
+         VALUES ('analyst', $1, 'anomaly_alert', 'unread')`,
         [`INT011: fal.ai balance alert — $${currentBalance} below threshold $${alertThreshold}`]
       );
     }
@@ -43,7 +43,7 @@ describe('FEAT-TST-011: cost tracking and alert pipeline', () => {
     // Verify alert exists
     const alertRes = await client.query(
       `SELECT COUNT(*)::int AS cnt FROM agent_communications
-       WHERE message LIKE '%INT011%' AND message_type = 'alert'`
+       WHERE content LIKE '%INT011%' AND message_type = 'anomaly_alert'`
     );
     expect(alertRes.rows[0].cnt).toBeGreaterThan(0);
   });

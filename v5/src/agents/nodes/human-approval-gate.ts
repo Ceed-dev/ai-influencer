@@ -10,7 +10,6 @@
  */
 import { NodeInterrupt } from '@langchain/langgraph';
 import type { StrategyCycleAnnotationType } from '../graphs/strategy-cycle';
-import type { HumanApprovalResult } from '../../../types/langgraph-state';
 
 /**
  * Human approval gate node.

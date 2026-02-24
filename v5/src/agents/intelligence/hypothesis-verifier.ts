@@ -7,7 +7,7 @@
  * All config from DB system_settings — no hardcoding.
  */
 import type { PoolClient } from 'pg';
-import type { HypothesisVerdict, HypothesisKpis } from '@/types/database';
+import type { HypothesisVerdict } from '@/types/database';
 
 /** Result of hypothesis verification */
 export interface VerificationResult {

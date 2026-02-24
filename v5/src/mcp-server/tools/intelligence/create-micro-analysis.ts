@@ -39,6 +39,14 @@ export async function createMicroAnalysis(
 
   const pool = getPool();
 
+  // Ensure the content record exists (FK requirement)
+  await pool.query(
+    `INSERT INTO content (content_id, content_format, status)
+     VALUES ($1, 'short_video', 'measured')
+     ON CONFLICT (content_id) DO NOTHING`,
+    [input.content_id],
+  );
+
   const res = await pool.query(
     `INSERT INTO content_learnings
        (content_id, hypothesis_id, predicted_kpis, actual_kpis, prediction_error,

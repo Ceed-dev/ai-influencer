@@ -6,7 +6,7 @@
  * Only returns publications that are eligible for measurement.
  * All config values read from system_settings — no hardcoding.
  */
-import type { PoolClient, Pool } from 'pg';
+import type { PoolClient } from 'pg';
 import type { Platform } from '../../../types/database.js';
 
 export interface MeasurementTask {

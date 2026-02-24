@@ -10,15 +10,17 @@ const TEST_DB_URL = process.env.DATABASE_URL || 'postgres://dev:dev@localhost:54
 
 describe('FEAT-TST-019: algorithm_performance periods', () => {
   let client: Client;
+  // Use a distinct metadata tag to identify test records for cleanup
+  const testTag = { test_id: 'INT019' };
 
   beforeAll(async () => {
     client = new Client({ connectionString: TEST_DB_URL });
     await client.connect();
-    await client.query(`DELETE FROM algorithm_performance WHERE metric_name LIKE 'INT019%'`);
+    await client.query(`DELETE FROM algorithm_performance WHERE metadata @> $1`, [JSON.stringify(testTag)]);
   });
 
   afterAll(async () => {
-    await client.query(`DELETE FROM algorithm_performance WHERE metric_name LIKE 'INT019%'`);
+    await client.query(`DELETE FROM algorithm_performance WHERE metadata @> $1`, [JSON.stringify(testTag)]);
     await client.end();
   });
 
@@ -27,17 +29,18 @@ describe('FEAT-TST-019: algorithm_performance periods', () => {
 
     for (const period of periods) {
       await client.query(
-        `INSERT INTO algorithm_performance (period, metric_name, metric_value, measured_at)
-         VALUES ($1, $2, $3, NOW())`,
-        [period, `INT019_${period}_accuracy`, JSON.stringify({ value: 0.85 })]
+        `INSERT INTO algorithm_performance (period, hypothesis_accuracy, prediction_error, learning_count, measured_at, metadata)
+         VALUES ($1, 0.8500, 0.1200, 5, NOW(), $2)`,
+        [period, JSON.stringify({ ...testTag, period_label: `INT019_${period}_accuracy` })]
       );
     }
 
     const res = await client.query(
       `SELECT period, COUNT(*)::int AS cnt
        FROM algorithm_performance
-       WHERE metric_name LIKE 'INT019%'
-       GROUP BY period`
+       WHERE metadata @> $1
+       GROUP BY period`,
+      [JSON.stringify(testTag)]
     );
 
     expect(res.rows).toHaveLength(3);

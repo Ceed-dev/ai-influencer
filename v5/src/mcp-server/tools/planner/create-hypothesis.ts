@@ -13,15 +13,43 @@ import { McpValidationError, McpDbError } from '../../errors';
 const VALID_CATEGORIES = [
   'hook_type',
   'content_length',
+  'content_format',
   'post_timing',
+  'timing',
   'narrative',
   'sound',
   'hashtag',
   'audience_segment',
+  'audience',
+  'niche',
   'platform_specific',
   'cross_platform',
   'character_trait',
 ] as const;
+
+/**
+ * Map application-level category to DB-allowed category.
+ * DB CHECK constraint allows: content_format, timing, niche, audience, platform_specific
+ */
+function mapCategoryToDb(category: string): string {
+  const mapping: Record<string, string> = {
+    hook_type: 'content_format',
+    content_length: 'content_format',
+    content_format: 'content_format',
+    narrative: 'content_format',
+    sound: 'content_format',
+    post_timing: 'timing',
+    timing: 'timing',
+    hashtag: 'audience',
+    audience_segment: 'audience',
+    audience: 'audience',
+    niche: 'niche',
+    platform_specific: 'platform_specific',
+    cross_platform: 'platform_specific',
+    character_trait: 'audience',
+  };
+  return mapping[category] ?? category;
+}
 
 export async function createHypothesis(
   input: CreateHypothesisInput,
@@ -35,6 +63,7 @@ export async function createHypothesis(
   const pool = getPool();
 
   try {
+    const dbCategory = mapCategoryToDb(input.category);
     const res = await pool.query(
       `
       INSERT INTO hypotheses (category, statement, rationale, target_accounts, predicted_kpis, verdict, cycle_id)
@@ -42,7 +71,7 @@ export async function createHypothesis(
       RETURNING id
       `,
       [
-        input.category,
+        dbCategory,
         input.statement,
         input.rationale,
         input.target_accounts,

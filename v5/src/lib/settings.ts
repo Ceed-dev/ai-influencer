@@ -2,19 +2,11 @@
  * system_settings table read utility
  * All config values must be read via this module — no hardcoding.
  * Spec: 02-architecture.md §10, 10-implementation-guide.md §4.7
+ *
+ * Uses the shared pool from db/pool.ts — no separate pool.
  */
-import { Pool, type PoolClient } from 'pg';
-
-const DATABASE_URL = process.env['DATABASE_URL'] || 'postgres://dev:dev@localhost:5433/dev_ai_influencer';
-
-let pool: Pool | null = null;
-
-function getPool(): Pool {
-  if (!pool) {
-    pool = new Pool({ connectionString: DATABASE_URL, max: 5 });
-  }
-  return pool;
-}
+import type { PoolClient } from 'pg';
+import { getPool as getDbPool } from '../db/pool.js';
 
 /**
  * Get a setting value from system_settings by key.
@@ -22,7 +14,7 @@ function getPool(): Pool {
  * Throws if key not found.
  */
 export async function getSetting(key: string, client?: PoolClient): Promise<unknown> {
-  const q = client || getPool();
+  const q = client || getDbPool();
   const res = await q.query(
     'SELECT setting_value FROM system_settings WHERE setting_key = $1',
     [key]
@@ -53,15 +45,18 @@ export async function getSettingString(key: string, client?: PoolClient): Promis
   return String(val);
 }
 
-/** Shutdown the connection pool */
+/**
+ * Shutdown the connection pool.
+ * @deprecated Use closePool() from db/pool.ts instead. Kept for backward compatibility.
+ */
 export async function closeSettingsPool(): Promise<void> {
-  if (pool) {
-    await pool.end();
-    pool = null;
-  }
+  // No-op: pool lifecycle is managed by db/pool.ts
 }
 
-/** Get the shared pool (for modules that need direct DB access) */
-export function getSharedPool(): Pool {
-  return getPool();
+/**
+ * Get the shared pool.
+ * @deprecated Import getPool() from db/pool.ts directly.
+ */
+export function getSharedPool() {
+  return getDbPool();
 }

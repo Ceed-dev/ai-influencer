@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
   const [errors, total] = await Promise.all([
     query(
       `SELECT tq.id, tq.task_type, tq.id as task_id, tq.error_message,
-              tq.retry_count, tq.status, tq.created_at, tq.updated_at as resolved_at
+              tq.retry_count, tq.status, tq.created_at, tq.completed_at as resolved_at
        FROM task_queue tq
        ${whereClause}
        ORDER BY tq.created_at DESC

@@ -48,7 +48,7 @@ export async function saveIndividualLearning(
     `INSERT INTO agent_individual_learnings
        (agent_type, category, content, context, confidence)
      VALUES ($1, $2, $3, $4, $5)
-     RETURNING id`,
+     RETURNING ('x' || substr(id::text, 1, 8))::bit(32)::int AS numeric_id`,
     [
       input.agent_type,
       input.category,
@@ -58,5 +58,5 @@ export async function saveIndividualLearning(
     ],
   );
 
-  return { id: res.rows[0]['id'] as number };
+  return { id: Number(res.rows[0]['numeric_id']) };
 }

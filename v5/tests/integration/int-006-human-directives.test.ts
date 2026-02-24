@@ -40,7 +40,7 @@ describe('FEAT-TST-006: human_directives → agent processing', () => {
 
     // Step 2: Agent processes and acknowledges
     await client.query(
-      `UPDATE human_directives SET status = 'acknowledged', updated_at = NOW()
+      `UPDATE human_directives SET status = 'acknowledged', acknowledged_at = NOW()
        WHERE id = $1`,
       [directiveId]
     );

@@ -10,6 +10,16 @@ import type {
 import { getPool } from '../../db';
 import { McpValidationError, McpDbError } from '../../errors';
 
+/**
+ * Map numeric priority (1-10 scale) to DB text priority.
+ */
+function mapPriority(priority: number): string {
+  if (priority <= 2) return 'low';
+  if (priority <= 4) return 'normal';
+  if (priority <= 7) return 'high';
+  return 'urgent';
+}
+
 export async function submitHumanDirective(
   input: SubmitHumanDirectiveInput,
 ): Promise<SubmitHumanDirectiveOutput> {
@@ -27,12 +37,13 @@ export async function submitHumanDirective(
 
   const targetAccounts = input.target_accounts ?? null;
   const targetAgents = input.target_agents ?? null;
+  const priorityText = mapPriority(input.priority);
 
   const res = await pool.query(
     `INSERT INTO human_directives (directive_type, content, target_accounts, target_agents, priority, status)
      VALUES ($1, $2, $3, $4, $5, 'pending')
      RETURNING id`,
-    [input.directive_type, input.content, targetAccounts, targetAgents, input.priority],
+    [input.directive_type, input.content, targetAccounts, targetAgents, priorityText],
   );
 
   const row = res.rows[0] as { id: number } | undefined;

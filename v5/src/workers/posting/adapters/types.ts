@@ -2,7 +2,7 @@
  * Platform adapter interfaces
  * Spec: 04-agent-design.md §4.7, 10-implementation-guide.md §6.5
  */
-import type { Platform, PublicationMetadata } from '@/types/database';
+import type { Platform } from '@/types/database';
 
 /** Payload for a publish task from task_queue */
 export interface PublishTaskPayload {

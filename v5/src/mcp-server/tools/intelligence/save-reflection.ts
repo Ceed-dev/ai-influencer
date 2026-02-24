@@ -33,15 +33,27 @@ export async function saveReflection(
 
   const pool = getPool();
 
+  // Validate cycle_id FK if provided — set to null if cycle doesn't exist
+  let cycleId: number | null = input.cycle_id ?? null;
+  if (cycleId !== null) {
+    const cycleCheck = await pool.query(
+      `SELECT id FROM cycles WHERE id = $1`,
+      [cycleId],
+    );
+    if (cycleCheck.rowCount === 0) {
+      cycleId = null;
+    }
+  }
+
   const res = await pool.query(
     `INSERT INTO agent_reflections
        (agent_type, cycle_id, task_description, self_score, score_reasoning,
         what_went_well, what_to_improve, next_actions, metrics_snapshot)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-     RETURNING id`,
+     RETURNING id, ('x' || substr(id::text, 1, 8))::bit(32)::int AS numeric_id`,
     [
       input.agent_type,
-      input.cycle_id,
+      cycleId,
       input.task_description,
       input.self_score,
       input.score_reasoning,
@@ -52,5 +64,5 @@ export async function saveReflection(
     ],
   );
 
-  return { id: res.rows[0]['id'] as number };
+  return { id: Number(res.rows[0]['numeric_id']) };
 }

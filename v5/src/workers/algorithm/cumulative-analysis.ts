@@ -10,23 +10,132 @@
  * 2. Vector search across 5 tables (content_learnings, learnings,
  *    market_intel, hypotheses, agent_individual_learnings)
  * 3. Structured aggregation of results
- * 4. AI interpretation (placeholder)
+ * 4. AI interpretation via Claude Haiku (fallback: rule-based)
  * 5. Write cumulative_context to content_learnings
  */
 import { getSharedPool } from '../../lib/settings';
+import { generateEmbedding } from './embedding-batch.js';
+import { ChatAnthropic } from '@langchain/anthropic';
+import { getSetting } from '../../lib/settings.js';
+import { retryWithBackoff } from '../../lib/retry.js';
 import type { Pool } from 'pg';
 import type { CumulativeContext, CumulativeContextStructured } from '@/types/database';
-
-async function generateEmbedding(text: string): Promise<number[]> {
-  // Placeholder: return zero vector of dimension 1536 (OpenAI ada-002)
-  void text;
-  return new Array(1536).fill(0);
-}
 
 interface CumulativeAnalysisResult {
   structured: Record<string, unknown>;
   ai_interpretation: string;
   recommendations: string[];
+}
+
+/** LLM interpretation result */
+interface LlmInterpretation {
+  summary: string;
+  key_findings: string[];
+  recommendations: string[];
+  confidence_level: 'high' | 'medium' | 'low';
+}
+
+/**
+ * Generate AI interpretation via Claude Haiku for cost efficiency.
+ * Returns null if API key is unavailable or LLM call fails.
+ */
+async function generateLlmInterpretation(
+  contentId: string,
+  niche: string | null,
+  successRate: number,
+  predictionError: number,
+  totalResults: number,
+  topFactors: Array<{ factor: string; frequency: number }>,
+  topDetractors: Array<{ factor: string; frequency: number }>,
+): Promise<LlmInterpretation | null> {
+  let apiKey: string;
+  try {
+    apiKey = String(await getSetting('CRED_ANTHROPIC_API_KEY'));
+  } catch {
+    return null;
+  }
+  if (!apiKey) return null;
+
+  const llm = new ChatAnthropic({
+    model: 'claude-haiku-4-5-20251001',
+    anthropicApiKey: apiKey,
+    maxTokens: 1024,
+    temperature: 0,
+  });
+
+  const systemPrompt = `You are a content performance analyst. Analyze cumulative data and provide actionable insights.
+
+Return ONLY valid JSON matching this exact schema:
+{
+  "summary": "1-2 sentence overview",
+  "key_findings": ["insight1", "insight2", ...],
+  "recommendations": ["action1", "action2", ...],
+  "confidence_level": "high" | "medium" | "low"
+}`;
+
+  const userPrompt = `Analyze cumulative performance data for content ${contentId}:
+
+- Niche: ${niche ?? 'unknown'}
+- Similar content success rate: ${(successRate * 100).toFixed(1)}%
+- Average prediction error: ${(predictionError * 100).toFixed(1)}%
+- Total similar items found: ${totalResults} (across 5 knowledge bases)
+- Top contributing factors: ${topFactors.map((f) => `"${f.factor}" (${f.frequency}x)`).join(', ') || 'none'}
+- Top detractors: ${topDetractors.map((f) => `"${f.factor}" (${f.frequency}x)`).join(', ') || 'none'}
+
+Provide a concise analysis with actionable recommendations.`;
+
+  console.log(`[cumulative-analysis] Calling Claude Haiku for AI interpretation (content=${contentId})`);
+
+  try {
+    const responseText = await retryWithBackoff(
+      async () => {
+        const res = await llm.invoke([
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ]);
+        return typeof res.content === 'string'
+          ? res.content
+          : (res.content as Array<{ type: string; text?: string }>)
+              .filter((c) => c.type === 'text')
+              .map((c) => c.text ?? '')
+              .join('');
+      },
+      { maxAttempts: 3, baseDelayMs: 1000 },
+    );
+
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return null;
+
+    const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
+
+    if (
+      typeof parsed['summary'] !== 'string' ||
+      !Array.isArray(parsed['recommendations'])
+    ) {
+      return null;
+    }
+
+    const confidenceLevel = parsed['confidence_level'];
+    const validConfidence = confidenceLevel === 'high' || confidenceLevel === 'medium' || confidenceLevel === 'low'
+      ? confidenceLevel
+      : 'medium';
+
+    console.log(`[cumulative-analysis] LLM interpretation generated (confidence=${validConfidence})`);
+
+    return {
+      summary: parsed['summary'] as string,
+      key_findings: Array.isArray(parsed['key_findings'])
+        ? (parsed['key_findings'] as unknown[]).filter((f): f is string => typeof f === 'string')
+        : [],
+      recommendations: (parsed['recommendations'] as unknown[]).filter((r): r is string => typeof r === 'string'),
+      confidence_level: validConfidence,
+    };
+  } catch (err) {
+    console.warn(
+      `[cumulative-analysis] LLM interpretation failed, using rule-based fallback: ${err instanceof Error ? err.message : String(err)}`,
+    );
+    return null;
+  }
 }
 
 /**
@@ -199,27 +308,46 @@ export async function runCumulativeAnalysis(
     },
   };
 
-  // 5. AI interpretation (placeholder)
-  const recommendations: string[] = [];
-  if (similarContentSuccessRate > 0.7) {
-    recommendations.push('High success rate among similar content - continue current approach');
-  }
-  if (avgPredError > 0.3) {
-    recommendations.push('High prediction error in similar content - review prediction model weights');
-  }
-  if (topFactors.length > 0 && topFactors[0]) {
-    recommendations.push(
-      `Top contributing factor: "${topFactors[0].factor}" (found in ${topFactors[0].frequency} similar analyses)`,
-    );
-  }
+  // 5. AI interpretation via LLM (fallback: rule-based)
+  let aiInterpretation: string;
+  let recommendations: string[];
 
-  const aiInterpretation = [
-    `Cumulative analysis for ${contentId}:`,
-    `Found ${totalResults} similar items across 5 knowledge bases.`,
-    `Similar content success rate: ${(similarContentSuccessRate * 100).toFixed(1)}%`,
-    `Average prediction error of similar: ${(avgPredError * 100).toFixed(1)}%`,
-    niche ? `Niche: ${niche}` : '',
-  ].filter(Boolean).join(' ');
+  const llmResult = await generateLlmInterpretation(
+    contentId,
+    niche,
+    similarContentSuccessRate,
+    avgPredError,
+    totalResults,
+    topFactors,
+    topDetractors,
+  );
+
+  if (llmResult) {
+    aiInterpretation = llmResult.summary;
+    recommendations = llmResult.recommendations;
+  } else {
+    // Fallback: rule-based interpretation
+    recommendations = [];
+    if (similarContentSuccessRate > 0.7) {
+      recommendations.push('High success rate among similar content - continue current approach');
+    }
+    if (avgPredError > 0.3) {
+      recommendations.push('High prediction error in similar content - review prediction model weights');
+    }
+    if (topFactors.length > 0 && topFactors[0]) {
+      recommendations.push(
+        `Top contributing factor: "${topFactors[0].factor}" (found in ${topFactors[0].frequency} similar analyses)`,
+      );
+    }
+
+    aiInterpretation = [
+      `Cumulative analysis for ${contentId}:`,
+      `Found ${totalResults} similar items across 5 knowledge bases.`,
+      `Similar content success rate: ${(similarContentSuccessRate * 100).toFixed(1)}%`,
+      `Average prediction error of similar: ${(avgPredError * 100).toFixed(1)}%`,
+      niche ? `Niche: ${niche}` : '',
+    ].filter(Boolean).join(' ');
+  }
 
   // 6. Write cumulative_context to content_learnings
   if (contentLearningId) {

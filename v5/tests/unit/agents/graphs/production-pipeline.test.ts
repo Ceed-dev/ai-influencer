@@ -23,10 +23,9 @@ describe('TEST-AGT-008: Production Pipeline — content_format dispatch', () => 
     expect(result).toBe('generate_text');
   });
 
-  test('image_post throws (future extension)', () => {
-    expect(() => dispatchByContentFormat('image_post')).toThrow(
-      'image_post format is not yet supported'
-    );
+  test('image_post dispatches to generate_text (image gen in post-production)', () => {
+    const result = dispatchByContentFormat('image_post');
+    expect(result).toBe('generate_text');
   });
 
   test('unknown content_format throws', () => {

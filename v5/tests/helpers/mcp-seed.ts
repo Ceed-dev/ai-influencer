@@ -74,10 +74,17 @@ export async function seedBaseData() {
 
 export async function cleanupBaseData() {
   await withClient(async (client) => {
+    // Delete in strict FK dependency order — deepest dependents first.
+    // Use sub-selects to catch all rows that transitively reference MCP_TEST_ data.
     await client.query(`DELETE FROM metrics WHERE publication_id IN (SELECT id FROM publications WHERE content_id LIKE '${PREFIX}%')`);
-    await client.query(`DELETE FROM content_sections WHERE content_id LIKE '${PREFIX}%'`);
-    await client.query(`DELETE FROM publications WHERE content_id LIKE '${PREFIX}%'`);
-    await client.query(`DELETE FROM content WHERE content_id LIKE '${PREFIX}%'`);
+    await client.query(`DELETE FROM task_queue WHERE payload::text LIKE '%${PREFIX}%'`);
+    await client.query(`DELETE FROM content_sections WHERE content_id LIKE '${PREFIX}%' OR content_id LIKE 'CNT_%'`);
+    await client.query(`DELETE FROM publications WHERE content_id LIKE '${PREFIX}%' OR content_id LIKE 'CNT_%'`);
+    await client.query(`DELETE FROM content_learnings WHERE content_id LIKE '${PREFIX}%' OR content_id LIKE 'CNT_%'`);
+    await client.query(`DELETE FROM content WHERE content_id LIKE '${PREFIX}%' OR content_id LIKE 'CNT_%'`);
+    await client.query(`DELETE FROM hypotheses WHERE id IN (SELECT id FROM hypotheses WHERE statement LIKE 'Test %' OR statement LIKE 'Text post %')`);
+    await client.query(`DELETE FROM prediction_snapshots WHERE account_id LIKE '${PREFIX}%'`);
+    await client.query(`DELETE FROM account_baselines WHERE account_id LIKE '${PREFIX}%'`);
     await client.query(`DELETE FROM accounts WHERE account_id LIKE '${PREFIX}%'`);
     await client.query(`DELETE FROM characters WHERE character_id LIKE '${PREFIX}%'`);
   });

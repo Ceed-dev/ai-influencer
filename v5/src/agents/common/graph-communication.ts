@@ -56,7 +56,7 @@ export async function dequeueTask(
   taskType: TaskQueueType,
 ): Promise<TaskQueueEntry | null> {
   const result = await client.query(
-    `UPDATE task_queue SET status = 'processing', updated_at = NOW()
+    `UPDATE task_queue SET status = 'processing', started_at = NOW()
      WHERE id = (
        SELECT id FROM task_queue
        WHERE task_type = $1 AND status = 'pending'
@@ -80,7 +80,7 @@ export async function completeTask(
   taskId: number,
 ): Promise<void> {
   await client.query(
-    `UPDATE task_queue SET status = 'completed', updated_at = NOW()
+    `UPDATE task_queue SET status = 'completed', completed_at = NOW()
      WHERE id = $1`,
     [taskId]
   );
@@ -95,8 +95,8 @@ export async function failTask(
   errorMessage?: string,
 ): Promise<void> {
   await client.query(
-    `UPDATE task_queue SET status = 'failed', updated_at = NOW(),
-     payload = payload || $2::jsonb
+    `UPDATE task_queue SET status = 'failed', last_error_at = NOW(),
+     error_message = ($2::jsonb)->>'error'
      WHERE id = $1`,
     [taskId, JSON.stringify({ error: errorMessage })]
   );

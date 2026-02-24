@@ -15,12 +15,12 @@ describe('FEAT-TST-020: bidirectional agent ↔ human communication', () => {
   beforeAll(async () => {
     client = new Client({ connectionString: TEST_DB_URL });
     await client.connect();
-    await client.query(`DELETE FROM agent_communications WHERE message LIKE '%INT020%'`);
+    await client.query(`DELETE FROM agent_communications WHERE content LIKE '%INT020%'`);
     await client.query(`DELETE FROM human_directives WHERE content LIKE '%INT020%'`);
   });
 
   afterAll(async () => {
-    await client.query(`DELETE FROM agent_communications WHERE message LIKE '%INT020%'`);
+    await client.query(`DELETE FROM agent_communications WHERE content LIKE '%INT020%'`);
     await client.query(`DELETE FROM human_directives WHERE content LIKE '%INT020%'`);
     await client.end();
   });
@@ -28,8 +28,8 @@ describe('FEAT-TST-020: bidirectional agent ↔ human communication', () => {
   test('TEST-INT-020: agent question → human reply → agent retrieves', async () => {
     // Step 1: Agent sends question
     const msgRes = await client.query(
-      `INSERT INTO agent_communications (sender, receiver, message, message_type, status)
-       VALUES ('analyst', 'human', 'INT020: Should we prioritize beauty or tech niche?', 'question', 'pending')
+      `INSERT INTO agent_communications (agent_type, content, message_type, status)
+       VALUES ('analyst', 'INT020: Should we prioritize beauty or tech niche?', 'question', 'unread')
        RETURNING id`
     );
     const msgId = msgRes.rows[0].id;
@@ -37,7 +37,7 @@ describe('FEAT-TST-020: bidirectional agent ↔ human communication', () => {
     // Step 2: Human replies via directive
     const dirRes = await client.query(
       `INSERT INTO human_directives (directive_type, content, priority, status)
-       VALUES ('response', 'INT020: Focus on beauty niche for Q1', 'medium', 'pending')
+       VALUES ('agent_response', 'INT020: Focus on beauty niche for Q1', 'normal', 'pending')
        RETURNING id`
     );
     const dirId = dirRes.rows[0].id;

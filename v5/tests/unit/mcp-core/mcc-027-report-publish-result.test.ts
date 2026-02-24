@@ -25,7 +25,7 @@ describe('FEAT-MCC-027: report_publish_result', () => {
 
     await pool.query(`
       INSERT INTO accounts (account_id, platform, status, follower_count, monetization_status, character_id, niche, cluster)
-      VALUES ('${PREFIX}ACC_001', 'youtube', 'active', 1000, 'none', '${PREFIX}CHR_001', 'beauty', 'cluster_a')
+      VALUES ('${PREFIX}ACC_001', 'youtube', 'active', 1000, 'none', '${PREFIX}CHR_001', 'beauty', 'cluster_pub027')
       ON CONFLICT (account_id) DO NOTHING
     `);
 
@@ -53,8 +53,10 @@ describe('FEAT-MCC-027: report_publish_result', () => {
 
   afterAll(async () => {
     await pool.query(`DELETE FROM task_queue WHERE payload->>'content_id' LIKE '${PREFIX}%'`);
+    await pool.query(`DELETE FROM prediction_snapshots WHERE publication_id IN (SELECT id FROM publications WHERE content_id LIKE '${PREFIX}%')`);
     await pool.query(`DELETE FROM publications WHERE content_id LIKE '${PREFIX}%'`);
     await pool.query(`DELETE FROM content WHERE content_id LIKE '${PREFIX}%'`);
+    await pool.query(`DELETE FROM account_baselines WHERE account_id LIKE '${PREFIX}%'`);
     await pool.query(`DELETE FROM accounts WHERE account_id LIKE '${PREFIX}%'`);
     await pool.query(`DELETE FROM characters WHERE character_id LIKE '${PREFIX}%'`);
     await pool.end();

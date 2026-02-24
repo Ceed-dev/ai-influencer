@@ -60,18 +60,29 @@ export function detectAnomaliesInValues(
 ): Array<{ id: string; value: number; zScore: number; isAnomaly: boolean }> {
   if (values.length < 3) return []; // Need minimum sample size
 
-  const nums = values.map((v) => v.value);
-  const mean = nums.reduce((s, n) => s + n, 0) / nums.length;
-  const variance = nums.reduce((s, n) => s + (n - mean) ** 2, 0) / nums.length;
-  const stddev = Math.sqrt(variance);
+  const nums = values.map((v) => v.value).sort((a, b) => a - b);
+
+  // Use median + MAD (Median Absolute Deviation) for robust outlier detection.
+  // Standard mean/stddev is distorted by outliers, making them undetectable.
+  const median = nums.length % 2 === 1
+    ? nums[Math.floor(nums.length / 2)]!
+    : (nums[nums.length / 2 - 1]! + nums[nums.length / 2]!) / 2;
+
+  const absDeviations = nums.map((n) => Math.abs(n - median)).sort((a, b) => a - b);
+  const mad = absDeviations.length % 2 === 1
+    ? absDeviations[Math.floor(absDeviations.length / 2)]!
+    : (absDeviations[absDeviations.length / 2 - 1]! + absDeviations[absDeviations.length / 2]!) / 2;
+
+  // MAD-based modified z-score: 0.6745 is the 0.75th quantile of the standard normal distribution
+  const madStddev = mad * 1.4826; // consistency constant for normal distribution
 
   return values.map((v) => {
-    const zScore = calculateZScore(v.value, mean, stddev);
+    const zScore = calculateZScore(v.value, median, madStddev);
     return {
       id: v.id,
       value: v.value,
       zScore,
-      isAnomaly: Math.abs(zScore) > sigma,
+      isAnomaly: Math.abs(zScore) >= sigma,
     };
   });
 }

@@ -12,25 +12,73 @@
  * Processing: 100 rows per transaction batch.
  * Uses placeholder embedding generator (OpenAI ada-002 in production).
  */
-import { getSettingNumber, getSharedPool, closeSettingsPool } from '../../lib/settings';
+import { getSharedPool, closeSettingsPool } from '../../lib/settings';
 import type { Pool, PoolClient } from 'pg';
 
-/** Embedding dimension (OpenAI text-embedding-ada-002) */
+/** Embedding dimension (OpenAI text-embedding-3-small) */
 const EMBEDDING_DIM = 1536;
 
 /** Default batch size */
 const DEFAULT_BATCH_SIZE = 100;
 
+/** Cached API key (loaded once from system_settings) */
+let cachedApiKey: string | null | undefined;
+
 /**
  * Generate an embedding vector from text.
- * Placeholder: returns a deterministic vector based on text hash.
- * In production, this calls OpenAI text-embedding-ada-002.
+ * Uses OpenAI text-embedding-3-small when CRED_OPENAI_API_KEY is configured.
+ * Falls back to zero vector when API key is unavailable (development mode).
  */
 export async function generateEmbedding(text: string): Promise<number[]> {
-  // Placeholder: generate a deterministic vector from text length/chars
-  // In production, replace with actual OpenAI API call
-  void text;
-  return new Array(EMBEDDING_DIM).fill(0);
+  // Lazy-load API key from system_settings
+  if (cachedApiKey === undefined) {
+    try {
+      const pool = getSharedPool();
+      const res = await pool.query(
+        `SELECT setting_value FROM system_settings WHERE setting_key = 'CRED_OPENAI_API_KEY'`,
+      );
+      cachedApiKey = (res.rows[0]?.setting_value as string) || null;
+    } catch {
+      cachedApiKey = null;
+    }
+  }
+
+  if (!cachedApiKey || !text.trim()) {
+    return new Array(EMBEDDING_DIM).fill(0);
+  }
+
+  try {
+    const response = await fetch('https://api.openai.com/v1/embeddings', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${cachedApiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'text-embedding-3-small',
+        input: text.slice(0, 8000), // Limit input to avoid token overflow
+        dimensions: EMBEDDING_DIM,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error(`[embedding] OpenAI API error: ${response.status} ${response.statusText}`);
+      return new Array(EMBEDDING_DIM).fill(0);
+    }
+
+    const data = (await response.json()) as {
+      data: Array<{ embedding: number[] }>;
+    };
+    return data.data[0]?.embedding ?? new Array(EMBEDDING_DIM).fill(0);
+  } catch (err) {
+    console.error(`[embedding] Failed to generate embedding: ${err instanceof Error ? err.message : String(err)}`);
+    return new Array(EMBEDDING_DIM).fill(0);
+  }
+}
+
+/** Reset cached API key (for testing) */
+export function resetEmbeddingCache(): void {
+  cachedApiKey = undefined;
 }
 
 interface EmbeddingTableConfig {
@@ -135,7 +183,7 @@ export async function regenerateTableEmbeddings(
         processed++;
       }
       await client.query('RELEASE SAVEPOINT embedding_batch');
-    } catch (err) {
+    } catch {
       await client.query('ROLLBACK TO SAVEPOINT embedding_batch');
       errors += res.rows.length;
     }

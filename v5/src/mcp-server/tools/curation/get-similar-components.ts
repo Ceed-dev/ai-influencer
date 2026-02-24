@@ -8,14 +8,9 @@ import type {
 } from '@/types/mcp-tools';
 import { getPool } from '../../db';
 import { McpValidationError } from '../../errors';
+import { generateEmbedding } from '../../../workers/algorithm/embedding-batch.js';
 
 const VALID_TYPES = ['scenario', 'motion', 'audio', 'image'] as const;
-
-async function generateEmbedding(text: string): Promise<number[]> {
-  // Placeholder: return zero vector of dimension 1536 (OpenAI ada-002)
-  void text;
-  return new Array(1536).fill(0);
-}
 
 export async function getSimilarComponents(
   input: GetSimilarComponentsInput,

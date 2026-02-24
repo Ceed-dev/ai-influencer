@@ -16,7 +16,7 @@ export async function getCuratedComponentsForReview(
   const pool = getPool();
 
   const res = await pool.query(`
-    SELECT component_id, type, data, curation_confidence
+    SELECT component_id, type, data, curation_confidence::FLOAT AS curation_confidence
     FROM components
     WHERE review_status = 'pending_review'
     ORDER BY created_at ASC

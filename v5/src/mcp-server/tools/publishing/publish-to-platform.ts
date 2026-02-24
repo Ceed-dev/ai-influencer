@@ -27,6 +27,8 @@ export async function publishToYoutube(
     throw new McpValidationError('content_id is required');
   }
 
+  // STUB: YouTube Data API not yet integrated (pending platform API approval §2.3)
+  console.warn(`[publish-to-youtube] STUB: returning synthetic post ID for content ${input.content_id}`);
   const platformPostId = `youtube_${Date.now()}`;
   const postUrl = `https://youtube.com/shorts/${platformPostId}`;
 
@@ -47,6 +49,8 @@ export async function publishToTiktok(
     throw new McpValidationError('content_id is required');
   }
 
+  // STUB: TikTok Content Posting API not yet integrated (pending platform API approval §2.3)
+  console.warn(`[publish-to-tiktok] STUB: returning synthetic post ID for content ${input.content_id}`);
   const platformPostId = `tiktok_${Date.now()}`;
   const postUrl = `https://www.tiktok.com/@user/video/${platformPostId}`;
 
@@ -67,6 +71,8 @@ export async function publishToInstagram(
     throw new McpValidationError('content_id is required');
   }
 
+  // STUB: Instagram Graph API not yet integrated (pending platform API approval §2.3)
+  console.warn(`[publish-to-instagram] STUB: returning synthetic post ID for content ${input.content_id}`);
   const platformPostId = `instagram_${Date.now()}`;
   const postUrl = `https://www.instagram.com/reel/${platformPostId}`;
 
@@ -87,6 +93,8 @@ export async function publishToX(
     throw new McpValidationError('content_id is required');
   }
 
+  // STUB: X API v2 not yet integrated (pending platform API approval §2.3)
+  console.warn(`[publish-to-x] STUB: returning synthetic post ID for content ${input.content_id}`);
   const platformPostId = `x_${Date.now()}`;
   const postUrl = `https://x.com/user/status/${platformPostId}`;
 

@@ -25,7 +25,7 @@ describe('FEAT-TST-021: E2E hypothesis-driven lifecycle', () => {
     await client.query(`DELETE FROM publications WHERE content_id = $1`, [testContentId]);
     await client.query(`DELETE FROM task_queue WHERE payload->>'content_id' = $1`, [testContentId]);
     await client.query(`DELETE FROM content WHERE content_id = $1`, [testContentId]);
-    await client.query(`DELETE FROM hypotheses WHERE target_accounts @> ARRAY[$1]`, [testAccountId]);
+    await client.query(`DELETE FROM hypotheses WHERE target_accounts @> ARRAY[$1]::varchar[]`, [testAccountId]);
     await client.query(`DELETE FROM cycles WHERE cycle_number IN (8001, 8002)`);
     await client.query(`DELETE FROM accounts WHERE account_id = $1`, [testAccountId]);
     await client.query(`DELETE FROM characters WHERE character_id = $1`, [testCharId]);
@@ -42,7 +42,7 @@ describe('FEAT-TST-021: E2E hypothesis-driven lifecycle', () => {
       [testAccountId, testCharId]
     );
     await client.query(`INSERT INTO cycles (cycle_number, status) VALUES (8001, 'planning')`);
-    await client.query(`INSERT INTO cycles (cycle_number, status) VALUES (8002, 'analysis')`);
+    await client.query(`INSERT INTO cycles (cycle_number, status) VALUES (8002, 'analyzing')`);
   });
 
   afterAll(async () => {
@@ -52,7 +52,7 @@ describe('FEAT-TST-021: E2E hypothesis-driven lifecycle', () => {
     await client.query(`DELETE FROM publications WHERE content_id = $1`, [testContentId]);
     await client.query(`DELETE FROM task_queue WHERE payload->>'content_id' = $1`, [testContentId]);
     await client.query(`DELETE FROM content WHERE content_id = $1`, [testContentId]);
-    await client.query(`DELETE FROM hypotheses WHERE target_accounts @> ARRAY[$1]`, [testAccountId]);
+    await client.query(`DELETE FROM hypotheses WHERE target_accounts @> ARRAY[$1]::varchar[]`, [testAccountId]);
     await client.query(`DELETE FROM cycles WHERE cycle_number IN (8001, 8002)`);
     await client.query(`DELETE FROM accounts WHERE account_id = $1`, [testAccountId]);
     await client.query(`DELETE FROM characters WHERE character_id = $1`, [testCharId]);

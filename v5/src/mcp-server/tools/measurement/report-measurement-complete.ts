@@ -36,13 +36,27 @@ export async function reportMeasurementComplete(
   const impressions = input.metrics_data['impressions'] ?? null;
   const reach = input.metrics_data['reach'] ?? null;
 
+  const measurementPoint = (input as unknown as Record<string, unknown>)['measurement_point'] ?? '48h';
+
   const insertRes = await pool.query(
     `INSERT INTO metrics (publication_id, views, likes, comments, shares, saves,
                           engagement_rate, follower_delta, impressions, reach, measurement_point)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, '48h')
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+     ON CONFLICT (publication_id, measurement_point)
+     DO UPDATE SET
+       views = EXCLUDED.views,
+       likes = EXCLUDED.likes,
+       comments = EXCLUDED.comments,
+       shares = EXCLUDED.shares,
+       saves = EXCLUDED.saves,
+       engagement_rate = EXCLUDED.engagement_rate,
+       follower_delta = EXCLUDED.follower_delta,
+       impressions = EXCLUDED.impressions,
+       reach = EXCLUDED.reach,
+       measured_at = NOW()
      RETURNING id`,
     [input.publication_id, views, likes, comments, shares, saves,
-     engagementRate, followerDelta, impressions, reach],
+     engagementRate, followerDelta, impressions, reach, measurementPoint],
   );
 
   if (insertRes.rowCount === 0) {

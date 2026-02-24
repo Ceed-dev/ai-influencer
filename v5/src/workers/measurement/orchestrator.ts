@@ -54,31 +54,45 @@ const ROUND_CONFIG: Record<MeasurementRound, {
 /**
  * Get publications eligible for measurement in a given round.
  */
+/** Allowed column names for each round — used to prevent SQL injection. */
+const ALLOWED_COLUMNS: ReadonlySet<string> = new Set([
+  'actual_impressions_48h',
+  'actual_impressions_7d',
+  'actual_impressions_30d',
+]);
+
 export async function getTargets(
   client: PoolClient,
   round: MeasurementRound,
 ): Promise<MeasurementTarget[]> {
   const config = ROUND_CONFIG[round];
 
+  // Validate column name is in allowlist (defence against SQL injection)
+  if (!ALLOWED_COLUMNS.has(config.actualColumn)) {
+    throw new Error(`Invalid column name: ${config.actualColumn}`);
+  }
+
+  // Use pg's $N parameterisation where possible. Column/interval identifiers
+  // cannot be parameterised in pg, so we validate them above instead.
   const sql = `
     SELECT p.id AS publication_id, p.account_id, p.platform, p.posted_at,
            ps.content_id, ps.predicted_impressions
     FROM publications p
     JOIN prediction_snapshots ps ON p.id = ps.publication_id
     WHERE ps.${config.actualColumn} IS NULL
-      AND p.posted_at + INTERVAL '${config.interval}' <= NOW()
+      AND p.posted_at + $1::interval <= NOW()
       AND p.status = 'posted'
     ORDER BY p.posted_at ASC
   `;
 
-  const res = await client.query(sql);
-  return res.rows.map((r: any) => ({
-    publicationId: r.publication_id,
-    accountId: r.account_id,
-    platform: r.platform,
-    postedAt: new Date(r.posted_at),
-    contentId: r.content_id,
-    predictedImpressions: r.predicted_impressions,
+  const res = await client.query(sql, [config.interval]);
+  return res.rows.map((r: Record<string, unknown>) => ({
+    publicationId: r['publication_id'] as number,
+    accountId: r['account_id'] as string,
+    platform: r['platform'] as string,
+    postedAt: new Date(r['posted_at'] as string),
+    contentId: r['content_id'] as string,
+    predictedImpressions: r['predicted_impressions'] as number,
   }));
 }
 
@@ -87,6 +101,12 @@ export async function getTargets(
  * Updates prediction_snapshots with actual impressions and error.
  * Also UPSERTs metrics table.
  */
+/** Allowed error columns for SQL injection defence. */
+const ALLOWED_ERROR_COLUMNS: ReadonlySet<string> = new Set([
+  'prediction_error_7d',
+  'prediction_error_30d',
+]);
+
 export async function recordMeasurement(
   client: PoolClient,
   publicationId: number,
@@ -95,9 +115,16 @@ export async function recordMeasurement(
 ): Promise<void> {
   const config = ROUND_CONFIG[round];
 
+  // Validate column names against allowlists
+  if (!ALLOWED_COLUMNS.has(config.actualColumn)) {
+    throw new Error(`Invalid actual column: ${config.actualColumn}`);
+  }
+
   // Update prediction_snapshots
   if (config.errorColumn) {
-    // Calculate prediction error: ABS(predicted - actual) / NULLIF(actual, 0)
+    if (!ALLOWED_ERROR_COLUMNS.has(config.errorColumn)) {
+      throw new Error(`Invalid error column: ${config.errorColumn}`);
+    }
     await client.query(`
       UPDATE prediction_snapshots
       SET ${config.actualColumn} = $1,
@@ -176,8 +203,12 @@ export async function processRound(
       await recordMeasurement(client, target.publicationId, round, views);
       await enqueueAnalysis(client, round, target.contentId, target.publicationId);
       processed++;
-    } catch {
+    } catch (err) {
       // API failure → skip → retry next hour (idempotent)
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(
+        `[measurement-orchestrator] ${round} failed for pub=${target.publicationId}: ${msg}`,
+      );
       skipped++;
     }
   }

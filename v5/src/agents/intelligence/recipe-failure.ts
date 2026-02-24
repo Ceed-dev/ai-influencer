@@ -36,7 +36,10 @@ export function exceedsFailureThreshold(
 ): boolean {
   if (successRate === null) return false; // No data yet
   const failureRate = 1 - successRate;
-  return failureRate > threshold;
+  // Use epsilon comparison to avoid floating-point precision issues
+  // (e.g. 1 - 0.7 = 0.30000000000000004 instead of exactly 0.3)
+  const epsilon = 1e-9;
+  return failureRate - threshold > epsilon;
 }
 
 /**

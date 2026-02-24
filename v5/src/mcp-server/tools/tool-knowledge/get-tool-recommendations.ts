@@ -38,10 +38,11 @@ export async function getToolRecommendations(
   );
 
   // Extract tool names from recipe steps
-  function extractRecipe(steps: Array<Record<string, unknown>>): {
+  function extractRecipe(steps: unknown): {
     video_gen: string; tts: string; lipsync: string; concat: string;
   } {
     const recipe = { video_gen: 'kling_v2', tts: 'fish_audio', lipsync: 'fal_lipsync', concat: 'ffmpeg' };
+    if (!Array.isArray(steps)) return recipe;
     for (const step of steps) {
       const name = step['tool_name'] as string | undefined;
       const stepName = step['step_name'] as string | undefined;
@@ -70,13 +71,11 @@ export async function getToolRecommendations(
   }
 
   const primary = recipeRes.rows[0] as Record<string, unknown>;
-  const primarySteps = (primary['steps'] as Array<Record<string, unknown>>) ?? [];
-  const primaryRecipe = extractRecipe(primarySteps);
+  const primaryRecipe = extractRecipe(primary['steps']);
 
   const alternatives = recipeRes.rows.slice(1).map((row: Record<string, unknown>) => {
-    const steps = (row['steps'] as Array<Record<string, unknown>>) ?? [];
     return {
-      recipe: extractRecipe(steps),
+      recipe: extractRecipe(row['steps']),
       rationale: `Alternative recipe: ${row['recipe_name'] as string}`,
       confidence: Number(Number(row['avg_quality_score'] ?? 0).toFixed(2)),
     };

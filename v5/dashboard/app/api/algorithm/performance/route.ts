@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 
 /**
- * GET /api/algorithm-performance
+ * GET /api/algorithm/performance
  * List algorithm performance data with period filter.
  */
 export async function GET(request: NextRequest) {

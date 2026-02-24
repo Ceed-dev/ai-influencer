@@ -37,7 +37,9 @@ export async function concatVideos(inputPaths: string[], options: { crf?: number
     const blackFrames = await detectBlackFrames(outputPath);
     return { outputPath, durationSeconds: probe.duration, fileSizeBytes: fileSize, blackFrames, hasBlackFrameIssues: blackFrames.some((bf) => bf.duration > 0.1) };
   } catch (err) {
-    await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+    await rm(tempDir, { recursive: true, force: true }).catch((err) => {
+      console.warn(`[ffmpeg] Failed to clean temp dir ${tempDir}: ${err instanceof Error ? err.message : String(err)}`);
+    });
     throw err;
   }
 }

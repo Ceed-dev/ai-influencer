@@ -40,7 +40,7 @@ export async function runBaselineUpdate(pool?: Pool): Promise<{ rowCount: number
         JOIN metrics m ON p.id = m.publication_id
         WHERE a.status = 'active'
           AND m.measurement_point = '7d'
-          AND m.measured_at >= NOW() - ($1 || ' days')::INTERVAL
+          AND m.measured_at >= NOW() - make_interval(days => $1::int)
         GROUP BY a.account_id
         HAVING COUNT(*) >= $2
       ),

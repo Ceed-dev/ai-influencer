@@ -4,7 +4,7 @@
  */
 import { getPool } from '../../db/pool.js';
 import { getSettingNumber, getSettingBoolean, getSettingString } from '../../lib/settings.js';
-import { generateVideo, initFalClient, classifyFalError, type KlingResult } from './fal-client.js';
+import { generateVideo, initFalClient, classifyFalError } from './fal-client.js';
 import { generateTts, type TtsResult } from './fish-audio.js';
 import { concatVideos, type ConcatResult } from './ffmpeg.js';
 import { completeTask, failTask } from './task-poller.js';
@@ -58,7 +58,9 @@ export async function processProductionTask(task: TaskQueueRow): Promise<{
   } catch (err) {
     const falError = classifyFalError(err);
     await failTask(task.id, falError.message, falError.permanent);
-    await pool.query(`UPDATE content SET error_message = $1 WHERE content_id = $2`, [falError.message, contentId]).catch(() => {});
+    await pool.query(`UPDATE content SET error_message = $1 WHERE content_id = $2`, [falError.message, contentId]).catch((dbErr) => {
+      console.error(`[orchestrator] Failed to update error_message for ${contentId}:`, dbErr instanceof Error ? dbErr.message : String(dbErr));
+    });
     throw err;
   }
 }

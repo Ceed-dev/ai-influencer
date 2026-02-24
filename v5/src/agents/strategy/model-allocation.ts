@@ -6,8 +6,6 @@
  * Strategic nodes use Opus (higher quality); operational nodes use Sonnet (faster, cheaper).
  * All config from DB system_settings — no hardcoding.
  */
-import type { StrategyCycleNode } from '@/types/langgraph-state';
-
 /** Available LLM models */
 export type LlmModel = 'opus' | 'sonnet';
 
