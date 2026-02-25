@@ -23,12 +23,14 @@ declare module "next-auth/jwt" {
 
 async function getAllowedEmails(): Promise<string[]> {
   try {
-    const row = await queryOne<{ setting_value: string }>(
+    const row = await queryOne<{ setting_value: string[] | string }>(
       "SELECT setting_value FROM system_settings WHERE setting_key = $1",
       ["AUTH_ALLOWED_EMAILS"]
     );
     if (!row) return [];
-    return JSON.parse(row.setting_value) as string[];
+    // setting_value is jsonb — pg driver returns parsed object, not a string
+    const val = row.setting_value;
+    return (typeof val === "string" ? JSON.parse(val) : val) as string[];
   } catch {
     return [];
   }
@@ -36,12 +38,14 @@ async function getAllowedEmails(): Promise<string[]> {
 
 async function getUserRoles(): Promise<Record<string, UserRole>> {
   try {
-    const row = await queryOne<{ setting_value: string }>(
+    const row = await queryOne<{ setting_value: Record<string, UserRole> | string }>(
       "SELECT setting_value FROM system_settings WHERE setting_key = $1",
       ["AUTH_USER_ROLES"]
     );
     if (!row) return {};
-    return JSON.parse(row.setting_value) as Record<string, UserRole>;
+    // setting_value is jsonb — pg driver returns parsed object, not a string
+    const val = row.setting_value;
+    return (typeof val === "string" ? JSON.parse(val) : val) as Record<string, UserRole>;
   } catch {
     return {};
   }
