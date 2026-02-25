@@ -91,7 +91,7 @@ export function Sidebar({ open, collapsed, onClose, onToggleCollapse }: SidebarP
       )}
     >
       {/* Header */}
-      <div className={cn("flex items-center border-b", collapsed ? "justify-center py-3 px-2" : "justify-between px-4 py-3")}>
+      <div className={cn("flex border-b", collapsed ? "flex-col items-center gap-1 py-2 px-1" : "items-center justify-between px-4 py-3")}>
         {!collapsed && (
           <div className="flex items-center gap-2 min-w-0">
             <Image src="/icon.svg" alt="" width={28} height={28} className="shrink-0 rounded-md" />
