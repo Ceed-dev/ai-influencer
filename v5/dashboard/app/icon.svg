@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#ec4899"/>
+    </linearGradient>
+    <linearGradient id="face" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e0e7ff"/>
+      <stop offset="100%" stop-color="#c7d2fe"/>
+    </linearGradient>
+    <linearGradient id="eye-glow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#818cf8"/>
+      <stop offset="100%" stop-color="#6366f1"/>
+    </linearGradient>
+    <linearGradient id="signal1" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#f9a8d4"/>
+      <stop offset="100%" stop-color="#f472b6"/>
+    </linearGradient>
+    <linearGradient id="signal2" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#c084fc"/>
+      <stop offset="100%" stop-color="#a855f7"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#1e1b4b" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <!-- Background rounded square -->
+  <rect x="32" y="32" width="448" height="448" rx="96" fill="url(#bg)"/>
+
+  <!-- Subtle inner glow -->
+  <rect x="48" y="48" width="416" height="416" rx="84" fill="none" stroke="white" stroke-opacity="0.12" stroke-width="2"/>
+
+  <!-- AI Head/Face - rounded rectangle -->
+  <rect x="136" y="120" width="200" height="220" rx="40" fill="url(#face)" filter="url(#shadow)"/>
+
+  <!-- Antenna -->
+  <line x1="236" y1="120" x2="236" y2="78" stroke="#c7d2fe" stroke-width="10" stroke-linecap="round"/>
+  <circle cx="236" cy="68" r="14" fill="#a5b4fc"/>
+  <circle cx="236" cy="68" r="7" fill="#818cf8"/>
+
+  <!-- Left Eye -->
+  <rect x="172" y="190" width="44" height="36" rx="10" fill="url(#eye-glow)"/>
+  <rect x="182" y="198" width="12" height="20" rx="4" fill="white" opacity="0.9"/>
+
+  <!-- Right Eye -->
+  <rect x="256" y="190" width="44" height="36" rx="10" fill="url(#eye-glow)"/>
+  <rect x="266" y="198" width="12" height="20" rx="4" fill="white" opacity="0.9"/>
+
+  <!-- Mouth - subtle smile -->
+  <path d="M 200 280 Q 236 306 272 280" fill="none" stroke="#818cf8" stroke-width="7" stroke-linecap="round"/>
+
+  <!-- Signal waves (broadcasting/posting) - right side -->
+  <path d="M 350 200 Q 380 200 380 230" fill="none" stroke="url(#signal1)" stroke-width="8" stroke-linecap="round" opacity="0.9"/>
+  <path d="M 366 176 Q 410 176 410 230" fill="none" stroke="url(#signal2)" stroke-width="7" stroke-linecap="round" opacity="0.7"/>
+  <path d="M 380 154 Q 438 154 438 230" fill="none" stroke="url(#signal1)" stroke-width="6" stroke-linecap="round" opacity="0.5"/>
+
+  <!-- Small content indicators (posts) -->
+  <!-- Heart -->
+  <path d="M 388 280 C 388 274 396 268 400 274 C 404 268 412 274 412 280 C 412 290 400 298 400 298 C 400 298 388 290 388 280 Z" fill="#f472b6" opacity="0.85"/>
+
+  <!-- Chat bubble -->
+  <rect x="370" y="316" width="40" height="28" rx="8" fill="white" opacity="0.25"/>
+  <polygon points="378,344 386,344 374,356" fill="white" opacity="0.25"/>
+
+  <!-- Star -->
+  <polygon points="420,330 424,340 434,340 426,347 429,357 420,351 411,357 414,347 406,340 416,340" fill="#fbbf24" opacity="0.7"/>
+
+  <!-- Ear accents -->
+  <rect x="112" y="180" width="24" height="50" rx="10" fill="#a5b4fc" opacity="0.6"/>
+  <rect x="336" y="180" width="24" height="50" rx="10" fill="#a5b4fc" opacity="0.6"/>
+
+  <!-- Bottom text area hint - like a dashboard element -->
+  <rect x="156" y="370" width="160" height="8" rx="4" fill="white" opacity="0.15"/>
+  <rect x="176" y="388" width="120" height="6" rx="3" fill="white" opacity="0.1"/>
+</svg>
