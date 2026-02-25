@@ -208,6 +208,21 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 - `/login`, `/api/auth/*` → Public access
 - Google OAuth redirect URI correct (`ai-dash.0xqube.xyz`)
 
+### Session 12: Sidebar UX Improvement
+
+**Collapsible sidebar + independent scroll:**
+- Sidebar: collapsible to icon-only mode on desktop (PanelLeftClose/PanelLeftOpen toggle)
+- Sidebar: lucide-react icons for all 17 nav items, tooltip on collapsed hover
+- Layout: `h-screen overflow-hidden` on root, sidebar and main content scroll independently
+- Collapse state persisted in localStorage (`ai-influencer-sidebar-collapsed`)
+- CSS variables: `--sidebar-width: 14rem`, `--sidebar-width-collapsed: 3rem`
+- Mobile behavior unchanged (hamburger menu, slide-in overlay)
+
+**Infrastructure:**
+- `deploy.sh` script: 1-command deploy (git push → VM pull → build → restart)
+- `CLAUDE.md` rewritten for review/refinement phase (removed implementation-phase rules)
+- Cloud SQL: automated daily backups + PITR enabled (7-day retention, 04:00-08:00 JST)
+
 ## Remaining Items
 
 ### External Dependencies (code complete, awaiting approvals):
