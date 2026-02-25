@@ -81,14 +81,17 @@ async function resolveProductionRow(row) {
   if (!bodyScenario) throw new Error(`Body scenario not found: ${row.body_scenario_id}`);
   if (!ctaScenario) throw new Error(`CTA scenario not found: ${row.cta_scenario_id}`);
 
+  const hookBaseVideoId = row.hook_base_video_id || '';
+  const ctaBaseVideoId = row.cta_base_video_id || '';
+
   const [hookMotion, bodyMotion, ctaMotion] = await Promise.all([
-    getMotion(row.hook_motion_id),
+    row.hook_motion_id ? getMotion(row.hook_motion_id) : Promise.resolve(null),
     getMotion(row.body_motion_id),
-    getMotion(row.cta_motion_id),
+    row.cta_motion_id ? getMotion(row.cta_motion_id) : Promise.resolve(null),
   ]);
-  if (!hookMotion) throw new Error(`Hook motion not found: ${row.hook_motion_id}`);
+  if (!hookMotion && !hookBaseVideoId) throw new Error(`Hook: Set either hook_motion_id or hook_base_video_id in the production sheet.`);
   if (!bodyMotion) throw new Error(`Body motion not found: ${row.body_motion_id}`);
-  if (!ctaMotion) throw new Error(`CTA motion not found: ${row.cta_motion_id}`);
+  if (!ctaMotion && !ctaBaseVideoId) throw new Error(`CTA: Set either cta_motion_id or cta_base_video_id in the production sheet.`);
 
   const scriptLanguage = row.script_language || 'en';
   if (scriptLanguage !== 'en' && scriptLanguage !== 'jp') {
@@ -105,9 +108,9 @@ async function resolveProductionRow(row) {
     })(),
     scriptLanguage,
     sections: [
-      { scenario: hookScenario, motion: hookMotion, prefix: '01_hook', name: 'hook' },
+      { scenario: hookScenario, motion: hookMotion, prefix: '01_hook', name: 'hook', baseVideoId: hookBaseVideoId },
       { scenario: bodyScenario, motion: bodyMotion, prefix: '02_body', name: 'body' },
-      { scenario: ctaScenario, motion: ctaMotion, prefix: '03_cta', name: 'cta' },
+      { scenario: ctaScenario, motion: ctaMotion, prefix: '03_cta', name: 'cta', baseVideoId: ctaBaseVideoId },
     ],
   };
 }

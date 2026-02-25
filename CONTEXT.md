@@ -2603,3 +2603,35 @@ Phase 2 (commit `3d4a7ac`): CJKピクセル幅補正
 - 新しいセッションで `v5/` に移動 →「実装を開始して」で10エージェント並列実装が開始される
 - `CLAUDE.md` が自動読み込みされ、ハーネスワークフロー（13-agent-harness.md）に従って自律的に進行
 - 人間の並行作業: 2.3 プラットフォームAPI審査、2.4 アカウント作成、2.5 キャラクターアセット
+
+### 2026-02-23: v4パイプライン — Hook/CTA ベース動画スキップ機能（Klingバイパス）
+
+**背景**: Hook/CTAのモーションを固定し、毎回Klingを再生成しなくて済むようにしたいという要望。既にKling出力済みの動画がある場合、Klingをスキップして直接Lipsyncに進む。
+
+**変更ファイル (3ファイル + テスト)**:
+
+1. **`pipeline/sheets/production-manager.js`**
+   - HEADERS に `hook_base_video_id`, `cta_base_video_id` を追加（33列→35列）
+   - productionシートの最後2列（AH, AI）に対応
+
+2. **`pipeline/sheets/inventory-reader.js`**
+   - `hook_base_video_id` / `cta_base_video_id` がセットされていれば `hook_motion_id` / `cta_motion_id` はオプショナルに
+   - 解決済みセクションに `baseVideoId` フィールドを渡す
+
+3. **`pipeline/orchestrator.js`**
+   - `parseDriveId()` ヘルパー追加（DriveファイルID or Drive URL → ファイルID抽出）
+   - Hook/CTAセクション処理に新分岐:
+     - `baseVideoId` あり → Driveからベース動画DL → fal.storageアップ → **Klingスキップ** → TTS + Lipsync のみ
+     - `baseVideoId` なし → 従来通り Motion → Kling + TTS → Lipsync
+   - dry-runログにも「Kling SKIPPED」表示を追加
+
+4. **`tests/pipeline.test.js`**
+   - Test 23: HEADERS数 33→35 に更新
+   - Test 82: bodyブランチ正規表現を `else if` 対応に修正
+   - Test 84-86: 新機能用テスト3件追加（全88テスト合格）
+
+**使い方**:
+- productionシートの列AHに `hook_base_video_id`、列AIに `cta_base_video_id` ヘッダーを追加
+- 既に生成済みのKling出力動画のDriveファイルIDまたはDrive URLをセルに入力
+- セルが空 → 従来通りKlingが走る / セルにIDあり → Klingスキップで直接Lipsyncへ
+- コスト節約: Kling $0.35/セクション × 2 (Hook+CTA) = $0.70/動画 を節約

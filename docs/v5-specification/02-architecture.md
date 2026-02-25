@@ -66,7 +66,7 @@
   - [11.2 設定値の読み込みパターン](#112-設定値の読み込みパターン)
   - [11.3 ダッシュボードの設定画面](#113-ダッシュボードの設定画面)
   - [11.4 プラットフォームAPIレート制限](#114-プラットフォームapiレート制限)
-  - [11.5 system_settings マスターテーブル（全124件）](#115-system_settings-マスターテーブル全124件)
+  - [11.5 system_settings マスターテーブル（全126件）](#115-system_settings-マスターテーブル全126件)
 - [12. クレデンシャル管理アーキテクチャ](#12-クレデンシャル管理アーキテクチャ)
   - [12.1 プラットフォーム認証情報](#121-プラットフォーム認証情報)
   - [12.2 ツールAPIキー](#122-ツールapiキー)
@@ -1019,7 +1019,7 @@ flowchart TD
 | lg | 1024px | デスクトップ: フルサイドバー、マルチカラム |
 | xl | 1280px | ワイドデスクトップ: 余裕のあるレイアウト |
 
-**認証**: なし (シングルユーザー、localhost アクセス前提)
+**認証**: NextAuth.js v4 + Google OAuth (JWT session, 24h) — メールホワイトリスト (`AUTH_ALLOWED_EMAILS`) + ロール制御 (`AUTH_USER_ROLES`) を `system_settings` から動的読み込み。viewer ロールは API の POST/PUT/DELETE を 403 で拒否。
 **外部通知**: なし (Slack/メール連携なし) — ダッシュボード画面のみで完結
 **自動更新**: `DASHBOARD_AUTO_REFRESH_SEC` (system_settings) で設定可能
 
@@ -2688,11 +2688,11 @@ async function getSetting(key: string): Promise<any> {
 
 > **注**: レート制限の具体値は `system_settings` テーブルで管理し、各プラットフォームのAPI仕様変更に応じてダッシュボードから変更可能。
 
-### 11.5 system_settings マスターテーブル（全124件）
+### 11.5 system_settings マスターテーブル（全126件）
 
 全カテゴリの全設定キーを一覧する。SSOT: [03-database-schema.md](03-database-schema.md) §7.2（初期INSERT文）。各設定の詳細な使用箇所は [04-agent-design.md](04-agent-design.md) §17 および [08-algorithm-analysis.md](08-algorithm-analysis.md) §27 を参照。
 
-**カテゴリ別件数**: agent: 79, production: 14, posting: 8, measurement: 6, credentials: 5, cost_control: 4, review: 5, dashboard: 3 = **合計124件**
+**カテゴリ別件数**: agent: 79, production: 14, posting: 8, measurement: 6, credentials: 5, cost_control: 4, review: 5, dashboard: 5 = **合計126件**
 
 #### Production（14件）
 
@@ -2917,13 +2917,15 @@ async function getSetting(key: string): Promise<any> {
 | 3 | FAL_AI_BALANCE_ALERT_USD | 50 | float | fal.ai残高がこの値を下回ったらアラート |
 | 4 | COST_TRACKING_ENABLED | true | boolean | API利用コストの自動追跡を有効にするか |
 
-#### Dashboard（3件）
+#### Dashboard（5件）
 
 | # | setting_key | default_value | value_type | description |
 |---|---|---|---|---|
 | 1 | DASHBOARD_THEME | dark | enum | ダッシュボードのカラーテーマ（dark/light） |
 | 2 | DASHBOARD_ITEMS_PER_PAGE | 20 | integer | 一覧画面のデフォルト表示件数 |
 | 3 | DASHBOARD_AUTO_REFRESH_SEC | 30 | integer | ダッシュボードの自動リフレッシュ間隔（秒） |
+| 4 | AUTH_ALLOWED_EMAILS | [] | json | Google OAuthでサインイン許可するメールアドレスのJSON配列 |
+| 5 | AUTH_USER_ROLES | {} | json | メールアドレス→ロール(admin/viewer)のJSONマッピング |
 
 #### Credentials（5件）
 
@@ -3234,6 +3236,10 @@ v4.0からv5.0への移行は一括ではなく段階的に行う。各フェー
 | `DRY_RUN` | `true` (デフォルト) | `false` |
 | `DASHBOARD_URL` | `http://localhost:3000` | `https://dashboard.example.com` |
 | `GOOGLE_SERVICE_ACCOUNT` | 開発用SA | 本番用SA |
+| `NEXTAUTH_URL` | `http://localhost:3000` | `https://ai-dash.0xqube.xyz` |
+| `NEXTAUTH_SECRET` | ランダム生成文字列 | 本番用シークレット |
+| `GOOGLE_CLIENT_ID` | 開発用OAuth Client ID | 本番用OAuth Client ID |
+| `GOOGLE_CLIENT_SECRET` | 開発用OAuth Client Secret | 本番用OAuth Client Secret |
 
 ### 15.4 デプロイフロー
 
@@ -3382,7 +3388,7 @@ flowchart LR
 ```mermaid
 flowchart TB
     subgraph ext["external (ブリッジネットワーク)"]
-        dashboard_ext["dashboard → 外部公開 (port 3000)<br/>→ DB接続: dev=postgres / prod=Cloud SQL<br/>将来: リバースプロキシ (nginx/Caddy) を前段に配置"]
+        dashboard_ext["dashboard → 外部公開 (dev: port 3000, prod: localhost:3001)<br/>→ DB接続: dev=postgres / prod=Cloud SQL<br/>本番: nginx リバースプロキシ (HTTPS :443/:3000 → localhost:3001)"]
     end
 
     subgraph int["internal (内部ネットワーク)"]

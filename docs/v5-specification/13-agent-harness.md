@@ -349,7 +349,7 @@ NUMBER: 001〜999
       "test_ids": ["TEST-INF-002"],
       "dependencies": [],
       "steps": [
-        ".env.example を作成（DATABASE_URL, ANTHROPIC_API_KEY, FAL_KEY, FISH_AUDIO_API_KEY 等）",
+        ".env.example を作成（DATABASE_URL, ANTHROPIC_API_KEY, FAL_KEY, FISH_AUDIO_API_KEY, NEXTAUTH_URL, NEXTAUTH_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET 等）",
         "各変数にコメントで説明を付与",
         "TEST-INF-002（.env.example に必須変数が全て含まれること）を実行"
       ],

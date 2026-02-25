@@ -5155,7 +5155,7 @@ Phase 4以降 (エージェント運用中):
 | `RECIPE_APPROVAL_REQUIRED` | true | bool | §17 | ツールレシピ変更の人間承認 |
 | `LEARNING_AUTO_PROMOTE_ENABLED` | false | bool | §18.3 | 自動昇格の有効化（true: 人間確認不要） |
 
-> **注**: 上記は04-agent-design.mdで定義されるエージェント関連閾値のみ。アルゴリズム関連の設定値（重み初期値・クリッピング・ベースライン等 31件）は [08-algorithm-analysis.md](08-algorithm-analysis.md) §27を参照。全124件のsystem_settingsの完全一覧は [02-architecture.md](02-architecture.md) §11.5 マスターテーブルおよび [03-database-schema.md](03-database-schema.md) §7.2 初期INSERT文を参照。
+> **注**: 上記は04-agent-design.mdで定義されるエージェント関連閾値のみ。アルゴリズム関連の設定値（重み初期値・クリッピング・ベースライン等 31件）は [08-algorithm-analysis.md](08-algorithm-analysis.md) §27を参照。全126件のsystem_settingsの完全一覧は [02-architecture.md](02-architecture.md) §11.5 マスターテーブルおよび [03-database-schema.md](03-database-schema.md) §7.2 初期INSERT文を参照。
 
 ### 17.1 仮説判定 (verdict)
 

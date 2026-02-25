@@ -1,0 +1,43 @@
+# v5.0 Production — Standalone compose for Cloud SQL deployment
+# Usage: docker compose -f docker-compose.production.yml --env-file .env.production up -d
+# VM: ai-influencer-vm (34.85.62.184)
+# DB: Cloud SQL ai-influencer-db (35.243.93.204)
+
+services:
+  dashboard:
+    image: node:20-slim
+    container_name: v5-dashboard
+    working_dir: /dashboard
+    restart: unless-stopped
+    volumes:
+      - ./dashboard/.next:/dashboard/.next
+      - ./dashboard/public:/dashboard/public
+      - ./dashboard/package.json:/dashboard/package.json
+      - ./dashboard/next.config.js:/dashboard/next.config.js
+      - ./dashboard/node_modules:/dashboard/node_modules
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
+      NEXTAUTH_URL: ${NEXTAUTH_URL}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+    ports:
+      - "127.0.0.1:3001:3000"
+    command: ["npm", "run", "start"]
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"

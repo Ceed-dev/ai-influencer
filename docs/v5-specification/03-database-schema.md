@@ -3504,7 +3504,7 @@ COMMENT ON COLUMN system_settings.updated_by IS '最終更新者。"system"=初�
 
 ### 7.2 デフォルト設定値（初期INSERT）
 
-システム初期化時にINSERTされるデフォルト設定値。全カテゴリの設定を網羅する（合計124件: agent 79, production 14, posting 8, measurement 6, credentials 5, cost_control 4, review 5, dashboard 3）。
+システム初期化時にINSERTされるデフォルト設定値。全カテゴリの設定を網羅する（合計126件: agent 79, production 14, posting 8, measurement 6, credentials 5, cost_control 4, review 5, dashboard 5）。
 
 ```sql
 -- ========================================
@@ -3556,6 +3556,8 @@ INSERT INTO system_settings (setting_key, setting_value, category, description, 
 ('DASHBOARD_THEME', '"dark"', 'dashboard', 'ダッシュボードのカラーテーマ。dark=Solarized Dark, light=Solarized Light', '"dark"', 'enum', '{"options": ["dark", "light"]}'),
 ('DASHBOARD_ITEMS_PER_PAGE', '20', 'dashboard', '一覧画面のデフォルト表示件数', '20', 'integer', '{"min": 10, "max": 100}'),
 ('DASHBOARD_AUTO_REFRESH_SEC', '30', 'dashboard', 'ダッシュボードの自動リフレッシュ間隔（秒）。0=無効', '30', 'integer', '{"min": 0, "max": 300}'),
+('AUTH_ALLOWED_EMAILS', '["pochi@0xqube.xyz"]', 'dashboard', 'Google OAuthでサインイン許可するメールアドレスのJSON配列', '[]', 'json', null),
+('AUTH_USER_ROLES', '{"pochi@0xqube.xyz": "admin"}', 'dashboard', 'メールアドレス→ロール(admin/viewer)のJSONマッピング', '{}', 'json', null),
 
 -- Credential settings (values are placeholder, human must set via dashboard)
 ('CRED_FAL_AI_API_KEY', '""', 'credentials', 'fal.ai APIキー。ダッシュボードの設定画面から入力', '""', 'string', null),

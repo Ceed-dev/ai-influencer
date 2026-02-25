@@ -426,10 +426,10 @@ test('inventory-reader exports getMotion, getScenario, getCharacter, resolveProd
 });
 
 // ─── Test 23: production-manager exports and HEADERS ───
-test('production-manager exports HEADERS with 33 columns and CRUD functions', () => {
+test('production-manager exports HEADERS with 35 columns and CRUD functions', () => {
   const pm = require('../pipeline/sheets/production-manager');
   expect(Array.isArray(pm.HEADERS)).toBe(true);
-  expect(pm.HEADERS).toHaveLength(33);
+  expect(pm.HEADERS).toHaveLength(35);
 
   // Key columns must be present
   const requiredCols = [
@@ -1126,8 +1126,8 @@ test('orchestrator body path does not call uploadMotionVideo', () => {
   const src = fs.readFileSync(path.join(__dirname, '../pipeline/orchestrator.js'), 'utf8');
 
   // The body branch (if sName === 'body') should NOT contain uploadMotionVideo
-  // Extract the body branch code between the if and else
-  const bodyBranch = src.match(/if \(sName === 'body'\) \{([\s\S]*?)\} else \{/);
+  // Extract the body branch code between the if and else if (base video check)
+  const bodyBranch = src.match(/if \(sName === 'body'\) \{([\s\S]*?)\} else if/);
   expect(bodyBranch).not.toBeNull();
   expect(bodyBranch[1]).not.toContain('uploadMotionVideo');
   expect(bodyBranch[1]).not.toContain('generateVideo');
@@ -1150,4 +1150,44 @@ test('concat.js normalizes each input to 720x1280@30fps before concat', () => {
   expect(src).toContain('setsar=1');
   // Scale filters must be applied per-input before concat (template: [v${i}])
   expect(src).toContain('[v${i}]');
+});
+
+// ─── Test 84: orchestrator supports pre-generated base video for hook/cta ───
+test('orchestrator supports pre-generated base video for hook/cta (Kling skip)', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '../pipeline/orchestrator.js'), 'utf8');
+
+  // parseDriveId helper exists
+  expect(src).toContain('parseDriveId');
+  // baseVideoId check in main flow
+  expect(src).toContain('section.baseVideoId');
+  // When base video exists, downloads from Drive and uploads to fal.storage
+  expect(src).toContain('Downloading base video from Drive');
+  expect(src).toContain('Uploading base video to fal.storage');
+  // Kling is skipped
+  expect(src).toContain('skipping Kling');
+  // Dry-run shows Kling SKIPPED
+  expect(src).toContain('Kling SKIPPED');
+});
+
+// ─── Test 85: inventory-reader supports base video IDs ───
+test('inventory-reader passes baseVideoId through resolved sections', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '../pipeline/sheets/inventory-reader.js'), 'utf8');
+
+  expect(src).toContain('hook_base_video_id');
+  expect(src).toContain('cta_base_video_id');
+  expect(src).toContain('baseVideoId');
+  // Motion is optional when base video is set
+  expect(src).toContain('hook_motion_id or hook_base_video_id');
+  expect(src).toContain('cta_motion_id or cta_base_video_id');
+});
+
+// ─── Test 86: production-manager HEADERS contains base video columns ───
+test('production-manager HEADERS contains hook_base_video_id and cta_base_video_id', () => {
+  const pm = require('../pipeline/sheets/production-manager');
+  expect(pm.HEADERS).toContain('hook_base_video_id');
+  expect(pm.HEADERS).toContain('cta_base_video_id');
 });

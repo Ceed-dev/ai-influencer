@@ -63,6 +63,20 @@ function downloadToBuffer(url) {
 }
 
 /**
+ * Parse a Drive file ID from a raw ID or a Drive URL string.
+ * Supports: raw ID, https://drive.google.com/file/d/{ID}/view, /open?id={ID}
+ * @param {string} value - Raw Drive file ID or Drive URL
+ * @returns {string|null} Drive file ID or null if empty
+ */
+function parseDriveId(value) {
+  if (!value) return null;
+  const urlMatch = value.match(/\/d\/([a-zA-Z0-9_-]+)/) ||
+                   value.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (urlMatch) return urlMatch[1];
+  return value;
+}
+
+/**
  * Extract a Google Drive file ID from a drive_file_id field or a file_link URL.
  * Supports: raw ID, https://drive.google.com/file/d/{ID}/view, /open?id={ID}
  */
@@ -274,6 +288,8 @@ async function runSingleJob(videoId, resolved, dryRun = false) {
     for (const sec of resolved.sections) {
       if (sec.name === 'body') {
         log('dry-run', `Step 2: [${sec.name}] TTS → Fabric 1.0 (image + audio → lip-synced video)`);
+      } else if (sec.baseVideoId) {
+        log('dry-run', `Step 2: [${sec.name}] Base video upload + TTS (parallel) → Lipsync (Kling SKIPPED)`);
       } else {
         log('dry-run', `Step 2: [${sec.name}] Motion upload → Kling + TTS (parallel) → Lipsync`);
       }
@@ -322,8 +338,29 @@ async function runSingleJob(videoId, resolved, dryRun = false) {
           log(sName, 'Generating lip-synced video with Fabric 1.0 (image + audio)...');
           finalVideoUrl = await generateFabricVideo({ imageUrl: falImageUrl, audioUrl });
           log(sName, `Fabric 1.0 done: ${finalVideoUrl}`);
+        } else if (section.baseVideoId) {
+          // ★ Hook / CTA with pre-generated base video — SKIP KLING
+          log(sName, `Using pre-generated base video: ${section.baseVideoId} (skipping Kling)`);
+
+          // Upload base video to fal.storage + TTS in parallel
+          const [falBaseUrl, audioUrl] = await Promise.all([
+            (async () => {
+              const baseFileId = parseDriveId(section.baseVideoId);
+              log(sName, `Downloading base video from Drive: ${baseFileId}...`);
+              const { buffer: baseBuffer, mimeType: baseMime } = await downloadFromDrive(baseFileId);
+              log(sName, `Uploading base video to fal.storage (${baseBuffer.length} bytes)...`);
+              return uploadToFalStorage(baseBuffer, baseMime);
+            })(),
+            generateSpeech({ text: scriptText, referenceId: resolved.voice }),
+          ]);
+          log(sName, `Base video uploaded: ${falBaseUrl}`);
+          log(sName, `TTS done: ${audioUrl}`);
+
+          log(sName, 'Syncing lips...');
+          finalVideoUrl = await syncLips({ videoUrl: falBaseUrl, audioUrl });
+          log(sName, `Lipsync done: ${finalVideoUrl}`);
         } else {
-          // Hook / CTA: existing Kling + Lipsync path
+          // Hook / CTA: normal Kling + Lipsync path
           log(sName, `Uploading motion ${section.motion.component_id} to fal.storage...`);
           const falMotionUrl = await uploadMotionVideo(section.motion);
           log(sName, `Motion fal.storage URL: ${falMotionUrl}`);

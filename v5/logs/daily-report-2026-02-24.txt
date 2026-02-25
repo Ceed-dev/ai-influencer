@@ -1,0 +1,155 @@
+==========================================
+ Daily Report 2026-02-24
+==========================================
+
+--- 1. Progress Summary ---
+
+  Overall: 276 / 276 features passed (100.0%)
+
+  By category:
+    agent-intelligence [####################]   3/  3 (100%)
+    algorithm          [####################]  15/ 15 (100%)
+    dashboard          [####################]  36/ 36 (100%)
+    database           [####################]  49/ 49 (100%)
+    infra              [####################]   5/  5 (100%)
+    intelligence       [####################]  18/ 18 (100%)
+    mcp-core           [####################]  43/ 43 (100%)
+    mcp-intel          [####################]  35/ 35 (100%)
+    measure            [####################]   6/  6 (100%)
+    strategy           [####################]  10/ 10 (100%)
+    test               [####################]  32/ 32 (100%)
+    text-post          [####################]   6/  6 (100%)
+    video-worker       [####################]  18/ 18 (100%)
+
+  By agent:
+    dashboard-agent        36/ 36 (100%)
+    infra-agent            67/ 67 (100%)
+    intelligence-agent     21/ 21 (100%)
+    mcp-core-agent         43/ 43 (100%)
+    mcp-intel-agent        37/ 37 (100%)
+    measure-agent           6/  6 (100%)
+    strategy-agent         10/ 10 (100%)
+    test-agent             32/ 32 (100%)
+    text-post-agent         6/  6 (100%)
+    video-worker-agent     18/ 18 (100%)
+
+--- 2. Recent Activity ---
+
+  Latest 30 lines from progress.txt:
+
+    2026-02-23T11:00:00Z | test-agent | COMPLETE | FEAT-TST-029 | passed | TEST-E2E-009 green — 50 accounts large-scale E2E test verified
+    2026-02-23T11:00:00Z | test-agent | COMPLETE | FEAT-TST-030 | passed | TEST-E2E-010 green — system startup → steady operation E2E test verified
+    2026-02-23T11:00:00Z | test-agent | COMPLETE | FEAT-TST-031 | passed | TEST-E2E-011 green — rejection → revision → re-approval E2E test verified
+    2026-02-23T11:00:00Z | test-agent | COMPLETE | FEAT-TST-032 | passed | TEST-E2E-012 green — monthly budget exceeded E2E test verified
+    2026-02-23T12:00:00Z | infra-agent | SESSION | - | started | Final 8 features implementation session (268→276)
+    2026-02-23T12:00:00Z | infra-agent | COMPLETE | FEAT-ALG-009 | passed | TEST-ALG-015 green — cross_account_performance already implemented
+    2026-02-23T12:00:00Z | infra-agent | COMPLETE | FEAT-ALG-010 | passed | TEST-ALG-016 green — prediction_error already implemented
+    2026-02-23T12:00:00Z | infra-agent | START | FEAT-ALG-011 | starting | Edge case handling tests (E1-E10)
+    2026-02-23T12:01:00Z | infra-agent | COMPLETE | FEAT-ALG-011 | passed | TEST-ALG-017,TEST-ALG-018 green — 17 pure-function tests
+    2026-02-23T12:01:00Z | infra-agent | COMPLETE | FEAT-ALG-012 | passed | TEST-ALG-019 green — weight_audit_log INSERT already in weight-recalc.ts
+    2026-02-23T12:02:00Z | infra-agent | START | FEAT-ALG-013 | starting | Data decay 90-day hard cutoff utility
+    2026-02-23T12:02:30Z | infra-agent | COMPLETE | FEAT-ALG-013 | passed | TEST-ALG-020 green — 11 tests, cutoff verified in all SQL queries
+    2026-02-23T12:03:00Z | infra-agent | START | FEAT-ALG-014 | starting | Embedding batch regeneration
+    2026-02-23T12:04:00Z | infra-agent | COMPLETE | FEAT-ALG-014 | passed | TEST-ALG-021 green — 5 tables, 100-row batches, 10 tests
+    2026-02-23T12:04:30Z | infra-agent | START | FEAT-ALG-015 | starting | content_format factor rules
+    2026-02-23T12:05:00Z | infra-agent | COMPLETE | FEAT-ALG-015 | passed | TEST-ALG-022 green — 14 tests, matrix verified
+    2026-02-23T12:05:30Z | infra-agent | START | FEAT-INF-004 | starting | docker-compose.prod.yml Cloud SQL
+    2026-02-23T12:06:00Z | infra-agent | COMPLETE | FEAT-INF-004 | passed | TEST-INT-002 — prod compose with Cloud SQL 35.243.93.204
+    2026-02-23T12:06:30Z | infra-agent | SMOKE | ALL | passed | npx tsc --noEmit: 0 errors. 52 new tests all green. 276/276 features complete.
+    
+    2026-02-23T12:00:00Z | SESSION | RESUME | Context window continuation — 181/276 → 276/276
+    2026-02-23T12:01:00Z | mcp-core-agent | COMPLETE | FEAT-MCC-022~043 | passed | 18 P1 tools: measurement/dashboard/agent-mgmt + tests
+    2026-02-23T12:02:00Z | mcp-intel-agent | COMPLETE | FEAT-MCI-001~035 | passed | 37 intelligence/curation/learning/tool-knowledge tools + tests
+    2026-02-23T12:03:00Z | intelligence-agent | COMPLETE | FEAT-INT-003~021 | passed | 19 features: graphs, intelligence modules, strategy modules
+    2026-02-23T12:04:00Z | strategy-agent | COMPLETE | FEAT-STR-003~010 | passed | 8 strategy features: approval, rejection, revision, reflection, diversity, thought-log, model-alloc, planner-instances
+    2026-02-23T12:05:00Z | text-post-agent | COMPLETE | FEAT-TP-004~006 | passed | text-generator, platform-cooldown, publish-recorder
+    2026-02-23T12:06:00Z | measure-agent | COMPLETE | FEAT-MS-002,004,006 | passed | metrics-inserter, curation-worker, retry
+    2026-02-23T12:07:00Z | infra-agent | COMPLETE | FEAT-ALG-007~015 | passed | per-content-micro-analysis, cumulative-analysis, cross-account, prediction-error, edge-cases, weight-audit, data-decay, embedding-batch, content-format-rules
+    2026-02-23T12:08:00Z | infra-agent | COMPLETE | FEAT-INF-004 | passed | docker-compose.prod.yml
+    2026-02-23T12:09:00Z | SESSION | MILESTONE | 276/276 features complete (100%) | TypeScript 0 errors | 186 files changed, 14,961 insertions
+
+  No blockers detected
+
+  Features completed today: 0
+0
+
+--- 3. Anti-pattern Detection ---
+
+  AP1: One-shotting (multiple FEATs in single commit)
+  [WARN] Found commits bundling multiple features:
+    0ca99ae feat(algorithm): weight recalc + adjustment cache batches + seed weights (FEAT-ALG-002, FEAT-ALG-003, tests: TEST-ALG-005,006,026,030)
+
+  AP4: E2E Skip (COMPLETE without prior SMOKE)
+  [WARN] Features completed without smoke test:
+      2026-02-23T07:53:11Z | infra-agent | COMPLETE | FEAT-DB-001 | passed | TEST-DB-001,TEST-DB-002 green
+      2026-02-23T07:53:27Z | infra-agent | COMPLETE | FEAT-DB-002 | passed | TEST-DB-002 green (verified in FEAT-DB-001)
+      2026-02-23T07:56:04Z | dashboard-agent | COMPLETE | FEAT-DSH-002 | passed | TEST-DSH-003, TEST-DSH-004 green
+      2026-02-23T07:56:28Z | dashboard-agent | COMPLETE | FEAT-DSH-003 | passed | TEST-DSH-005, TEST-DSH-006 green
+      2026-02-23T07:56:44Z | dashboard-agent | COMPLETE | FEAT-DSH-004 | passed | TEST-DSH-007 green
+      2026-02-23T07:58:51Z | dashboard-agent | COMPLETE | FEAT-DSH-005 | passed | TEST-DSH-008 green
+      2026-02-23T08:00:34Z | dashboard-agent | COMPLETE | FEAT-DSH-011 | passed | TEST-DSH-015 green
+      2026-02-23T08:03:05Z | dashboard-agent | COMPLETE | FEAT-DSH-014 | passed | TEST-DSH-019, TEST-DSH-058, TEST-DSH-059 green
+      2026-02-23T08:04:22Z | dashboard-agent | COMPLETE | FEAT-DSH-034 | passed | TEST-DSH-044 green
+      2026-02-23T08:06:08Z | infra-agent | COMPLETE | FEAT-DB-041 | passed | tests green
+      2026-02-23T08:10:37Z | infra-agent | COMPLETE | FEAT-INF-003 | passed | migration script working
+      2026-02-23T08:43:43Z | intelligence-agent | COMPLETE | FEAT-INT-008 | passed | TEST-AGT-018 green (39 tests)
+      2026-02-23T08:44:23Z | text-post-agent | COMPLETE | FEAT-TP-002 | passed | TEST-WKR-013 green
+      2026-02-23T08:49:27Z | text-post-agent | COMPLETE | FEAT-TP-003 | passed | TEST-WKR-014 green
+      2026-02-23T08:50:03Z | strategy-agent | COMPLETE | FEAT-STR-002 | passed | TEST-AGT-002 green (6/6 tests)
+      2026-02-23T08:50:24Z | measure-agent | COMPLETE | FEAT-MS-005 | passed | TEST-WKR-031 green
+      2026-02-23T08:51:26Z | mcp-core-agent | COMPLETE | FEAT-MCC-001 | passed | TEST-MCP-001,TEST-MCP-002 green
+      2026-02-23T12:01:00Z | infra-agent | COMPLETE | FEAT-ALG-011 | passed | TEST-ALG-017,TEST-ALG-018 green — 17 pure-function tests
+      2026-02-23T12:02:30Z | infra-agent | COMPLETE | FEAT-ALG-013 | passed | TEST-ALG-020 green — 11 tests, cutoff verified in all SQL queries
+      2026-02-23T12:04:00Z | infra-agent | COMPLETE | FEAT-ALG-014 | passed | TEST-ALG-021 green — 5 tables, 100-row batches, 10 tests
+      2026-02-23T12:05:00Z | infra-agent | COMPLETE | FEAT-ALG-015 | passed | TEST-ALG-022 green — 14 tests, matrix verified
+      2026-02-23T12:06:00Z | infra-agent | COMPLETE | FEAT-INF-004 | passed | TEST-INT-002 — prod compose with Cloud SQL 35.243.93.204
+
+  AP9: Config Hardcoding (hardcoded values in src/)
+  [WARN] Potential hardcoded config found:
+    /home/pochi/workspaces/work/ai-influencer/v5/src/mcp-server/tools/agent-mgmt/check-tool-count.ts:3: * Returns the hardcoded total MCP tool count (103).
+    /home/pochi/workspaces/work/ai-influencer/v5/src/lib/settings.ts:8:const DATABASE_URL = process.env['DATABASE_URL'] || 'postgres://dev:dev@localhost:5433/dev_ai_influencer';
+    /home/pochi/workspaces/work/ai-influencer/v5/src/db/pool.ts:12:const DATABASE_URL = process.env['DATABASE_URL'] || 'postgres://dev:dev@localhost:5433/dev_ai_influencer';
+
+  AP10: Type Bypass (any type usage)
+  [WARN] Found 14 instances of 'any' type:
+    /home/pochi/workspaces/work/ai-influencer/v5/src/mcp-server/tools/intelligence/get-recent-intel.ts:18:  if (input.intel_type && !VALID_INTEL_TYPES.includes(input.intel_type as any)) {
+    /home/pochi/workspaces/work/ai-influencer/v5/src/mcp-server/tools/intelligence/get-recent-intel.ts:23:  if (input.platform && !VALID_PLATFORMS.includes(input.platform as any)) {
+    /home/pochi/workspaces/work/ai-influencer/v5/src/mcp-server/tools/intelligence/get-recent-intel.ts:60:    intel: res.rows.map((r: any) => ({
+    /home/pochi/workspaces/work/ai-influencer/v5/src/mcp-server/tools/intelligence/save-competitor-post.ts:17:  if (!VALID_PLATFORMS.includes(input.platform as any)) {
+    /home/pochi/workspaces/work/ai-influencer/v5/src/mcp-server/tools/intelligence/save-trending-topic.ts:17:  if (!VALID_PLATFORMS.includes(input.platform as any)) {
+    /home/pochi/workspaces/work/ai-influencer/v5/src/mcp-server/tools/strategy/get-cluster-performance.ts:18:  if (!VALID_PERIODS.includes(input.period as any)) {
+    /home/pochi/workspaces/work/ai-influencer/v5/src/mcp-server/tools/strategy/get-portfolio-kpi-summary.ts:22:  if (!VALID_PERIODS.includes(input.period as any)) {
+    /home/pochi/workspaces/work/ai-influencer/v5/src/workers/measurement/orchestrator.ts:75:  return res.rows.map((r: any) => ({
+    /home/pochi/workspaces/work/ai-influencer/v5/src/workers/algorithm/adjustment-cache.ts:59:    .filter((r: any) => r.sample_count >= minSample)
+    /home/pochi/workspaces/work/ai-influencer/v5/src/workers/algorithm/adjustment-cache.ts:60:    .map((r: any) => ({
+
+  Anti-pattern total: 4 issue(s) found
+
+--- 4. Git Statistics ---
+
+  Commits since 2026-02-23: 127
+
+  By author:
+        127 shungo0222
+
+  Recent commits:
+    c8d2f51 chore: update progress.txt with session completion log (276/276)
+    7476ede chore: integration/E2E tests + docker-compose.prod + feature_list 276/276 (100%)
+    d1ba4ce feat(workers): ALG-007~015 + TP-004~006 + MS-002/004/006 + VW workers + tests
+    cf6b585 feat(agents): INT-003~021 graphs + intelligence modules + STR-003~010 strategy modules
+    9d5d56a feat(mcp-server/tools/intelligence): MCI-001~035 intelligence/curation/learning/tool-knowledge (37 tools + tests)
+    25f6faa feat(mcp-server/tools): MCC-022~043 measurement/dashboard/agent-mgmt tools (18 tools + tests)
+    4f56c85 chore: mark VW-001~018 + INT-001/002 as complete (150/276 features)
+    1266598 chore: sync feature_list.json + progress.txt (130/276 features complete)
+    b37a33e feat(mcp-server/tools): MCC-025~027 publishing tools + MCC-042 common validation
+    a4963b0 feat(mcp-server/tools/production): MCC-013~021 production worker tools + tests
+    edc9fff feat(mcp-server/tools/planner): MCC-007~012 planner tools + tests
+    7ea97f6 feat(mcp-server/tools/strategy): MCC-002~006 strategy tools + tests
+    40706ea fix: resolve 47 TypeScript strict mode errors across 10 files
+    820b5dd feat(pipeline): skip Kling for hook/CTA when pre-generated base video exists
+    1aed8d9 feat(mcp-server/tools/strategy): get_portfolio_kpi_summary + period validation (FEAT-MCC-001, tests: TEST-MCP-001, TEST-MCP-002)
+    c272655 feat(workers/measurement): follow-up measurement schedule 7d/30d (FEAT-MS-005, tests: TEST-WKR-031)
+    d54e0f7 feat(agents/strategy-cycle): cycles table status transition recording (FEAT-STR-002, tests: TEST-AGT-002)
+    9f2b040 feat(workers/posting): platform routing to 4 adapters YouTube/TikTok/Instagram/X (FEAT-TP-003, tests: TEST-WKR-014)
+    fbb0dbb feat(agents/strategy-cycle): Strategy cycle graph definition with node execution order (FEAT-STR-001, tests: TEST-AGT-001)
+    258a4ac feat(workers/posting): daily post limit MAX_POSTS_PER_ACCOUNT_PER_DAY (FEAT-TP-002, tests: TEST-WKR-013)

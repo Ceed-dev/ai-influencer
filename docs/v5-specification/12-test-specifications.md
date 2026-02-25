@@ -568,15 +568,15 @@ TEST-{LAYER}-{NUMBER}
 - **Pass Criteria**: 6値成功 AND 不正値が拒否
 - **Fail Indicators**: 不正値が成功
 
-### TEST-DB-046: system_settings 初期データ件数 (124件)
+### TEST-DB-046: system_settings 初期データ件数 (126件)
 - **Category**: database
 - **Priority**: P0
 - **Prerequisites**: 初期INSERTマイグレーション実行済み
 - **Steps**:
   1. `SELECT COUNT(*) FROM system_settings;`
-- **Expected Result**: `count = 124`
-- **Pass Criteria**: COUNT = 124
-- **Fail Indicators**: COUNT ≠ 124
+- **Expected Result**: `count = 126`
+- **Pass Criteria**: COUNT = 126
+- **Fail Indicators**: COUNT ≠ 126
 
 ### TEST-DB-047: system_settings カテゴリ別件数
 - **Category**: database
@@ -590,7 +590,7 @@ TEST-{LAYER}-{NUMBER}
   | agent | 79 |
   | cost_control | 4 |
   | credentials | 5 |
-  | dashboard | 3 |
+  | dashboard | 5 |
   | measurement | 6 |
   | posting | 8 |
   | production | 14 |
@@ -3159,12 +3159,12 @@ TEST-{LAYER}-{NUMBER}
 ### TEST-DSH-015: GET /api/settings — 全設定取得
 - **Category**: dashboard
 - **Priority**: P0
-- **Prerequisites**: system_settings に124件のデータ
+- **Prerequisites**: system_settings に126件のデータ
 - **Steps**:
   1. `GET /api/settings` を呼び出し
-- **Expected Result**: HTTP 200。`{ settings: SystemSetting[] }`。124件。カテゴリ別にグルーピング
-- **Pass Criteria**: settings の件数 = 124
-- **Fail Indicators**: 件数が 124 でない
+- **Expected Result**: HTTP 200。`{ settings: SystemSetting[] }`。126件。カテゴリ別にグルーピング
+- **Pass Criteria**: settings の件数 = 126
+- **Fail Indicators**: 件数が 126 でない
 
 ### TEST-DSH-016: PUT /api/settings/:key — 設定更新
 - **Category**: dashboard
@@ -3474,7 +3474,7 @@ TEST-{LAYER}-{NUMBER}
 ### TEST-DSH-045: REST API — レスポンスタイム
 - **Category**: dashboard
 - **Priority**: P2
-- **Prerequisites**: system_settings に124件のデータ
+- **Prerequisites**: system_settings に126件のデータ
 - **Steps**:
   1. `GET /api/settings` を10回呼び出し、レスポンスタイムを計測
 - **Expected Result**: 平均レスポンスタイム < 500ms
