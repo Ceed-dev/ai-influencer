@@ -91,15 +91,12 @@ export function Sidebar({ open, collapsed, onClose, onToggleCollapse }: SidebarP
       )}
     >
       {/* Header */}
-      <div className={cn("flex border-b", collapsed ? "flex-col items-center gap-1 py-2 px-1" : "items-center justify-between px-4 py-3")}>
+      <div className={cn("flex items-center border-b", collapsed ? "justify-center py-3 px-2" : "justify-between px-4 py-3")}>
         {!collapsed && (
           <div className="flex items-center gap-2 min-w-0">
             <Image src="/icon.svg" alt="" width={28} height={28} className="shrink-0 rounded-md" />
             <h2 className="text-lg font-bold text-primary truncate">{t("sidebar.appTitle")}</h2>
           </div>
-        )}
-        {collapsed && (
-          <Image src="/icon.svg" alt={t("sidebar.appTitle")} width={24} height={24} className="shrink-0 rounded" />
         )}
         {/* Mobile close button */}
         <Button
