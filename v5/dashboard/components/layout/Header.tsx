@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { Sun, Moon, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { useTranslation } from "@/lib/i18n";
 
 const THEME_KEY = "ai-influencer-theme";
@@ -43,10 +42,7 @@ export function Header() {
   return (
     <header className="border-b bg-card">
       <div className="flex items-center justify-between px-6 py-3">
-        <div>
-          <h1 className="text-xl font-bold">{title}</h1>
-          <p className="text-xs text-muted-foreground">{pathname}</p>
-        </div>
+        <h1 className="text-lg font-bold">{title}</h1>
         <div className="flex items-center gap-3">
           {session?.user && (
             <div className="flex items-center gap-2">
@@ -99,7 +95,6 @@ export function Header() {
           </Button>
         </div>
       </div>
-      <Separator />
     </header>
   );
 }

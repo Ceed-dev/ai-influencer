@@ -90,12 +90,9 @@ export function Sidebar({ open, collapsed, onClose, onToggleCollapse }: SidebarP
       )}
     >
       {/* Header */}
-      <div className={cn("flex items-center border-b", collapsed ? "justify-center p-2" : "justify-between p-4")}>
+      <div className={cn("flex items-center border-b", collapsed ? "justify-center p-2" : "justify-between px-4 py-3")}>
         {!collapsed && (
-          <div className="min-w-0">
-            <h2 className="text-lg font-bold text-primary truncate">{t("sidebar.appTitle")}</h2>
-            <p className="text-xs text-muted-foreground">{t("sidebar.version")}</p>
-          </div>
+          <h2 className="text-lg font-bold text-primary truncate">{t("sidebar.appTitle")}</h2>
         )}
         {/* Mobile close button */}
         <Button
