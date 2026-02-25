@@ -3236,6 +3236,10 @@ v4.0からv5.0への移行は一括ではなく段階的に行う。各フェー
 | `DRY_RUN` | `true` (デフォルト) | `false` |
 | `DASHBOARD_URL` | `http://localhost:3000` | `https://dashboard.example.com` |
 | `GOOGLE_SERVICE_ACCOUNT` | 開発用SA | 本番用SA |
+| `NEXTAUTH_URL` | `http://localhost:3000` | `https://ai-dash.0xqube.xyz` |
+| `NEXTAUTH_SECRET` | ランダム生成文字列 | 本番用シークレット |
+| `GOOGLE_CLIENT_ID` | 開発用OAuth Client ID | 本番用OAuth Client ID |
+| `GOOGLE_CLIENT_SECRET` | 開発用OAuth Client Secret | 本番用OAuth Client Secret |
 
 ### 15.4 デプロイフロー
 

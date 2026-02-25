@@ -202,7 +202,9 @@ ai-influencer/v5/
 │
 ├── dashboard/                 # dashboard-agent（Next.js 14.2.x、独立アプリ）
 │   ├── app/
-│   │   ├── layout.tsx         # Solarizedテーマ、Nunitoフォント
+│   │   ├── layout.tsx         # Solarizedテーマ、Nunitoフォント、AuthProvider
+│   │   ├── login/             # ログイン画面（Google OAuth）
+│   │   │   └── page.tsx
 │   │   ├── page.tsx           # ホーム（1/15画面）
 │   │   ├── kpi/               # KPIダッシュボード（2/15）
 │   │   ├── production/        # 制作キュー（3/15）
@@ -219,12 +221,17 @@ ai-influencer/v5/
 │   │   ├── settings/          # 設定（14/15）— 8カテゴリタブ
 │   │   ├── directives/        # 人間指示（15/15）
 │   │   └── api/               # 19 REST API Routes（02-architecture.md §6.13参照）
+│   │       └── auth/[...nextauth]/ # NextAuth.js route handler
+│   │           └── route.ts
 │   ├── components/
 │   │   ├── ui/               # Shadcn/ui components
 │   │   ├── charts/           # Recharts wrappers
-│   │   └── layout/           # Sidebar, Header, etc.
+│   │   ├── layout/           # Sidebar, Header, etc.
+│   │   └── providers/
+│   │       └── AuthProvider.tsx  # SessionProvider wrapper
 │   ├── lib/
 │   │   ├── api.ts            # API client（PostgreSQL直接接続、MCP経由ではない）
+│   │   ├── auth.ts           # NextAuth.js設定（Google OAuth, JWT, RBAC）
 │   │   └── theme.ts          # Solarized color tokens
 │   └── tailwind.config.ts    # Solarized + Nunito
 │
