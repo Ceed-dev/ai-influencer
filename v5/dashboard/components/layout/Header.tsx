@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { Sun, Moon, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { useTranslation } from "@/lib/i18n";
 
@@ -40,10 +41,6 @@ export function Header() {
     }
   };
 
-  const toggleLang = () => {
-    setLang(lang === "en" ? "ja" : "en");
-  };
-
   return (
     <header className="border-b bg-card">
       <div className="flex items-center justify-between px-6 py-3">
@@ -70,16 +67,15 @@ export function Header() {
               </Button>
             </div>
           )}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={toggleLang}
-            aria-label="Toggle language"
-            title={lang === "en" ? "日本語に切り替え" : "Switch to English"}
-            className="px-2 text-xs font-medium"
-          >
-            {lang === "en" ? "EN" : "JA"}
-          </Button>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-medium text-muted-foreground">EN</span>
+            <Switch
+              checked={lang === "ja"}
+              onCheckedChange={(checked) => setLang(checked ? "ja" : "en")}
+              aria-label="Toggle language"
+            />
+            <span className="text-xs font-medium text-muted-foreground">JA</span>
+          </div>
           <Button
             variant="ghost"
             size="icon"
