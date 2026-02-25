@@ -34,7 +34,7 @@ describe('FEAT-DSH-030: Error Log page', () => {
 
   // TEST-DSH-040: period filter UI
   test('TEST-DSH-040: Error Log page has period filter', () => {
-    expect(content).toContain('期間');
+    expect(content).toContain('errors.period');
     expect(content).toContain('24h');
     expect(content).toContain('7d');
     expect(content).toContain('30d');
@@ -43,7 +43,7 @@ describe('FEAT-DSH-030: Error Log page', () => {
   // TEST-DSH-155: ErrorFilterBar
   test('TEST-DSH-155: has filter bar with task type filter', () => {
     expect(content).toContain('error-filter-bar');
-    expect(content).toContain('タスクタイプ');
+    expect(content).toContain('errors.taskType');
     expect(content).toContain('produce');
     expect(content).toContain('publish');
     expect(content).toContain('measure');
@@ -52,10 +52,10 @@ describe('FEAT-DSH-030: Error Log page', () => {
 
   // TEST-DSH-156: Error details shown
   test('TEST-DSH-156: shows error details in table', () => {
-    expect(content).toContain('エラーメッセージ');
-    expect(content).toContain('リトライ数');
-    expect(content).toContain('ステータス');
-    expect(content).toContain('発生日時');
+    expect(content).toContain('errors.errorMessage');
+    expect(content).toContain('errors.retryCount');
+    expect(content).toContain('errors.status');
+    expect(content).toContain('errors.occurredAt');
   });
 
   // TEST-DSH-089: retry status display
@@ -71,8 +71,8 @@ describe('FEAT-DSH-030: Error Log page', () => {
 
   test('error log page has pagination', () => {
     expect(content).toContain('totalPages');
-    expect(content).toContain('前');
-    expect(content).toContain('次');
+    expect(content).toContain('common.prev');
+    expect(content).toContain('common.next');
   });
 
   test('DB: can query failed tasks with period filter', async () => {

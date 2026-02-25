@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useTranslation } from "@/lib/i18n";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Table,
@@ -70,6 +71,7 @@ interface PerformanceEntry {
 }
 
 export default function PerformancePage() {
+  const { t } = useTranslation();
   const [data, setData] = useState<PerformanceEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -83,7 +85,7 @@ export default function PerformancePage() {
   if (loading)
     return (
       <div>
-        <div role="progressbar">Loading...</div>
+        <div role="progressbar">{t("common.loading")}</div>
       </div>
     );
 
@@ -125,7 +127,7 @@ export default function PerformancePage() {
           <Card>
             <CardContent className="pt-6">
               <h3 className="text-lg font-semibold mb-4">
-                エンゲージメント率 (上位15アカウント)
+                {t("performance.engagementRateTop15")}
               </h3>
               {engagementData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={360}>
@@ -165,7 +167,7 @@ export default function PerformancePage() {
                     <Line
                       type="monotone"
                       dataKey="engagement_rate"
-                      name="エンゲージメント率"
+                      name={t("performance.engagementRate")}
                       stroke={COLORS.green}
                       strokeWidth={2}
                       dot={(props: Record<string, unknown>) => {
@@ -192,7 +194,7 @@ export default function PerformancePage() {
                 </ResponsiveContainer>
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
-                  エンゲージメントデータなし
+                  {t("performance.noEngagementData")}
                 </div>
               )}
             </CardContent>
@@ -202,7 +204,7 @@ export default function PerformancePage() {
           <Card>
             <CardContent className="pt-6">
               <h3 className="text-lg font-semibold mb-4">
-                フォロワー数 TOP 10
+                {t("performance.followersTop10")}
               </h3>
               {top10Followers.length > 0 ? (
                 <ResponsiveContainer width="100%" height={360}>
@@ -241,7 +243,7 @@ export default function PerformancePage() {
                     <Legend />
                     <Bar
                       dataKey="followers"
-                      name="フォロワー数"
+                      name={t("performance.followersCount")}
                       radius={[0, 4, 4, 0]}
                     >
                       {top10Followers.map((entry, index) => (
@@ -255,7 +257,7 @@ export default function PerformancePage() {
                 </ResponsiveContainer>
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
-                  フォロワーデータなし
+                  {t("performance.noFollowerData")}
                 </div>
               )}
             </CardContent>
@@ -266,20 +268,20 @@ export default function PerformancePage() {
       {/* Table */}
       {data.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">
-          データがありません
+          {t("common.noData")}
         </div>
       ) : (
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>アカウント</TableHead>
-              <TableHead>プラットフォーム</TableHead>
-              <TableHead className="text-right">フォロワー</TableHead>
-              <TableHead className="text-right">総ビュー</TableHead>
-              <TableHead className="text-right">いいね</TableHead>
-              <TableHead className="text-right">コメント</TableHead>
-              <TableHead className="text-right">投稿数</TableHead>
-              <TableHead className="text-right">エンゲージメント率</TableHead>
+              <TableHead>{t("performance.account")}</TableHead>
+              <TableHead>{t("performance.platform")}</TableHead>
+              <TableHead className="text-right">{t("performance.followers")}</TableHead>
+              <TableHead className="text-right">{t("performance.totalViews")}</TableHead>
+              <TableHead className="text-right">{t("performance.likes")}</TableHead>
+              <TableHead className="text-right">{t("performance.comments")}</TableHead>
+              <TableHead className="text-right">{t("performance.posts")}</TableHead>
+              <TableHead className="text-right">{t("performance.engagementRate")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

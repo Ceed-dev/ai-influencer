@@ -13,6 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useTranslation } from "@/lib/i18n";
 
 interface Tool {
   id: number;
@@ -57,6 +58,7 @@ const TOOL_TYPES = [
 type ViewMode = "tools" | "recipes";
 
 export default function ToolsPage() {
+  const { t } = useTranslation();
   const [tools, setTools] = useState<Tool[]>([]);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [total, setTotal] = useState(0);
@@ -105,14 +107,14 @@ export default function ToolsPage() {
           size="sm"
           onClick={() => setViewMode("tools")}
         >
-          Tools ({totalTools})
+          {t("tools.toolsCount").replace("{count}", String(totalTools))}
         </Button>
         <Button
           variant={viewMode === "recipes" ? "default" : "secondary"}
           size="sm"
           onClick={() => setViewMode("recipes")}
         >
-          Recipes ({recipes.length})
+          {t("tools.recipesCount").replace("{count}", String(recipes.length))}
         </Button>
       </div>
 
@@ -129,10 +131,10 @@ export default function ToolsPage() {
               }}
               aria-label="Tool type filter"
             >
-              <option value="">All types ({totalTools})</option>
-              {TOOL_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {t.replace(/_/g, " ")} ({typeCounts[t] || 0})
+              <option value="">{t("tools.allTypesCount").replace("{count}", String(totalTools))}</option>
+              {TOOL_TYPES.map((tt) => (
+                <option key={tt} value={tt}>
+                  {tt.replace(/_/g, " ")} ({typeCounts[tt] || 0})
                 </option>
               ))}
             </NativeSelect>
@@ -140,25 +142,25 @@ export default function ToolsPage() {
 
           {/* Tools Table */}
           {loading ? (
-            <div role="progressbar">Loading...</div>
+            <div role="progressbar">{t("common.loading")}</div>
           ) : tools.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              No tools found
+              {t("tools.noToolsFound")}
             </div>
           ) : (
             <>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Tool Name</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Provider</TableHead>
-                    <TableHead>Cost/Use</TableHead>
-                    <TableHead>Usage</TableHead>
-                    <TableHead>Success Rate</TableHead>
-                    <TableHead>Avg Quality</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Resolution</TableHead>
+                    <TableHead>{t("tools.toolName")}</TableHead>
+                    <TableHead>{t("tools.type")}</TableHead>
+                    <TableHead>{t("tools.provider")}</TableHead>
+                    <TableHead>{t("tools.costPerUse")}</TableHead>
+                    <TableHead>{t("tools.usage")}</TableHead>
+                    <TableHead>{t("tools.successRate")}</TableHead>
+                    <TableHead>{t("tools.avgQuality")}</TableHead>
+                    <TableHead>{t("tools.status")}</TableHead>
+                    <TableHead>{t("tools.resolution")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -222,7 +224,7 @@ export default function ToolsPage() {
                         <Badge
                           variant={tool.is_active ? "success" : "destructive"}
                         >
-                          {tool.is_active ? "active" : "inactive"}
+                          {tool.is_active ? t("common.active") : t("common.inactive")}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-xs">
@@ -235,16 +237,16 @@ export default function ToolsPage() {
 
               {/* Tool Strengths/Weaknesses Detail */}
               {tools.some(
-                (t) =>
-                  (t.strengths && t.strengths.length > 0) ||
-                  (t.weaknesses && t.weaknesses.length > 0)
+                (tl) =>
+                  (tl.strengths && tl.strengths.length > 0) ||
+                  (tl.weaknesses && tl.weaknesses.length > 0)
               ) && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
                   {tools
                     .filter(
-                      (t) =>
-                        (t.strengths && t.strengths.length > 0) ||
-                        (t.weaknesses && t.weaknesses.length > 0)
+                      (tl) =>
+                        (tl.strengths && tl.strengths.length > 0) ||
+                        (tl.weaknesses && tl.weaknesses.length > 0)
                     )
                     .slice(0, 6)
                     .map((tool) => (
@@ -258,7 +260,7 @@ export default function ToolsPage() {
                           {tool.strengths && tool.strengths.length > 0 && (
                             <div>
                               <span className="font-semibold text-green-400">
-                                Strengths:{" "}
+                                {t("tools.strengths")}{" "}
                               </span>
                               {tool.strengths.join(", ")}
                             </div>
@@ -266,7 +268,7 @@ export default function ToolsPage() {
                           {tool.weaknesses && tool.weaknesses.length > 0 && (
                             <div>
                               <span className="font-semibold text-red-400">
-                                Weaknesses:{" "}
+                                {t("tools.weaknesses")}{" "}
                               </span>
                               {tool.weaknesses.join(", ")}
                             </div>
@@ -285,7 +287,7 @@ export default function ToolsPage() {
                     onClick={() => setPage(Math.max(1, page - 1))}
                     disabled={page === 1}
                   >
-                    Prev
+                    {t("common.prev")}
                   </Button>
                   <span className="px-3 py-1 text-sm">
                     {page} / {totalPages}
@@ -296,7 +298,7 @@ export default function ToolsPage() {
                     onClick={() => setPage(Math.min(totalPages, page + 1))}
                     disabled={page === totalPages}
                   >
-                    Next
+                    {t("common.next")}
                   </Button>
                 </div>
               )}
@@ -307,10 +309,10 @@ export default function ToolsPage() {
         /* Recipes View */
         <>
           {loading ? (
-            <div role="progressbar">Loading...</div>
+            <div role="progressbar">{t("common.loading")}</div>
           ) : recipes.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              No recipes found
+              {t("tools.noRecipesFound")}
             </div>
           ) : (
             <div className="space-y-4">
@@ -323,12 +325,12 @@ export default function ToolsPage() {
                       </CardTitle>
                       <div className="flex gap-2">
                         {recipe.is_default && (
-                          <Badge variant="default">default</Badge>
+                          <Badge variant="default">{t("tools.default")}</Badge>
                         )}
                         <Badge
                           variant={recipe.is_active ? "success" : "destructive"}
                         >
-                          {recipe.is_active ? "active" : "inactive"}
+                          {recipe.is_active ? t("common.active") : t("common.inactive")}
                         </Badge>
                       </div>
                     </div>
@@ -336,24 +338,24 @@ export default function ToolsPage() {
                   <CardContent>
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm mb-3">
                       <div>
-                        <span className="text-muted-foreground">Format: </span>
+                        <span className="text-muted-foreground">{t("tools.recipeFormat")} </span>
                         <Badge variant="secondary">
                           {recipe.content_format.replace(/_/g, " ")}
                         </Badge>
                       </div>
                       <div>
                         <span className="text-muted-foreground">
-                          Platform:{" "}
+                          {t("tools.recipePlatform")}{" "}
                         </span>
                         {recipe.target_platform || "all"}
                       </div>
                       <div>
-                        <span className="text-muted-foreground">Used: </span>
+                        <span className="text-muted-foreground">{t("tools.recipeUsed")} </span>
                         {recipe.times_used}x
                       </div>
                       <div>
                         <span className="text-muted-foreground">
-                          Quality:{" "}
+                          {t("tools.recipeQuality")}{" "}
                         </span>
                         {recipe.avg_quality_score != null
                           ? formatPercent(recipe.avg_quality_score)
@@ -361,7 +363,7 @@ export default function ToolsPage() {
                       </div>
                       <div>
                         <span className="text-muted-foreground">
-                          Success:{" "}
+                          {t("tools.recipeSuccess")}{" "}
                         </span>
                         {recipe.success_rate != null
                           ? formatPercent(recipe.success_rate)
@@ -371,7 +373,7 @@ export default function ToolsPage() {
                     {/* Steps */}
                     <div className="text-xs">
                       <span className="font-semibold text-muted-foreground">
-                        Steps:{" "}
+                        {t("tools.steps")}{" "}
                       </span>
                       <div className="flex flex-wrap gap-1 mt-1">
                         {recipe.steps.map((step, idx) => (
@@ -387,7 +389,7 @@ export default function ToolsPage() {
                     </div>
                     {recipe.created_by && (
                       <div className="text-xs text-muted-foreground mt-2">
-                        Created by: {recipe.created_by}
+                        {t("tools.createdBy")} {recipe.created_by}
                       </div>
                     )}
                   </CardContent>

@@ -21,11 +21,11 @@ describe('FEAT-DSH-031: Performance page', () => {
 
   // TEST-DSH-041: shows account-level performance
   test('TEST-DSH-041: Performance page shows account metrics', () => {
-    expect(content).toContain('アカウント');
-    expect(content).toContain('プラットフォーム');
-    expect(content).toContain('フォロワー');
-    expect(content).toContain('総ビュー');
-    expect(content).toContain('エンゲージメント率');
+    expect(content).toContain('performance.account');
+    expect(content).toContain('performance.platform');
+    expect(content).toContain('performance.followers');
+    expect(content).toContain('performance.totalViews');
+    expect(content).toContain('performance.engagementRate');
   });
 
   // TEST-DSH-128: engagement rate calculation

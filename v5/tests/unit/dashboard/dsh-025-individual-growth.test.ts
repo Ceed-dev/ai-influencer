@@ -37,9 +37,9 @@ describe('FEAT-DSH-025: Individual Growth Tracking page', () => {
 
   // TEST-DSH-034: 3 metrics shown
   test('TEST-DSH-034: growth panel shows 3 metrics per agent', () => {
-    expect(content).toContain('学習');
-    expect(content).toContain('スコア');
-    expect(content).toContain('振り返り');
+    expect(content).toContain('agents.learningCount');
+    expect(content).toContain('agents.avgScore');
+    expect(content).toContain('agents.reflectionSuccessRate');
   });
 
   // TEST-DSH-107: performance cards

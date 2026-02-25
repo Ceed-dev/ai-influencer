@@ -3,36 +3,18 @@
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
-import { Sun, Moon, LogOut } from "lucide-react";
+import { Sun, Moon, LogOut, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-
-const PAGE_TITLES: Record<string, string> = {
-  "/": "Dashboard",
-  "/kpi": "KPI Dashboard",
-  "/accounts": "Account Management",
-  "/characters": "Characters",
-  "/content": "Content",
-  "/production": "Production Pipeline",
-  "/review": "Content Review",
-  "/curation": "Curation Review",
-  "/performance": "Performance",
-  "/hypotheses": "Hypotheses",
-  "/learnings": "Learnings",
-  "/agents": "Agent Management",
-  "/directives": "Human Directives",
-  "/tools": "Tool Catalog",
-  "/errors": "Error Log",
-  "/costs": "Cost Management",
-  "/settings": "Settings",
-};
+import { useTranslation } from "@/lib/i18n";
 
 const THEME_KEY = "ai-influencer-theme";
 
 export function Header() {
   const pathname = usePathname();
   const { data: session } = useSession();
-  const title = PAGE_TITLES[pathname] || "AI Influencer";
+  const { t, lang, setLang } = useTranslation();
+  const title = t(`pageTitles.${pathname}`) || "AI Influencer";
   const [theme, setTheme] = useState<"dark" | "light">("dark");
 
   // On mount, read persisted theme from localStorage and apply
@@ -58,6 +40,10 @@ export function Header() {
     }
   };
 
+  const toggleLang = () => {
+    setLang(lang === "en" ? "ja" : "en");
+  };
+
   return (
     <header className="border-b bg-card">
       <div className="flex items-center justify-between px-6 py-3">
@@ -78,7 +64,7 @@ export function Header() {
                 variant="ghost"
                 size="icon"
                 onClick={() => signOut({ callbackUrl: "/login" })}
-                aria-label="Sign out"
+                aria-label={t("header.signOut")}
               >
                 <LogOut className="h-4 w-4" />
               </Button>
@@ -87,8 +73,20 @@ export function Header() {
           <Button
             variant="ghost"
             size="icon"
+            onClick={toggleLang}
+            aria-label="Toggle language"
+            title={lang === "en" ? "日本語に切り替え" : "Switch to English"}
+          >
+            <Globe className="h-4 w-4" />
+          </Button>
+          <span className="text-xs font-medium text-muted-foreground w-5">
+            {lang === "en" ? "EN" : "JA"}
+          </span>
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={toggleTheme}
-            aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            aria-label={theme === "dark" ? t("header.switchToLight") : t("header.switchToDark")}
           >
             {theme === "dark" ? (
               <Sun className="h-5 w-5" />

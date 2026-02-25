@@ -42,25 +42,26 @@ describe('FEAT-DSH-023: Human-Agent Dialogue page', () => {
 
   // TEST-DSH-031: message list
   test('TEST-DSH-031: page displays agent communications', () => {
-    expect(content).toContain('対話');
+    expect(content).toContain('agents.tabs.dialogue');
     expect(content).toContain('/api/communications');
   });
 
   // TEST-DSH-032: reply functionality
   test('TEST-DSH-032: reply UI exists with input and send button', () => {
-    expect(content).toContain('指示を入力');
-    expect(content).toContain('送信');
+    expect(content).toContain('agents.enterInstruction');
+    expect(content).toContain('common.send');
     expect(content).toContain('human_response');
   });
 
-  // TEST-DSH-076: agent selection
+  // TEST-DSH-076: agent selection panel shows 6 agents (via getAgentLabel/i18n)
   test('TEST-DSH-076: agent selection panel shows 6 agents', () => {
-    expect(content).toContain('戦略Agent');
-    expect(content).toContain('リサーチャー');
-    expect(content).toContain('アナリスト');
-    expect(content).toContain('プランナー');
-    expect(content).toContain('ツールSP');
-    expect(content).toContain('キュレーター');
+    expect(content).toContain('agents.agentLabels');
+    expect(content).toContain('strategist');
+    expect(content).toContain('researcher');
+    expect(content).toContain('analyst');
+    expect(content).toContain('planner');
+    expect(content).toContain('tool_specialist');
+    expect(content).toContain('data_curator');
   });
 
   // TEST-DSH-096: agent type filter
@@ -78,8 +79,8 @@ describe('FEAT-DSH-023: Human-Agent Dialogue page', () => {
 
   // TEST-DSH-098: status badges
   test('TEST-DSH-098: shows status badges', () => {
-    expect(content).toContain('適用済み');
-    expect(content).toContain('保留中');
+    expect(content).toContain('agents.applied');
+    expect(content).toContain('agents.pendingStatus');
     expect(content).toContain('data-status');
   });
 

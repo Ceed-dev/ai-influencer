@@ -44,20 +44,20 @@ describe('FEAT-DSH-033: Curation Review page', () => {
 
   // TEST-DSH-090: approve/reject buttons
   test('TEST-DSH-090: has approve and reject buttons', () => {
-    expect(content).toContain('承認');
-    expect(content).toContain('差し戻し');
+    expect(content).toContain('common.approve');
+    expect(content).toContain('common.reject');
   });
 
   // TEST-DSH-126: component details shown
   test('TEST-DSH-126: shows component type and confidence', () => {
-    expect(content).toContain('自信度');
-    expect(content).toContain('スコア');
+    expect(content).toContain('curation.confidenceLabel');
+    expect(content).toContain('curation.scoreLabel');
     expect(content).toContain('type');
   });
 
   // TEST-DSH-127: curation panel with filter
   test('TEST-DSH-127: has type filter for components', () => {
-    expect(content).toContain('コンポーネントタイプ');
+    expect(content).toContain('curation.componentType');
     expect(content).toContain('scenario');
     expect(content).toContain('motion');
     expect(content).toContain('audio');

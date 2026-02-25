@@ -54,16 +54,16 @@ describe('FEAT-DSH-026: Prompt Management page', () => {
 
   // TEST-DSH-035: version list
   test('TEST-DSH-035: agents page has prompt version list', () => {
-    expect(content).toContain('プロンプト管理');
+    expect(content).toContain('agents.tabs.prompt');
     expect(content).toContain('data-version');
     expect(content).toContain('data-active');
   });
 
   // TEST-DSH-036: suggestions accept/reject
   test('TEST-DSH-036: agents page has suggestions panel with accept/reject', () => {
-    expect(content).toContain('改善提案');
-    expect(content).toContain('承認');
-    expect(content).toContain('却下');
+    expect(content).toContain('agents.tabs.suggestions');
+    expect(content).toContain('common.approve');
+    expect(content).toContain('common.reject');
   });
 
   // TEST-DSH-101: version list display

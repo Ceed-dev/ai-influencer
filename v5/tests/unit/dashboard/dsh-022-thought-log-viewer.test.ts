@@ -48,13 +48,13 @@ describe('FEAT-DSH-022: Thought Log Viewer page', () => {
 
   // TEST-DSH-091: 7 tabs
   test('TEST-DSH-091: agents page has 7 tabs', () => {
-    expect(content).toContain('思考ログ');
-    expect(content).toContain('対話');
-    expect(content).toContain('進化');
-    expect(content).toContain('プロンプト管理');
-    expect(content).toContain('改善提案');
-    expect(content).toContain('個別成長');
-    expect(content).toContain('受信トレイ');
+    expect(content).toContain('agents.tabs.thoughtLog');
+    expect(content).toContain('agents.tabs.dialogue');
+    expect(content).toContain('agents.tabs.evolution');
+    expect(content).toContain('agents.tabs.prompt');
+    expect(content).toContain('agents.tabs.suggestions');
+    expect(content).toContain('agents.tabs.growth');
+    expect(content).toContain('agents.tabs.inbox');
   });
 
   // TEST-DSH-092: agent type filter
@@ -81,9 +81,9 @@ describe('FEAT-DSH-022: Thought Log Viewer page', () => {
   // TEST-DSH-095: step detail expansion
   test('TEST-DSH-095: page has detail expansion UI', () => {
     expect(content).toContain('expandedId');
-    expect(content).toContain('読み取りデータ');
-    expect(content).toContain('考慮事項');
-    expect(content).toContain('判断');
+    expect(content).toContain('agents.inputData');
+    expect(content).toContain('agents.reasoning');
+    expect(content).toContain('agents.output');
     expect(content).toContain('tools_used');
   });
 

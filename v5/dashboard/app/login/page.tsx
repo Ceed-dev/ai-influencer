@@ -4,19 +4,17 @@ import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { Button } from "@/components/ui/button";
-
-const ERROR_MESSAGES: Record<string, string> = {
-  AccessDenied: "Access denied. Your email is not on the allow list.",
-  OAuthSignin: "Error starting the sign-in flow. Please try again.",
-  OAuthCallback: "Error during the OAuth callback. Please try again.",
-  Default: "An unexpected error occurred. Please try again.",
-};
+import { useTranslation } from "@/lib/i18n";
 
 function LoginForm() {
   const searchParams = useSearchParams();
   const error = searchParams.get("error");
+  const { t } = useTranslation();
+
   const errorMessage = error
-    ? ERROR_MESSAGES[error] ?? ERROR_MESSAGES["Default"]
+    ? t(`login.errors.${error}`) !== `login.errors.${error}`
+      ? t(`login.errors.${error}`)
+      : t("login.errors.Default")
     : null;
 
   return (
@@ -24,10 +22,10 @@ function LoginForm() {
       <div className="w-full max-w-sm space-y-6 rounded-lg border bg-card p-8 shadow-lg">
         <div className="text-center space-y-2">
           <h1 className="text-2xl font-bold text-foreground">
-            AI Influencer
+            {t("login.title")}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Sign in to access the dashboard
+            {t("login.subtitle")}
           </p>
         </div>
 
@@ -60,11 +58,11 @@ function LoginForm() {
               fill="#EA4335"
             />
           </svg>
-          Sign in with Google
+          {t("login.signInGoogle")}
         </Button>
 
         <p className="text-center text-xs text-muted-foreground">
-          Only authorized email addresses can sign in
+          {t("login.authorizedOnly")}
         </p>
       </div>
     </div>

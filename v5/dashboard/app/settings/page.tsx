@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +38,7 @@ const CATEGORIES = [
 ] as const;
 
 export default function SettingsPage() {
+  const { t } = useTranslation();
   const [settings, setSettings] = useState<SystemSetting[]>([]);
   const [activeCategory, setActiveCategory] = useState<string>("production");
   const [loading, setLoading] = useState(true);
@@ -109,16 +111,16 @@ export default function SettingsPage() {
 
       {/* Settings <table> via Shadcn Table component */}
       {loading ? (
-        <p>Loading...</p>
+        <p>{t("common.loading")}</p>
       ) : (
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Key</TableHead>
-              <TableHead>Value</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Description</TableHead>
-              <TableHead>Actions</TableHead>
+              <TableHead>{t("settings.key")}</TableHead>
+              <TableHead>{t("settings.value")}</TableHead>
+              <TableHead>{t("settings.type")}</TableHead>
+              <TableHead>{t("settings.description")}</TableHead>
+              <TableHead>{t("settings.actions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -154,14 +156,14 @@ export default function SettingsPage() {
                         size="sm"
                         onClick={() => handleSave(s.setting_key)}
                       >
-                        Save
+                        {t("common.save")}
                       </Button>
                       <Button
                         variant="secondary"
                         size="sm"
                         onClick={() => setEditingKey(null)}
                       >
-                        Cancel
+                        {t("common.cancel")}
                       </Button>
                     </div>
                   ) : (
@@ -172,7 +174,7 @@ export default function SettingsPage() {
                         setEditValue(JSON.stringify(s.setting_value));
                       }}
                     >
-                      Edit
+                      {t("common.edit")}
                     </Button>
                   )}
                 </TableCell>

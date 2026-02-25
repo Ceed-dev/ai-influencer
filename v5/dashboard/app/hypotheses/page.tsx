@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "@/lib/i18n";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { NativeSelect } from "@/components/ui/select";
@@ -47,6 +48,7 @@ interface Hypothesis {
 }
 
 export default function HypothesesPage() {
+  const { t } = useTranslation();
   const [hypotheses, setHypotheses] = useState<Hypothesis[]>([]);
   const [loading, setLoading] = useState(true);
   const [verdictFilter, setVerdictFilter] = useState("");
@@ -124,7 +126,7 @@ export default function HypothesesPage() {
   if (loading)
     return (
       <div>
-        <div role="progressbar">Loading...</div>
+        <div role="progressbar">{t("common.loading")}</div>
       </div>
     );
 
@@ -134,7 +136,7 @@ export default function HypothesesPage() {
       <div className="flex items-center gap-4 mb-6 flex-wrap">
         <div className="flex items-center gap-2">
           <label htmlFor="verdict-filter" className="text-sm font-medium">
-            判定
+            {t("hypotheses.verdict")}
           </label>
           <NativeSelect
             id="verdict-filter"
@@ -142,16 +144,16 @@ export default function HypothesesPage() {
             value={verdictFilter}
             onChange={(e) => setVerdictFilter(e.target.value)}
           >
-            <option value="">全て</option>
-            <option value="pending">保留中</option>
-            <option value="confirmed">確認済み</option>
-            <option value="rejected">棄却</option>
-            <option value="inconclusive">不確定</option>
+            <option value="">{t("common.all")}</option>
+            <option value="pending">{t("hypotheses.pending")}</option>
+            <option value="confirmed">{t("hypotheses.confirmed")}</option>
+            <option value="rejected">{t("hypotheses.rejected")}</option>
+            <option value="inconclusive">{t("hypotheses.inconclusive")}</option>
           </NativeSelect>
         </div>
         <div className="flex items-center gap-2">
           <label htmlFor="category-filter" className="text-sm font-medium">
-            カテゴリ
+            {t("hypotheses.category")}
           </label>
           <NativeSelect
             id="category-filter"
@@ -159,7 +161,7 @@ export default function HypothesesPage() {
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
           >
-            <option value="">全て</option>
+            <option value="">{t("common.all")}</option>
             {categories.map((cat) => (
               <option key={cat} value={cat}>
                 {cat}
@@ -168,7 +170,7 @@ export default function HypothesesPage() {
           </NativeSelect>
         </div>
         <span className="text-sm text-muted-foreground">
-          {hypotheses.length} 件
+          {`${hypotheses.length} ${t("common.items")}`}
         </span>
       </div>
 
@@ -179,7 +181,7 @@ export default function HypothesesPage() {
           <Card>
             <CardContent className="pt-6">
               <h3 className="text-lg font-semibold mb-4">
-                仮説精度トレンド (月別)
+                {t("hypotheses.accuracyTrend")}
               </h3>
               {accuracyData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={300}>
@@ -204,7 +206,7 @@ export default function HypothesesPage() {
                         color: "var(--fg)",
                       }}
                       formatter={(value: number, name: string) => {
-                        if (name === "確認率") return `${value}%`;
+                        if (name === t("hypotheses.confirmationRate")) return `${value}%`;
                         return value;
                       }}
                     />
@@ -212,7 +214,7 @@ export default function HypothesesPage() {
                     <Line
                       type="monotone"
                       dataKey="accuracy"
-                      name="確認率"
+                      name={t("hypotheses.confirmationRate")}
                       stroke={COLORS.green}
                       strokeWidth={2}
                       dot={{ r: 4 }}
@@ -220,7 +222,7 @@ export default function HypothesesPage() {
                     <Line
                       type="monotone"
                       dataKey="total"
-                      name="仮説総数"
+                      name={t("hypotheses.totalHypotheses")}
                       stroke={COLORS.blue}
                       strokeWidth={2}
                       dot={{ r: 4 }}
@@ -229,7 +231,7 @@ export default function HypothesesPage() {
                 </ResponsiveContainer>
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
-                  時系列データなし
+                  {t("hypotheses.noTimeSeriesData")}
                 </div>
               )}
             </CardContent>
@@ -238,7 +240,7 @@ export default function HypothesesPage() {
           {/* Verdict distribution pie chart */}
           <Card>
             <CardContent className="pt-6">
-              <h3 className="text-lg font-semibold mb-4">判定分布</h3>
+              <h3 className="text-lg font-semibold mb-4">{t("hypotheses.verdictDistribution")}</h3>
               {verdictPieData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={300}>
                   <PieChart>
@@ -272,7 +274,7 @@ export default function HypothesesPage() {
                 </ResponsiveContainer>
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
-                  分布データなし
+                  {t("hypotheses.noDistributionData")}
                 </div>
               )}
             </CardContent>
@@ -283,7 +285,7 @@ export default function HypothesesPage() {
       {/* Card list */}
       {hypotheses.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">
-          データがありません
+          {t("common.noData")}
         </div>
       ) : (
         <div className="space-y-3">

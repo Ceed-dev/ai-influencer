@@ -19,7 +19,7 @@ describe('FEAT-DSH-029: Account Management page — CRUD', () => {
 
   // TEST-DSH-039: Page exists with CRUD
   test('TEST-DSH-039: Account Management page renders', () => {
-    expect(pageContent).toContain('Account Management');
+    expect(pageContent).toContain('useTranslation');
     expect(pageContent).toContain('export default function');
   });
 
@@ -32,9 +32,9 @@ describe('FEAT-DSH-029: Account Management page — CRUD', () => {
 
   // TEST-DSH-068: Create form
   test('TEST-DSH-068: has create account form', () => {
-    expect(pageContent).toContain('Create Account');
+    expect(pageContent).toContain('accounts.createAccount');
     expect(pageContent).toContain('handleCreate');
-    expect(pageContent).toContain('New Account');
+    expect(pageContent).toContain('accounts.newAccount');
   });
 
   // TEST-DSH-069: Status update
@@ -53,7 +53,7 @@ describe('FEAT-DSH-029: Account Management page — CRUD', () => {
 
   // TEST-DSH-084: Status display
   test('TEST-DSH-084: shows status with color coding', () => {
-    expect(pageContent).toContain('statusColor');
+    expect(pageContent).toContain('statusVariant');
     expect(pageContent).toContain('active');
     expect(pageContent).toContain('suspended');
     expect(pageContent).toContain('setup');

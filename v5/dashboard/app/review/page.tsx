@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { NativeSelect } from "@/components/ui/select";
+import { useTranslation } from "@/lib/i18n";
 import {
   RadarChart,
   PolarGrid,
@@ -92,6 +93,7 @@ function QualityRadar({ qualityScore }: { qualityScore: number }) {
 
 // Page: Content Review — approve/reject UI
 export default function ReviewPage() {
+  const { t } = useTranslation();
   const [items, setItems] = useState<ContentItem[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -163,13 +165,13 @@ export default function ReviewPage() {
   return (
     <div>
       <p className="mb-4 text-muted-foreground">
-        {total} items pending approval
+        {t("review.itemsPendingApproval").replace("{count}", String(total))}
       </p>
 
       {loading ? (
-        <p>Loading...</p>
+        <p>{t("common.loading")}</p>
       ) : items.length === 0 ? (
-        <p className="text-muted-foreground">No items pending review</p>
+        <p className="text-muted-foreground">{t("review.noItemsPending")}</p>
       ) : (
         <div className="space-y-4">
           {items.map((item) => (
@@ -184,7 +186,7 @@ export default function ReviewPage() {
                   </div>
                   {item.quality_score !== null && (
                     <span className="font-mono">
-                      Score: {item.quality_score}
+                      {t("review.score")} {item.quality_score}
                     </span>
                   )}
                 </div>
@@ -196,7 +198,7 @@ export default function ReviewPage() {
 
                 <div className="mb-3">
                   <Textarea
-                    placeholder="Feedback comment..."
+                    placeholder={t("review.feedbackPlaceholder")}
                     rows={2}
                     value={feedback[item.content_id] || ""}
                     onChange={(e) =>
@@ -219,12 +221,12 @@ export default function ReviewPage() {
                       })
                     }
                   >
-                    <option value="">Rejection category...</option>
-                    <option value="plan_revision">Plan Revision</option>
+                    <option value="">{t("review.rejectionCategory")}</option>
+                    <option value="plan_revision">{t("review.planRevision")}</option>
                     <option value="data_insufficient">
-                      Data Insufficient
+                      {t("review.dataInsufficient")}
                     </option>
-                    <option value="hypothesis_weak">Hypothesis Weak</option>
+                    <option value="hypothesis_weak">{t("review.hypothesisWeak")}</option>
                   </NativeSelect>
 
                   <Button
@@ -232,14 +234,14 @@ export default function ReviewPage() {
                     size="sm"
                     onClick={() => handleApprove(item.content_id)}
                   >
-                    Approve
+                    {t("common.approve")}
                   </Button>
                   <Button
                     variant="destructive"
                     size="sm"
                     onClick={() => handleReject(item.content_id)}
                   >
-                    Reject
+                    {t("common.reject")}
                   </Button>
                 </div>
               </CardContent>

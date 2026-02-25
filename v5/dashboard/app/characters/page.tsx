@@ -13,6 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useTranslation } from "@/lib/i18n";
 
 interface Character {
   id: number;
@@ -33,6 +34,7 @@ interface Character {
 const STATUSES = ["draft", "pending_review", "active", "archived"] as const;
 
 export default function CharactersPage() {
+  const { t } = useTranslation();
   const [characters, setCharacters] = useState<Character[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -103,7 +105,7 @@ export default function CharactersPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total
+              {t("characters.total")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -138,7 +140,7 @@ export default function CharactersPage() {
           }}
           aria-label="Status filter"
         >
-          <option value="">All statuses</option>
+          <option value="">{t("common.allStatuses")}</option>
           {STATUSES.map((s) => (
             <option key={s} value={s}>
               {s.replace("_", " ")}
@@ -149,24 +151,24 @@ export default function CharactersPage() {
 
       {/* Character Table */}
       {loading ? (
-        <div role="progressbar">Loading...</div>
+        <div role="progressbar">{t("common.loading")}</div>
       ) : characters.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">
-          No characters found
+          {t("characters.noCharactersFound")}
         </div>
       ) : (
         <>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Character ID</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Voice ID</TableHead>
-                <TableHead>Appearance</TableHead>
-                <TableHead>Personality</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Created By</TableHead>
-                <TableHead>Created</TableHead>
+                <TableHead>{t("characters.characterId")}</TableHead>
+                <TableHead>{t("characters.name")}</TableHead>
+                <TableHead>{t("characters.voiceId")}</TableHead>
+                <TableHead>{t("characters.appearance")}</TableHead>
+                <TableHead>{t("characters.personality")}</TableHead>
+                <TableHead>{t("characters.status")}</TableHead>
+                <TableHead>{t("characters.createdBy")}</TableHead>
+                <TableHead>{t("characters.created")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -211,7 +213,7 @@ export default function CharactersPage() {
                 onClick={() => setPage(Math.max(1, page - 1))}
                 disabled={page === 1}
               >
-                Prev
+                {t("common.prev")}
               </Button>
               <span className="px-3 py-1 text-sm">
                 {page} / {totalPages}
@@ -222,7 +224,7 @@ export default function CharactersPage() {
                 onClick={() => setPage(Math.min(totalPages, page + 1))}
                 disabled={page === totalPages}
               >
-                Next
+                {t("common.next")}
               </Button>
             </div>
           )}

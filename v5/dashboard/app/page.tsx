@@ -34,6 +34,7 @@ import {
 } from "recharts";
 import { cn } from "@/lib/utils";
 import { fetcher, swrConfig } from "@/lib/swr-config";
+import { useTranslation } from "@/lib/i18n";
 
 /* ─── Solarized palette ─── */
 const COLORS = {
@@ -117,9 +118,11 @@ interface PlatformSlice {
 function KPISummaryCards({
   kpi,
   totalAccounts,
+  t,
 }: {
   kpi: KpiSummaryResponse;
   totalAccounts: number;
+  t: (key: string) => string;
 }) {
   const activePercent =
     totalAccounts > 0
@@ -134,22 +137,22 @@ function KPISummaryCards({
 
   const cards = [
     {
-      label: "Total Accounts",
+      label: t("home.totalAccounts"),
       value: totalAccounts.toString(),
       color: COLORS.blue,
     },
     {
-      label: "Active %",
+      label: t("home.activePercent"),
       value: `${activePercent}%`,
       color: COLORS.green,
     },
     {
-      label: "Avg Quality Score",
+      label: t("home.avgQualityScore"),
       value: avgQuality === "N/A" ? avgQuality : `${avgQuality}%`,
       color: COLORS.cyan,
     },
     {
-      label: "Daily Budget Burn",
+      label: t("home.dailyBudgetBurn"),
       value: budgetBurn,
       color: COLORS.yellow,
     },
@@ -176,16 +179,16 @@ function KPISummaryCards({
 
 /* ─── EngagementTrendChart ─── */
 
-function EngagementTrendChart({ data }: { data: EngagementPoint[] }) {
+function EngagementTrendChart({ data, t }: { data: EngagementPoint[]; t: (key: string) => string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">Engagement Rate (30-day)</CardTitle>
+        <CardTitle className="text-lg">{t("home.engagementRate30d")}</CardTitle>
       </CardHeader>
       <CardContent>
         {data.length === 0 ? (
           <p className="text-muted-foreground text-sm h-[250px] flex items-center justify-center">
-            No engagement data available
+            {t("home.noEngagementData")}
           </p>
         ) : (
           <ResponsiveContainer width="100%" height={250}>
@@ -214,7 +217,7 @@ function EngagementTrendChart({ data }: { data: EngagementPoint[] }) {
                   borderRadius: "6px",
                   color: "#839496",
                 }}
-                formatter={(value: number) => [`${value.toFixed(2)}%`, "Engagement"]}
+                formatter={(value: number) => [`${value.toFixed(2)}%`, t("home.engagement")]}
               />
               <Area
                 type="monotone"
@@ -233,16 +236,16 @@ function EngagementTrendChart({ data }: { data: EngagementPoint[] }) {
 
 /* ─── AccountGrowthChart ─── */
 
-function AccountGrowthChart({ data }: { data: WeeklyGrowthPoint[] }) {
+function AccountGrowthChart({ data, t }: { data: WeeklyGrowthPoint[]; t: (key: string) => string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">Account Growth (Weekly)</CardTitle>
+        <CardTitle className="text-lg">{t("home.accountGrowthWeekly")}</CardTitle>
       </CardHeader>
       <CardContent>
         {data.length === 0 ? (
           <p className="text-muted-foreground text-sm h-[250px] flex items-center justify-center">
-            No account growth data available
+            {t("home.noAccountGrowthData")}
           </p>
         ) : (
           <ResponsiveContainer width="100%" height={250}>
@@ -265,7 +268,7 @@ function AccountGrowthChart({ data }: { data: WeeklyGrowthPoint[] }) {
                   borderRadius: "6px",
                   color: "#839496",
                 }}
-                formatter={(value: number) => [value, "New Accounts"]}
+                formatter={(value: number) => [value, t("home.newAccounts")]}
               />
               <Bar dataKey="count" fill={COLORS.blue} radius={[4, 4, 0, 0]} />
             </BarChart>
@@ -300,26 +303,26 @@ function contentStatusVariant(
   }
 }
 
-function RecentContentTable({ content }: { content: ContentRow[] }) {
+function RecentContentTable({ content, t }: { content: ContentRow[]; t: (key: string) => string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">Recent Content</CardTitle>
+        <CardTitle className="text-lg">{t("home.recentContent")}</CardTitle>
       </CardHeader>
       <CardContent>
         {content.length === 0 ? (
-          <p className="text-muted-foreground text-sm">No content found</p>
+          <p className="text-muted-foreground text-sm">{t("home.noContentFound")}</p>
         ) : (
           <div className="max-h-[400px] overflow-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Content ID</TableHead>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Format</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Quality</TableHead>
-                  <TableHead>Created</TableHead>
+                  <TableHead>{t("home.contentId")}</TableHead>
+                  <TableHead>{t("home.title")}</TableHead>
+                  <TableHead>{t("home.format")}</TableHead>
+                  <TableHead>{t("home.status")}</TableHead>
+                  <TableHead className="text-right">{t("home.quality")}</TableHead>
+                  <TableHead>{t("home.created")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -360,18 +363,18 @@ function RecentContentTable({ content }: { content: ContentRow[] }) {
 
 /* ─── PlatformBreakdownPie ─── */
 
-function PlatformBreakdownPie({ data }: { data: PlatformSlice[] }) {
+function PlatformBreakdownPie({ data, t }: { data: PlatformSlice[]; t: (key: string) => string }) {
   const total = data.reduce((sum, d) => sum + d.value, 0);
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">Platform Distribution</CardTitle>
+        <CardTitle className="text-lg">{t("home.platformDistribution")}</CardTitle>
       </CardHeader>
       <CardContent>
         {total === 0 ? (
           <p className="text-muted-foreground text-sm h-[250px] flex items-center justify-center">
-            No account data available
+            {t("home.noAccountData")}
           </p>
         ) : (
           <ResponsiveContainer width="100%" height={250}>
@@ -401,7 +404,7 @@ function PlatformBreakdownPie({ data }: { data: PlatformSlice[] }) {
                   color: "#839496",
                 }}
                 formatter={(value: number, name: string) => [
-                  `${value} accounts`,
+                  `${value} ${t("home.accounts")}`,
                   name,
                 ]}
               />
@@ -494,6 +497,8 @@ function derivePlatformBreakdown(accounts: AccountRow[]): PlatformSlice[] {
 /* ─── Home Page ─── */
 
 export default function Home() {
+  const { t } = useTranslation();
+
   const { data: kpi, error: kpiError, isLoading: kpiLoading } = useSWR<KpiSummaryResponse>(
     "/api/kpi/summary",
     fetcher,
@@ -542,7 +547,7 @@ export default function Home() {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div role="progressbar" className="text-muted-foreground">
-          Loading dashboard...
+          {t("common.loadingDashboard")}
         </div>
       </div>
     );
@@ -554,7 +559,7 @@ export default function Home() {
         <Card>
           <CardContent className="pt-6">
             <p className="text-destructive font-medium">
-              Error: {kpiError instanceof Error ? kpiError.message : "Failed to load data"}
+              {t("common.error")} {kpiError instanceof Error ? kpiError.message : "Failed to load data"}
             </p>
             <button
               onClick={() => window.location.reload()}
@@ -563,7 +568,7 @@ export default function Home() {
                 "bg-primary text-primary-foreground hover:bg-primary/90"
               )}
             >
-              Retry
+              {t("common.retry")}
             </button>
           </CardContent>
         </Card>
@@ -576,20 +581,20 @@ export default function Home() {
   return (
     <div className="space-y-6">
       {/* Row 1: KPI Summary Cards */}
-      <KPISummaryCards kpi={kpi} totalAccounts={totalAccounts} />
+      <KPISummaryCards kpi={kpi} totalAccounts={totalAccounts} t={t} />
 
       {/* Row 2: Charts — engagement trend + account growth side by side */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <EngagementTrendChart data={engagementData} />
-        <AccountGrowthChart data={weeklyGrowth} />
+        <EngagementTrendChart data={engagementData} t={t} />
+        <AccountGrowthChart data={weeklyGrowth} t={t} />
       </div>
 
       {/* Row 3: Content table + Platform pie side by side */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
-          <RecentContentTable content={content} />
+          <RecentContentTable content={content} t={t} />
         </div>
-        <PlatformBreakdownPie data={platformBreakdown} />
+        <PlatformBreakdownPie data={platformBreakdown} t={t} />
       </div>
     </div>
   );

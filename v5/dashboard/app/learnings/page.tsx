@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { NativeSelect } from "@/components/ui/select";
+import { useTranslation } from "@/lib/i18n";
 import {
   BarChart,
   Bar,
@@ -57,6 +58,7 @@ const CONFIDENCE_BUCKETS = [
 ];
 
 export default function LearningsPage() {
+  const { t } = useTranslation();
   const [learnings, setLearnings] = useState<Learning[]>([]);
   const [loading, setLoading] = useState(true);
   const [minConfidence, setMinConfidence] = useState("");
@@ -108,7 +110,7 @@ export default function LearningsPage() {
   if (loading)
     return (
       <div>
-        <div role="progressbar">Loading...</div>
+        <div role="progressbar">{t("common.loading")}</div>
       </div>
     );
 
@@ -118,7 +120,7 @@ export default function LearningsPage() {
       <div className="flex items-center gap-4 mb-6 flex-wrap">
         <div className="flex items-center gap-2">
           <label htmlFor="confidence-filter" className="text-sm font-medium">
-            最小信頼度
+            {t("learnings.minConfidence")}
           </label>
           <NativeSelect
             id="confidence-filter"
@@ -126,7 +128,7 @@ export default function LearningsPage() {
             value={minConfidence}
             onChange={(e) => setMinConfidence(e.target.value)}
           >
-            <option value="">全て</option>
+            <option value="">{t("common.all")}</option>
             <option value="0.2">0.2+</option>
             <option value="0.4">0.4+</option>
             <option value="0.6">0.6+</option>
@@ -135,7 +137,7 @@ export default function LearningsPage() {
         </div>
         <div className="flex items-center gap-2">
           <label htmlFor="learning-category" className="text-sm font-medium">
-            カテゴリ
+            {t("learnings.category")}
           </label>
           <NativeSelect
             id="learning-category"
@@ -143,7 +145,7 @@ export default function LearningsPage() {
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
           >
-            <option value="">全て</option>
+            <option value="">{t("common.all")}</option>
             {categories.map((cat) => (
               <option key={cat} value={cat}>
                 {cat}
@@ -152,7 +154,7 @@ export default function LearningsPage() {
           </NativeSelect>
         </div>
         <span className="text-sm text-muted-foreground">
-          {learnings.length} 件
+          {learnings.length} {t("common.items")}
         </span>
       </div>
 
@@ -163,7 +165,7 @@ export default function LearningsPage() {
           <Card>
             <CardContent className="pt-6">
               <h3 className="text-lg font-semibold mb-4">
-                信頼度スコア分布
+                {t("learnings.confidenceDistribution")}
               </h3>
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={histogramData}>
@@ -175,7 +177,7 @@ export default function LearningsPage() {
                     dataKey="range"
                     tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
                     label={{
-                      value: "信頼度",
+                      value: t("learnings.confidenceAxis"),
                       position: "insideBottom",
                       offset: -5,
                       fill: "var(--muted-foreground)",
@@ -184,7 +186,7 @@ export default function LearningsPage() {
                   <YAxis
                     tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
                     label={{
-                      value: "件数",
+                      value: t("learnings.countAxis"),
                       angle: -90,
                       position: "insideLeft",
                       fill: "var(--muted-foreground)",
@@ -200,7 +202,7 @@ export default function LearningsPage() {
                   />
                   <Bar
                     dataKey="count"
-                    name="件数"
+                    name={t("learnings.count")}
                     fill={COLORS.blue}
                     radius={[4, 4, 0, 0]}
                   />
@@ -212,7 +214,7 @@ export default function LearningsPage() {
           {/* Category distribution pie chart */}
           <Card>
             <CardContent className="pt-6">
-              <h3 className="text-lg font-semibold mb-4">カテゴリ分布</h3>
+              <h3 className="text-lg font-semibold mb-4">{t("learnings.categoryDistribution")}</h3>
               {categoryPieData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={300}>
                   <PieChart>
@@ -246,7 +248,7 @@ export default function LearningsPage() {
                 </ResponsiveContainer>
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
-                  カテゴリデータなし
+                  {t("learnings.noCategoryData")}
                 </div>
               )}
             </CardContent>
@@ -257,7 +259,7 @@ export default function LearningsPage() {
       {/* Card list */}
       {learnings.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">
-          データがありません
+          {t("common.noData")}
         </div>
       ) : (
         <div className="space-y-3">
@@ -268,7 +270,7 @@ export default function LearningsPage() {
                 <div className="flex gap-2 mt-1">
                   <Badge variant="secondary">{l.category}</Badge>
                   <span className="text-sm text-muted-foreground">
-                    confidence: {String(l.confidence)}
+                    {t("common.confidence")}: {String(l.confidence)}
                   </span>
                 </div>
               </CardContent>

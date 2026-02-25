@@ -6,11 +6,13 @@ import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
+import { useTranslation } from "@/lib/i18n";
 
 const COLLAPSED_KEY = "ai-influencer-sidebar-collapsed";
 
 export function LayoutShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { t } = useTranslation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
@@ -67,11 +69,11 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
             variant="ghost"
             size="icon"
             onClick={() => setSidebarOpen(true)}
-            aria-label="Open menu"
+            aria-label={t("sidebar.openMenu")}
           >
             <Menu className="h-5 w-5" />
           </Button>
-          <span className="ml-2 font-bold text-primary text-sm">AI Influencer</span>
+          <span className="ml-2 font-bold text-primary text-sm">{t("sidebar.appTitle")}</span>
         </div>
         <Header />
         {/* Main content — independently scrollable */}

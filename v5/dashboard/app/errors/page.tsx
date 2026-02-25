@@ -3,6 +3,7 @@
 import { useState } from "react";
 import useSWR from "swr";
 import { RotateCcw, Ban } from "lucide-react";
+import { useTranslation } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { NativeSelect } from "@/components/ui/select";
@@ -33,6 +34,7 @@ interface ErrorsResponse {
 }
 
 export default function ErrorLogPage() {
+  const { t } = useTranslation();
   const [period, setPeriod] = useState<string>("");
   const [taskType, setTaskType] = useState<string>("");
   const [page, setPage] = useState(1);
@@ -88,12 +90,12 @@ export default function ErrorLogPage() {
             setPeriod(e.target.value);
             setPage(1);
           }}
-          aria-label="期間"
+          aria-label={t("errors.period")}
         >
-          <option value="">全期間</option>
-          <option value="24h">過去24時間</option>
-          <option value="7d">過去7日間</option>
-          <option value="30d">過去30日間</option>
+          <option value="">{t("errors.allPeriods")}</option>
+          <option value="24h">{t("errors.last24h")}</option>
+          <option value="7d">{t("errors.last7d")}</option>
+          <option value="30d">{t("errors.last30d")}</option>
         </NativeSelect>
 
         <NativeSelect
@@ -103,9 +105,9 @@ export default function ErrorLogPage() {
             setTaskType(e.target.value);
             setPage(1);
           }}
-          aria-label="タスクタイプ"
+          aria-label={t("errors.taskType")}
         >
-          <option value="">全タスクタイプ</option>
+          <option value="">{t("errors.allTaskTypes")}</option>
           <option value="produce">produce</option>
           <option value="publish">publish</option>
           <option value="measure">measure</option>
@@ -114,23 +116,23 @@ export default function ErrorLogPage() {
       </div>
 
       {isLoading ? (
-        <div role="progressbar">Loading...</div>
+        <div role="progressbar">{t("common.loading")}</div>
       ) : errors.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">
-          データがありません
+          {t("common.noData")}
         </div>
       ) : (
         <>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>ID</TableHead>
-                <TableHead>タスクタイプ</TableHead>
-                <TableHead>エラーメッセージ</TableHead>
-                <TableHead>リトライ数</TableHead>
-                <TableHead>ステータス</TableHead>
-                <TableHead>発生日時</TableHead>
-                <TableHead>アクション</TableHead>
+                <TableHead>{t("errors.id")}</TableHead>
+                <TableHead>{t("errors.taskType")}</TableHead>
+                <TableHead>{t("errors.errorMessage")}</TableHead>
+                <TableHead>{t("errors.retryCount")}</TableHead>
+                <TableHead>{t("errors.status")}</TableHead>
+                <TableHead>{t("errors.occurredAt")}</TableHead>
+                <TableHead>{t("errors.action")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -179,7 +181,7 @@ export default function ErrorLogPage() {
                             title="Retry task"
                           >
                             <RotateCcw className="h-3 w-3 mr-1" />
-                            Retry
+                            {t("errors.retryBtn")}
                           </Button>
                         )}
                         {canAbandon && (
@@ -191,7 +193,7 @@ export default function ErrorLogPage() {
                             title="Abandon task permanently"
                           >
                             <Ban className="h-3 w-3 mr-1" />
-                            Abandon
+                            {t("errors.abandonBtn")}
                           </Button>
                         )}
                       </div>
@@ -210,7 +212,7 @@ export default function ErrorLogPage() {
                 onClick={() => setPage(Math.max(1, page - 1))}
                 disabled={page === 1}
               >
-                前
+                {t("common.prev")}
               </Button>
               <span className="px-3 py-1 text-sm">
                 {page} / {totalPages}
@@ -221,7 +223,7 @@ export default function ErrorLogPage() {
                 onClick={() => setPage(Math.min(totalPages, page + 1))}
                 disabled={page === totalPages}
               >
-                次
+                {t("common.next")}
               </Button>
             </div>
           )}

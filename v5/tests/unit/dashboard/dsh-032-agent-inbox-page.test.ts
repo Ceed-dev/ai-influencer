@@ -41,7 +41,7 @@ describe('FEAT-DSH-032: Agent Inbox page', () => {
 
   // TEST-DSH-042: status filter
   test('TEST-DSH-042: Inbox has status filter', () => {
-    expect(content).toContain('ステータス');
+    expect(content).toContain('production.status');
     expect(content).toContain('unread');
     expect(content).toContain('responded');
   });
@@ -55,7 +55,7 @@ describe('FEAT-DSH-032: Agent Inbox page', () => {
 
   // TEST-DSH-110: reply functionality
   test('TEST-DSH-110: has reply input and button', () => {
-    expect(content).toContain('返信');
+    expect(content).toContain('common.reply');
     expect(content).toContain('handleReply');
   });
 

@@ -55,9 +55,9 @@ describe('FEAT-DSH-028: Settings page — category grouping', () => {
 
   // TEST-DSH-085: Edit functionality
   test('TEST-DSH-085: edit button and save flow', () => {
-    expect(pageContent).toContain('Edit');
-    expect(pageContent).toContain('Save');
-    expect(pageContent).toContain('Cancel');
+    expect(pageContent).toContain('common.edit');
+    expect(pageContent).toContain('common.save');
+    expect(pageContent).toContain('common.cancel');
     expect(pageContent).toContain('handleSave');
   });
 

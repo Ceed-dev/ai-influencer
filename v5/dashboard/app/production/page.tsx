@@ -13,6 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useTranslation } from "@/lib/i18n";
 
 interface Task {
   id: number;
@@ -38,6 +39,7 @@ const STATUS_OPTIONS = [
 const TASK_TYPES = ["produce", "publish", "measure", "curate"] as const;
 
 export default function ProductionPage() {
+  const { t } = useTranslation();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [total, setTotal] = useState(0);
   const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
@@ -89,10 +91,10 @@ export default function ProductionPage() {
   };
 
   const priorityLabel = (priority: number) => {
-    if (priority >= 10) return { text: "urgent", variant: "destructive" as const };
-    if (priority >= 5) return { text: "high", variant: "warning" as const };
-    if (priority >= 1) return { text: "normal", variant: "secondary" as const };
-    return { text: "low", variant: "outline" as const };
+    if (priority >= 10) return { text: t("production.priorityUrgent"), variant: "destructive" as const };
+    if (priority >= 5) return { text: t("production.priorityHigh"), variant: "warning" as const };
+    if (priority >= 1) return { text: t("production.priorityNormal"), variant: "secondary" as const };
+    return { text: t("production.priorityLow"), variant: "outline" as const };
   };
 
   const payloadSummary = (payload: Record<string, unknown>): string => {
@@ -124,7 +126,7 @@ export default function ProductionPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Tasks
+              {t("production.totalTasks")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -134,7 +136,7 @@ export default function ProductionPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Active
+              {t("production.active")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -144,7 +146,7 @@ export default function ProductionPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Pending
+              {t("production.pending")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -154,7 +156,7 @@ export default function ProductionPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Completed
+              {t("production.completed")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -166,7 +168,7 @@ export default function ProductionPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Failed
+              {t("production.failed")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -186,7 +188,7 @@ export default function ProductionPage() {
           }}
           aria-label="Status filter"
         >
-          <option value="">All statuses</option>
+          <option value="">{t("common.allStatuses")}</option>
           {STATUS_OPTIONS.map((s) => (
             <option key={s} value={s}>
               {s.replace("_", " ")} ({statusCounts[s] || 0})
@@ -203,41 +205,41 @@ export default function ProductionPage() {
           }}
           aria-label="Task type filter"
         >
-          <option value="">All types</option>
-          {TASK_TYPES.map((t) => (
-            <option key={t} value={t}>
-              {t}
+          <option value="">{t("common.allTypes")}</option>
+          {TASK_TYPES.map((tt) => (
+            <option key={tt} value={tt}>
+              {tt}
             </option>
           ))}
         </NativeSelect>
 
         <Button variant="outline" size="sm" onClick={fetchTasks}>
-          Refresh
+          {t("common.refresh")}
         </Button>
       </div>
 
       {/* Task Table */}
       {loading ? (
-        <div role="progressbar">Loading...</div>
+        <div role="progressbar">{t("common.loading")}</div>
       ) : tasks.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">
-          No tasks found
+          {t("production.noTasksFound")}
         </div>
       ) : (
         <>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>ID</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Priority</TableHead>
-                <TableHead>Payload</TableHead>
-                <TableHead>Retries</TableHead>
-                <TableHead>Worker</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead>Started</TableHead>
-                <TableHead>Completed</TableHead>
+                <TableHead>{t("production.id")}</TableHead>
+                <TableHead>{t("production.type")}</TableHead>
+                <TableHead>{t("production.status")}</TableHead>
+                <TableHead>{t("production.priority")}</TableHead>
+                <TableHead>{t("production.payload")}</TableHead>
+                <TableHead>{t("production.retries")}</TableHead>
+                <TableHead>{t("production.worker")}</TableHead>
+                <TableHead>{t("production.created")}</TableHead>
+                <TableHead>{t("production.started")}</TableHead>
+                <TableHead>{t("production.completedAt")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -289,24 +291,24 @@ export default function ProductionPage() {
           </Table>
 
           {/* Error details for failed tasks */}
-          {tasks.some((t) => t.error_message) && (
+          {tasks.some((tk) => tk.error_message) && (
             <Card className="mt-4">
               <CardHeader>
-                <CardTitle className="text-lg">Error Details</CardTitle>
+                <CardTitle className="text-lg">{t("production.errorDetails")}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
                 {tasks
-                  .filter((t) => t.error_message)
-                  .map((t) => (
+                  .filter((tk) => tk.error_message)
+                  .map((tk) => (
                     <div
-                      key={`error-${t.id}`}
+                      key={`error-${tk.id}`}
                       className="p-2 border rounded text-xs"
                     >
-                      <span className="font-mono font-bold">Task #{t.id}:</span>{" "}
-                      <span className="text-red-400">{t.error_message}</span>
-                      {t.last_error_at && (
+                      <span className="font-mono font-bold">Task #{tk.id}:</span>{" "}
+                      <span className="text-red-400">{tk.error_message}</span>
+                      {tk.last_error_at && (
                         <span className="text-muted-foreground ml-2">
-                          ({new Date(t.last_error_at).toLocaleString("ja-JP")})
+                          ({new Date(tk.last_error_at).toLocaleString("ja-JP")})
                         </span>
                       )}
                     </div>
@@ -323,7 +325,7 @@ export default function ProductionPage() {
                 onClick={() => setPage(Math.max(1, page - 1))}
                 disabled={page === 1}
               >
-                Prev
+                {t("common.prev")}
               </Button>
               <span className="px-3 py-1 text-sm">
                 {page} / {totalPages}
@@ -334,7 +336,7 @@ export default function ProductionPage() {
                 onClick={() => setPage(Math.min(totalPages, page + 1))}
                 disabled={page === totalPages}
               >
-                Next
+                {t("common.next")}
               </Button>
             </div>
           )}

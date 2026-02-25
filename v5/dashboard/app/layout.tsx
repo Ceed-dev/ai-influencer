@@ -2,6 +2,7 @@ import "./globals.css";
 import type { Metadata } from "next";
 import { LayoutShell } from "@/components/layout/LayoutShell";
 import { AuthProvider } from "@/components/providers/AuthProvider";
+import { LanguageProvider } from "@/lib/i18n";
 
 export const metadata: Metadata = {
   title: "AI Influencer Dashboard",
@@ -14,11 +15,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ja">
+    <html lang="en" suppressHydrationWarning>
       <body>
-        <AuthProvider>
-          <LayoutShell>{children}</LayoutShell>
-        </AuthProvider>
+        <LanguageProvider>
+          <AuthProvider>
+            <LayoutShell>{children}</LayoutShell>
+          </AuthProvider>
+        </LanguageProvider>
       </body>
     </html>
   );

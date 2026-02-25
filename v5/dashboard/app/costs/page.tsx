@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useTranslation } from "@/lib/i18n";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -55,6 +56,7 @@ interface CostData {
 }
 
 export default function CostsPage() {
+  const { t } = useTranslation();
   const [data, setData] = useState<CostData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -69,7 +71,7 @@ export default function CostsPage() {
   if (loading) {
     return (
       <div>
-        <div role="progressbar">Loading...</div>
+        <div role="progressbar">{t("common.loading")}</div>
       </div>
     );
   }
@@ -77,7 +79,7 @@ export default function CostsPage() {
   if (!data) {
     return (
       <div className="text-center py-8 text-muted-foreground">
-        Failed to load cost data
+        {t("costs.failedToLoad")}
       </div>
     );
   }
@@ -98,7 +100,7 @@ export default function CostsPage() {
       {summary.alert_active && (
         <div className="mb-6 p-4 border border-red-500 rounded-lg bg-red-950/20">
           <p className="text-red-400 font-semibold">
-            Budget Alert: Monthly spend has reached {summary.budget_utilization_percent}% of the {formatUsd(summary.monthly_budget)} budget (threshold: {settings.alert_threshold_percent}%)
+            {t("costs.budgetAlert").replace("{percent}", String(summary.budget_utilization_percent)).replace("{budget}", formatUsd(summary.monthly_budget)).replace("{threshold}", String(settings.alert_threshold_percent))}
           </p>
         </div>
       )}
@@ -108,13 +110,13 @@ export default function CostsPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Today&apos;s Spend
+              {t("costs.todaysSpend")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatUsd(summary.daily_spend)}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              {summary.daily_task_count} tasks / Budget: {formatUsd(summary.daily_budget)}
+              {t("costs.tasksBudget").replace("{count}", String(summary.daily_task_count)).replace("{budget}", formatUsd(summary.daily_budget))}
             </p>
           </CardContent>
         </Card>
@@ -122,13 +124,13 @@ export default function CostsPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Monthly Spend
+              {t("costs.monthlySpend")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatUsd(summary.monthly_spend)}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              {summary.monthly_task_count} tasks / Budget: {formatUsd(summary.monthly_budget)}
+              {t("costs.tasksBudget").replace("{count}", String(summary.monthly_task_count)).replace("{budget}", formatUsd(summary.monthly_budget))}
             </p>
           </CardContent>
         </Card>
@@ -136,13 +138,13 @@ export default function CostsPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Budget Remaining
+              {t("costs.budgetRemaining")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatUsd(summary.monthly_remaining)}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              Daily remaining: {formatUsd(summary.daily_remaining)}
+              {t("costs.dailyRemaining").replace("{amount}", formatUsd(summary.daily_remaining))}
             </p>
           </CardContent>
         </Card>
@@ -150,7 +152,7 @@ export default function CostsPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Budget Utilization
+              {t("costs.budgetUtilization")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -160,7 +162,7 @@ export default function CostsPage() {
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Alert at {settings.alert_threshold_percent}%
+              {t("costs.alertAt").replace("{percent}", String(settings.alert_threshold_percent))}
             </p>
           </CardContent>
         </Card>
@@ -170,13 +172,13 @@ export default function CostsPage() {
       {summary.actual_tracked_count > 0 && (
         <Card className="mb-6">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Tracked API Costs (this month)</CardTitle>
+            <CardTitle className="text-sm">{t("costs.trackedApiCosts")}</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-lg font-semibold">
               {formatUsd(summary.actual_tracked_cost)}{" "}
               <span className="text-xs text-muted-foreground font-normal">
-                from {summary.actual_tracked_count} recorded tool experiences
+                {t("costs.fromRecordedExperiences").replace("{count}", String(summary.actual_tracked_count))}
               </span>
             </p>
           </CardContent>
@@ -187,15 +189,15 @@ export default function CostsPage() {
       {daily_history.length > 0 && (
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle className="text-lg">Daily Spend (Last 7 Days)</CardTitle>
+            <CardTitle className="text-lg">{t("costs.dailySpendLast7")}</CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Tasks</TableHead>
-                  <TableHead>Estimated Cost</TableHead>
+                  <TableHead>{t("costs.date")}</TableHead>
+                  <TableHead>{t("costs.tasks")}</TableHead>
+                  <TableHead>{t("costs.estimatedCost")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -217,22 +219,22 @@ export default function CostsPage() {
       {/* Recent Tasks */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Recent Completed Tasks</CardTitle>
+          <CardTitle className="text-lg">{t("costs.recentCompletedTasks")}</CardTitle>
         </CardHeader>
         <CardContent>
           {recent_tasks.length === 0 ? (
             <div className="text-center py-4 text-muted-foreground">
-              No completed tasks yet
+              {t("costs.noCompletedTasks")}
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>ID</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Content</TableHead>
-                  <TableHead>Completed</TableHead>
-                  <TableHead>Est. Cost</TableHead>
+                  <TableHead>{t("errors.id")}</TableHead>
+                  <TableHead>{t("costs.type")}</TableHead>
+                  <TableHead>{t("costs.contentCol")}</TableHead>
+                  <TableHead>{t("costs.completedCol")}</TableHead>
+                  <TableHead>{t("costs.estCost")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

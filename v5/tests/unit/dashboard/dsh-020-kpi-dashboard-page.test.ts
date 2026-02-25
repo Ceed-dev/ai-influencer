@@ -17,11 +17,11 @@ describe('FEAT-DSH-020: KPI Dashboard page', () => {
 
   // TEST-DSH-028: 5 KPI items displayed
   test('TEST-DSH-028: KPI page shows 5 key metrics', () => {
-    expect(content).toContain('総アカウント数');
-    expect(content).toContain('アクティブアカウント数');
-    expect(content).toContain('総フォロワー数');
-    expect(content).toContain('平均エンゲージメント率');
-    expect(content).toContain('収益化アカウント数');
+    expect(content).toContain('kpi.totalAccounts');
+    expect(content).toContain('kpi.activeAccounts');
+    expect(content).toContain('kpi.totalFollowers');
+    expect(content).toContain('kpi.avgEngagementRate');
+    expect(content).toContain('kpi.monetizedAccounts');
   });
 
   // TEST-DSH-048 (partial): KPI page exists and has main element
@@ -31,8 +31,8 @@ describe('FEAT-DSH-020: KPI Dashboard page', () => {
 
   // TEST-DSH-134: empty state handling
   test('TEST-DSH-134: handles error/loading states', () => {
-    expect(content).toContain('Loading...');
-    expect(content).toContain('エラー');
+    expect(content).toContain('common.loading');
+    expect(content).toContain('kpi.errorPrefix');
   });
 
   // TEST-DSH-145: KPI summary cards
@@ -50,14 +50,14 @@ describe('FEAT-DSH-020: KPI Dashboard page', () => {
     expect(content).toContain('toLocaleString');
   });
 
-  // TEST-DSH-051: page title
+  // TEST-DSH-051: page title (i18n: uses useTranslation)
   test('TEST-DSH-051: page has title', () => {
-    expect(content).toContain('KPI Dashboard');
+    expect(content).toContain('useTranslation');
   });
 
   test('additional content metrics shown', () => {
-    expect(content).toContain('総コンテンツ数');
-    expect(content).toContain('レビュー待ち');
-    expect(content).toContain('公開済み');
+    expect(content).toContain('kpi.totalContent');
+    expect(content).toContain('kpi.pendingReview');
+    expect(content).toContain('kpi.published');
   });
 });

@@ -14,6 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useTranslation } from "@/lib/i18n";
 
 interface Account {
   id: number;
@@ -31,6 +32,7 @@ const PLATFORMS = ["youtube", "tiktok", "instagram", "x"] as const;
 
 // Page: Account Management — statusColor is mapped via statusVariant/Badge
 export default function AccountsPage() {
+  const { t } = useTranslation();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -114,7 +116,7 @@ export default function AccountsPage() {
       <div className="flex justify-between items-center mb-6">
         <div />
         <Button onClick={() => setShowCreateForm(!showCreateForm)}>
-          {showCreateForm ? "Cancel" : "New Account"}
+          {showCreateForm ? t("common.cancel") : t("accounts.newAccount")}
         </Button>
       </div>
 
@@ -122,7 +124,7 @@ export default function AccountsPage() {
       {showCreateForm && (
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle className="text-lg">Create Account</CardTitle>
+            <CardTitle className="text-lg">{t("accounts.createAccount")}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -140,7 +142,7 @@ export default function AccountsPage() {
               </NativeSelect>
               <Input
                 type="text"
-                placeholder="Handle (@username)"
+                placeholder={t("accounts.handlePlaceholder")}
                 value={newAccount.handle}
                 onChange={(e) =>
                   setNewAccount({ ...newAccount, handle: e.target.value })
@@ -148,7 +150,7 @@ export default function AccountsPage() {
               />
               <Input
                 type="text"
-                placeholder="Character ID (CHR_XXXX)"
+                placeholder={t("accounts.characterIdPlaceholder")}
                 value={newAccount.character_id}
                 onChange={(e) =>
                   setNewAccount({
@@ -159,7 +161,7 @@ export default function AccountsPage() {
               />
             </div>
             <Button variant="success" className="mt-3" onClick={handleCreate}>
-              Create
+              {t("common.create")}
             </Button>
           </CardContent>
         </Card>
@@ -172,7 +174,7 @@ export default function AccountsPage() {
           size="sm"
           onClick={() => setPlatformFilter("")}
         >
-          All ({total})
+          {t("common.all")} ({total})
         </Button>
         {PLATFORMS.map((p) => (
           <Button
@@ -188,18 +190,18 @@ export default function AccountsPage() {
 
       {/* Accounts <table> via Shadcn Table component */}
       {loading ? (
-        <p>Loading...</p>
+        <p>{t("common.loading")}</p>
       ) : (
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Account ID</TableHead>
-              <TableHead>Platform</TableHead>
-              <TableHead>Username</TableHead>
-              <TableHead>Character</TableHead>
-              <TableHead>Followers</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Actions</TableHead>
+              <TableHead>{t("accounts.accountId")}</TableHead>
+              <TableHead>{t("accounts.platform")}</TableHead>
+              <TableHead>{t("accounts.username")}</TableHead>
+              <TableHead>{t("accounts.character")}</TableHead>
+              <TableHead>{t("accounts.followers")}</TableHead>
+              <TableHead>{t("accounts.status")}</TableHead>
+              <TableHead>{t("accounts.actions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -229,9 +231,9 @@ export default function AccountsPage() {
                       handleStatusChange(acc.account_id, e.target.value)
                     }
                   >
-                    <option value="active">Active</option>
-                    <option value="setup">Setup</option>
-                    <option value="suspended">Suspended</option>
+                    <option value="active">{t("accounts.statusActive")}</option>
+                    <option value="setup">{t("accounts.statusSetup")}</option>
+                    <option value="suspended">{t("accounts.statusSuspended")}</option>
                   </NativeSelect>
                 </TableCell>
               </TableRow>

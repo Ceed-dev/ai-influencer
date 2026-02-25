@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { NativeSelect } from "@/components/ui/select";
+import { useTranslation } from "@/lib/i18n";
 
 interface Directive {
   id: number;
@@ -37,6 +38,7 @@ const TARGET_AGENTS = [
 const PRIORITIES = ["urgent", "high", "normal", "low"] as const;
 
 export default function DirectivesPage() {
+  const { t } = useTranslation();
   const [directives, setDirectives] = useState<Directive[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -109,7 +111,7 @@ export default function DirectivesPage() {
   if (loading)
     return (
       <div>
-        <div role="progressbar">Loading...</div>
+        <div role="progressbar">{t("common.loading")}</div>
       </div>
     );
 
@@ -120,13 +122,13 @@ export default function DirectivesPage() {
         {!showForm ? (
           <Button onClick={() => setShowForm(true)}>
             <Plus className="h-4 w-4 mr-2" />
-            New Directive
+            {t("directives.newDirective")}
           </Button>
         ) : (
           <Card>
             <CardContent className="pt-4">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">Create New Directive</h3>
+                <h3 className="text-lg font-semibold">{t("directives.createNewDirective")}</h3>
                 <Button
                   variant="ghost"
                   size="icon"
@@ -144,16 +146,16 @@ export default function DirectivesPage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium mb-1">
-                      Directive Type
+                      {t("directives.directiveType")}
                     </label>
                     <NativeSelect
                       value={directiveType}
                       onChange={(e) => setDirectiveType(e.target.value)}
                       aria-label="Directive type"
                     >
-                      {DIRECTIVE_TYPES.map((t) => (
-                        <option key={t} value={t}>
-                          {t}
+                      {DIRECTIVE_TYPES.map((dt) => (
+                        <option key={dt} value={dt}>
+                          {dt}
                         </option>
                       ))}
                     </NativeSelect>
@@ -161,7 +163,7 @@ export default function DirectivesPage() {
 
                   <div>
                     <label className="block text-sm font-medium mb-1">
-                      Target Agent
+                      {t("directives.targetAgent")}
                     </label>
                     <NativeSelect
                       value={targetAgent}
@@ -178,7 +180,7 @@ export default function DirectivesPage() {
 
                   <div>
                     <label className="block text-sm font-medium mb-1">
-                      Priority
+                      {t("directives.priority")}
                     </label>
                     <NativeSelect
                       value={priority}
@@ -196,10 +198,10 @@ export default function DirectivesPage() {
 
                 <div>
                   <label className="block text-sm font-medium mb-1">
-                    Content
+                    {t("directives.contentLabel")}
                   </label>
                   <Textarea
-                    placeholder="Describe the directive..."
+                    placeholder={t("directives.placeholder")}
                     rows={3}
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
@@ -213,7 +215,7 @@ export default function DirectivesPage() {
 
                 <div className="flex gap-2">
                   <Button type="submit" disabled={submitting}>
-                    {submitting ? "Creating..." : "Create Directive"}
+                    {submitting ? t("directives.creating") : t("directives.createDirective")}
                   </Button>
                   <Button
                     type="button"
@@ -223,7 +225,7 @@ export default function DirectivesPage() {
                       resetForm();
                     }}
                   >
-                    Cancel
+                    {t("common.cancel")}
                   </Button>
                 </div>
               </form>
@@ -235,7 +237,7 @@ export default function DirectivesPage() {
       {/* Directive List */}
       {directives.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">
-          データがありません
+          {t("common.noData")}
         </div>
       ) : (
         <div className="space-y-3">

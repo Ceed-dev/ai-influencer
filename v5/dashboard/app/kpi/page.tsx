@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import useSWR from "swr";
+import { useTranslation } from "@/lib/i18n";
 import { Card, CardContent } from "@/components/ui/card";
 import { NativeSelect } from "@/components/ui/select";
 import {
@@ -80,6 +81,7 @@ function KpiCard({ label, value }: { label: string; value: string | number }) {
 
 // Page: KPI Dashboard -- <main> content provided by layout shell
 export default function KpiDashboardPage() {
+  const { t } = useTranslation();
   const [period, setPeriod] = useState<string>("30d");
 
   const { data: kpi, error: kpiError, isLoading: kpiLoading } = useSWR<KpiSummary>(
@@ -106,14 +108,14 @@ export default function KpiDashboardPage() {
   if (loading)
     return (
       <div>
-        <div role="progressbar">Loading...</div>
+        <div role="progressbar">{t("common.loading")}</div>
       </div>
     );
   if (kpiError)
     return (
       <div>
         <div className="text-destructive">
-          エラー: {kpiError instanceof Error ? kpiError.message : "Failed to load KPI data"}
+          {t("kpi.errorPrefix")} {kpiError instanceof Error ? kpiError.message : t("kpi.failedToLoad")}
         </div>
       </div>
     );
@@ -169,7 +171,7 @@ export default function KpiDashboardPage() {
       {/* Period selector */}
       <div className="flex items-center gap-3 mb-6">
         <label htmlFor="kpi-period" className="text-sm font-medium">
-          期間
+          {t("kpi.period")}
         </label>
         <NativeSelect
           id="kpi-period"
@@ -177,9 +179,9 @@ export default function KpiDashboardPage() {
           value={period}
           onChange={(e) => setPeriod(e.target.value)}
         >
-          <option value="7d">7日間</option>
-          <option value="30d">30日間</option>
-          <option value="90d">90日間</option>
+          <option value="7d">{t("kpi.days7")}</option>
+          <option value="30d">{t("kpi.days30")}</option>
+          <option value="90d">{t("kpi.days90")}</option>
         </NativeSelect>
       </div>
 
@@ -188,41 +190,41 @@ export default function KpiDashboardPage() {
         className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-8"
         data-testid="kpi-cards"
       >
-        <KpiCard label="総アカウント数" value={kpi?.accounts ?? 0} />
-        <KpiCard label="アクティブアカウント数" value={kpi?.accounts ?? 0} />
+        <KpiCard label={t("kpi.totalAccounts")} value={kpi?.accounts ?? 0} />
+        <KpiCard label={t("kpi.activeAccounts")} value={kpi?.accounts ?? 0} />
         <KpiCard
-          label="総フォロワー数"
+          label={t("kpi.totalFollowers")}
           value={kpi?.followers?.current?.toLocaleString() ?? "0"}
         />
         <KpiCard
-          label="フォロワー目標"
+          label={t("kpi.followerTarget")}
           value={kpi?.followers?.target?.toLocaleString() ?? "0"}
         />
         <KpiCard
-          label="平均エンゲージメント率"
+          label={t("kpi.avgEngagementRate")}
           value={`${kpi?.engagement?.avg_rate?.toFixed(2) ?? "0.00"}%`}
         />
         <KpiCard
-          label="収益化アカウント数"
+          label={t("kpi.monetizedAccounts")}
           value={kpi?.monetization?.monetized_count ?? 0}
         />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <KpiCard
-          label="総コンテンツ数"
+          label={t("kpi.totalContent")}
           value={kpi?.content?.total_produced ?? 0}
         />
         <KpiCard
-          label="レビュー待ち"
+          label={t("kpi.pendingReview")}
           value={kpi?.content?.total_measured ?? 0}
         />
         <KpiCard
-          label="公開済み"
+          label={t("kpi.published")}
           value={kpi?.content?.total_posted ?? 0}
         />
         <KpiCard
-          label="予測精度"
+          label={t("kpi.predictionAccuracy")}
           value={
             kpi?.prediction_accuracy != null
               ? `${(kpi.prediction_accuracy * 100).toFixed(1)}%`
@@ -236,7 +238,7 @@ export default function KpiDashboardPage() {
         <Card className="mb-8">
           <CardContent className="pt-6">
             <h3 className="text-lg font-semibold mb-4">
-              KPIトレンド (平均インプレッション)
+              {t("kpi.kpiTrend")}
             </h3>
             <ResponsiveContainer width="100%" height={320}>
               <LineChart data={trendData}>
@@ -263,7 +265,7 @@ export default function KpiDashboardPage() {
                     key={platform}
                     type="monotone"
                     dataKey={`${platform}_impressions`}
-                    name={`${platform} インプレッション`}
+                    name={`${platform} ${t("kpi.impressions")}`}
                     stroke={platformColors[platform] || COLORS.violet}
                     strokeWidth={2}
                     dot={{ r: 4 }}
@@ -281,7 +283,7 @@ export default function KpiDashboardPage() {
         <Card className="mb-8">
           <CardContent className="pt-6">
             <h3 className="text-lg font-semibold mb-4">
-              目標 vs 実績 (平均インプレッション)
+              {t("kpi.goalVsActual")}
             </h3>
             <ResponsiveContainer width="100%" height={320}>
               <BarChart data={goalVsActualData}>
@@ -305,13 +307,13 @@ export default function KpiDashboardPage() {
                 <Legend />
                 <Bar
                   dataKey="target"
-                  name="目標"
+                  name={t("kpi.target")}
                   fill={COLORS.blue}
                   radius={[4, 4, 0, 0]}
                 />
                 <Bar
                   dataKey="actual"
-                  name="実績"
+                  name={t("kpi.actual")}
                   fill={COLORS.green}
                   radius={[4, 4, 0, 0]}
                 />
@@ -326,7 +328,7 @@ export default function KpiDashboardPage() {
         <Card>
           <CardContent className="pt-6">
             <h3 className="text-lg font-semibold mb-4">
-              達成率トレンド (%)
+              {t("kpi.achievementRateTrend")}
             </h3>
             <ResponsiveContainer width="100%" height={280}>
               <LineChart data={trendData}>
@@ -354,7 +356,7 @@ export default function KpiDashboardPage() {
                     key={platform}
                     type="monotone"
                     dataKey={`${platform}_achievement`}
-                    name={`${platform} 達成率`}
+                    name={`${platform} ${t("kpi.achievementRate")}`}
                     stroke={platformColors[platform] || COLORS.violet}
                     strokeWidth={2}
                     dot={{ r: 4 }}

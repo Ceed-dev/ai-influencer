@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { NativeSelect } from "@/components/ui/select";
+import { useTranslation } from "@/lib/i18n";
 
 interface Component {
   id: number;
@@ -21,6 +22,7 @@ interface Component {
 }
 
 export default function CurationReviewPage() {
+  const { t } = useTranslation();
   const [components, setComponents] = useState<Component[]>([]);
   const [total, setTotal] = useState(0);
   const [typeFilter, setTypeFilter] = useState("");
@@ -51,7 +53,7 @@ export default function CurationReviewPage() {
   return (
     <div>
       <p className="mb-4 text-muted-foreground">
-        pending_review のコンポーネント: {total}件
+        {t("curation.pendingComponents").replace("{count}", String(total))}
       </p>
 
       <div className="mb-4">
@@ -59,9 +61,9 @@ export default function CurationReviewPage() {
           className="w-auto"
           value={typeFilter}
           onChange={(e) => setTypeFilter(e.target.value)}
-          aria-label="コンポーネントタイプ"
+          aria-label={t("curation.componentType")}
         >
-          <option value="">全タイプ</option>
+          <option value="">{t("curation.allTypes")}</option>
           <option value="scenario">scenario</option>
           <option value="motion">motion</option>
           <option value="audio">audio</option>
@@ -70,10 +72,10 @@ export default function CurationReviewPage() {
       </div>
 
       {loading ? (
-        <div role="progressbar">Loading...</div>
+        <div role="progressbar">{t("common.loading")}</div>
       ) : components.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">
-          レビュー待ちのコンポーネントはありません
+          {t("curation.noPendingComponents")}
         </div>
       ) : (
         <div className="space-y-3">
@@ -92,8 +94,8 @@ export default function CurationReviewPage() {
                     )}
                   </div>
                   <div className="text-right text-sm">
-                    <p>自信度: {comp.curation_confidence ?? "-"}</p>
-                    <p>スコア: {comp.score ?? "-"}</p>
+                    <p>{t("curation.confidenceLabel")} {comp.curation_confidence ?? "-"}</p>
+                    <p>{t("curation.scoreLabel")} {comp.score ?? "-"}</p>
                   </div>
                 </div>
                 <div className="flex gap-2 mt-3">
@@ -102,10 +104,10 @@ export default function CurationReviewPage() {
                     size="sm"
                     onClick={() => handleApprove(comp.id)}
                   >
-                    承認
+                    {t("common.approve")}
                   </Button>
                   <Button variant="destructive" size="sm">
-                    差し戻し
+                    {t("common.reject")}
                   </Button>
                 </div>
               </CardContent>

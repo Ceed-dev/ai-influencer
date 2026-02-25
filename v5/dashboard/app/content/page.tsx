@@ -14,6 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { fetcher, swrConfig } from "@/lib/swr-config";
+import { useTranslation } from "@/lib/i18n";
 
 interface ContentItem {
   content_id: string;
@@ -30,6 +31,7 @@ interface ContentResponse {
 }
 
 export default function ContentPage() {
+  const { t } = useTranslation();
   const [statusFilter, setStatusFilter] = useState("");
   const [page, setPage] = useState(1);
   const limit = 20;
@@ -61,9 +63,9 @@ export default function ContentPage() {
             setStatusFilter(e.target.value);
             setPage(1);
           }}
-          aria-label="ステータス"
+          aria-label={t("content.statusFilter")}
         >
-          <option value="">全ステータス</option>
+          <option value="">{t("common.allStatuses")}</option>
           <option value="draft">draft</option>
           <option value="pending_approval">pending_approval</option>
           <option value="planned">planned</option>
@@ -71,21 +73,21 @@ export default function ContentPage() {
         </NativeSelect>
       </div>
       {isLoading ? (
-        <div role="progressbar">Loading...</div>
+        <div role="progressbar">{t("common.loading")}</div>
       ) : content.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">
-          コンテンツがありません
+          {t("content.noContent")}
         </div>
       ) : (
         <>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>ID</TableHead>
-                <TableHead>タイトル</TableHead>
-                <TableHead>フォーマット</TableHead>
-                <TableHead>ステータス</TableHead>
-                <TableHead>品質スコア</TableHead>
+                <TableHead>{t("content.id")}</TableHead>
+                <TableHead>{t("content.title")}</TableHead>
+                <TableHead>{t("content.format")}</TableHead>
+                <TableHead>{t("content.status")}</TableHead>
+                <TableHead>{t("content.qualityScore")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -112,7 +114,7 @@ export default function ContentPage() {
                 onClick={() => setPage(Math.max(1, page - 1))}
                 disabled={page === 1}
               >
-                前
+                {t("common.prev")}
               </Button>
               <span className="px-3 py-1 text-sm">
                 {page} / {totalPages}
@@ -123,7 +125,7 @@ export default function ContentPage() {
                 onClick={() => setPage(Math.min(totalPages, page + 1))}
                 disabled={page === totalPages}
               >
-                次
+                {t("common.next")}
               </Button>
             </div>
           )}

@@ -46,7 +46,7 @@ describe('FEAT-DSH-024: Agent Evolution page', () => {
   // TEST-DSH-033: reflection trend
   test('TEST-DSH-033: page shows self_score trend', () => {
     expect(content).toContain('self_score');
-    expect(content).toContain('推移');
+    expect(content).toContain('agents.selfScoreProgression');
   });
 
   // TEST-DSH-099: chart rendering
