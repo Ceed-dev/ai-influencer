@@ -45,6 +45,11 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Sync <html lang> attribute with current language
+  useEffect(() => {
+    document.documentElement.lang = lang;
+  }, [lang]);
+
   const setLang = useCallback((newLang: Language) => {
     setLangState(newLang);
     localStorage.setItem(LANG_KEY, newLang);
