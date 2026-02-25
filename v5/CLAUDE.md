@@ -43,7 +43,7 @@ npm run quality                      # All three above
 - **4-Layer**: Dashboard (Next.js) → LangGraph (4 graphs) → MCP Server (111 tools, stdio) → PostgreSQL + pgvector
 - **LangGraph → MCP**: via `callMcpTool()` in `src/agents/common/mcp-client.ts` (langchain-mcp-adapters, stdio transport)
 - **Dashboard auth**: NextAuth.js v4 + Google OAuth, email whitelist + RBAC from `system_settings`
-- **Dashboard UI**: Shadcn/ui + Tailwind CSS + Recharts, Solarized theme (Dark/Light)
+- **Dashboard UI**: Shadcn/ui + Tailwind CSS + Recharts, Solarized theme (Dark/Light), i18n (EN/JA toggle)
 
 ## Key Spec References
 

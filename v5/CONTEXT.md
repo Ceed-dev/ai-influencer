@@ -223,6 +223,31 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 - `CLAUDE.md` rewritten for review/refinement phase (removed implementation-phase rules)
 - Cloud SQL: automated daily backups + PITR enabled (7-day retention, 04:00-08:00 JST)
 
+### Session 13: i18n — Japanese/English Toggle
+
+**i18n infrastructure (3 new files):**
+- `dashboard/lib/i18n/index.tsx` — LanguageProvider (React Context + localStorage), `useTranslation()` hook returning `{ t, lang, setLang }`
+- `dashboard/lib/i18n/en.json` — ~360 English translation keys (nested structure)
+- `dashboard/lib/i18n/ja.json` — ~360 Japanese translation keys
+
+**All dashboard text internationalized (22 files modified):**
+- Layout: `layout.tsx` (LanguageProvider wrapper), Header, Sidebar, LayoutShell
+- Login page: all text via `t()`
+- All 17 pages: hardcoded strings → `t("key")` calls
+- Default language: English, persisted via localStorage (`ai-influencer-lang`)
+
+**Language toggle UI:**
+- Custom slide toggle in Header (EN/JA labels inside track, active label on sliding thumb)
+- Smooth CSS transition animation (`transition-transform duration-200`)
+- Accessible: `role="switch"`, `aria-checked`, `aria-label`
+
+**Test updates (12 files):**
+- Tests use `fs.readFileSync` to check source strings → updated to check i18n keys instead of hardcoded text
+
+**New dependency:** `@radix-ui/react-switch` (for Switch component, used elsewhere if needed)
+
+**Quality gates:** TypeScript 0 errors, 38/38 dashboard test suites, 186/186 tests passing
+
 ## Remaining Items
 
 ### External Dependencies (code complete, awaiting approvals):
@@ -257,7 +282,7 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 ### 4-Layer Architecture (100% Compliant)
 | Layer | Technology | Status |
 |-------|-----------|--------|
-| L1: Human Dashboard | Next.js 15 + Shadcn/ui + Tailwind CSS + Recharts | Complete |
+| L1: Human Dashboard | Next.js 14 + Shadcn/ui + Tailwind CSS + Recharts + i18n (EN/JA) | Complete |
 | L2: LangGraph Orchestration | LangGraph.js 4 graphs → langchain-mcp-adapters → MCP Protocol | Complete |
 | L3: MCP Tool Server | 111 tools via stdio transport | Complete |
 | L4: Data Stores | PostgreSQL 16 + pgvector + Google Drive | Complete |

@@ -658,7 +658,7 @@ COMMIT;
 |------|------|------|
 | agent_communications (システム生成) | English | エージェント間通信の標準化 |
 | agent_thought_logs | English | 内部ログ、デバッグ用 |
-| Dashboard UIラベル | Japanese | 運用者向け (Next.js hardcoded, 単一ロケール) |
+| Dashboard UIラベル | English / Japanese (i18n切替) | 運用者向け (React Context + JSON翻訳ファイル, EN/JAトグル, デフォルト: English) |
 | コンテンツスクリプト (script_en/script_jp) | アカウントのターゲット市場に依存 | content.script_language で決定 |
 | human_directives | Japanese | 運用者が入力 (現在のデプロイメント) |
 | ログファイル (stdout/stderr) | English | 標準的なログ管理ツールとの互換性 |

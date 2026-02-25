@@ -232,6 +232,10 @@ ai-influencer/v5/
 │   ├── lib/
 │   │   ├── api.ts            # API client（PostgreSQL直接接続、MCP経由ではない）
 │   │   ├── auth.ts           # NextAuth.js設定（Google OAuth, JWT, RBAC）
+│   │   ├── i18n/             # 国際化（日英切替）
+│   │   │   ├── index.tsx     # LanguageProvider, useTranslation hook
+│   │   │   ├── en.json       # 英語翻訳 (~360キー)
+│   │   │   └── ja.json       # 日本語翻訳 (~360キー)
 │   │   └── theme.ts          # Solarized color tokens
 │   └── tailwind.config.ts    # Solarized + Nunito
 │

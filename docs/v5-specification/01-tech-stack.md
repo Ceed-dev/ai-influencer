@@ -140,9 +140,8 @@ X投稿などのテキストコンテンツ生成。動画制作ワーカー（�
 | UIライブラリ | Shadcn/ui | latest (CLI生成) | UIコンポーネントライブラリ（Tailwind CSS ベース） |
 | CSS | Tailwind CSS | 3.4.17 | ユーティリティファーストCSS |
 | グラフ描画 | Recharts | 2.12.7 | KPIグラフ・チャート描画 |
-| ダッシュボードUI | Tremor | 3.17.4 | ダッシュボード特化UIコンポーネント |
-| DB接続 | Drizzle ORM | 0.36.x | PostgreSQLへの型安全クエリ。SQL-first、軽量ランタイム、TypeScript型推論に優れ、バイナリエンジン不要 |
-| コードエディタ | Monaco Editor (@monaco-editor/react) | 4.x | プロンプト・設定値の編集UI。フルコード編集・シンタックスハイライト対応 |
+| i18n | React Context + JSON | — | 日英切替 (LanguageProvider + useTranslation hook, ~360翻訳キー, localStorage永続化) |
+| DB接続 | pg (node-postgres) | 8.x | PostgreSQL直接接続 (共有プール, max 20) |
 
 ### デザインシステム
 
