@@ -39,6 +39,8 @@
     --input: 192 20% 24%;             /* #314b54 — visible input border */
     --ring: 205 82% 49%;              /* #268bd2 blue */
     --radius: 0.5rem;
+    --sidebar-width: 14rem;
+    --sidebar-width-collapsed: 3rem;
   }
 
   [data-theme="light"] {
