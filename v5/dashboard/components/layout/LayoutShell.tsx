@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -73,7 +74,8 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
           >
             <Menu className="h-5 w-5" />
           </Button>
-          <span className="ml-2 font-bold text-primary text-sm">{t("sidebar.appTitle")}</span>
+          <Image src="/icon.svg" alt="" width={24} height={24} className="ml-2 shrink-0 rounded" />
+          <span className="ml-1.5 font-bold text-primary text-sm">{t("sidebar.appTitle")}</span>
         </div>
         <Header />
         {/* Main content — independently scrollable */}
