@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
-import { Sun, Moon, LogOut, Globe } from "lucide-react";
+import { Sun, Moon, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useTranslation } from "@/lib/i18n";
@@ -72,16 +72,14 @@ export function Header() {
           )}
           <Button
             variant="ghost"
-            size="icon"
+            size="sm"
             onClick={toggleLang}
             aria-label="Toggle language"
             title={lang === "en" ? "日本語に切り替え" : "Switch to English"}
+            className="px-2 text-xs font-medium"
           >
-            <Globe className="h-4 w-4" />
-          </Button>
-          <span className="text-xs font-medium text-muted-foreground w-5">
             {lang === "en" ? "EN" : "JA"}
-          </span>
+          </Button>
           <Button
             variant="ghost"
             size="icon"
