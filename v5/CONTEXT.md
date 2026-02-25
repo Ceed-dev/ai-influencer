@@ -1,7 +1,7 @@
 # v5.0 Implementation Context
 
 > This file tracks the current state of the v5.0 implementation for session continuity.
-> Updated: 2026-02-25
+> Updated: 2026-02-26
 
 ## Current State: Production-Ready
 
@@ -244,9 +244,42 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 **Test updates (12 files):**
 - Tests use `fs.readFileSync` to check source strings → updated to check i18n keys instead of hardcoded text
 
-**New dependency:** `@radix-ui/react-switch` (for Switch component, used elsewhere if needed)
-
 **Quality gates:** TypeScript 0 errors, 38/38 dashboard test suites, 186/186 tests passing
+
+### Session 14: Metadata, Security, Build Cleanup
+
+**Metadata settings (layout.tsx):**
+- `title.template`: `%s | AI Influencer` for per-page titles
+- `robots`: `noindex, nofollow` (internal auth-protected dashboard)
+- `appleWebApp`: capable, title, statusBarStyle: black-translucent
+- `formatDetection`: telephone: false
+- `viewport`: device-width, initialScale: 1, themeColor: `#002b36` (Solarized dark)
+
+**Dynamic `<html lang>` sync:**
+- `LanguageProvider` now updates `document.documentElement.lang` on language change
+- Ensures screen readers detect correct language (en/ja)
+
+**Security headers (next.config.js):**
+- `X-Frame-Options: DENY` — clickjacking prevention
+- `X-Content-Type-Options: nosniff` — MIME sniffing prevention
+- `Referrer-Policy: strict-origin-when-cross-origin` — referrer leakage control
+- `X-DNS-Prefetch-Control: on` — DNS prefetch for navigation speed
+- `Permissions-Policy: camera=(), microphone=(), geolocation=()` — disable unused browser APIs
+- Verified on production with `curl -sI`
+
+**Next.js upgrade:**
+- 14.2.18 → 14.2.35 (resolved 11 critical CVEs)
+- Remaining: 1 high (Next.js 16-only fix, accepted for 14.x)
+
+**Build warning fix:**
+- `agents/page.tsx`: 7 instances of `useState(() => { fetch(...) })` → `useEffect(() => {}, [])`
+- Root cause: useState initializer runs during SSR/static generation, relative `/api/*` URLs fail without host
+- Also fixed trailing `?` in empty URLSearchParams
+
+**Unused dependency cleanup:**
+- Removed `@radix-ui/react-switch` package + `components/ui/switch.tsx` (custom toggle used instead)
+
+**Quality gates:** TypeScript 0 errors, build 0 warnings, npm audit 0 critical
 
 ## Remaining Items
 
