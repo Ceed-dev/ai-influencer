@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query, queryCount } from "@/lib/db";
+import { DEMO_CONTENT, DEMO_CONTENT_TOTAL } from "@/lib/demo-data";
 
 export const dynamic = "force-dynamic";
 
@@ -68,6 +69,11 @@ export async function GET(request: NextRequest) {
       params
     ),
   ]);
+
+  // If no content exists, return demo data
+  if (content.length === 0 && total === 0) {
+    return NextResponse.json({ content: DEMO_CONTENT, total: DEMO_CONTENT_TOTAL });
+  }
 
   return NextResponse.json({ content, total });
 }

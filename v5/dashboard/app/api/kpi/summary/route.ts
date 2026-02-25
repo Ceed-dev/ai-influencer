@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query, queryOne } from "@/lib/db";
+import { DEMO_KPI_SUMMARY } from "@/lib/demo-data";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +40,11 @@ export async function GET(request: NextRequest) {
     `SELECT COUNT(*)::text as count FROM accounts WHERE status = 'active'`
   );
   const accounts = parseInt(accountsResult?.count ?? "0", 10);
+
+  // If no active accounts exist, return demo data
+  if (accounts === 0) {
+    return NextResponse.json(DEMO_KPI_SUMMARY);
+  }
 
   // Follower data
   const followerResult = await queryOne<{

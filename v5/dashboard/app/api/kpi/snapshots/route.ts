@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query, pool } from "@/lib/db";
+import { DEMO_KPI_SNAPSHOTS } from "@/lib/demo-data";
 
 export const dynamic = "force-dynamic";
 
@@ -68,6 +69,11 @@ export async function GET(request: NextRequest) {
      ORDER BY year_month DESC, platform ASC`,
     params
   );
+
+  // If no snapshots exist, return demo data
+  if (snapshots.length === 0) {
+    return NextResponse.json({ snapshots: DEMO_KPI_SNAPSHOTS });
+  }
 
   return NextResponse.json({
     snapshots: snapshots.map((row: Record<string, unknown>) => ({
