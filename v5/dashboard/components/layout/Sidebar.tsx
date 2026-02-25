@@ -121,13 +121,16 @@ export function Sidebar({ open, collapsed, onClose, onToggleCollapse }: SidebarP
       </div>
 
       {/* Nav — independently scrollable */}
-      <nav className="flex-1 overflow-y-auto p-2 space-y-3">
-        {grouped.map((section) => (
+      <nav className="flex-1 overflow-y-auto p-2 space-y-4">
+        {grouped.map((section, idx) => (
           <div key={section.key}>
             {!collapsed && (
-              <p className="px-3 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                {section.label}
-              </p>
+              <>
+                {idx > 0 && <Separator className="mb-3" />}
+                <p className="mb-1 px-3 py-0.5 text-[11px] font-bold text-muted-foreground uppercase tracking-widest border-l-2 border-primary/40">
+                  {section.label}
+                </p>
+              </>
             )}
             {collapsed && section.key !== "overview" && <Separator className="my-1" />}
             <div className="space-y-0.5">
