@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -120,9 +120,10 @@ function ThoughtLogPanel() {
       .then((d) => setLogs(d.logs || []));
   };
 
-  useState(() => {
+  useEffect(() => {
     fetchLogs();
-  });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div>
@@ -223,9 +224,10 @@ function DialoguePanel() {
       .then((d) => setMessages(d.messages || []));
   };
 
-  useState(() => {
+  useEffect(() => {
     fetchMessages();
-  });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const sendMessage = async () => {
     if (!newMessage.trim()) return;
@@ -341,11 +343,11 @@ function EvolutionPanel() {
     return value !== key ? value : agentType;
   };
 
-  useState(() => {
+  useEffect(() => {
     fetch("/api/reflections?limit=200")
       .then((res) => res.json())
       .then((d) => setReflections(d.reflections || []));
-  });
+  }, []);
 
   const agentGroups = AGENT_TYPES.reduce((acc, at) => {
     acc[at] = reflections
@@ -551,9 +553,10 @@ function PromptPanel() {
       .then((d) => setVersions(d.versions || []));
   };
 
-  useState(() => {
+  useEffect(() => {
     fetchVersions();
-  });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div>
@@ -620,9 +623,10 @@ function SuggestionsPanel() {
       .then((d) => setSuggestions(d.suggestions || []));
   };
 
-  useState(() => {
+  useEffect(() => {
     fetchSuggestions();
-  });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleAction = async (id: number, status: string) => {
     await fetch(`/api/prompt-suggestions/${id}`, {
@@ -686,7 +690,7 @@ function GrowthPanel() {
     return value !== key ? value : agentType;
   };
 
-  useState(() => {
+  useEffect(() => {
     // Fetch both individual learnings and reflections for growth charts
     Promise.all([
       Promise.all(
@@ -730,7 +734,8 @@ function GrowthPanel() {
       );
       setReflections(reflectionData as Record<string, unknown>[]);
     });
-  });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Build cross-agent self_score comparison line chart data
   const agentGroups = AGENT_TYPES.reduce((acc, at) => {
@@ -936,9 +941,10 @@ function InboxPanel() {
       });
   };
 
-  useState(() => {
+  useEffect(() => {
     fetchMessages();
-  });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const unreadCount = messages.filter((m) => m.status === "unread").length;
 
