@@ -114,7 +114,8 @@ function ThoughtLogPanel() {
   const fetchLogs = () => {
     const params = new URLSearchParams();
     if (agentType) params.set("agent_type", agentType);
-    fetch(`/api/thought-logs?${params}`)
+    const qs = params.toString();
+    fetch(`/api/thought-logs${qs ? `?${qs}` : ""}`)
       .then((res) => res.json())
       .then((d) => setLogs(d.logs || []));
   };
@@ -926,7 +927,8 @@ function InboxPanel() {
   const fetchMessages = () => {
     const params = new URLSearchParams();
     if (statusFilter) params.set("status", statusFilter);
-    fetch(`/api/communications?${params}`)
+    const qs = params.toString();
+    fetch(`/api/communications${qs ? `?${qs}` : ""}`)
       .then((res) => res.json())
       .then((d) => {
         setMessages(d.messages || []);
