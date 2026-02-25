@@ -1,7 +1,7 @@
 # v5.0 Implementation Context
 
 > This file tracks the current state of the v5.0 implementation for session continuity.
-> Updated: 2026-02-24
+> Updated: 2026-02-25
 
 ## Current State: Production-Ready
 
@@ -14,7 +14,7 @@
 ### Source Stats
 - ~200+ source files
 - 4 LangGraph graphs, 111 MCP tools, 31 REST API routes
-- 33 DB tables, 156 indexes, 15 triggers, 124 system_settings
+- 33 DB tables, 156 indexes, 15 triggers, 126 system_settings
 
 ## Session History
 
@@ -146,9 +146,9 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 - All 31 API routes: `export const dynamic = "force-dynamic"` (prevents build-time pre-rendering)
 - Standalone compose: `docker-compose.production.yml` (dashboard + Cloud SQL, no local postgres)
 - Container: `v5-dashboard` on `127.0.0.1:3001`, nginx reverse proxy on `:3000`/`:443`
-- HTTPS: nginx + self-signed cert (TLS 1.2/1.3), HTTP→HTTPS redirect
-- Basic Auth: `DASHBOARD_USER`/`DASHBOARD_PASSWORD` env vars (middleware.ts)
-- Access: **https://34.85.62.184:3000** (user: admin)
+- HTTPS: nginx + Let's Encrypt cert for `ai-dash.0xqube.xyz` (TLS 1.2/1.3), HTTP→HTTPS redirect
+- Auth: Google OAuth via NextAuth.js (email whitelist + RBAC from DB)
+- Access: **https://ai-dash.0xqube.xyz** (Google OAuth login)
 
 ### Session 10: Security + UI Contrast Hardening
 
@@ -160,15 +160,53 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 - Playwright verified: Dark/Light on Home, KPI, Settings, Content, Errors + mobile responsive
 
 **HTTPS (nginx reverse proxy):**
-- nginx 1.18.0 on VM, self-signed cert (365d, RSA 2048)
-- Listens on :3000 SSL + :443 SSL, proxies to 127.0.0.1:3001
+- nginx on VM, Let's Encrypt cert for `ai-dash.0xqube.xyz` (managed by Certbot)
+- Listens on :80 (redirect to HTTPS), :443 SSL, :3000 SSL, proxies to 127.0.0.1:3001
 - Security headers: HSTS, X-Content-Type-Options, X-Frame-Options, X-XSS-Protection
 - Docker binds only to localhost (127.0.0.1:3001:3000), no direct external access
 
-**Basic Authentication (middleware.ts):**
-- Next.js middleware: checks Authorization: Basic header on all routes
-- Env-var driven: `DASHBOARD_USER` + `DASHBOARD_PASSWORD` (bypassed when unset = dev mode)
-- Credentials passed via docker-compose.production.yml + .env.production
+**Basic Authentication (middleware.ts):** *(replaced in Session 11)*
+- Superseded by Google OAuth — see Session 11 below
+
+### Session 11: Google OAuth Migration (Basic Auth → NextAuth.js)
+
+**Authentication overhaul:**
+- Replaced Basic Auth (`DASHBOARD_USER`/`DASHBOARD_PASSWORD`) with Google OAuth via NextAuth.js v4
+- GoogleProvider + JWT sessions (24h expiry), no DB session table needed
+- Email whitelist: `AUTH_ALLOWED_EMAILS` in `system_settings` (jsonb array)
+- Role-based access: `AUTH_USER_ROLES` in `system_settings` (jsonb object, admin/viewer)
+- `signIn` callback: checks email against DB whitelist
+- `jwt`/`session` callbacks: role assignment from DB
+
+**New files (6):**
+- `dashboard/lib/auth.ts` — NextAuth config, Google Provider, JWT callbacks, DB whitelist/role lookup
+- `dashboard/app/api/auth/[...nextauth]/route.ts` — NextAuth API route (GET/POST)
+- `dashboard/app/login/page.tsx` — Login page with Google sign-in button, Solarized theme, error messages
+- `dashboard/components/providers/AuthProvider.tsx` — SessionProvider wrapper
+- `sql/010_auth_settings.sql` — INSERT AUTH_ALLOWED_EMAILS + AUTH_USER_ROLES (category: dashboard, type: json)
+
+**Modified files (5):**
+- `dashboard/middleware.ts` — Basic Auth → `getToken()` JWT verification, public paths (/login, /api/auth/*), RBAC (viewer blocks POST/PUT/DELETE), CORS preserved
+- `dashboard/app/layout.tsx` — Wrapped with `<AuthProvider>`
+- `dashboard/components/layout/LayoutShell.tsx` — Skip shell on `/login` path
+- `dashboard/components/layout/Header.tsx` — User email + role badge + LogOut button via `useSession`/`signOut`
+- `docker-compose.production.yml` — `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` (removed `DASHBOARD_USER`/`DASHBOARD_PASSWORD`)
+
+**Bug fix:** `setting_value` is `jsonb` — pg driver auto-parses, removed double `JSON.parse()` that silently failed (caught → empty allow list → all users denied)
+
+**Production deployment:**
+- GCP Console: OAuth 2.0 Client ID created (Web application, redirect URI: `https://ai-dash.0xqube.xyz/api/auth/callback/google`)
+- OAuth consent screen: External, test user `pochi@0xqube.xyz`
+- Cloud SQL: `sql/010_auth_settings.sql` applied (2 new system_settings rows)
+- `.env.production`: Added 4 NextAuth vars, removed DASHBOARD_USER/PASSWORD
+- Dashboard rebuilt + container restarted
+
+**Verified:**
+- `pochi@0xqube.xyz` → Dashboard access (admin role)
+- Other accounts → Access Denied
+- `/api/*` → 401 without JWT
+- `/login`, `/api/auth/*` → Public access
+- Google OAuth redirect URI correct (`ai-dash.0xqube.xyz`)
 
 ## Remaining Items
 
@@ -180,8 +218,7 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 ### Non-Critical Improvements:
 - MemorySaver → PostgresSaver (LangGraph checkpointer persistence)
 - ESLint 15 warnings cleanup
-- HTTPS: Replace self-signed cert with Let's Encrypt (requires domain name)
-- GCP Firewall: Open port 443, close direct 3000 access after domain setup
+- Google OAuth: Move from "Testing" to "Production" publishing status (currently limited to test users)
 
 ## Architecture Reference
 
