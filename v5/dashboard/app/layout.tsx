@@ -1,6 +1,7 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import { LayoutShell } from "@/components/layout/LayoutShell";
+import { AuthProvider } from "@/components/providers/AuthProvider";
 
 export const metadata: Metadata = {
   title: "AI Influencer Dashboard",
@@ -15,7 +16,9 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <body>
-        <LayoutShell>{children}</LayoutShell>
+        <AuthProvider>
+          <LayoutShell>{children}</LayoutShell>
+        </AuthProvider>
       </body>
     </html>
   );

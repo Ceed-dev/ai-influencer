@@ -20,8 +20,8 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
     setSidebarOpen(false);
   }, []);
 
-  // API routes don't need layout
-  if (pathname.startsWith("/api/")) {
+  // API routes and login page don't need layout
+  if (pathname.startsWith("/api/") || pathname === "/login") {
     return <>{children}</>;
   }
 

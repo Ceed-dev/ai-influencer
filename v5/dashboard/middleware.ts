@@ -1,90 +1,94 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getToken } from "next-auth/jwt";
 
 /**
- * Dashboard middleware: Basic Authentication + CORS
+ * Dashboard middleware: NextAuth JWT authentication + RBAC + CORS
  *
- * Auth is enforced on all routes when DASHBOARD_USER and DASHBOARD_PASSWORD
- * environment variables are set. When either is unset, auth is bypassed
- * (local development mode).
+ * Public paths: /login, /api/auth/*
+ * Authenticated pages redirect to /login if no valid JWT
+ * Authenticated API routes return 401 if no valid JWT
+ * Viewer role cannot use POST/PUT/DELETE on non-auth API routes
  */
 
-function checkBasicAuth(request: NextRequest): NextResponse | null {
-  const user = process.env.DASHBOARD_USER;
-  const pass = process.env.DASHBOARD_PASSWORD;
+const PUBLIC_PATHS = ["/login", "/api/auth"];
+const WRITE_METHODS = new Set(["POST", "PUT", "DELETE", "PATCH"]);
 
-  // Skip auth if credentials not configured (dev mode)
-  if (!user || !pass) return null;
-
-  const authHeader = request.headers.get("authorization");
-  if (!authHeader || !authHeader.startsWith("Basic ")) {
-    return new NextResponse("Authentication required", {
-      status: 401,
-      headers: {
-        "WWW-Authenticate": 'Basic realm="AI Influencer Dashboard"',
-      },
-    });
-  }
-
-  const base64 = authHeader.slice(6);
-  let decoded: string;
-  try {
-    decoded = atob(base64);
-  } catch {
-    return new NextResponse("Invalid credentials", {
-      status: 401,
-      headers: {
-        "WWW-Authenticate": 'Basic realm="AI Influencer Dashboard"',
-      },
-    });
-  }
-
-  const [inputUser, ...passParts] = decoded.split(":");
-  const inputPass = passParts.join(":");
-
-  if (inputUser !== user || inputPass !== pass) {
-    return new NextResponse("Invalid credentials", {
-      status: 401,
-      headers: {
-        "WWW-Authenticate": 'Basic realm="AI Influencer Dashboard"',
-      },
-    });
-  }
-
-  return null; // Auth passed
+function isPublicPath(pathname: string): boolean {
+  return PUBLIC_PATHS.some(
+    (p) => pathname === p || pathname.startsWith(p + "/")
+  );
 }
 
-export function middleware(request: NextRequest) {
-  // 1. Basic Auth check (all routes)
-  const authResponse = checkBasicAuth(request);
-  if (authResponse) return authResponse;
+function addCorsHeaders(response: NextResponse): NextResponse {
+  response.headers.set("Access-Control-Allow-Origin", "*");
+  response.headers.set(
+    "Access-Control-Allow-Methods",
+    "GET, POST, PUT, DELETE, OPTIONS"
+  );
+  response.headers.set(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization"
+  );
+  response.headers.set("Access-Control-Max-Age", "86400");
+  return response;
+}
 
-  // 2. CORS headers for API routes
-  if (request.nextUrl.pathname.startsWith("/api/")) {
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // CORS preflight for API routes
+  if (pathname.startsWith("/api/") && request.method === "OPTIONS") {
+    return addCorsHeaders(new NextResponse(null, { status: 204 }));
+  }
+
+  // Public paths: no auth required
+  if (isPublicPath(pathname)) {
     const response = NextResponse.next();
-
-    response.headers.set("Access-Control-Allow-Origin", "*");
-    response.headers.set(
-      "Access-Control-Allow-Methods",
-      "GET, POST, PUT, DELETE, OPTIONS"
-    );
-    response.headers.set(
-      "Access-Control-Allow-Headers",
-      "Content-Type, Authorization"
-    );
-    response.headers.set("Access-Control-Max-Age", "86400");
-
-    // Handle preflight requests
-    if (request.method === "OPTIONS") {
-      return new NextResponse(null, {
-        status: 204,
-        headers: response.headers,
-      });
+    if (pathname.startsWith("/api/")) {
+      addCorsHeaders(response);
     }
-
     return response;
   }
 
-  return NextResponse.next();
+  // Check JWT token
+  const token = await getToken({ req: request });
+
+  if (!token) {
+    // API routes: 401
+    if (pathname.startsWith("/api/")) {
+      return addCorsHeaders(
+        new NextResponse(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        })
+      );
+    }
+    // Pages: redirect to login
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("callbackUrl", request.url);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  // RBAC: viewer cannot write via API
+  if (
+    pathname.startsWith("/api/") &&
+    WRITE_METHODS.has(request.method) &&
+    token.role === "viewer"
+  ) {
+    return addCorsHeaders(
+      new NextResponse(JSON.stringify({ error: "Forbidden: viewer role cannot modify data" }), {
+        status: 403,
+        headers: { "Content-Type": "application/json" },
+      })
+    );
+  }
+
+  // Authenticated: proceed
+  const response = NextResponse.next();
+  if (pathname.startsWith("/api/")) {
+    addCorsHeaders(response);
+  }
+  return response;
 }
 
 export const config = {
