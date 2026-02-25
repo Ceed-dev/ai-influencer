@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { Sun, Moon, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { useTranslation } from "@/lib/i18n";
 
@@ -67,15 +66,25 @@ export function Header() {
               </Button>
             </div>
           )}
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs font-medium text-muted-foreground">EN</span>
-            <Switch
-              checked={lang === "ja"}
-              onCheckedChange={(checked) => setLang(checked ? "ja" : "en")}
-              aria-label="Toggle language"
-            />
-            <span className="text-xs font-medium text-muted-foreground">JA</span>
-          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={lang === "ja"}
+            aria-label="Toggle language"
+            onClick={() => setLang(lang === "en" ? "ja" : "en")}
+            className="relative inline-flex h-7 w-14 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent bg-input shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          >
+            <span className="absolute left-1.5 text-[10px] font-bold text-muted-foreground select-none">EN</span>
+            <span className="absolute right-1.5 text-[10px] font-bold text-muted-foreground select-none">JA</span>
+            <span
+              className="pointer-events-none flex h-5 w-5 items-center justify-center rounded-full bg-primary shadow-lg transition-transform duration-200 data-[state=checked]:translate-x-7 data-[state=unchecked]:translate-x-0.5"
+              data-state={lang === "ja" ? "checked" : "unchecked"}
+            >
+              <span className="text-[9px] font-bold text-primary-foreground select-none">
+                {lang === "en" ? "EN" : "JA"}
+              </span>
+            </span>
+          </button>
           <Button
             variant="ghost"
             size="icon"
