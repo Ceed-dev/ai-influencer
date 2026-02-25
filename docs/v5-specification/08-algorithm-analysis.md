@@ -2818,7 +2818,7 @@ G8のSQLは全てNULLチェック付き（`WHERE hook_type IS NOT NULL`等）。
 | EXPLORATION_RATE | 0.15 | float | §14, §15 探索率 |
 | COMPONENT_DUPLICATE_THRESHOLD | 0.9 | float | §17 重複判定 |
 
-> **注**: 本章で参照されるsystem_settings = 31（新規、§27.1）+ 22（04-agent-design.md定義済み、§27.2）= 計53キー。加えてcost_controlカテゴリの `DAILY_BUDGET_LIMIT_USD` も§14で参照される。全124件のsystem_settingsの完全一覧は [02-architecture.md](02-architecture.md) §11.5 および [03-database-schema.md](03-database-schema.md) §7.2 を参照。
+> **注**: 本章で参照されるsystem_settings = 31（新規、§27.1）+ 22（04-agent-design.md定義済み、§27.2）= 計53キー。加えてcost_controlカテゴリの `DAILY_BUDGET_LIMIT_USD` も§14で参照される。全126件のsystem_settingsの完全一覧は [02-architecture.md](02-architecture.md) §11.5 および [03-database-schema.md](03-database-schema.md) §7.2 を参照。
 
 
 ## 28. 結論

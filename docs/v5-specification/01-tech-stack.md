@@ -226,9 +226,9 @@ Shadow トークン:
 
 | 機能 | 初期実装 | 将来拡張 |
 |------|---------|---------|
-| 認証 | なし（localhost単一ユーザー） | NextAuth.js (OAuth) |
+| 認証 | NextAuth.js v4 + Google OAuth (JWT session) | 追加プロバイダー |
 | 通知 | なし（ダッシュボード上のアラートのみ） | Slack webhook, Email |
-| アクセス制御 | なし | RBAC (admin/viewer) |
+| アクセス制御 | RBAC (admin/viewer) — メールホワイトリスト + ロール (`system_settings`) | 細粒度権限 |
 
 ### ダッシュボード画面一覧
 
