@@ -90,7 +90,7 @@ export function Sidebar({ open, collapsed, onClose, onToggleCollapse }: SidebarP
       )}
     >
       {/* Header */}
-      <div className={cn("flex items-center border-b", collapsed ? "justify-center p-2" : "justify-between px-4 py-3")}>
+      <div className={cn("flex items-center border-b", collapsed ? "justify-center py-3 px-2" : "justify-between px-4 py-3")}>
         {!collapsed && (
           <h2 className="text-lg font-bold text-primary truncate">{t("sidebar.appTitle")}</h2>
         )}
@@ -129,7 +129,7 @@ export function Sidebar({ open, collapsed, onClose, onToggleCollapse }: SidebarP
                 {section.label}
               </p>
             )}
-            {collapsed && <Separator className="my-1" />}
+            {collapsed && section.key !== "overview" && <Separator className="my-1" />}
             <div className="space-y-0.5">
               {section.items.map((item) => {
                 const isActive =
