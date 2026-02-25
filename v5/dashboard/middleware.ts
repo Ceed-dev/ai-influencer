@@ -63,9 +63,9 @@ export async function middleware(request: NextRequest) {
         })
       );
     }
-    // Pages: redirect to login
+    // Pages: redirect to login (use pathname to avoid localhost in callbackUrl behind proxy)
     const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("callbackUrl", request.url);
+    loginUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(loginUrl);
   }
 
