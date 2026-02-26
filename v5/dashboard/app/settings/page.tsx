@@ -125,23 +125,23 @@ export default function SettingsPage() {
       {loading ? (
         <p>{t("common.loading")}</p>
       ) : (
-        <Table>
+        <Table className="table-fixed">
           <TableHeader>
             <TableRow>
-              <TableHead>{t("settings.key")}</TableHead>
-              <TableHead>{t("settings.value")}</TableHead>
-              <TableHead>{t("settings.type")}</TableHead>
-              <TableHead>{t("settings.description")}</TableHead>
-              <TableHead className="w-[120px]">{t("settings.actions")}</TableHead>
+              <TableHead className="w-[22%]">{t("settings.key")}</TableHead>
+              <TableHead className="w-[18%]">{t("settings.value")}</TableHead>
+              <TableHead className="w-[8%]">{t("settings.type")}</TableHead>
+              <TableHead className="w-[40%]">{t("settings.description")}</TableHead>
+              <TableHead className="w-[12%]">{t("settings.actions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredSettings.map((s) => (
               <TableRow key={s.setting_key}>
-                <TableCell className="font-mono text-xs">
+                <TableCell className="font-mono text-xs truncate">
                   {s.setting_key}
                 </TableCell>
-                <TableCell>
+                <TableCell className="truncate">
                   {editingKey === s.setting_key ? (
                     <Input
                       className="h-8"
@@ -160,12 +160,13 @@ export default function SettingsPage() {
                 <TableCell className="text-xs text-muted-foreground">
                   {getDescription(s)}
                 </TableCell>
-                <TableCell className="w-[120px]">
+                <TableCell>
                   {editingKey === s.setting_key ? (
-                    <div className="flex gap-1">
+                    <div className="flex flex-col gap-1">
                       <Button
                         variant="success"
                         size="sm"
+                        className="w-full"
                         onClick={() => handleSave(s.setting_key)}
                       >
                         {t("common.save")}
@@ -173,6 +174,7 @@ export default function SettingsPage() {
                       <Button
                         variant="secondary"
                         size="sm"
+                        className="w-full"
                         onClick={() => setEditingKey(null)}
                       >
                         {t("common.cancel")}
