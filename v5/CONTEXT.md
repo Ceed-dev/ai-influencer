@@ -304,6 +304,21 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 - Cancel: returns to Edit button state
 - Tab switching: correct filtering per category
 
+### Session 16: Settings Type-Aware Editor UI
+
+**Type-aware editing by value_type (5 files):**
+- `dashboard/components/ui/switch.tsx` — New Radix-free Switch component (forwardRef, `cn()` pattern, Solarized-compatible)
+- `dashboard/app/settings/setting-editors.tsx` — Type-dispatched editor components:
+  - `SettingValueCell`: integer/float → `<Input type="number">` (min/max/step from constraints), boolean → `<Switch>` toggle, enum → `<NativeSelect>` (options from constraints), string → `<Input>` (CRED_* → password mask), json → inline preview
+  - `JsonEditorPanel`: AUTH_ALLOWED_EMAILS → tag list (Badge chips + Add), AUTH_USER_ROLES → key-value editor (email + role select + delete + Add Row), METRICS_FOLLOWUP_DAYS → number tag list, fallback → JSON textarea
+- `dashboard/app/settings/page.tsx` — State: `editValue: string` → `editValue: unknown` + `expandedJsonKey` for JSON accordion rows. JSON types expand as `colSpan={5}` row below. CRED_* masked as `••••••••` when not editing
+- `dashboard/lib/i18n/en.json` / `ja.json` — +12 i18n keys each (enabled/disabled, addEmail/addRow/addDay, emailPlaceholder, dayPlaceholder, role, masked, editJson, constraintRange, stepHint)
+
+**Spec update (`02-architecture.md` §11.3):**
+- Settings table component descriptions updated to reflect type-aware SettingValueCell + JsonEditorPanel (replaced EditSettingModal/SaveConfirmDialog)
+
+**Production deployment:** rsync → build → docker restart → verified at https://ai-dash.0xqube.xyz
+
 ## Remaining Items
 
 ### External Dependencies (code complete, awaiting approvals):

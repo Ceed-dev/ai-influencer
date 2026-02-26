@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -13,6 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { SettingValueCell, JsonEditorPanel } from "./setting-editors";
 
 interface SystemSetting {
   setting_key: string;
@@ -48,7 +48,8 @@ export default function SettingsPage() {
   const [activeCategory, setActiveCategory] = useState<string>("production");
   const [loading, setLoading] = useState(true);
   const [editingKey, setEditingKey] = useState<string | null>(null);
-  const [editValue, setEditValue] = useState<string>("");
+  const [editValue, setEditValue] = useState<unknown>("");
+  const [expandedJsonKey, setExpandedJsonKey] = useState<string | null>(null);
 
   const fetchSettings = useCallback(async () => {
     setLoading(true);
@@ -69,21 +70,15 @@ export default function SettingsPage() {
 
   const handleSave = async (key: string) => {
     try {
-      let parsedValue: unknown;
-      try {
-        parsedValue = JSON.parse(editValue);
-      } catch {
-        parsedValue = editValue;
-      }
-
       const res = await fetch(`/api/settings/${key}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ value: parsedValue }),
+        body: JSON.stringify({ value: editValue }),
       });
 
       if (res.ok) {
         setEditingKey(null);
+        setExpandedJsonKey(null);
         fetchSettings();
       } else {
         const err = await res.json();
@@ -94,6 +89,24 @@ export default function SettingsPage() {
     }
   };
 
+  const startEdit = (s: SystemSetting) => {
+    setEditingKey(s.setting_key);
+    if (s.value_type === "json") {
+      // Deep clone the JSON value for editing
+      setEditValue(JSON.parse(JSON.stringify(s.setting_value)));
+      setExpandedJsonKey(s.setting_key);
+    } else if (s.value_type === "boolean") {
+      setEditValue(s.setting_value);
+    } else {
+      setEditValue(s.setting_value);
+    }
+  };
+
+  const cancelEdit = () => {
+    setEditingKey(null);
+    setExpandedJsonKey(null);
+  };
+
   const filteredSettings = settings.filter(
     (s) => s.category === activeCategory
   );
@@ -101,7 +114,6 @@ export default function SettingsPage() {
   const getDescription = (s: SystemSetting): string => {
     const i18nKey = `settings.descriptions.${s.setting_key}`;
     const translated = t(i18nKey);
-    // If t() returns the key itself, fall back to DB description
     return translated !== i18nKey ? translated : s.description;
   };
 
@@ -121,7 +133,7 @@ export default function SettingsPage() {
         ))}
       </div>
 
-      {/* Settings <table> via Shadcn Table component */}
+      {/* Settings Table */}
       {loading ? (
         <p>{t("common.loading")}</p>
       ) : (
@@ -137,62 +149,79 @@ export default function SettingsPage() {
           </TableHeader>
           <TableBody>
             {filteredSettings.map((s) => (
-              <TableRow key={s.setting_key}>
-                <TableCell className="font-mono text-xs truncate">
-                  {s.setting_key}
-                </TableCell>
-                <TableCell className="truncate">
-                  {editingKey === s.setting_key ? (
-                    <Input
-                      className="h-8"
-                      value={editValue}
-                      onChange={(e) => setEditValue(e.target.value)}
+              <React.Fragment key={s.setting_key}>
+                {/* Main row */}
+                <TableRow>
+                  <TableCell className="font-mono text-xs truncate">
+                    {s.setting_key}
+                  </TableCell>
+                  <TableCell className="truncate">
+                    <SettingValueCell
+                      settingKey={s.setting_key}
+                      value={s.setting_value}
+                      valueType={s.value_type}
+                      constraints={s.constraints}
+                      editing={editingKey === s.setting_key}
+                      editValue={editValue}
+                      onEditValueChange={setEditValue}
+                      t={t}
                     />
-                  ) : (
-                    <span className="font-mono text-xs">
-                      {JSON.stringify(s.setting_value)}
-                    </span>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <Badge variant="secondary">{formatValueType(s.value_type)}</Badge>
-                </TableCell>
-                <TableCell className="text-xs text-muted-foreground">
-                  {getDescription(s)}
-                </TableCell>
-                <TableCell>
-                  {editingKey === s.setting_key ? (
-                    <div className="flex flex-col gap-1">
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="secondary">{formatValueType(s.value_type)}</Badge>
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {getDescription(s)}
+                  </TableCell>
+                  <TableCell>
+                    {editingKey === s.setting_key ? (
+                      <div className="flex flex-col gap-1">
+                        <Button
+                          variant="success"
+                          size="sm"
+                          className="w-full"
+                          onClick={() => handleSave(s.setting_key)}
+                        >
+                          {t("common.save")}
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="w-full"
+                          onClick={cancelEdit}
+                        >
+                          {t("common.cancel")}
+                        </Button>
+                      </div>
+                    ) : (
                       <Button
-                        variant="success"
                         size="sm"
-                        className="w-full"
-                        onClick={() => handleSave(s.setting_key)}
+                        onClick={() => startEdit(s)}
                       >
-                        {t("common.save")}
+                        {s.value_type === "json"
+                          ? t("settings.editJson")
+                          : t("common.edit")}
                       </Button>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        className="w-full"
-                        onClick={() => setEditingKey(null)}
-                      >
-                        {t("common.cancel")}
-                      </Button>
-                    </div>
-                  ) : (
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        setEditingKey(s.setting_key);
-                        setEditValue(JSON.stringify(s.setting_value));
-                      }}
-                    >
-                      {t("common.edit")}
-                    </Button>
+                    )}
+                  </TableCell>
+                </TableRow>
+
+                {/* JSON expansion row */}
+                {expandedJsonKey === s.setting_key &&
+                  editingKey === s.setting_key &&
+                  s.value_type === "json" && (
+                    <TableRow>
+                      <TableCell colSpan={5} className="bg-muted/30 p-0">
+                        <JsonEditorPanel
+                          settingKey={s.setting_key}
+                          editValue={editValue}
+                          onEditValueChange={setEditValue}
+                          t={t}
+                        />
+                      </TableCell>
+                    </TableRow>
                   )}
-                </TableCell>
-              </TableRow>
+              </React.Fragment>
             ))}
           </TableBody>
         </Table>

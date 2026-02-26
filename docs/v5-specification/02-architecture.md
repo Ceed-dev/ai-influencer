@@ -2128,9 +2128,9 @@ ORDER BY agent_type, count DESC;
 | コンポーネント名 | 種別 | 説明 |
 |---|---|---|
 | `SettingsCategoryTabs` | ナビ | 8カテゴリのタブ切替: production, posting, review, agent, measurement, cost_control, dashboard, credentials（004_seed_settings.sql のcategoryカラムと一致） |
-| `SettingsTable` | テーブル | カテゴリ別の設定値一覧: key, value, type, description |
-| `EditSettingModal` | モーダル | 型に応じた入力UI: number → NumberInput, string → TextInput, boolean → Switch, json → Monaco Editor |
-| `SaveConfirmDialog` | ダイアログ | 変更前後の値を表示し、保存を確認 |
+| `SettingsTable` | テーブル | カテゴリ別の設定値一覧: key, value, type, description。value_typeに基づく型別エディタUI |
+| `SettingValueCell` | インライン編集 | value_typeで分岐: integer/float → `<Input type="number">` (min/max/step), boolean → `<Switch>`, enum → `<NativeSelect>`, string → `<Input>` (CRED_*はpassword), json → プレビュー表示 |
+| `JsonEditorPanel` | 展開パネル | JSON型の専用フォーム: AUTH_ALLOWED_EMAILS → タグリスト, AUTH_USER_ROLES → キーバリュー一覧, METRICS_FOLLOWUP_DAYS → 数値タグリスト, その他 → Textarea |
 
 #### #12 エラーログ — `/errors`
 

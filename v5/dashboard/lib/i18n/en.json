@@ -407,6 +407,18 @@
       "enum": "Enum",
       "json": "JSON"
     },
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "addEmail": "Add",
+    "addRow": "Add Row",
+    "addDay": "Add",
+    "emailPlaceholder": "email@example.com",
+    "dayPlaceholder": "Day",
+    "role": "Role",
+    "masked": "••••••••",
+    "editJson": "Edit JSON",
+    "constraintRange": "Range: {min} – {max}",
+    "stepHint": "Step: {step}",
     "descriptions": {
       "MAX_CONCURRENT_PRODUCTIONS": "Max concurrent video productions. Must be below fal.ai parallel limit (40)",
       "PRODUCTION_POLL_INTERVAL_SEC": "Pipeline task queue polling interval (seconds)",
