@@ -281,6 +281,29 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 
 **Quality gates:** TypeScript 0 errors, build 0 warnings, npm audit 0 critical
 
+### Session 15: Settings Page i18n + Layout Fix
+
+**Settings page i18n (3 files updated):**
+- `en.json`: Added `settings.categories.*` (8 labels), `settings.descriptions.*` (126 English descriptions), `settings.valueTypes.*` (6 types)
+- `ja.json`: Added `settings.categories.*` (8 Japanese labels), `settings.descriptions.*` (126 Japanese descriptions from spec §11.5 SSOT)
+- Japanese descriptions sourced directly from `02-architecture.md` §11.5 master table
+
+**Settings page component (`settings/page.tsx`):**
+- Category tabs: `{cat}` → `{t("settings.categories." + cat)}` — EN: "Production", "Cost Control" etc. / JA: "プロダクション", "コスト管理" etc.
+- Descriptions: `{s.description}` → i18n lookup with DB fallback via `getDescription()` helper
+- Type badges: `{s.value_type}` → `formatValueType()` helper — `integer`→`Integer`, `json`→`JSON` (English unified)
+- Actions column: Added `w-[120px]` fixed width on TableHead + TableCell to prevent layout shift during Edit→Save/Cancel toggle
+
+**Spec update (`02-architecture.md` §11.3):**
+- Added i18n description: category tabs, descriptions i18n (EN/JA), type badges English-unified, DB fallback
+
+**Playwright verification (10 checks):**
+- EN mode: category tabs, descriptions, type badges verified
+- JA mode: tabs and descriptions switch to Japanese
+- Edit→Save+Cancel: no layout shift on other rows
+- Cancel: returns to Edit button state
+- Tab switching: correct filtering per category
+
 ## Remaining Items
 
 ### External Dependencies (code complete, awaiting approvals):

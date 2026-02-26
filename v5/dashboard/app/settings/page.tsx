@@ -37,6 +37,11 @@ const CATEGORIES = [
   "credentials",
 ] as const;
 
+function formatValueType(type: string): string {
+  if (type === "json") return "JSON";
+  return type.charAt(0).toUpperCase() + type.slice(1);
+}
+
 export default function SettingsPage() {
   const { t } = useTranslation();
   const [settings, setSettings] = useState<SystemSetting[]>([]);
@@ -93,6 +98,13 @@ export default function SettingsPage() {
     (s) => s.category === activeCategory
   );
 
+  const getDescription = (s: SystemSetting): string => {
+    const i18nKey = `settings.descriptions.${s.setting_key}`;
+    const translated = t(i18nKey);
+    // If t() returns the key itself, fall back to DB description
+    return translated !== i18nKey ? translated : s.description;
+  };
+
   return (
     <div>
       {/* Category Tabs */}
@@ -104,7 +116,7 @@ export default function SettingsPage() {
             size="sm"
             onClick={() => setActiveCategory(cat)}
           >
-            {cat}
+            {t(`settings.categories.${cat}`)}
           </Button>
         ))}
       </div>
@@ -120,7 +132,7 @@ export default function SettingsPage() {
               <TableHead>{t("settings.value")}</TableHead>
               <TableHead>{t("settings.type")}</TableHead>
               <TableHead>{t("settings.description")}</TableHead>
-              <TableHead>{t("settings.actions")}</TableHead>
+              <TableHead className="w-[120px]">{t("settings.actions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -143,12 +155,12 @@ export default function SettingsPage() {
                   )}
                 </TableCell>
                 <TableCell>
-                  <Badge variant="secondary">{s.value_type}</Badge>
+                  <Badge variant="secondary">{formatValueType(s.value_type)}</Badge>
                 </TableCell>
                 <TableCell className="text-xs text-muted-foreground">
-                  {s.description}
+                  {getDescription(s)}
                 </TableCell>
-                <TableCell>
+                <TableCell className="w-[120px]">
                   {editingKey === s.setting_key ? (
                     <div className="flex gap-1">
                       <Button

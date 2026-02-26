@@ -2671,6 +2671,8 @@ async function getSetting(key: string): Promise<any> {
 | Dashboard | テーマ、ページ件数、自動更新間隔 |
 | Credentials | APIキー入力（マスク表示） |
 
+**i18n対応（日英切替）**: カテゴリタブ名、各設定項目の説明文（description）はi18nファイル（`en.json`/`ja.json`）で日英両対応。言語切替ボタンで即時反映される。型バッジ（Integer, Float, String, Boolean, Enum, JSON）は技術用語のため英語統一。i18nキーが未定義の場合はDB格納のdescriptionにフォールバック。
+
 各設定項目の表示:
 - 現在値 + デフォルト値
 - 値の型と制約（min/max, options）
