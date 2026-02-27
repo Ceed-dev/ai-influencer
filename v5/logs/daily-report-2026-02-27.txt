@@ -1,0 +1,176 @@
+==========================================
+ Daily Report 2026-02-27
+==========================================
+
+--- 1. Progress Summary ---
+
+  Overall: 276 / 276 features passed (100.0%)
+
+  By category:
+    agent-intelligence [####################]   3/  3 (100%)
+    algorithm          [####################]  15/ 15 (100%)
+    dashboard          [####################]  36/ 36 (100%)
+    database           [####################]  49/ 49 (100%)
+    infra              [####################]   5/  5 (100%)
+    intelligence       [####################]  18/ 18 (100%)
+    mcp-core           [####################]  43/ 43 (100%)
+    mcp-intel          [####################]  35/ 35 (100%)
+    measure            [####################]   6/  6 (100%)
+    strategy           [####################]  10/ 10 (100%)
+    test               [####################]  32/ 32 (100%)
+    text-post          [####################]   6/  6 (100%)
+    video-worker       [####################]  18/ 18 (100%)
+
+  By agent:
+    dashboard-agent        36/ 36 (100%)
+    infra-agent            67/ 67 (100%)
+    intelligence-agent     21/ 21 (100%)
+    mcp-core-agent         43/ 43 (100%)
+    mcp-intel-agent        37/ 37 (100%)
+    measure-agent           6/  6 (100%)
+    strategy-agent         10/ 10 (100%)
+    test-agent             32/ 32 (100%)
+    text-post-agent         6/  6 (100%)
+    video-worker-agent     18/ 18 (100%)
+
+--- 2. Recent Activity ---
+
+  Latest 30 lines from progress.txt:
+
+    2026-02-24T10:11:00Z | leader | START | FIX-P0-SQL-2 | starting | prediction.ts: fix component_type→type, comp.id→comp.component_id in JOIN
+    2026-02-24T10:11:30Z | leader | COMPLETE | FIX-P0-SQL-2 | passed | Query now matches components table schema
+    2026-02-24T10:12:00Z | leader | START | FIX-P0-PROC | starting | index.ts: add process.on('unhandledRejection') + process.on('uncaughtException')
+    2026-02-24T10:12:30Z | leader | COMPLETE | FIX-P0-PROC | passed | Global error handlers added
+    2026-02-24T10:13:00Z | leader | START | FIX-P1-CATCH | starting | Replace all silent catch blocks + void async with proper .catch() logging
+    2026-02-24T10:15:00Z | leader | COMPLETE | FIX-P1-CATCH | passed | 11 sites fixed: ffmpeg.ts, orchestrator.ts, strategy-nodes.ts, production-pipeline.ts, token-refresher.ts, batch-orchestrator.ts
+    2026-02-24T10:16:00Z | leader | START | FIX-P1-TYPE | starting | Fix unsafe as any casts in 3 platform adapters → Record<string, unknown>
+    2026-02-24T10:16:30Z | leader | COMPLETE | FIX-P1-TYPE | passed | tiktok.ts, youtube.ts, instagram.ts — eliminated 3 as any casts
+    2026-02-24T10:17:00Z | leader | START | FIX-P1-NAN | starting | followup.ts: validate NaN from map(Number) on METRICS_FOLLOWUP_DAYS
+    2026-02-24T10:17:30Z | leader | COMPLETE | FIX-P1-NAN | passed | NaN/negative values now fall back to default [7, 30]
+    2026-02-24T10:20:00Z | leader | SMOKE | ALL | passed | TypeScript: 0 errors. ESLint: 0 errors, 15 warnings. Tests: 243/243 suites, 1121/1121 passing.
+    2026-02-24T10:25:00Z | leader | START | AUDIT-SPEC | starting | Spec compliance, dashboard API, MCP tool audits (round 2)
+    2026-02-24T10:30:00Z | leader | COMPLETE | AUDIT-SPEC | passed | 99% complete; MemorySaver→PostgresSaver noted as non-critical gap
+    2026-02-24T10:30:00Z | leader | COMPLETE | AUDIT-DASH | passed | 17 issues found: 4 critical SQL, 2 high JSON handling, 7 medium validation
+    2026-02-24T10:30:00Z | leader | COMPLETE | AUDIT-MCP | passed | 2 UUID→number conversion issues in save-reflection + save-individual-learning
+    2026-02-24T10:31:00Z | leader | START | FIX-DASH-1 | starting | accounts/route.ts: remove invalid "paused" status from enum
+    2026-02-24T10:31:10Z | leader | COMPLETE | FIX-DASH-1 | passed | VALID_STATUSES matches DB constraint
+    2026-02-24T10:31:20Z | leader | START | FIX-DASH-2 | starting | kpi/snapshots: value→setting_value, key→setting_key
+    2026-02-24T10:31:30Z | leader | COMPLETE | FIX-DASH-2 | passed | Both queries now use correct system_settings columns
+    2026-02-24T10:31:40Z | leader | START | FIX-DASH-3 | starting | performance/route.ts: p.publication_id→p.id, raw_data→direct columns
+    2026-02-24T10:31:50Z | leader | COMPLETE | FIX-DASH-3 | passed | Metrics joins use correct PK and direct columns
+    2026-02-24T10:32:00Z | leader | START | FIX-DASH-4 | starting | errors/route.ts: tq.updated_at→tq.completed_at
+    2026-02-24T10:32:10Z | leader | COMPLETE | FIX-DASH-4 | passed | task_queue column reference corrected
+    2026-02-24T10:32:20Z | leader | START | FIX-DASH-5 | starting | communications/[id]/route.ts + prompt-suggestions/[id]/route.ts: JSON parse error handling
+    2026-02-24T10:32:30Z | leader | COMPLETE | FIX-DASH-5 | passed | Both PUT endpoints now handle invalid JSON
+    2026-02-24T10:33:00Z | leader | START | FIX-P0-GRAPH | starting | graph-communication.ts: task_queue.updated_at→started_at/completed_at/last_error_at
+    2026-02-24T10:33:10Z | leader | COMPLETE | FIX-P0-GRAPH | passed | All 3 UPDATE queries now use correct task_queue columns
+    2026-02-24T10:34:00Z | leader | START | FIX-MCP-UUID | starting | save-individual-learning.ts: UUID→number conversion (match save-reflection pattern)
+    2026-02-24T10:34:10Z | leader | COMPLETE | FIX-MCP-UUID | passed | Both UUID tools now use consistent hash pattern
+    2026-02-24T10:35:00Z | leader | SMOKE | ALL | passed | TypeScript: 0 errors. ESLint: 0 errors, 15 warnings. Tests: 243/243 suites, 1121/1121 (transient pool failures only).
+
+  Blockers detected:
+    2026-02-24T11:30:00Z | leader | COMPLETE | FIX-HANDLE-ERROR-LOG | passed | production-pipeline.ts: handle_error catch block now logs task_id and error message
+    2026-02-24T11:35:00Z | leader | COMPLETE | FIX-RECORD-ERROR | passed | publishing-scheduler.ts: record node marks task as failed_permanent on DB error (prevents stuck tasks + duplicate posts)
+    2026-02-24T10:13:00Z | leader | START | FIX-P1-CATCH | starting | Replace all silent catch blocks + void async with proper .catch() logging
+
+  Features completed today: 0
+0
+
+--- 3. Anti-pattern Detection ---
+
+  AP1: One-shotting (multiple FEATs in single commit)
+    None detected
+
+  AP4: E2E Skip (COMPLETE without prior SMOKE)
+  [WARN] Features completed without smoke test:
+      2026-02-23T07:53:11Z | infra-agent | COMPLETE | FEAT-DB-001 | passed | TEST-DB-001,TEST-DB-002 green
+      2026-02-23T07:53:27Z | infra-agent | COMPLETE | FEAT-DB-002 | passed | TEST-DB-002 green (verified in FEAT-DB-001)
+      2026-02-23T07:56:04Z | dashboard-agent | COMPLETE | FEAT-DSH-002 | passed | TEST-DSH-003, TEST-DSH-004 green
+      2026-02-23T07:56:28Z | dashboard-agent | COMPLETE | FEAT-DSH-003 | passed | TEST-DSH-005, TEST-DSH-006 green
+      2026-02-23T07:56:44Z | dashboard-agent | COMPLETE | FEAT-DSH-004 | passed | TEST-DSH-007 green
+      2026-02-23T07:58:51Z | dashboard-agent | COMPLETE | FEAT-DSH-005 | passed | TEST-DSH-008 green
+      2026-02-23T08:00:34Z | dashboard-agent | COMPLETE | FEAT-DSH-011 | passed | TEST-DSH-015 green
+      2026-02-23T08:03:05Z | dashboard-agent | COMPLETE | FEAT-DSH-014 | passed | TEST-DSH-019, TEST-DSH-058, TEST-DSH-059 green
+      2026-02-23T08:04:22Z | dashboard-agent | COMPLETE | FEAT-DSH-034 | passed | TEST-DSH-044 green
+      2026-02-23T08:06:08Z | infra-agent | COMPLETE | FEAT-DB-041 | passed | tests green
+      2026-02-23T08:10:37Z | infra-agent | COMPLETE | FEAT-INF-003 | passed | migration script working
+      2026-02-23T08:43:43Z | intelligence-agent | COMPLETE | FEAT-INT-008 | passed | TEST-AGT-018 green (39 tests)
+      2026-02-23T08:44:23Z | text-post-agent | COMPLETE | FEAT-TP-002 | passed | TEST-WKR-013 green
+      2026-02-23T08:49:27Z | text-post-agent | COMPLETE | FEAT-TP-003 | passed | TEST-WKR-014 green
+      2026-02-23T08:50:03Z | strategy-agent | COMPLETE | FEAT-STR-002 | passed | TEST-AGT-002 green (6/6 tests)
+      2026-02-23T08:50:24Z | measure-agent | COMPLETE | FEAT-MS-005 | passed | TEST-WKR-031 green
+      2026-02-23T08:51:26Z | mcp-core-agent | COMPLETE | FEAT-MCC-001 | passed | TEST-MCP-001,TEST-MCP-002 green
+      2026-02-23T12:01:00Z | infra-agent | COMPLETE | FEAT-ALG-011 | passed | TEST-ALG-017,TEST-ALG-018 green — 17 pure-function tests
+      2026-02-23T12:02:30Z | infra-agent | COMPLETE | FEAT-ALG-013 | passed | TEST-ALG-020 green — 11 tests, cutoff verified in all SQL queries
+      2026-02-23T12:04:00Z | infra-agent | COMPLETE | FEAT-ALG-014 | passed | TEST-ALG-021 green — 5 tables, 100-row batches, 10 tests
+      2026-02-23T12:05:00Z | infra-agent | COMPLETE | FEAT-ALG-015 | passed | TEST-ALG-022 green — 14 tests, matrix verified
+      2026-02-23T12:06:00Z | infra-agent | COMPLETE | FEAT-INF-004 | passed | TEST-INT-002 — prod compose with Cloud SQL 35.243.93.204
+      2026-02-24T10:05:00Z | leader | COMPLETE | AUDIT-SQL | passed | 3 CRITICAL SQL issues found in token-refresher.ts + prediction.ts
+      2026-02-24T10:10:30Z | leader | COMPLETE | FIX-P0-SQL-1 | passed | accounts table query now uses correct schema columns
+      2026-02-24T10:11:30Z | leader | COMPLETE | FIX-P0-SQL-2 | passed | Query now matches components table schema
+      2026-02-24T10:12:30Z | leader | COMPLETE | FIX-P0-PROC | passed | Global error handlers added
+      2026-02-24T10:15:00Z | leader | COMPLETE | FIX-P1-CATCH | passed | 11 sites fixed: ffmpeg.ts, orchestrator.ts, strategy-nodes.ts, production-pipeline.ts, token-refresher.ts, batch-orchestrator.ts
+      2026-02-24T10:16:30Z | leader | COMPLETE | FIX-P1-TYPE | passed | tiktok.ts, youtube.ts, instagram.ts — eliminated 3 as any casts
+      2026-02-24T10:17:30Z | leader | COMPLETE | FIX-P1-NAN | passed | NaN/negative values now fall back to default [7, 30]
+      2026-02-24T10:30:00Z | leader | COMPLETE | AUDIT-SPEC | passed | 99% complete; MemorySaver→PostgresSaver noted as non-critical gap
+      2026-02-24T10:31:10Z | leader | COMPLETE | FIX-DASH-1 | passed | VALID_STATUSES matches DB constraint
+      2026-02-24T10:31:30Z | leader | COMPLETE | FIX-DASH-2 | passed | Both queries now use correct system_settings columns
+      2026-02-24T10:31:50Z | leader | COMPLETE | FIX-DASH-3 | passed | Metrics joins use correct PK and direct columns
+      2026-02-24T10:32:10Z | leader | COMPLETE | FIX-DASH-4 | passed | task_queue column reference corrected
+      2026-02-24T10:32:30Z | leader | COMPLETE | FIX-DASH-5 | passed | Both PUT endpoints now handle invalid JSON
+      2026-02-24T10:33:10Z | leader | COMPLETE | FIX-P0-GRAPH | passed | All 3 UPDATE queries now use correct task_queue columns
+      2026-02-24T10:34:10Z | leader | COMPLETE | FIX-MCP-UUID | passed | Both UUID tools now use consistent hash pattern
+
+  AP9: Config Hardcoding (hardcoded values in src/)
+  [WARN] Potential hardcoded config found:
+    /home/pochi/workspaces/work/ai-influencer/v5/src/mcp-server/tools/agent-mgmt/check-tool-count.ts:3: * Returns the hardcoded total MCP tool count (103).
+    /home/pochi/workspaces/work/ai-influencer/v5/src/db/pool.ts:12:const DATABASE_URL = process.env['DATABASE_URL'] || 'postgres://dev:dev@localhost:5433/dev_ai_influencer';
+
+  AP10: Type Bypass (any type usage)
+  [WARN] Found 20 instances of 'any' type:
+    /home/pochi/workspaces/work/ai-influencer/v5/src/mcp-server/tools/intelligence/get-competitor-analysis.ts:17:  if (!VALID_PLATFORMS.includes(input.platform as any)) {
+    /home/pochi/workspaces/work/ai-influencer/v5/src/mcp-server/tools/intelligence/get-recent-intel.ts:18:  if (input.intel_type && !VALID_INTEL_TYPES.includes(input.intel_type as any)) {
+    /home/pochi/workspaces/work/ai-influencer/v5/src/mcp-server/tools/intelligence/get-recent-intel.ts:23:  if (input.platform && !VALID_PLATFORMS.includes(input.platform as any)) {
+    /home/pochi/workspaces/work/ai-influencer/v5/src/mcp-server/tools/intelligence/get-recent-intel.ts:60:    intel: res.rows.map((r: any) => ({
+    /home/pochi/workspaces/work/ai-influencer/v5/src/mcp-server/tools/intelligence/save-competitor-post.ts:17:  if (!VALID_PLATFORMS.includes(input.platform as any)) {
+    /home/pochi/workspaces/work/ai-influencer/v5/src/mcp-server/tools/intelligence/save-competitor-account.ts:17:  if (!VALID_PLATFORMS.includes(input.platform as any)) {
+    /home/pochi/workspaces/work/ai-influencer/v5/src/mcp-server/tools/intelligence/save-platform-update.ts:17:  if (!VALID_PLATFORMS.includes(input.platform as any)) {
+    /home/pochi/workspaces/work/ai-influencer/v5/src/mcp-server/tools/intelligence/save-trending-topic.ts:17:  if (!VALID_PLATFORMS.includes(input.platform as any)) {
+    /home/pochi/workspaces/work/ai-influencer/v5/src/mcp-server/tools/intelligence/get-platform-changes.ts:22:  if (!VALID_PLATFORMS.includes(input.platform as any)) {
+    /home/pochi/workspaces/work/ai-influencer/v5/src/mcp-server/tools/strategy/get-cluster-performance.ts:18:  if (!VALID_PERIODS.includes(input.period as any)) {
+
+  Anti-pattern total: 3 issue(s) found
+
+--- 4. Git Statistics ---
+
+  Commits since 2026-02-26: 3
+
+  By author:
+          3 shungo0222
+
+  Recent commits:
+    0b0d7c9 feat(dashboard): add type-aware editor UI to Settings page
+    e8f9f5e fix(dashboard): prevent layout shift on Settings Edit with table-fixed
+    56a8141 feat(dashboard): add i18n + layout fix to Settings page
+
+--- 5. Code Quality ---
+
+  Lint issues: 0
+0
+  TypeScript errors: 0
+0
+  Test suite: (run manually with 'npm test' in v5/)
+
+--- 6. Environment Health Check ---
+
+  Docker containers:
+    v5-app: Up 2 days
+    v5-pgbouncer: Up 2 days
+    v5-postgres: Up 2 days (healthy)
+  Database: not reachable (expected before infra setup)
+  v5/ disk usage: 1.7G
+  Disk free: 58G
+
+==========================================
+ End of Report
+==========================================
