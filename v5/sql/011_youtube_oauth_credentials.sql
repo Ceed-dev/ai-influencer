@@ -6,7 +6,7 @@ INSERT INTO system_settings (setting_key, setting_value, category, description, 
 VALUES
   (
     'YOUTUBE_CLIENT_ID',
-    '"YOUTUBE_CLIENT_ID_REMOVED"',
+    '""',  -- Set actual value via dashboard Settings → credentials → YOUTUBE_CLIENT_ID
     'credentials',
     'YouTube OAuth2 client ID (app-level, shared across all YouTube accounts)',
     '""',
@@ -14,7 +14,7 @@ VALUES
   ),
   (
     'YOUTUBE_CLIENT_SECRET',
-    '"YOUTUBE_CLIENT_SECRET_REMOVED"',
+    '""',  -- Set actual value via dashboard Settings → credentials → YOUTUBE_CLIENT_SECRET
     'credentials',
     'YouTube OAuth2 client secret (app-level, shared across all YouTube accounts)',
     '""',

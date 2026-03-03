@@ -14,8 +14,11 @@
 
 import readline from 'readline';
 
-const CLIENT_ID = 'YOUTUBE_CLIENT_ID_REMOVED';
-const CLIENT_SECRET = 'YOUTUBE_CLIENT_SECRET_REMOVED';
+// Set these via environment variables before running:
+//   export YOUTUBE_CLIENT_ID=<your client id>
+//   export YOUTUBE_CLIENT_SECRET=<your client secret>
+const CLIENT_ID = process.env['YOUTUBE_CLIENT_ID'] ?? '';
+const CLIENT_SECRET = process.env['YOUTUBE_CLIENT_SECRET'] ?? '';
 const REDIRECT_URI = 'http://localhost:8080';
 
 const SCOPES = [
