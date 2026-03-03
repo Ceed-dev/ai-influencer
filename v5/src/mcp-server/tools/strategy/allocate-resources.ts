@@ -60,10 +60,14 @@ export async function allocateResources(
     allocations: input.allocations,
   };
 
-  await pool.query(
+  const updateRes = await pool.query(
     `UPDATE cycles SET summary = $2 WHERE id = $1`,
     [input.cycle_id, JSON.stringify(mergedSummary)],
   );
+
+  if (updateRes.rowCount === 0) {
+    throw new McpNotFoundError(`Cycle with id ${input.cycle_id} not found during update.`);
+  }
 
   return { success: true };
 }

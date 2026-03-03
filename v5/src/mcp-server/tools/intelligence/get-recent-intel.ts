@@ -61,7 +61,7 @@ export async function getRecentIntel(
       id: r.id,
       data: r.data,
       relevance_score: Number(r.relevance_score),
-      collected_at: r.collected_at.toISOString(),
+      collected_at: r.collected_at ? (r.collected_at as Date).toISOString() : new Date(0).toISOString(),
     })),
   };
 }

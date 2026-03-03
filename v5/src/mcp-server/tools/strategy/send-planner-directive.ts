@@ -7,8 +7,6 @@
 import type {
   SendPlannerDirectiveInput,
   SendPlannerDirectiveOutput,
-  GetPendingDirectivesInput,
-  GetPendingDirectivesOutput,
 } from '@/types/mcp-tools';
 import { getPool } from '../../db';
 import { McpDbError, McpValidationError } from '../../errors';
@@ -46,44 +44,3 @@ export async function sendPlannerDirective(
   }
 }
 
-export async function getPendingDirectives(
-  _input: GetPendingDirectivesInput,
-): Promise<GetPendingDirectivesOutput> {
-  const pool = getPool();
-
-  const res = await pool.query(`
-    SELECT
-      id,
-      directive_type,
-      content,
-      priority,
-      created_at
-    FROM human_directives
-    WHERE status = 'pending'
-    ORDER BY
-      CASE priority
-        WHEN 'urgent' THEN 4
-        WHEN 'high' THEN 3
-        WHEN 'normal' THEN 2
-        ELSE 1
-      END DESC,
-      created_at ASC
-  `);
-
-  const PRIORITY_MAP: Record<string, number> = {
-    urgent: 4,
-    high: 3,
-    normal: 2,
-    low: 1,
-  };
-
-  const directives = res.rows.map((row: Record<string, unknown>) => ({
-    id: Number(row['id']),
-    directive_type: String(row['directive_type'] ?? ''),
-    content: String(row['content'] ?? ''),
-    priority: PRIORITY_MAP[String(row['priority'] ?? 'normal')] ?? 2,
-    created_at: String(row['created_at'] ?? ''),
-  }));
-
-  return { directives };
-}

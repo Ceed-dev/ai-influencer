@@ -32,7 +32,7 @@ export async function getCompetitorAnalysis(
     `WITH accounts AS (
        SELECT
          data->>'username' AS username,
-         COALESCE((data->>'followers')::bigint, 0) AS followers
+         COALESCE(CASE WHEN data->>'followers' ~ '^[0-9]+$' THEN (data->>'followers')::bigint ELSE NULL END, 0) AS followers
        FROM market_intel
        WHERE intel_type = 'competitor_account'
          AND platform = $1
@@ -41,7 +41,7 @@ export async function getCompetitorAnalysis(
      posts AS (
        SELECT
          data->>'post_url' AS post_url,
-         COALESCE((data->>'views')::bigint, 0) AS views,
+         COALESCE(CASE WHEN data->>'views' ~ '^[0-9]+$' THEN (data->>'views')::bigint ELSE NULL END, 0) AS views,
          data->>'format' AS format,
          data->>'hook_technique' AS hook_technique
        FROM market_intel

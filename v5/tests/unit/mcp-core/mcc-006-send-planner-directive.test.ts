@@ -3,10 +3,8 @@
  * TEST-MCP-008: get_pending_directives — retrieve pending directives
  * FEAT-MCC-006
  */
-import {
-  sendPlannerDirective,
-  getPendingDirectives,
-} from '@/src/mcp-server/tools/strategy/send-planner-directive';
+import { sendPlannerDirective } from '@/src/mcp-server/tools/strategy/send-planner-directive';
+import { getPendingDirectives } from '@/src/mcp-server/tools/strategy/get-pending-directives';
 import { McpValidationError } from '@/src/mcp-server/errors';
 import { withClient } from '../../helpers/db';
 
@@ -147,8 +145,8 @@ describe('FEAT-MCC-006: send_planner_directive + get_pending_directives', () => 
       (d) => d.content === `${MCC006_PREFIX}low_prio`,
     );
 
-    if (urgentDir) expect(urgentDir.priority).toBe(4);
-    if (highDir) expect(highDir.priority).toBe(3);
+    if (urgentDir) expect(urgentDir.priority).toBe(10);
+    if (highDir) expect(highDir.priority).toBe(7);
     if (lowDir) expect(lowDir.priority).toBe(1);
   });
 });

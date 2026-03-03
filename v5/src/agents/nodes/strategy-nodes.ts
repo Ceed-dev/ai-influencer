@@ -629,7 +629,7 @@ export async function setStrategyNode(
           monetized_count: 0,
         };
       }),
-      callMcpTool<{ learnings: McpLearning[] }>('get_top_learnings', { limit: 10, min_confidence: 0.6 }).catch((e: unknown) => {
+      callMcpTool<{ learnings: McpLearning[] }>('get_top_learnings', { limit: 10, min_confidence: 0.7 }).catch((e: unknown) => {
         errors.push(makeError('set_strategy', 'strategist', e));
         return { learnings: [] as McpLearning[] };
       }),

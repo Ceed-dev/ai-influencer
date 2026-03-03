@@ -41,5 +41,7 @@ export async function extractLearning(
     ],
   );
 
-  return { id: res.rows[0]['id'] as number };
+  const row = res.rows[0];
+  if (!row) throw new Error('INSERT into learnings returned no row');
+  return { id: row['id'] as number };
 }

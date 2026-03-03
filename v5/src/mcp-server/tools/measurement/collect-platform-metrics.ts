@@ -376,7 +376,7 @@ export async function collectInstagramMetrics(
   }
 
   const { accountId, oauth } = creds;
-  let accessToken = (oauth.long_lived_token ?? '') as string;
+  const accessToken = (oauth.long_lived_token ?? '') as string;
 
   if (!accessToken) {
     console.warn(`[collect-instagram-metrics] No long_lived_token available — returning synthetic data`);
