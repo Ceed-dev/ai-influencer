@@ -1,7 +1,7 @@
 # v5.0 Implementation Context
 
 > This file tracks the current state of the v5.0 implementation for session continuity.
-> Updated: 2026-02-26
+> Updated: 2026-03-03
 
 ## Current State: Production-Ready
 
@@ -303,6 +303,29 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 - Edit→Save+Cancel: no layout shift on other rows
 - Cancel: returns to Edit button state
 - Tab switching: correct filtering per category
+
+### Session 17: Dashboard Team Access Setup (2026-03-03)
+
+**Team members added to dashboard access:**
+- `zach@0xqube.xyz` — viewer role
+- `badhan@0xqube.xyz` — viewer role
+
+**Changes made:**
+- `sql/010_auth_settings.sql` — Updated INSERT to include all 3 users (pochi=admin, zach=viewer, badhan=badhan=viewer)
+- `docs/v5-specification/03-database-schema.md` — Updated example INSERT values to match
+- Cloud SQL (`ai_influencer` DB): `AUTH_ALLOWED_EMAILS` and `AUTH_USER_ROLES` updated via direct SQL
+
+**Auth architecture confirmed:**
+- Gate 1: GCP OAuth consent screen (Testing mode) — **zach / badhan must also be added as test users in GCP Console manually**
+- Gate 2: App whitelist (`AUTH_ALLOWED_EMAILS` in system_settings) — Done ✅
+- viewer role: all pages readable, POST/PUT/DELETE/PATCH API returns 403 Forbidden
+- admin role: full access (pochi@0xqube.xyz only)
+
+**Live test results (https://ai-dash.0xqube.xyz):**
+- Unauthenticated GET /api/* → 401 ✅
+- Unauthenticated POST /api/* → 401 ✅
+- Unauthenticated page → 307 redirect to /login ✅
+- /login (public path) → 200 ✅
 
 ### Session 16: Settings Type-Aware Editor UI
 
