@@ -87,7 +87,7 @@
 | 6 | measure-agent | general-purpose | 計測ワーカー + 4PF APIアダプター |
 | 7 | intelligence-agent | general-purpose | LangGraph + Researcher/Analyst/ToolSP/DataCurator |
 | 8 | strategy-agent | general-purpose | Strategy Cycle Graph + Planner |
-| 9 | dashboard-agent | general-purpose | Next.js ダッシュボード全15画面 |
+| 9 | dashboard-agent | general-purpose | Next.js ダッシュボード全16画面 |
 | 10 | test-agent | general-purpose | Jest + E2E + CI |
 
 #### 横断的関心事のモジュール担当
@@ -205,22 +205,23 @@ ai-influencer/v5/
 │   │   ├── layout.tsx         # Solarizedテーマ、Nunitoフォント、AuthProvider
 │   │   ├── login/             # ログイン画面（Google OAuth）
 │   │   │   └── page.tsx
-│   │   ├── page.tsx           # ホーム（1/15画面）
-│   │   ├── kpi/               # KPIダッシュボード（2/15）
-│   │   ├── production/        # 制作キュー（3/15）
-│   │   ├── review/            # コンテンツレビュー（4/15）
-│   │   ├── content/           # コンテンツ一覧（5/15）
-│   │   ├── accounts/          # アカウント管理（6/15）
-│   │   ├── characters/        # キャラクター管理（7/15）
-│   │   ├── agents/            # エージェント（8/15）— 7サブ機能: 思考ログ/対話/進化/プロンプト/改善提案/個別成長/受信トレイ
-│   │   ├── hypotheses/        # 仮説ブラウザ（9/15）
-│   │   ├── learnings/         # 知見ブラウザ（10/15）
-│   │   ├── tools/             # ツール管理（11/15）— キュレーションレビュー(§6.12)含む
-│   │   ├── errors/            # エラーログ（12/15）
-│   │   ├── costs/             # コスト管理（13/15）
-│   │   ├── settings/          # 設定（14/15）— 8カテゴリタブ
-│   │   ├── directives/        # 人間指示（15/15）
-│   │   └── api/               # 19 REST API Routes（02-architecture.md §6.13参照）
+│   │   ├── page.tsx           # ホーム（1/16画面）
+│   │   ├── kpi/               # KPIダッシュボード（2/16）
+│   │   ├── production/        # 制作キュー（3/16）
+│   │   ├── review/            # コンテンツレビュー（4/16）
+│   │   ├── content/           # コンテンツ一覧（5/16）
+│   │   ├── accounts/          # アカウント管理（6/16）
+│   │   ├── characters/        # キャラクター管理（7/16）
+│   │   ├── agents/            # エージェント（8/16）— 7サブ機能: 思考ログ/対話/進化/プロンプト/改善提案/個別成長/受信トレイ
+│   │   ├── hypotheses/        # 仮説ブラウザ（9/16）
+│   │   ├── learnings/         # 知見ブラウザ（10/16）
+│   │   ├── tools/             # ツール管理（11/16）— キュレーションレビュー(§6.12)含む
+│   │   ├── errors/            # エラーログ（12/16）
+│   │   ├── costs/             # コスト管理（13/16）
+│   │   ├── settings/          # 設定（14/16）— 8カテゴリタブ
+│   │   ├── directives/        # 人間指示（15/16）
+│   │   ├── database/          # DB ビューア（16/16）— 全33テーブル生データ閲覧（読み取り専用）
+│   │   └── api/               # 21 REST API Routes（02-architecture.md §6.13参照）
 │   │       └── auth/[...nextauth]/ # NextAuth.js route handler
 │   │           └── route.ts
 │   ├── components/
@@ -232,10 +233,11 @@ ai-influencer/v5/
 │   ├── lib/
 │   │   ├── api.ts            # API client（PostgreSQL直接接続、MCP経由ではない）
 │   │   ├── auth.ts           # NextAuth.js設定（Google OAuth, JWT, RBAC）
+│   │   ├── database-tables.ts # DB ビューア用テーブルホワイトリスト（ALLOWED_TABLES 33件）と TABLE_GROUPS 定数
 │   │   ├── i18n/             # 国際化（日英切替）
 │   │   │   ├── index.tsx     # LanguageProvider, useTranslation hook
-│   │   │   ├── en.json       # 英語翻訳 (~360キー)
-│   │   │   └── ja.json       # 日本語翻訳 (~360キー)
+│   │   │   ├── en.json       # 英語翻訳 (~380キー)
+│   │   │   └── ja.json       # 日本語翻訳 (~380キー)
 │   │   └── theme.ts          # Solarized color tokens
 │   └── tailwind.config.ts    # Solarized + Nunito
 │
@@ -274,7 +276,7 @@ ai-influencer/v5/
 
 > **注**: 04-agent-design.md §4ではエージェント別にツールを列挙しており、合計106 MCPツールと記載されている。これは3ツール（get_content_prediction, get_content_metrics, get_daily_micro_analyses_summary）が§4.3（アナリスト用）と§4.12（エージェント自己学習用）の両方に掲載されているため。MCP Server実装としてはユニーク103ツール。
 
-> **注**: 19 Dashboard REST APIツール（[04-agent-design.md §4.9](04-agent-design.md) の10ツール + [§4.11](04-agent-design.md) の3ツール + [§4.13](04-agent-design.md) の6ツール）は `dashboard/app/api/` に Next.js API Routes として実装する（[02-architecture.md §6.13](02-architecture.md) 参照）。`src/mcp-server/tools/` には含めない。
+> **注**: 21 Dashboard REST APIツール（[04-agent-design.md §4.9](04-agent-design.md) の10ツール + [§4.11](04-agent-design.md) の3ツール + [§4.13](04-agent-design.md) の6ツール + DB ビューア 2エンドポイント）は `dashboard/app/api/` に Next.js API Routes として実装する（[02-architecture.md §6.13](02-architecture.md) 参照）。`src/mcp-server/tools/` には含めない。
 
 | ディレクトリ | 担当 | ツール数 | ツール名（§4.x参照元） |
 |-------------|------|:-------:|----------------------|
@@ -311,6 +313,7 @@ ai-influencer/v5/
 | 13 | `costs/` | コスト管理 | 日次/月次API支出, 予算消化率, アラート |
 | 14 | `settings/` | 設定 | system_settings全項目の**8カテゴリタブ**表示+編集 (§11.3) |
 | 15 | `directives/` | 人間指示 | human_directives作成, 履歴閲覧 |
+| 16 | `database/` | DB ビューア | 全33テーブル生データ閲覧（読み取り専用）。7グループ分類, SWR 60秒ポーリング, JSONB/vector展開表示, 機密列マスク (§6.14) |
 
 > **注**: 画面#8「エージェント」は最もサブ機能が多い画面。実装者は [02-architecture.md §6.3〜§6.9](02-architecture.md) の各セクションを参照して、タブまたはサブページとして実装すること。
 
@@ -678,9 +681,9 @@ export const getAccountsTool = {
 - Solarized Dark/Light テーマ（Tailwind CSS）
 - Nunito フォント（Google Fonts）
 - レスポンシブデザイン（Mobile-first）
-- 19 REST APIエンドポイント（`dashboard/app/api/` — §4.9の10 + §4.11の3 + §4.13の6）
+- 21 REST APIエンドポイント（`dashboard/app/api/` — §4.9の10 + §4.11の3 + §4.13の6 + DB ビューア2）
 
-**19 REST APIエンドポイント一覧**（基本13 + アルゴリズム6）（型定義: `types/api-schemas.ts`）:
+**21 REST APIエンドポイント一覧**（基本13 + アルゴリズム6 + DB ビューア2）（型定義: `types/api-schemas.ts`）:
 
 | # | Method | Path | Request型 | Response型 | 説明 |
 |---|--------|------|-----------|------------|------|
@@ -708,12 +711,14 @@ export const getAccountsTool = {
 | 17 | GET | `/api/weights/audit` | weight再計算の監査ログ |
 | 18 | POST | `/api/kpi/snapshots` | KPIスナップショット手動トリガー |
 | 19 | GET | `/api/kpi/snapshots` | KPIスナップショット一覧（platform, year_monthフィルター） |
+| 20 | GET | `/api/database/tables` | 全33テーブルのメタデータ一覧（行数・カラム定義）。`pg_stat_user_tables` + `information_schema.columns` 使用。テーブル名はホワイトリスト検証 |
+| 21 | GET | `/api/database/[table]?page&sort&order` | 指定テーブルの生データ（ページネーション・ソート付き）。vector列はORDER BY除外。LIMIT最大200 |
 
-> REST API合計: 19エンドポイント（13 既存 + 6 アルゴリズム追加）
+> REST API合計: 21エンドポイント（13 既存 + 6 アルゴリズム追加 + 2 DB ビューア追加）
 
 > **実装パス**: 各エンドポイントは `dashboard/app/api/{resource}/route.ts` に Next.js Route Handler として実装する。DB接続は Prisma/Drizzle ORM → PostgreSQL 直接（MCP Server経由ではない。§4.3参照）。型は `types/api-schemas.ts` の `ApiRouteMap` で一括マッピングされており、`ApiRequest<T>` / `ApiResponse<T>` ユーティリティ型でルート別の型を取得可能。
 
-**15画面の実装（優先度順、画面×サブ機能マッピングは§3参照）**:
+**16画面の実装（優先度順、画面×サブ機能マッピングは§3参照）**:
 
 | Week | 画面 |
 |------|------|

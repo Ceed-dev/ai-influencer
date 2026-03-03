@@ -62,6 +62,7 @@
       "tools": "Tools",
       "errors": "Errors",
       "costs": "Costs",
+      "database": "Database",
       "settings": "Settings"
     }
   },
@@ -82,7 +83,8 @@
     "/tools": "Tool Catalog",
     "/errors": "Error Log",
     "/costs": "Cost Management",
-    "/settings": "Settings"
+    "/settings": "Settings",
+    "/database": "Database Viewer"
   },
   "login": {
     "title": "AI Influencer",
@@ -382,6 +384,26 @@
     "actual": "Actual",
     "errorPrefix": "Error:",
     "failedToLoad": "Failed to load KPI data"
+  },
+  "database": {
+    "filterTables": "Filter tables...",
+    "rows": "rows",
+    "live": "LIVE",
+    "lastUpdated": "Updated {s}s ago",
+    "refresh": "Refresh",
+    "noData": "No rows",
+    "page": "Page {n} of {total}",
+    "totalCount": "({n} total)",
+    "viewJson": "View JSON",
+    "groups": {
+      "entity": "Entity",
+      "production": "Production",
+      "intelligence": "Intelligence",
+      "operations": "Operations",
+      "observability": "Observability",
+      "tool_management": "Tool Management",
+      "system": "System"
+    }
   },
   "settings": {
     "key": "Key",

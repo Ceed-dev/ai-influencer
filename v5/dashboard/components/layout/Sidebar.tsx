@@ -23,6 +23,7 @@ import {
   Wrench,
   AlertTriangle,
   DollarSign,
+  Database,
   Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -54,6 +55,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/tools", labelKey: "sidebar.nav.tools", icon: Wrench, section: "system" },
   { href: "/errors", labelKey: "sidebar.nav.errors", icon: AlertTriangle, section: "system" },
   { href: "/costs", labelKey: "sidebar.nav.costs", icon: DollarSign, section: "system" },
+  { href: "/database", labelKey: "sidebar.nav.database", icon: Database, section: "system" },
   { href: "/settings", labelKey: "sidebar.nav.settings", icon: Settings, section: "system" },
 ];
 

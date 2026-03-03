@@ -62,6 +62,7 @@
       "tools": "ツール",
       "errors": "エラー",
       "costs": "コスト",
+      "database": "DB",
       "settings": "設定"
     }
   },
@@ -82,7 +83,8 @@
     "/tools": "ツールカタログ",
     "/errors": "エラーログ",
     "/costs": "コスト管理",
-    "/settings": "設定"
+    "/settings": "設定",
+    "/database": "DB ビューア"
   },
   "login": {
     "title": "AI Influencer",
@@ -382,6 +384,26 @@
     "actual": "実績",
     "errorPrefix": "エラー:",
     "failedToLoad": "KPIデータの読み込みに失敗しました"
+  },
+  "database": {
+    "filterTables": "テーブルを絞り込む...",
+    "rows": "行",
+    "live": "LIVE",
+    "lastUpdated": "{s}秒前に更新",
+    "refresh": "更新",
+    "noData": "データなし",
+    "page": "{n} / {total} ページ",
+    "totalCount": "({n} 件)",
+    "viewJson": "JSON を表示",
+    "groups": {
+      "entity": "エンティティ",
+      "production": "プロダクション",
+      "intelligence": "インテリジェンス",
+      "operations": "オペレーション",
+      "observability": "オブザーバビリティ",
+      "tool_management": "ツール管理",
+      "system": "システム"
+    }
   },
   "settings": {
     "key": "キー",
