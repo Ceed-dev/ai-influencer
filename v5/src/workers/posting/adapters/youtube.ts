@@ -59,7 +59,7 @@ function isTokenExpired(expiresAt: string): boolean {
  * Download a file from Google Drive using service account credentials.
  * Returns the file as a Buffer.
  */
-async function downloadFromDrive(driveFileId: string): Promise<Buffer> {
+async function downloadFromDrive(driveFileId: string, signal?: AbortSignal): Promise<Buffer> {
   const serviceAccountKeyJson = await getSettingString('CRED_GOOGLE_SERVICE_ACCOUNT_KEY');
   const serviceAccount = JSON.parse(serviceAccountKeyJson) as Record<string, unknown>;
 
@@ -68,7 +68,7 @@ async function downloadFromDrive(driveFileId: string): Promise<Buffer> {
 
   const response = await fetch(
     `https://www.googleapis.com/drive/v3/files/${driveFileId}?alt=media`,
-    { headers: { Authorization: `Bearer ${jwt}` } },
+    { headers: { Authorization: `Bearer ${jwt}` }, signal },
   );
 
   if (!response.ok) {
@@ -166,7 +166,7 @@ export class YouTubeAdapter implements PlatformAdapter {
     // Download video from Google Drive
     console.warn(`[youtube-adapter] Downloading video from Drive: ${video_drive_id}`);
     const videoBuffer = await retryWithBackoff(
-      async () => downloadFromDrive(video_drive_id),
+      (signal) => downloadFromDrive(video_drive_id, signal),
       {
         maxAttempts: 3,
         baseDelayMs: 2000,

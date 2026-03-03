@@ -86,7 +86,7 @@ async function getDriveVideoUrl(driveFileId: string): Promise<string> {
   const jwt = await getServiceAccountToken(serviceAccount);
 
   // First, make the file publicly accessible (temporarily)
-  await fetch(
+  const permResp = await fetch(
     `https://www.googleapis.com/drive/v3/files/${driveFileId}/permissions`,
     {
       method: 'POST',
@@ -100,6 +100,9 @@ async function getDriveVideoUrl(driveFileId: string): Promise<string> {
       }),
     },
   );
+  if (!permResp.ok) {
+    throw new Error(`Failed to set Drive file public (${permResp.status}): ${await permResp.text()}`);
+  }
 
   // Use the webContentLink format for direct download
   return `https://drive.google.com/uc?export=download&id=${driveFileId}`;

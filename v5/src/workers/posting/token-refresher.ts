@@ -82,15 +82,20 @@ function getAdapterForPlatform(platform: Platform): PlatformAdapter {
  */
 export async function getExpiredTokens(): Promise<ExpiredTokenRow[]> {
   const pool = getPool();
-  const bufferHours = await getSettingNumber('TOKEN_REFRESH_BUFFER_HOURS');
+  let bufferHours: number;
+  try {
+    bufferHours = await getSettingNumber('TOKEN_REFRESH_BUFFER_HOURS');
+  } catch {
+    bufferHours = 2; // default 2 hours
+  }
 
   const result = await pool.query<ExpiredTokenRow>(
     `SELECT account_id, platform, auth_credentials
      FROM accounts
      WHERE status = 'active'
        AND auth_credentials IS NOT NULL
-       AND auth_credentials->>'oauth_refresh_token' IS NOT NULL
-       AND (auth_credentials->>'oauth_token_expires_at')::timestamptz < NOW() + make_interval(hours => $1)`,
+       AND auth_credentials->'oauth'->>'refresh_token' IS NOT NULL
+       AND (auth_credentials->'oauth'->>'expires_at')::timestamptz < NOW() + make_interval(hours => $1)`,
     [bufferHours],
   );
 

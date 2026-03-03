@@ -89,11 +89,16 @@ export async function processProductionTask(task: TaskQueueRow): Promise<{
 
 async function processAllSections(sections: ContentSectionRow[], character: CharacterRow | null, recipe: ProductionRecipeRow | null, checkpoint: ProductionMetadataSection[]): Promise<SectionResult[]> {
   const tempDir = await mkdtemp(join(tmpdir(), 'vp-sections-'));
-  return Promise.all(sections.map((section) => {
-    const cp = checkpoint.find((c) => c.order === section.section_order);
-    if (cp?.fal_request_ids) return Promise.resolve<SectionResult>({ sectionOrder: section.section_order, sectionLabel: section.section_label, videoUrl: cp.fal_request_ids['video'] ?? '', ttsAudioUrl: '', processingTimeMs: (cp.processing_time_seconds ?? 0) * 1000 });
-    return processSection(section, character, tempDir);
-  }));
+  try {
+    return await Promise.all(sections.map((section) => {
+      const cp = checkpoint.find((c) => c.order === section.section_order);
+      if (cp?.fal_request_ids) return Promise.resolve<SectionResult>({ sectionOrder: section.section_order, sectionLabel: section.section_label, videoUrl: cp.fal_request_ids['video'] ?? '', ttsAudioUrl: '', processingTimeMs: (cp.processing_time_seconds ?? 0) * 1000 });
+      return processSection(section, character, tempDir);
+    }));
+  } catch (err) {
+    await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+    throw err;
+  }
 }
 
 async function processSection(section: ContentSectionRow, character: CharacterRow | null, tempDir: string): Promise<SectionResult> {
