@@ -60,6 +60,7 @@ export async function fetchYouTubeMetrics(
   accessToken: string,
   platformPostId: string,
   videoDurationSeconds?: number,
+  signal?: AbortSignal,
 ): Promise<CollectYoutubeMetricsOutput> {
   const endDate = new Date().toISOString().split('T')[0]!;
   const startDate = '2020-01-01';
@@ -75,6 +76,7 @@ export async function fetchYouTubeMetrics(
   const url = `https://youtubeanalytics.googleapis.com/v2/reports?${params.toString()}`;
   const resp = await fetch(url, {
     headers: { Authorization: `Bearer ${accessToken}` },
+    signal,
   });
 
   const data = await handleApiResponse(resp, 'YouTube');

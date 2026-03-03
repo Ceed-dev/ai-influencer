@@ -34,4 +34,11 @@ describe('MS-002: Metrics inserter', () => {
     expect(rate).toBeGreaterThanOrEqual(0);
     expect(rate).toBeLessThanOrEqual(1);
   });
+
+  test('engagement rate is capped at 1.0 when interactions exceed views', () => {
+    // interactions = 2000 + 500 + 300 + 200 = 3000, views = 100
+    // raw rate = 30.0, but should be capped at 1.0
+    const rate = calculateEngagementRate(100, 2000, 500, 300, 200);
+    expect(rate).toBe(1);
+  });
 });

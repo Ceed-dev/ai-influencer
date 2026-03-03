@@ -52,6 +52,7 @@ export async function refreshTikTokToken(
 export async function fetchTikTokMetrics(
   accessToken: string,
   platformPostId: string,
+  signal?: AbortSignal,
 ): Promise<CollectTiktokMetricsOutput> {
   const fields = 'like_count,comment_count,share_count,view_count';
   const url = `https://open.tiktokapis.com/v2/video/query/?fields=${fields}`;
@@ -67,6 +68,7 @@ export async function fetchTikTokMetrics(
         video_ids: [platformPostId],
       },
     }),
+    signal,
   });
 
   const data = await handleApiResponse(resp, 'TikTok');

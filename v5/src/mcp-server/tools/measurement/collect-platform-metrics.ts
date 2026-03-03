@@ -95,8 +95,11 @@ async function lookupCredentials(
       accountId: row['account_id'] as string,
       oauth,
     };
-  } catch {
-    // DB not available (e.g., in unit tests)
+  } catch (err) {
+    // DB not available (e.g., in unit tests) or transient error — synthetic fallback is acceptable
+    // but log so persistent DB issues can be detected in monitoring
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`[collect-platform-metrics] lookupCredentials DB error (${platform}/${platformPostId}): ${msg}`);
     return null;
   }
 }
@@ -279,7 +282,8 @@ export async function collectYoutubeMetrics(
 
   try {
     return await retryWithBackoff(
-      async () => fetchYouTubeMetrics(accessToken, input.platform_post_id),
+      // TODO: fetch video duration from YouTube Data API v3 for accurate completion_rate
+      (signal) => fetchYouTubeMetrics(accessToken, input.platform_post_id, undefined, signal),
       { ...RETRY_OPTIONS, isRetryable: isRetryableError },
     );
   } catch (err) {
@@ -296,7 +300,7 @@ export async function collectYoutubeMetrics(
       }
       // Token refresh succeeded — retry once with fresh token
       try {
-        return await fetchYouTubeMetrics(refreshedToken, input.platform_post_id);
+        return await fetchYouTubeMetrics(refreshedToken, input.platform_post_id, undefined);
       } catch {
         // Still failing after fresh token → account has a persistent auth problem
         await markAccountSuspended(accountId);
@@ -339,7 +343,7 @@ export async function collectTiktokMetrics(
 
   try {
     return await retryWithBackoff(
-      async () => fetchTikTokMetrics(accessToken, input.platform_post_id),
+      (signal) => fetchTikTokMetrics(accessToken, input.platform_post_id, signal),
       { ...RETRY_OPTIONS, isRetryable: isRetryableError },
     );
   } catch (err) {
@@ -385,7 +389,7 @@ export async function collectInstagramMetrics(
 
   try {
     return await retryWithBackoff(
-      async () => fetchInstagramMetrics(accessToken, input.platform_post_id),
+      (signal) => fetchInstagramMetrics(accessToken, input.platform_post_id, signal),
       { ...RETRY_OPTIONS, isRetryable: isRetryableError },
     );
   } catch (err) {
@@ -431,7 +435,7 @@ export async function collectXMetrics(
 
   try {
     return await retryWithBackoff(
-      async () => fetchXMetrics(oauth, input.platform_post_id),
+      (signal) => fetchXMetrics(oauth, input.platform_post_id, signal),
       { ...RETRY_OPTIONS, isRetryable: isRetryableError },
     );
   } catch (err) {

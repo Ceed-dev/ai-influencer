@@ -49,7 +49,8 @@ export function calculateEngagementRate(
 ): number | null {
   if (!views || views === 0) return null;
   const interactions = (likes ?? 0) + (comments ?? 0) + (shares ?? 0) + (saves ?? 0);
-  return interactions / views;
+  // Capped at 1.0 to satisfy metrics table CHECK constraint
+  return Math.min(1, interactions / views);
 }
 
 /**
@@ -94,13 +95,17 @@ export async function insertMetrics(
 
   const metricId = (metricsRes.rows[0] as Record<string, unknown>)['id'] as number;
 
-  // Update publication status to 'measured' if this is the first measurement
-  const pubRes = await client.query(
-    `UPDATE publications
-     SET status = 'measured', updated_at = NOW()
-     WHERE id = $1 AND status = 'posted'`,
-    [input.publicationId],
-  );
+  // Update publication status to 'measured' only after 30d round
+  // (48h and 7d are intermediate measurements — publication stays 'posted')
+  let pubRes: { rowCount: number | null } = { rowCount: 0 };
+  if (input.measurementPoint === '30d') {
+    pubRes = await client.query(
+      `UPDATE publications
+       SET status = 'measured', updated_at = NOW()
+       WHERE id = $1 AND status = 'posted'`,
+      [input.publicationId],
+    );
+  }
 
   const publicationStatusUpdated = (pubRes.rowCount ?? 0) > 0;
 

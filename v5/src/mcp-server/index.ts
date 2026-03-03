@@ -813,7 +813,7 @@ server.tool(
 server.tool(
   'get_measurement_tasks',
   'Returns pending measurement tasks',
-  schema({}),
+  schema({ limit: z.number().int().min(1).max(100).default(10) }),
   wrapTool(getMeasurementTasks),
 );
 
@@ -855,7 +855,12 @@ server.tool(
 server.tool(
   'report_measurement_complete',
   'Reports measurement as complete for a task',
-  schema({ task_id: z.number(), content_id: z.string() }),
+  schema({
+    task_id: z.number(),
+    publication_id: z.number(),
+    metrics_data: z.record(z.number()),
+    measurement_point: z.enum(['48h', '7d', '30d']).default('48h'),
+  }),
   wrapTool(reportMeasurementComplete),
 );
 

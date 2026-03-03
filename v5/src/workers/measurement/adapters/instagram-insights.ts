@@ -50,13 +50,14 @@ export async function refreshInstagramToken(
 export async function fetchInstagramMetrics(
   accessToken: string,
   platformPostId: string,
+  signal?: AbortSignal,
 ): Promise<CollectInstagramMetricsOutput> {
   // Try Reels insights first (provides richer data)
-  const insightsResult = await tryReelsInsights(accessToken, platformPostId);
+  const insightsResult = await tryReelsInsights(accessToken, platformPostId, signal);
   if (insightsResult) return insightsResult;
 
   // Fall back to basic media fields
-  return fetchBasicMediaFields(accessToken, platformPostId);
+  return fetchBasicMediaFields(accessToken, platformPostId, signal);
 }
 
 /**
@@ -66,11 +67,12 @@ export async function fetchInstagramMetrics(
 async function tryReelsInsights(
   accessToken: string,
   platformPostId: string,
+  signal?: AbortSignal,
 ): Promise<CollectInstagramMetricsOutput | null> {
   try {
     const metrics = 'impressions,reach,likes,comments,saved,plays';
     const url = `https://graph.instagram.com/v21.0/${platformPostId}/insights?metric=${metrics}&access_token=${accessToken}`;
-    const resp = await fetch(url);
+    const resp = await fetch(url, { signal });
 
     if (!resp.ok) return null;
 
@@ -107,10 +109,11 @@ async function tryReelsInsights(
 async function fetchBasicMediaFields(
   accessToken: string,
   platformPostId: string,
+  signal?: AbortSignal,
 ): Promise<CollectInstagramMetricsOutput> {
   const fields = 'like_count,comments_count,impressions,reach';
   const url = `https://graph.instagram.com/v21.0/${platformPostId}?fields=${fields}&access_token=${accessToken}`;
-  const resp = await fetch(url);
+  const resp = await fetch(url, { signal });
 
   const data = await handleApiResponse(resp, 'Instagram');
 

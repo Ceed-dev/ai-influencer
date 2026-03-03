@@ -121,7 +121,7 @@ async function detectTargets(
          END AS measurement_point
        FROM publications p
        JOIN accounts a ON a.account_id = p.account_id
-       LEFT JOIN prediction_snapshots ps ON ps.publication_id = p.id
+       INNER JOIN prediction_snapshots ps ON ps.publication_id = p.id
        WHERE p.status = 'posted'
          AND p.platform_post_id IS NOT NULL
          AND (
@@ -288,10 +288,11 @@ async function collect(
       // Non-fatal: continue with follower_delta = 0
     }
 
-    // Calculate engagement rate: (likes + comments + shares) / views
-    const totalEngagement = likes + comments + (shares ?? 0);
+    // Calculate engagement rate: (likes + comments + shares + saves) / views
+    // Capped at 1.0 to satisfy metrics table CHECK constraint
+    const totalEngagement = likes + comments + (shares ?? 0) + (saves ?? 0);
     const engagementRate = views > 0
-      ? Number((totalEngagement / views).toFixed(4))
+      ? Number(Math.min(1, totalEngagement / views).toFixed(4))
       : 0;
 
     const collectedMetrics: CollectedMetrics = {
@@ -403,18 +404,24 @@ async function saveMetrics(
     const actualImpressions = metrics.views;
 
     switch (measurementType) {
-      case '48h':
-        await pool.query(
+      case '48h': {
+        const res48h = await pool.query(
           `UPDATE prediction_snapshots
            SET actual_impressions_48h = $1, updated_at = NOW()
            WHERE publication_id = $2`,
           [actualImpressions, target.publication_id],
         );
+        if ((res48h.rowCount ?? 0) === 0) {
+          console.warn(
+            `[measurement-job] save_metrics: prediction_snapshots not found for pub=${target.publication_id} (48h) — snapshot not updated`,
+          );
+        }
         break;
+      }
 
-      case '7d':
+      case '7d': {
         // prediction_error_7d = ABS(predicted - actual) / actual
-        await pool.query(
+        const res7d = await pool.query(
           `UPDATE prediction_snapshots
            SET actual_impressions_7d = $1,
                prediction_error_7d = CASE
@@ -425,11 +432,17 @@ async function saveMetrics(
            WHERE publication_id = $2`,
           [actualImpressions, target.publication_id],
         );
+        if ((res7d.rowCount ?? 0) === 0) {
+          console.warn(
+            `[measurement-job] save_metrics: prediction_snapshots not found for pub=${target.publication_id} (7d) — snapshot not updated`,
+          );
+        }
         break;
+      }
 
-      case '30d':
+      case '30d': {
         // prediction_error_30d = ABS(predicted - actual) / actual
-        await pool.query(
+        const res30d = await pool.query(
           `UPDATE prediction_snapshots
            SET actual_impressions_30d = $1,
                prediction_error_30d = CASE
@@ -440,7 +453,13 @@ async function saveMetrics(
            WHERE publication_id = $2`,
           [actualImpressions, target.publication_id],
         );
+        if ((res30d.rowCount ?? 0) === 0) {
+          console.warn(
+            `[measurement-job] save_metrics: prediction_snapshots not found for pub=${target.publication_id} (30d) — snapshot not updated`,
+          );
+        }
         break;
+      }
     }
 
     // 3. Check if all measurement rounds are complete -> update status to 'measured'

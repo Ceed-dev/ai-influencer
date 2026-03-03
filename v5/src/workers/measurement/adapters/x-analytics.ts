@@ -82,6 +82,7 @@ export function buildOAuth1Header(
 export async function fetchXMetrics(
   oauth: OAuthCredentials,
   tweetId: string,
+  signal?: AbortSignal,
 ): Promise<CollectXMetricsOutput> {
   const { api_key, api_secret, access_token, access_token_secret } = oauth;
   if (!api_key || !api_secret || !access_token || !access_token_secret) {
@@ -104,6 +105,7 @@ export async function fetchXMetrics(
   const urlWithParams = `${baseUrl}?tweet.fields=public_metrics`;
   const resp = await fetch(urlWithParams, {
     headers: { Authorization: authHeader },
+    signal,
   });
 
   const data = await handleApiResponse(resp, 'X');
