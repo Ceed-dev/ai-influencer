@@ -3,7 +3,7 @@
  * Spec: 04-agent-design.md §5.2
  */
 import { execFile } from 'node:child_process';
-import { mkdtemp, rm, stat } from 'node:fs/promises';
+import { mkdtemp, rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { promisify } from 'node:util';
@@ -62,4 +62,57 @@ export async function probeVideo(videoPath: string): Promise<{ duration: number;
   const data = JSON.parse(stdout) as { format?: { duration?: string }; streams?: Array<{ width?: number; height?: number; codec_type?: string }> };
   const vs = data.streams?.find((s) => s.codec_type === 'video');
   return { duration: parseFloat(data.format?.duration ?? '0'), width: vs?.width ?? 0, height: vs?.height ?? 0 };
+}
+
+/** Download a video from a URL to a local file path. */
+export async function downloadVideoToFile(url: string, destPath: string): Promise<void> {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to download video from ${url}: ${response.status} ${response.statusText}`);
+  }
+  const buffer = Buffer.from(await response.arrayBuffer());
+  await writeFile(destPath, buffer);
+}
+
+/**
+ * Mix a TTS audio buffer into a video file, producing a new file with audio.
+ * Used when lipsync is not available — voiceover is added as-is.
+ */
+export async function addAudioToVideo(
+  videoPath: string,
+  audioBuffer: Buffer,
+  outputPath: string,
+): Promise<void> {
+  const tempAudioPath = `${outputPath}.tmp.mp3`;
+  await writeFile(tempAudioPath, audioBuffer);
+  try {
+    await execFileAsync('ffmpeg', [
+      '-i', videoPath,
+      '-i', tempAudioPath,
+      '-c:v', 'copy',
+      '-c:a', 'aac',
+      '-b:a', '128k',
+      '-shortest',
+      '-y', outputPath,
+    ], { timeout: 120000 });
+  } finally {
+    await rm(tempAudioPath, { force: true }).catch(() => { /* ignore cleanup errors */ });
+  }
+}
+
+/**
+ * Add a silent audio track to a video that has no audio.
+ * Required so that ffmpeg concat (which expects [i:a:0]) succeeds.
+ */
+export async function addSilentAudio(videoPath: string, outputPath: string): Promise<void> {
+  await execFileAsync('ffmpeg', [
+    '-i', videoPath,
+    '-f', 'lavfi',
+    '-i', 'anullsrc=channel_layout=stereo:sample_rate=44100',
+    '-c:v', 'copy',
+    '-c:a', 'aac',
+    '-b:a', '128k',
+    '-shortest',
+    '-y', outputPath,
+  ], { timeout: 120000 });
 }

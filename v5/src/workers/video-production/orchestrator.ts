@@ -3,13 +3,16 @@
  * Spec: 04-agent-design.md §5.2
  */
 import { createReadStream } from 'node:fs';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { join, dirname } from 'node:path';
+import { tmpdir } from 'node:os';
 import { google } from 'googleapis';
 import { GoogleAuth } from 'google-auth-library';
 import { getPool } from '../../db/pool.js';
 import { getSettingNumber, getSettingBoolean, getSettingString } from '../../lib/settings.js';
 import { generateVideo, initFalClient, classifyFalError } from './fal-client.js';
 import { generateTts, type TtsResult } from './fish-audio.js';
-import { concatVideos, type ConcatResult } from './ffmpeg.js';
+import { concatVideos, type ConcatResult, downloadVideoToFile, addAudioToVideo, addSilentAudio } from './ffmpeg.js';
 import { completeTask, failTask } from './task-poller.js';
 import type { TaskQueueRow, ContentRow, ContentSectionRow, ProductionRecipeRow, ProductionMetadata, ProductionMetadataSection, CharacterRow } from '../../../types/database.js';
 
@@ -58,6 +61,21 @@ export async function processProductionTask(task: TaskQueueRow): Promise<{
     const totalCost = sectionResults.length * costPerSection;
     await completeTask(task.id);
 
+    // Clean up temp section video files and the ffmpeg concat output
+    const sectionTempDirs = new Set(
+      sectionResults.map((s) => s.videoFilePath ? dirname(s.videoFilePath) : null).filter((d): d is string => d !== null)
+    );
+    for (const dir of sectionTempDirs) {
+      await rm(dir, { recursive: true, force: true }).catch((err) => {
+        console.warn(`[orchestrator] Failed to clean sections temp dir ${dir}: ${err instanceof Error ? err.message : String(err)}`);
+      });
+    }
+    if (concatResult?.outputPath) {
+      await rm(dirname(concatResult.outputPath), { recursive: true, force: true }).catch((err) => {
+        console.warn(`[orchestrator] Failed to clean concat temp dir: ${err instanceof Error ? err.message : String(err)}`);
+      });
+    }
+
     return { contentId, finalVideoUrl: driveResult.driveUrl, videoDriveId: driveResult.driveFileId, driveFolderId: driveResult.folderId, sections: sectionResults, totalProcessingTimeMs: Date.now() - startTime, costUsd: totalCost };
   } catch (err) {
     const falError = classifyFalError(err);
@@ -70,14 +88,15 @@ export async function processProductionTask(task: TaskQueueRow): Promise<{
 }
 
 async function processAllSections(sections: ContentSectionRow[], character: CharacterRow | null, recipe: ProductionRecipeRow | null, checkpoint: ProductionMetadataSection[]): Promise<SectionResult[]> {
+  const tempDir = await mkdtemp(join(tmpdir(), 'vp-sections-'));
   return Promise.all(sections.map((section) => {
     const cp = checkpoint.find((c) => c.order === section.section_order);
     if (cp?.fal_request_ids) return Promise.resolve<SectionResult>({ sectionOrder: section.section_order, sectionLabel: section.section_label, videoUrl: cp.fal_request_ids['video'] ?? '', ttsAudioUrl: '', processingTimeMs: (cp.processing_time_seconds ?? 0) * 1000 });
-    return processSection(section, character);
+    return processSection(section, character, tempDir);
   }));
 }
 
-async function processSection(section: ContentSectionRow, character: CharacterRow | null): Promise<SectionResult> {
+async function processSection(section: ContentSectionRow, character: CharacterRow | null, tempDir: string): Promise<SectionResult> {
   const startTime = Date.now();
   const script = section.script ?? '';
   const voiceId = character?.voice_id ?? '';
@@ -90,7 +109,21 @@ async function processSection(section: ContentSectionRow, character: CharacterRo
 
   await saveCheckpointForSection(section.content_id, { order: section.section_order, label: section.section_label, fal_request_ids: { video: videoResult.requestId }, processing_time_seconds: (Date.now() - startTime) / 1000 });
 
-  return { sectionOrder: section.section_order, sectionLabel: section.section_label, videoUrl: videoResult.videoUrl, ttsAudioUrl: ttsResult.audioUrl, processingTimeMs: Date.now() - startTime };
+  // Download the generated video and mix in TTS audio (or add silent track for ffmpeg concat)
+  let videoFilePath: string | undefined;
+  if (videoResult.videoUrl) {
+    const rawPath = join(tempDir, `sec${section.section_order}_raw.mp4`);
+    const finalPath = join(tempDir, `sec${section.section_order}_final.mp4`);
+    await downloadVideoToFile(videoResult.videoUrl, rawPath);
+    if (ttsResult.audioBuffer.length > 0) {
+      await addAudioToVideo(rawPath, ttsResult.audioBuffer, finalPath);
+    } else {
+      await addSilentAudio(rawPath, finalPath);
+    }
+    videoFilePath = finalPath;
+  }
+
+  return { sectionOrder: section.section_order, sectionLabel: section.section_label, videoUrl: videoResult.videoUrl, ttsAudioUrl: ttsResult.audioUrl, videoFilePath, processingTimeMs: Date.now() - startTime };
 }
 
 async function saveCheckpointForSection(contentId: string, sectionMeta: ProductionMetadataSection): Promise<void> {

@@ -363,8 +363,9 @@ async function saveMetrics(
 
     await pool.query(
       `INSERT INTO metrics (publication_id, views, likes, comments, shares, saves,
-                            engagement_rate, follower_delta, impressions, reach, measurement_point)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                            engagement_rate, follower_delta, impressions, reach,
+                            watch_time_seconds, completion_rate, raw_data, measurement_point)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
        ON CONFLICT (publication_id, measurement_point)
        DO UPDATE SET
          views = EXCLUDED.views,
@@ -376,6 +377,9 @@ async function saveMetrics(
          follower_delta = EXCLUDED.follower_delta,
          impressions = EXCLUDED.impressions,
          reach = EXCLUDED.reach,
+         watch_time_seconds = EXCLUDED.watch_time_seconds,
+         completion_rate = EXCLUDED.completion_rate,
+         raw_data = EXCLUDED.raw_data,
          measured_at = NOW()`,
       [
         target.publication_id,
@@ -388,6 +392,9 @@ async function saveMetrics(
         metrics.follower_delta,
         metrics.impressions ?? null,
         metrics.reach ?? null,
+        metrics.watch_time_seconds ?? null,
+        metrics.completion_rate ?? null,
+        metrics.raw_data ? JSON.stringify(metrics.raw_data) : null,
         measurementType,
       ],
     );

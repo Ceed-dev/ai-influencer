@@ -32,10 +32,11 @@ export async function reportProductionComplete(
   const contentRes = await pool.query(
     `UPDATE content
      SET video_drive_id = $2,
+         drive_folder_id = $3,
          status = 'ready',
          updated_at = NOW()
      WHERE content_id = $1`,
-    [input.content_id, input.video_drive_id],
+    [input.content_id, input.video_drive_id, input.drive_folder_id],
   );
 
   if (contentRes.rowCount === 0) {

@@ -16,10 +16,13 @@ export async function getPublishTask(
   _input: GetPublishTaskInput,
 ): Promise<GetPublishTaskOutput | null> {
   const pool = getPool();
+  const client = await pool.connect();
 
   try {
-    // Fetch the highest-priority pending/queued publish task
-    const selectRes = await pool.query<{
+    await client.query('BEGIN');
+
+    // Atomically fetch and lock the next pending publish task
+    const selectRes = await client.query<{
       id: number;
       payload: Record<string, unknown>;
       account_id: string;
@@ -31,19 +34,23 @@ export async function getPublishTask(
        WHERE tq.task_type = 'publish'
          AND tq.status IN ('pending', 'queued')
        ORDER BY tq.priority DESC, tq.created_at ASC
-       LIMIT 1`,
+       LIMIT 1
+       FOR UPDATE OF tq SKIP LOCKED`,
     );
 
     const row = selectRes.rows[0];
     if (!row) {
+      await client.query('COMMIT');
       return null;
     }
 
-    // Mark the task as processing
-    await pool.query(
+    // Mark the task as processing within the same transaction
+    await client.query(
       `UPDATE task_queue SET status = 'processing', started_at = NOW() WHERE id = $1`,
       [row.id],
     );
+
+    await client.query('COMMIT');
 
     const contentId = row.payload['content_id'];
     if (typeof contentId !== 'string') {
@@ -58,9 +65,10 @@ export async function getPublishTask(
       payload: row.payload,
     };
   } catch (err) {
-    if (err instanceof McpDbError) {
-      throw err;
-    }
+    await client.query('ROLLBACK').catch(() => { /* ignore rollback errors */ });
+    if (err instanceof McpDbError) throw err;
     throw new McpDbError('Failed to get publish task', err);
+  } finally {
+    client.release();
   }
 }

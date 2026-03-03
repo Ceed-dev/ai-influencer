@@ -12,14 +12,21 @@ import { handleApiResponse } from './types.js';
 /**
  * Refresh YouTube OAuth2 access token using refresh_token.
  * POST https://oauth2.googleapis.com/token
+ *
+ * client_id and client_secret are app-level credentials stored in system_settings
+ * (YOUTUBE_CLIENT_ID / YOUTUBE_CLIENT_SECRET), not per-account.
  */
 export async function refreshYouTubeToken(
   oauth: OAuthCredentials,
+  clientId: string,
+  clientSecret: string,
 ): Promise<string> {
-  const { client_id, client_secret, refresh_token } = oauth;
-  if (!client_id || !client_secret || !refresh_token) {
-    throw new Error('Missing YouTube OAuth credentials (client_id, client_secret, refresh_token)');
+  const { refresh_token } = oauth;
+  if (!clientId || !clientSecret || !refresh_token) {
+    throw new Error('Missing YouTube OAuth credentials (clientId, clientSecret, refresh_token)');
   }
+  const client_id = clientId;
+  const client_secret = clientSecret;
 
   const resp = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',

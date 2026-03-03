@@ -15,8 +15,6 @@ import { retryWithBackoff } from '../../../lib/retry.js';
 // ── Types ────────────────────────────────────────────────────────────────────
 
 interface YouTubeOAuth {
-  client_id: string;
-  client_secret: string;
   refresh_token: string;
   access_token: string;
   expires_at: string;
@@ -38,14 +36,10 @@ interface TokenRefreshResponse {
 function parseCredentials(raw: Record<string, unknown>): YouTubeCredentials {
   const oauth = raw['oauth'] as Record<string, unknown> | undefined;
   if (!oauth) throw new Error('Missing oauth in auth_credentials');
-  if (!oauth['client_id']) throw new Error('Missing oauth.client_id');
-  if (!oauth['client_secret']) throw new Error('Missing oauth.client_secret');
   if (!oauth['refresh_token']) throw new Error('Missing oauth.refresh_token');
 
   return {
     oauth: {
-      client_id: String(oauth['client_id']),
-      client_secret: String(oauth['client_secret']),
       refresh_token: String(oauth['refresh_token']),
       access_token: String(oauth['access_token'] ?? ''),
       expires_at: String(oauth['expires_at'] ?? ''),
@@ -186,16 +180,21 @@ export class YouTubeAdapter implements PlatformAdapter {
     const description = metadata.description || '';
     const tags = metadata.tags || [];
 
+    // Read configurable values from system_settings (all config from DB — no hardcoding)
+    const categoryId = await getSettingString('YOUTUBE_VIDEO_CATEGORY_ID').catch(() => '22');
+    const privacyStatus = await getSettingString('YOUTUBE_DEFAULT_PRIVACY_STATUS').catch(() => 'public');
+    const madeForKids = await getSettingString('YOUTUBE_MADE_FOR_KIDS').catch(() => 'false');
+
     const videoMetadata = {
       snippet: {
         title,
         description,
         tags,
-        categoryId: '22', // People & Blogs
+        categoryId,
       },
       status: {
-        privacyStatus: 'public',
-        selfDeclaredMadeForKids: false,
+        privacyStatus,
+        selfDeclaredMadeForKids: madeForKids === 'true',
       },
     };
 
@@ -322,14 +321,17 @@ export class YouTubeAdapter implements PlatformAdapter {
     }
 
     try {
+      const clientId = await getSettingString('YOUTUBE_CLIENT_ID');
+      const clientSecret = await getSettingString('YOUTUBE_CLIENT_SECRET');
+
       const response = await retryWithBackoff(
         async () => {
           const resp = await fetch('https://oauth2.googleapis.com/token', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: new URLSearchParams({
-              client_id: creds.oauth.client_id,
-              client_secret: creds.oauth.client_secret,
+              client_id: clientId,
+              client_secret: clientSecret,
               refresh_token: creds.oauth.refresh_token,
               grant_type: 'refresh_token',
             }),

@@ -68,12 +68,10 @@ export async function uploadToDrive(
 
       const drive = google.drive({ version: 'v3', auth });
 
-      // Download the file from URL
-      const fileStream = await downloadFile(input.file_url);
-
-      // Upload to Google Drive with retry
+      // Upload to Google Drive with retry (re-download on each attempt so stream is fresh)
       const uploadResult = await retryWithBackoff(
         async () => {
+          const fileStream = await downloadFile(input.file_url);
           const response = await drive.files.create({
             requestBody: {
               name: input.filename,

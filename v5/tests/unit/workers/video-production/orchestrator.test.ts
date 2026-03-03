@@ -54,6 +54,9 @@ jest.mock('../../../../src/workers/video-production/ffmpeg', () => ({
     blackFrames: [],
     hasBlackFrameIssues: false,
   }),
+  downloadVideoToFile: jest.fn().mockResolvedValue(undefined),
+  addAudioToVideo: jest.fn().mockResolvedValue(undefined),
+  addSilentAudio: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock('../../../../src/workers/video-production/task-poller', () => ({
