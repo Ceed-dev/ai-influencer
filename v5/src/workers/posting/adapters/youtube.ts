@@ -142,7 +142,8 @@ export class YouTubeAdapter implements PlatformAdapter {
       throw new Error(`YouTube account not found: ${account_id}`);
     }
 
-    const rawCreds = accountResult.rows[0]!.auth_credentials as Record<string, unknown>;
+    const rawCreds = accountResult.rows[0]?.auth_credentials as Record<string, unknown> | null;
+    if (!rawCreds) throw new Error(`No auth_credentials set for YouTube account: ${account_id}`);
     const creds = parseCredentials(rawCreds);
 
     // Ensure token is fresh
@@ -156,7 +157,8 @@ export class YouTubeAdapter implements PlatformAdapter {
         `SELECT auth_credentials FROM accounts WHERE account_id = $1 AND platform = 'youtube'`,
         [account_id],
       );
-      const refreshedCreds = refreshedResult.rows[0]!.auth_credentials as Record<string, unknown>;
+      const refreshedCreds = refreshedResult.rows[0]?.auth_credentials as Record<string, unknown> | null;
+      if (!refreshedCreds) throw new Error(`auth_credentials missing after token refresh for: ${account_id}`);
       const refreshedOAuth = refreshedCreds['oauth'] as Record<string, unknown>;
       creds.oauth.access_token = String(refreshedOAuth['access_token']);
     }

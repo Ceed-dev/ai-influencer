@@ -232,7 +232,8 @@ export class XAdapter implements PlatformAdapter {
       throw new Error(`X account not found: ${account_id}`);
     }
 
-    const rawCreds = accountResult.rows[0]!.auth_credentials as Record<string, unknown>;
+    const rawCreds = accountResult.rows[0]?.auth_credentials as Record<string, unknown> | null;
+    if (!rawCreds) throw new Error(`No auth_credentials set for X account: ${account_id}`);
     const creds = parseCredentials(rawCreds);
 
     // Build tweet text

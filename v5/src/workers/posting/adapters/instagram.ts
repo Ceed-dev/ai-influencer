@@ -167,7 +167,8 @@ export class InstagramAdapter implements PlatformAdapter {
       throw new Error(`Instagram account not found: ${account_id}`);
     }
 
-    const rawCreds = accountResult.rows[0]!.auth_credentials as Record<string, unknown>;
+    const rawCreds = accountResult.rows[0]?.auth_credentials as Record<string, unknown> | null;
+    if (!rawCreds) throw new Error(`No auth_credentials set for Instagram account: ${account_id}`);
     const creds = parseCredentials(rawCreds);
 
     // Refresh token if needed
@@ -180,7 +181,8 @@ export class InstagramAdapter implements PlatformAdapter {
         `SELECT auth_credentials FROM accounts WHERE account_id = $1 AND platform = 'instagram'`,
         [account_id],
       );
-      const refreshedCreds = refreshedResult.rows[0]!.auth_credentials as Record<string, unknown>;
+      const refreshedCreds = refreshedResult.rows[0]?.auth_credentials as Record<string, unknown> | null;
+      if (!refreshedCreds) throw new Error(`auth_credentials missing after token refresh for: ${account_id}`);
       const refreshedOAuth = refreshedCreds['oauth'] as Record<string, unknown>;
       creds.oauth.long_lived_token = String(refreshedOAuth['long_lived_token']);
     }
