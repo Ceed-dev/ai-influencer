@@ -564,7 +564,7 @@ export interface CollectedMetrics {
   saves?: number;
   watch_time_seconds?: number;
   completion_rate?: number;    // 0.00–1.00
-  engagement_rate: number;     // Calculated: (likes + comments + shares) / views
+  engagement_rate: number;     // Calculated: min(1, (likes + comments + shares + saves) / views)
   follower_delta: number;
   impressions?: number;
   reach?: number;

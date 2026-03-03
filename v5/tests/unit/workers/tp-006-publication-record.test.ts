@@ -5,7 +5,8 @@
  *
  * TEST-WKR-036:
  *   Prerequisites: content に status='ready' (approved) の行あり
- *   Expected: publications に1行 INSERT。status='posted', posted_at が非NULL, platform_post_id が非NULL
+ *   Expected: publications の scheduled レコードを UPDATE → status='posted', posted_at が非NULL, platform_post_id が非NULL
+ *   Fallback: scheduled レコードが存在しない場合は INSERT
  *
  * TEST-WKR-037:
  *   Prerequisites: METRICS_COLLECTION_DELAY_HOURS='48'
@@ -49,10 +50,10 @@ describe('TEST-WKR-036: publications レコード作成', () => {
     mockGetSettingNumber.mockResolvedValue(48);
   });
 
-  it('should create publications record with status=posted', async () => {
+  it('should update existing scheduled publication to posted', async () => {
     // Mock BEGIN
     mockClient.query.mockResolvedValueOnce(undefined);
-    // Mock INSERT publications
+    // Mock UPDATE publications (scheduled → posted) — found a row
     mockClient.query.mockResolvedValueOnce({ rows: [{ id: 42 }] });
     // Mock INSERT task_queue
     mockClient.query.mockResolvedValueOnce({ rows: [{ id: 100 }] });
@@ -70,17 +71,49 @@ describe('TEST-WKR-036: publications レコード作成', () => {
 
     expect(result.publication_id).toBe(42);
 
-    // Verify publications INSERT was called with correct params
-    const insertCall = mockClient.query.mock.calls[1]!;
-    expect(insertCall[0]).toContain('INSERT INTO publications');
-    expect(insertCall[1]).toContain('CNT_202603_0001');
-    expect(insertCall[1]).toContain('ACC_0013');
-    expect(insertCall[1]).toContain('youtube');
-    expect(insertCall[1]).toContain('dQw4w9WgXcQ');
-    expect(insertCall[1]).toContain('2026-03-05T07:00:00Z');
+    // Verify UPDATE publications was called (not INSERT)
+    const updateCall = mockClient.query.mock.calls[1]!;
+    expect(updateCall[0]).toContain('UPDATE publications');
+    expect(updateCall[0]).toContain("status = 'posted'");
+    expect(updateCall[0]).toContain("status = 'scheduled'");
+    expect(updateCall[1]).toContain('CNT_202603_0001');
+    expect(updateCall[1]).toContain('ACC_0013');
+    expect(updateCall[1]).toContain('dQw4w9WgXcQ');
+    expect(updateCall[1]).toContain('2026-03-05T07:00:00Z');
   });
 
-  it('spec: publications INSERT with status=posted, posted_at 非NULL, platform_post_id 非NULL', async () => {
+  it('should fallback to INSERT when no scheduled publication exists', async () => {
+    // Mock BEGIN
+    mockClient.query.mockResolvedValueOnce(undefined);
+    // Mock UPDATE publications — no rows found (no scheduled record)
+    mockClient.query.mockResolvedValueOnce({ rows: [] });
+    // Mock INSERT publications (fallback)
+    mockClient.query.mockResolvedValueOnce({ rows: [{ id: 55 }] });
+    // Mock INSERT task_queue
+    mockClient.query.mockResolvedValueOnce({ rows: [{ id: 200 }] });
+    // Mock COMMIT
+    mockClient.query.mockResolvedValueOnce(undefined);
+
+    const result = await recordPublication({
+      content_id: 'CNT_202603_0002',
+      account_id: 'ACC_0014',
+      platform: 'tiktok',
+      platform_post_id: 'tt_video_123',
+      post_url: 'https://tiktok.com/@user/video/tt_video_123',
+      posted_at: '2026-03-05T08:00:00Z',
+    });
+
+    expect(result.publication_id).toBe(55);
+
+    // Verify INSERT publications was called as fallback
+    const insertCall = mockClient.query.mock.calls[2]!;
+    expect(insertCall[0]).toContain('INSERT INTO publications');
+    expect(insertCall[1]).toContain('CNT_202603_0002');
+    expect(insertCall[1]).toContain('ACC_0014');
+    expect(insertCall[1]).toContain('tiktok');
+  });
+
+  it('spec: publications record has status=posted, posted_at 非NULL, platform_post_id 非NULL', async () => {
     mockClient.query.mockResolvedValueOnce(undefined);
     mockClient.query.mockResolvedValueOnce({ rows: [{ id: 1 }] });
     mockClient.query.mockResolvedValueOnce({ rows: [{ id: 10 }] });
@@ -99,13 +132,13 @@ describe('TEST-WKR-036: publications レコード作成', () => {
     // Pass Criteria: 3カラムが全て正しい値
     expect(result.publication_id).toBeGreaterThan(0);
 
-    // Verify INSERT SQL contains 'posted' status
-    const insertCall = mockClient.query.mock.calls[1]!;
-    expect(insertCall[0]).toContain("'posted'");
+    // Verify UPDATE SQL contains 'posted' status
+    const updateCall = mockClient.query.mock.calls[1]!;
+    expect(updateCall[0]).toContain("'posted'");
     // Verify posted_at is passed (non-null)
-    expect(insertCall[1]).toContain(postedAt);
+    expect(updateCall[1]).toContain(postedAt);
     // Verify platform_post_id is passed (non-null)
-    expect(insertCall[1]).toContain('dQw4w9WgXcQ');
+    expect(updateCall[1]).toContain('dQw4w9WgXcQ');
   });
 
   it('should create measure task in task_queue', async () => {
@@ -153,7 +186,7 @@ describe('TEST-WKR-036: publications レコード作成', () => {
 
   it('should ROLLBACK on error', async () => {
     mockClient.query.mockResolvedValueOnce(undefined); // BEGIN
-    mockClient.query.mockRejectedValueOnce(new Error('DB error')); // INSERT fails
+    mockClient.query.mockRejectedValueOnce(new Error('DB error')); // UPDATE fails
 
     await expect(
       recordPublication({

@@ -97,6 +97,7 @@ async function checkSchedule(
        FROM task_queue tq
        JOIN content c ON c.content_id = (tq.payload->>'content_id')::varchar
        JOIN publications p ON p.content_id = c.content_id
+         AND p.account_id = (tq.payload->>'account_id')
        JOIN accounts a ON a.account_id = p.account_id
        WHERE tq.task_type = 'publish'
          AND tq.status = 'pending'
@@ -297,9 +298,9 @@ async function publish(
  *
  * Updates:
  * 1. publications: SET post_url, posted_at, measure_after = posted_at + 48h, status = 'posted'
- * 2. content: SET status = 'posted'
- * 3. task_queue: SET status = 'completed', completed_at = NOW()
- * 4. Enqueue a measurement task via recordPublication
+ * 2. task_queue: SET status = 'completed', completed_at = NOW()
+ * 3. Enqueue a measurement task via recordPublication
+ * Note: content.status is NOT changed (stays 'ready') per spec §3.5.
  */
 async function record(
   state: typeof PublishingSchedulerAnnotation.State,
@@ -324,11 +325,12 @@ async function record(
 
     const pool = getPool();
 
-    // Update content status to 'posted'
-    await pool.query(
-      `UPDATE content SET status = 'posted', updated_at = NOW() WHERE content_id = $1`,
-      [task.content_id],
-    );
+    // NOTE: Do NOT update content.status here.
+    // Spec (02-architecture.md §3.5): content.status stays 'ready' — only
+    // publications.status transitions to 'posted'. In the 1:N model, one
+    // content maps to multiple publications; changing content.status after the
+    // first publish would block remaining publications from being detected by
+    // check_schedule (which filters on content.status IN ('ready','approved')).
 
     // Mark task_queue entry as completed
     await pool.query(

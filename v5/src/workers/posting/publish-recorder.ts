@@ -3,7 +3,8 @@
  * Spec: 04-agent-design.md §4.7 (report_publish_result), §5.3 (record node)
  *
  * After successful platform posting:
- * 1. INSERT publications record (status='posted', posted_at, platform_post_id)
+ * 1. UPDATE existing publications record (scheduled → posted) with platform_post_id, posted_at, etc.
+ *    Falls back to INSERT if no 'scheduled' record exists.
  * 2. Set measure_after = posted_at + METRICS_COLLECTION_DELAY_HOURS
  * 3. INSERT task_queue measure task for future metrics collection
  */
@@ -45,10 +46,11 @@ export function calculateMeasureAfter(postedAt: string, delayHours: number): str
 /**
  * Record a successful publication and schedule measurement.
  *
- * Creates:
- * 1. publications record with status='posted'
- * 2. measure_after = posted_at + METRICS_COLLECTION_DELAY_HOURS
- * 3. task_queue entry for measurement (type='measure')
+ * Updates existing 'scheduled' publication (created by scheduleForPublishing)
+ * to 'posted' with platform details. Falls back to INSERT if no scheduled
+ * record exists (defensive).
+ *
+ * Also creates a task_queue entry for measurement (type='measure').
  *
  * All operations are done within a transaction.
  */
@@ -63,15 +65,23 @@ export async function recordPublication(
   try {
     await client.query('BEGIN');
 
-    // 1. INSERT publications record
-    const pubResult = await client.query(
-      `INSERT INTO publications (content_id, account_id, platform, platform_post_id, posted_at, post_url, measure_after, status, metadata)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'posted', $8)
+    // 1. Try to UPDATE existing 'scheduled' publication record
+    const updateResult = await client.query<{ id: number }>(
+      `UPDATE publications
+         SET platform_post_id = $3,
+             posted_at = $4,
+             post_url = $5,
+             measure_after = $6,
+             status = 'posted',
+             metadata = COALESCE($7::jsonb, metadata),
+             updated_at = NOW()
+       WHERE content_id = $1
+         AND account_id = $2
+         AND status = 'scheduled'
        RETURNING id`,
       [
         input.content_id,
         input.account_id,
-        input.platform,
         input.platform_post_id,
         input.posted_at,
         input.post_url,
@@ -80,7 +90,33 @@ export async function recordPublication(
       ],
     );
 
-    const publicationId = pubResult.rows[0]!.id as number;
+    let publicationId: number;
+
+    if (updateResult.rows.length > 0) {
+      // Updated existing scheduled publication
+      publicationId = updateResult.rows[0]!.id;
+    } else {
+      // Fallback: INSERT if no scheduled record exists (defensive)
+      console.warn(
+        `[publish-recorder] No 'scheduled' publication found for content=${input.content_id}, account=${input.account_id} — inserting new record`,
+      );
+      const insertResult = await client.query<{ id: number }>(
+        `INSERT INTO publications (content_id, account_id, platform, platform_post_id, posted_at, post_url, measure_after, status, metadata)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'posted', $8)
+         RETURNING id`,
+        [
+          input.content_id,
+          input.account_id,
+          input.platform,
+          input.platform_post_id,
+          input.posted_at,
+          input.post_url,
+          measureAfter,
+          input.metadata ? JSON.stringify(input.metadata) : null,
+        ],
+      );
+      publicationId = insertResult.rows[0]!.id;
+    }
 
     // 2. INSERT measure task into task_queue
     const taskResult = await client.query(

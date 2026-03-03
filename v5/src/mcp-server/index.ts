@@ -768,28 +768,52 @@ server.tool(
 server.tool(
   'publish_to_youtube',
   'Publishes content to YouTube',
-  schema({ content_id: z.string() }),
+  schema({
+    content_id: z.string(),
+    account_id: z.string(),
+    title: z.string(),
+    description: z.string(),
+    tags: z.array(z.string()),
+    video_drive_id: z.string(),
+  }),
   wrapTool(publishToYoutube),
 );
 
 server.tool(
   'publish_to_tiktok',
   'Publishes content to TikTok',
-  schema({ content_id: z.string() }),
+  schema({
+    content_id: z.string(),
+    account_id: z.string(),
+    description: z.string(),
+    tags: z.array(z.string()),
+    video_drive_id: z.string(),
+  }),
   wrapTool(publishToTiktok),
 );
 
 server.tool(
   'publish_to_instagram',
   'Publishes content to Instagram',
-  schema({ content_id: z.string() }),
+  schema({
+    content_id: z.string(),
+    account_id: z.string(),
+    caption: z.string(),
+    tags: z.array(z.string()),
+    video_drive_id: z.string(),
+  }),
   wrapTool(publishToInstagram),
 );
 
 server.tool(
   'publish_to_x',
   'Publishes content to X (Twitter)',
-  schema({ content_id: z.string() }),
+  schema({
+    content_id: z.string(),
+    account_id: z.string(),
+    text: z.string(),
+    video_drive_id: z.string(),
+  }),
   wrapTool(publishToX),
 );
 

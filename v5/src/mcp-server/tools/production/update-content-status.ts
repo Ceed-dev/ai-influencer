@@ -33,8 +33,65 @@ const VALID_STATUSES: ContentStatus[] = [
 ];
 
 /**
+ * Fetch publishing metadata (title, description, tags) from related tables.
+ * Uses hypothesis_text as title fallback, content_sections scripts for description,
+ * and component tags for tagging.
+ */
+async function fetchPublishMetadata(contentId: string): Promise<{
+  title: string;
+  description: string;
+  tags: string[];
+  video_drive_id: string;
+}> {
+  const pool = getPool();
+
+  // Fetch content + hypothesis for title
+  const contentRes = await pool.query<{
+    video_drive_id: string | null;
+    hypothesis_text: string | null;
+  }>(
+    `SELECT c.video_drive_id, h.hypothesis_text
+     FROM content c
+     LEFT JOIN hypotheses h ON h.id = c.hypothesis_id
+     WHERE c.content_id = $1`,
+    [contentId],
+  );
+
+  const row = contentRes.rows[0];
+  const title = row?.hypothesis_text ?? `Video ${contentId}`;
+  const videoDriveId = row?.video_drive_id ?? '';
+
+  // Fetch section scripts for description
+  const sectionsRes = await pool.query<{ script: string | null }>(
+    `SELECT script FROM content_sections
+     WHERE content_id = $1 ORDER BY section_order ASC`,
+    [contentId],
+  );
+
+  const description = sectionsRes.rows
+    .map((s) => s.script)
+    .filter((s): s is string => !!s)
+    .join('\n')
+    .slice(0, 5000); // Truncate for API limits
+
+  // Fetch tags from linked components (unnest returns one row per tag)
+  const tagsRes = await pool.query<{ tag: string }>(
+    `SELECT DISTINCT unnest(comp.tags) AS tag
+     FROM content_sections cs
+     JOIN components comp ON comp.component_id = cs.component_id
+     WHERE cs.content_id = $1 AND comp.tags IS NOT NULL`,
+    [contentId],
+  );
+
+  const tags = tagsRes.rows.map((r) => r.tag);
+
+  return { title, description, tags, video_drive_id: videoDriveId };
+}
+
+/**
  * Create a publications record (status='scheduled') and a task_queue 'publish'
  * entry for the content, using PUBLISH_DEFAULT_ACCOUNT_ID from system_settings.
+ * Includes title/description/tags/video_drive_id in the task payload per spec §4.3.
  * Non-fatal: errors are logged but do not fail the status update.
  */
 async function scheduleForPublishing(contentId: string): Promise<void> {
@@ -84,6 +141,9 @@ async function scheduleForPublishing(contentId: string): Promise<void> {
     return;
   }
 
+  // Fetch metadata for the publish payload (spec §4.3 task_queue publish payload)
+  const metadata = await fetchPublishMetadata(contentId);
+
   // Create publications record with status='scheduled'
   await pool.query(
     `INSERT INTO publications (content_id, account_id, platform, status)
@@ -91,11 +151,19 @@ async function scheduleForPublishing(contentId: string): Promise<void> {
     [contentId, accountId, platform],
   );
 
-  // Create task_queue 'publish' entry
+  // Create task_queue 'publish' entry with full metadata
   await pool.query(
     `INSERT INTO task_queue (task_type, payload, status, priority)
      VALUES ('publish', $1::jsonb, 'pending', 0)`,
-    [JSON.stringify({ content_id: contentId, account_id: accountId })],
+    [JSON.stringify({
+      content_id: contentId,
+      account_id: accountId,
+      platform,
+      title: metadata.title,
+      description: metadata.description,
+      tags: metadata.tags,
+      video_drive_id: metadata.video_drive_id,
+    })],
   );
 
   console.warn(
