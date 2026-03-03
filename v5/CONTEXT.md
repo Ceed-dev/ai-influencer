@@ -327,6 +327,15 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 - Unauthenticated page → 307 redirect to /login ✅
 - /login (public path) → 200 ✅
 
+**Security fix (same session):**
+- `get-youtube-token.mjs` / `sql/011_youtube_oauth_credentials.sql` に平文の Google OAuth Client ID/Secret が混入していた
+- `git filter-repo` で全329コミットの履歴から完全削除
+- スクリプトは `process.env` 参照、SQLは空文字デフォルトに修正
+- `develop` branch を force push で GitHub に反映
+
+**Pending (manual by user):**
+- GCPコンソール: OAuth consent screen → Test users に zach / badhan を追加（Testingモードのため必須）
+
 ### Session 16: Settings Type-Aware Editor UI
 
 **Type-aware editing by value_type (5 files):**
