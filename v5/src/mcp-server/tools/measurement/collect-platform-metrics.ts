@@ -21,6 +21,7 @@ import type {
 import { McpValidationError } from '../../errors.js';
 import { retryWithBackoff } from '../../../lib/retry.js';
 import { getPool } from '../../../db/pool.js';
+import { getSettingString } from '../../../lib/settings.js';
 import {
   type OAuthCredentials,
   UnauthorizedError,
@@ -249,10 +250,21 @@ export async function collectYoutubeMetrics(
   const { accountId, oauth } = creds;
   let accessToken = (oauth.access_token ?? '') as string;
 
+  // Fetch app-level credentials from system_settings
+  let clientId = '';
+  let clientSecret = '';
+  try {
+    clientId = await getSettingString('YOUTUBE_CLIENT_ID');
+    clientSecret = await getSettingString('YOUTUBE_CLIENT_SECRET');
+  } catch {
+    console.warn('[collect-youtube-metrics] YOUTUBE_CLIENT_ID/SECRET not found in system_settings — falling back to synthetic');
+    return syntheticYouTube(input.platform_post_id);
+  }
+
   // Ensure we have an access token
   if (!accessToken && oauth.refresh_token) {
     try {
-      accessToken = await refreshYouTubeToken(oauth);
+      accessToken = await refreshYouTubeToken(oauth, clientId, clientSecret);
       await updateAccessToken(accountId, 'youtube', accessToken);
     } catch (err) {
       console.error(`[collect-youtube-metrics] Token refresh failed: ${err}`);
@@ -272,12 +284,21 @@ export async function collectYoutubeMetrics(
     );
   } catch (err) {
     if (isAuthError(err)) {
-      // Attempt token refresh and retry once
+      // Attempt token refresh — separate refresh failure from post-refresh fetch failure
+      let refreshedToken: string;
       try {
-        accessToken = await refreshYouTubeToken(oauth);
-        await updateAccessToken(accountId, 'youtube', accessToken);
-        return await fetchYouTubeMetrics(accessToken, input.platform_post_id);
+        refreshedToken = await refreshYouTubeToken(oauth, clientId, clientSecret);
+        await updateAccessToken(accountId, 'youtube', refreshedToken);
+      } catch (refreshErr) {
+        console.error(`[collect-youtube-metrics] Token refresh failed (transient?): ${refreshErr}`);
+        console.error(`[collect-youtube-metrics] API failed, falling back to synthetic: ${err}`);
+        return syntheticYouTube(input.platform_post_id);
+      }
+      // Token refresh succeeded — retry once with fresh token
+      try {
+        return await fetchYouTubeMetrics(refreshedToken, input.platform_post_id);
       } catch {
+        // Still failing after fresh token → account has a persistent auth problem
         await markAccountSuspended(accountId);
       }
     }
@@ -323,10 +344,17 @@ export async function collectTiktokMetrics(
     );
   } catch (err) {
     if (isAuthError(err)) {
+      let refreshedToken: string;
       try {
-        accessToken = await refreshTikTokToken(oauth);
-        await updateAccessToken(accountId, 'tiktok', accessToken);
-        return await fetchTikTokMetrics(accessToken, input.platform_post_id);
+        refreshedToken = await refreshTikTokToken(oauth);
+        await updateAccessToken(accountId, 'tiktok', refreshedToken);
+      } catch (refreshErr) {
+        console.error(`[collect-tiktok-metrics] Token refresh failed (transient?): ${refreshErr}`);
+        console.error(`[collect-tiktok-metrics] API failed, falling back to synthetic: ${err}`);
+        return syntheticTikTok(input.platform_post_id);
+      }
+      try {
+        return await fetchTikTokMetrics(refreshedToken, input.platform_post_id);
       } catch {
         await markAccountSuspended(accountId);
       }
@@ -362,10 +390,17 @@ export async function collectInstagramMetrics(
     );
   } catch (err) {
     if (isAuthError(err)) {
+      let refreshedToken: string;
       try {
-        accessToken = await refreshInstagramToken(oauth);
-        await updateAccessToken(accountId, 'instagram', accessToken, 'long_lived_token');
-        return await fetchInstagramMetrics(accessToken, input.platform_post_id);
+        refreshedToken = await refreshInstagramToken(oauth);
+        await updateAccessToken(accountId, 'instagram', refreshedToken, 'long_lived_token');
+      } catch (refreshErr) {
+        console.error(`[collect-instagram-metrics] Token refresh failed (transient?): ${refreshErr}`);
+        console.error(`[collect-instagram-metrics] API failed, falling back to synthetic: ${err}`);
+        return syntheticInstagram(input.platform_post_id);
+      }
+      try {
+        return await fetchInstagramMetrics(refreshedToken, input.platform_post_id);
       } catch {
         await markAccountSuspended(accountId);
       }

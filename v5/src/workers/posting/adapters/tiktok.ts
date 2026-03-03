@@ -28,22 +28,22 @@ interface TikTokCredentials {
 }
 
 interface TikTokInitResponse {
-  data: {
+  data?: {
     publish_id: string;
     upload_url: string;
   };
-  error: {
+  error?: {
     code: string;
     message: string;
   };
 }
 
 interface TikTokStatusResponse {
-  data: {
+  data?: {
     status: string;
     publicaly_available_post_id?: string[];
   };
-  error: {
+  error?: {
     code: string;
     message: string;
   };
@@ -253,6 +253,10 @@ export class TikTokAdapter implements PlatformAdapter {
       throw new Error(`TikTok init failed: ${initResult.error.code} - ${initResult.error.message}`);
     }
 
+    if (!initResult.data?.upload_url || !initResult.data?.publish_id) {
+      throw new Error(`TikTok init response missing data: ${JSON.stringify(initResult)}`);
+    }
+
     const uploadUrl = initResult.data.upload_url;
     const publishId = initResult.data.publish_id;
 
@@ -389,7 +393,7 @@ export class TikTokAdapter implements PlatformAdapter {
       const expiresAt = new Date(Date.now() + response.expires_in * 1000).toISOString();
 
       // Update credentials in DB — update both access_token and refresh_token
-      await pool.query(
+      const updateResult = await pool.query(
         `UPDATE accounts
          SET auth_credentials = jsonb_set(
            jsonb_set(
@@ -401,6 +405,10 @@ export class TikTokAdapter implements PlatformAdapter {
          WHERE account_id = $1`,
         [accountId, response.access_token, response.refresh_token, expiresAt],
       );
+
+      if (updateResult.rowCount === 0) {
+        throw new Error(`Account not found for token update: ${accountId}`);
+      }
 
       console.warn(`[tiktok-adapter] Token refreshed for ${accountId}, expires: ${expiresAt}`);
       return true;

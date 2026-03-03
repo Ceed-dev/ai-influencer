@@ -362,7 +362,7 @@ export class InstagramAdapter implements PlatformAdapter {
       const expiresAt = new Date(Date.now() + response.expires_in * 1000).toISOString();
 
       // Update credentials in DB
-      await pool.query(
+      const updateResult = await pool.query(
         `UPDATE accounts
          SET auth_credentials = jsonb_set(
            jsonb_set(auth_credentials, '{oauth,long_lived_token}', to_jsonb($2::text)),
@@ -371,6 +371,10 @@ export class InstagramAdapter implements PlatformAdapter {
          WHERE account_id = $1`,
         [accountId, response.access_token, expiresAt],
       );
+
+      if (updateResult.rowCount === 0) {
+        throw new Error(`Account not found for token update: ${accountId}`);
+      }
 
       console.warn(`[instagram-adapter] Token refreshed for ${accountId}, expires: ${expiresAt}`);
       return true;

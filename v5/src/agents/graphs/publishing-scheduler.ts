@@ -208,10 +208,13 @@ async function publish(
 
     const { platform, content_id, video_drive_id, metadata } = task;
 
+    const { account_id } = task;
+
     switch (platform) {
       case 'youtube': {
         const result = await callMcpTool<{ platform_post_id: string; post_url: string }>('publish_to_youtube', {
           content_id,
+          account_id,
           title: metadata.title ?? '',
           description: metadata.description ?? '',
           tags: metadata.tags ?? [],
@@ -224,6 +227,7 @@ async function publish(
       case 'tiktok': {
         const result = await callMcpTool<{ platform_post_id: string; post_url: string }>('publish_to_tiktok', {
           content_id,
+          account_id,
           description: metadata.description ?? metadata.caption ?? '',
           tags: metadata.tags ?? [],
           video_drive_id,
@@ -235,6 +239,7 @@ async function publish(
       case 'instagram': {
         const result = await callMcpTool<{ platform_post_id: string; post_url: string }>('publish_to_instagram', {
           content_id,
+          account_id,
           caption: metadata.caption ?? metadata.description ?? '',
           tags: metadata.tags ?? [],
           video_drive_id,
@@ -246,6 +251,7 @@ async function publish(
       case 'x': {
         const result = await callMcpTool<{ platform_post_id: string; post_url: string }>('publish_to_x', {
           content_id,
+          account_id,
           text: metadata.text ?? metadata.description ?? '',
           video_drive_id,
         });

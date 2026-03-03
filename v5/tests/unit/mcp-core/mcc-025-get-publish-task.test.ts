@@ -41,7 +41,7 @@ describe('FEAT-MCC-025: get_publish_task', () => {
 
     await pool.query(`
       INSERT INTO task_queue (task_type, payload, status, priority)
-      VALUES ('publish', '{"content_id": "${PREFIX}CNT_001"}'::jsonb, 'pending', 10)
+      VALUES ('publish', '{"content_id": "${PREFIX}CNT_001", "account_id": "${PREFIX}ACC_001"}'::jsonb, 'pending', 10)
     `);
   });
 
@@ -67,6 +67,8 @@ describe('FEAT-MCC-025: get_publish_task', () => {
     expect(result.task_id).toBeGreaterThan(0);
     expect(typeof result.content_id).toBe('string');
     expect(result.content_id).toBe(`${PREFIX}CNT_001`);
+    expect(typeof result.account_id).toBe('string');
+    expect(result.account_id).toBe(`${PREFIX}ACC_001`);
     expect(['youtube', 'tiktok', 'instagram', 'x']).toContain(result.platform);
     expect(result.platform).toBe('youtube');
     expect(typeof result.payload).toBe('object');

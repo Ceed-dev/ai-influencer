@@ -932,6 +932,7 @@ export interface GetPublishTaskInput {
 export interface GetPublishTaskOutput {
   task_id: number;
   content_id: string;
+  account_id: string;
   platform: Platform;
   payload: Record<string, unknown>;
 } // returns null if queue is empty
@@ -939,6 +940,7 @@ export interface GetPublishTaskOutput {
 /** #2 — YouTube投稿 */
 export interface PublishToYoutubeInput {
   content_id: string;
+  account_id: string;
   title: string;
   description: string;
   tags: string[];
@@ -952,6 +954,7 @@ export interface PublishToYoutubeOutput {
 /** #3 — TikTok投稿 */
 export interface PublishToTiktokInput {
   content_id: string;
+  account_id: string;
   description: string;
   tags: string[];
   video_drive_id: string;
@@ -964,6 +967,7 @@ export interface PublishToTiktokOutput {
 /** #4 — Instagram投稿 */
 export interface PublishToInstagramInput {
   content_id: string;
+  account_id: string;
   caption: string;
   tags: string[];
   video_drive_id: string;
@@ -976,6 +980,7 @@ export interface PublishToInstagramOutput {
 /** #5 — X/Twitter投稿 */
 export interface PublishToXInput {
   content_id: string;
+  account_id: string;
   text: string;
   video_drive_id: string;
 }

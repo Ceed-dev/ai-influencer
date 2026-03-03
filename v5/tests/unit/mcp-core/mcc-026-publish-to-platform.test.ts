@@ -13,12 +13,54 @@ import {
 } from '@/src/mcp-server/tools/publishing/publish-to-platform';
 import { McpValidationError } from '@/src/mcp-server/errors';
 
+// Mock platform adapters so tests don't call real APIs
+jest.mock('@/src/workers/posting/adapters/youtube', () => ({
+  YouTubeAdapter: jest.fn().mockImplementation(() => ({
+    publish: jest.fn().mockResolvedValue({
+      platform_post_id: `youtube_${Date.now()}`,
+      post_url: `https://youtube.com/shorts/abc123`,
+      posted_at: new Date().toISOString(),
+    }),
+  })),
+}));
+
+jest.mock('@/src/workers/posting/adapters/tiktok', () => ({
+  TikTokAdapter: jest.fn().mockImplementation(() => ({
+    publish: jest.fn().mockResolvedValue({
+      platform_post_id: `tiktok_${Date.now()}`,
+      post_url: `https://www.tiktok.com/@user/video/abc123`,
+      posted_at: new Date().toISOString(),
+    }),
+  })),
+}));
+
+jest.mock('@/src/workers/posting/adapters/instagram', () => ({
+  InstagramAdapter: jest.fn().mockImplementation(() => ({
+    publish: jest.fn().mockResolvedValue({
+      platform_post_id: `instagram_${Date.now()}`,
+      post_url: `https://www.instagram.com/reel/abc123/`,
+      posted_at: new Date().toISOString(),
+    }),
+  })),
+}));
+
+jest.mock('@/src/workers/posting/adapters/x', () => ({
+  XAdapter: jest.fn().mockImplementation(() => ({
+    publish: jest.fn().mockResolvedValue({
+      platform_post_id: `x_${Date.now()}`,
+      post_url: `https://x.com/user/status/abc123`,
+      posted_at: new Date().toISOString(),
+    }),
+  })),
+}));
+
 describe('FEAT-MCC-026: publish_to_youtube/tiktok/instagram/x', () => {
   // ---------- YouTube ----------
   describe('publish_to_youtube', () => {
     test('TEST-MCP-050: returns platform_post_id and post_url', async () => {
       const result = await publishToYoutube({
         content_id: 'CNT_202603_0001',
+        account_id: 'ACC_0001',
         title: 'Morning Skincare',
         description: 'A morning skincare routine video.',
         tags: ['skincare', 'beauty'],
@@ -27,15 +69,28 @@ describe('FEAT-MCC-026: publish_to_youtube/tiktok/instagram/x', () => {
 
       expect(typeof result.platform_post_id).toBe('string');
       expect(result.platform_post_id).not.toBe('');
-      expect(result.platform_post_id).toMatch(/^youtube_\d+$/);
       expect(typeof result.post_url).toBe('string');
-      expect(result.post_url).toMatch(/^https:\/\/youtube\.com\/shorts\//);
+      expect(result.post_url).not.toBe('');
     });
 
     test('TEST-MCP-050: rejects empty content_id', async () => {
       await expect(
         publishToYoutube({
           content_id: '',
+          account_id: 'ACC_0001',
+          title: 'Test',
+          description: 'Test',
+          tags: [],
+          video_drive_id: '1abc',
+        }),
+      ).rejects.toThrow(McpValidationError);
+    });
+
+    test('TEST-MCP-050: rejects empty account_id', async () => {
+      await expect(
+        publishToYoutube({
+          content_id: 'CNT_0001',
+          account_id: '',
           title: 'Test',
           description: 'Test',
           tags: [],
@@ -50,6 +105,7 @@ describe('FEAT-MCC-026: publish_to_youtube/tiktok/instagram/x', () => {
     test('TEST-MCP-051: returns platform_post_id and post_url', async () => {
       const result = await publishToTiktok({
         content_id: 'CNT_202603_0001',
+        account_id: 'ACC_0001',
         description: 'Morning skincare routine',
         tags: ['skincare'],
         video_drive_id: '1abc',
@@ -57,15 +113,15 @@ describe('FEAT-MCC-026: publish_to_youtube/tiktok/instagram/x', () => {
 
       expect(typeof result.platform_post_id).toBe('string');
       expect(result.platform_post_id).not.toBe('');
-      expect(result.platform_post_id).toMatch(/^tiktok_\d+$/);
       expect(typeof result.post_url).toBe('string');
-      expect(result.post_url).toMatch(/^https:\/\/www\.tiktok\.com\//);
+      expect(result.post_url).not.toBe('');
     });
 
     test('TEST-MCP-051: rejects empty content_id', async () => {
       await expect(
         publishToTiktok({
           content_id: '',
+          account_id: 'ACC_0001',
           description: 'Test',
           tags: [],
           video_drive_id: '1abc',
@@ -79,6 +135,7 @@ describe('FEAT-MCC-026: publish_to_youtube/tiktok/instagram/x', () => {
     test('TEST-MCP-052: returns platform_post_id and post_url', async () => {
       const result = await publishToInstagram({
         content_id: 'CNT_202603_0001',
+        account_id: 'ACC_0001',
         caption: 'Morning skincare',
         tags: ['skincare'],
         video_drive_id: '1abc',
@@ -86,15 +143,15 @@ describe('FEAT-MCC-026: publish_to_youtube/tiktok/instagram/x', () => {
 
       expect(typeof result.platform_post_id).toBe('string');
       expect(result.platform_post_id).not.toBe('');
-      expect(result.platform_post_id).toMatch(/^instagram_\d+$/);
       expect(typeof result.post_url).toBe('string');
-      expect(result.post_url).toMatch(/^https:\/\/www\.instagram\.com\/reel\//);
+      expect(result.post_url).not.toBe('');
     });
 
     test('TEST-MCP-052: rejects empty content_id', async () => {
       await expect(
         publishToInstagram({
           content_id: '',
+          account_id: 'ACC_0001',
           caption: 'Test',
           tags: [],
           video_drive_id: '1abc',
@@ -108,21 +165,22 @@ describe('FEAT-MCC-026: publish_to_youtube/tiktok/instagram/x', () => {
     test('TEST-MCP-053: returns platform_post_id and post_url', async () => {
       const result = await publishToX({
         content_id: 'CNT_202603_0001',
+        account_id: 'ACC_0001',
         text: 'Check out my skincare routine!',
         video_drive_id: '1abc',
       });
 
       expect(typeof result.platform_post_id).toBe('string');
       expect(result.platform_post_id).not.toBe('');
-      expect(result.platform_post_id).toMatch(/^x_\d+$/);
       expect(typeof result.post_url).toBe('string');
-      expect(result.post_url).toMatch(/^https:\/\/x\.com\//);
+      expect(result.post_url).not.toBe('');
     });
 
     test('TEST-MCP-053: rejects empty content_id', async () => {
       await expect(
         publishToX({
           content_id: '',
+          account_id: 'ACC_0001',
           text: 'Test',
           video_drive_id: '1abc',
         }),

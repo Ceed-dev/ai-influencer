@@ -41,6 +41,13 @@ async function generateViaLlm(
   const apiKey = await loadApiKey();
   if (!apiKey) return null;
 
+  let model: string;
+  try {
+    model = String(await getSetting('SCRIPT_GENERATION_MODEL'));
+  } catch {
+    model = 'claude-haiku-4-5-20251001';
+  }
+
   const langLabel = input.script_language === 'jp' ? 'Japanese' : 'English';
   const scenarioJson = JSON.stringify(input.scenario_data);
 
@@ -72,7 +79,7 @@ ${input.script_language === 'jp' ? '- Write in natural Japanese. CTA should incl
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
+        model,
         max_tokens: 512,
         messages: [{ role: 'user', content: prompt }],
       }),

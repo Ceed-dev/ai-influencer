@@ -6,11 +6,11 @@
 import { withClient } from '../../helpers/db';
 
 describe('FEAT-DB-041: system_settings seed data', () => {
-  // TEST-DB-046: total count = 124
-  test('TEST-DB-046: system_settings has 124 rows', async () => {
+  // TEST-DB-046: total count = 126 (124 base + 2 from migration 011: YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET)
+  test('TEST-DB-046: system_settings has 126 rows', async () => {
     await withClient(async (c) => {
       const res = await c.query("SELECT COUNT(*) as cnt FROM system_settings");
-      expect(parseInt(res.rows[0].cnt)).toBe(124);
+      expect(parseInt(res.rows[0].cnt)).toBe(126);
     });
   });
 
@@ -19,7 +19,7 @@ describe('FEAT-DB-041: system_settings seed data', () => {
     const expected: Record<string, number> = {
       agent: 79,
       cost_control: 4,
-      credentials: 5,
+      credentials: 7, // 5 base + 2 from migration 011 (YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET)
       dashboard: 3,
       measurement: 6,
       posting: 8,

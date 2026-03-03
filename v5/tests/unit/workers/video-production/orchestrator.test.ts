@@ -131,6 +131,7 @@ function setupDefaultMocks() {
       MAX_CONTENT_REVISION_COUNT: 3,
       AUTO_APPROVE_SCORE_THRESHOLD: 8.0,
       VIDEO_SECTION_TIMEOUT_SEC: 600,
+      VIDEO_SECTION_COST_USD: 0.36,
     };
     return Promise.resolve(defaults[key] ?? 0);
   });

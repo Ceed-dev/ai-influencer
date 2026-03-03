@@ -22,11 +22,12 @@ export async function getPublishTask(
     const selectRes = await pool.query<{
       id: number;
       payload: Record<string, unknown>;
+      account_id: string;
       platform: Platform;
     }>(
-      `SELECT tq.id, tq.payload, p.platform
+      `SELECT tq.id, tq.payload, a.account_id, a.platform
        FROM task_queue tq
-       JOIN publications p ON (tq.payload->>'content_id') = p.content_id
+       JOIN accounts a ON a.account_id = (tq.payload->>'account_id')
        WHERE tq.task_type = 'publish'
          AND tq.status IN ('pending', 'queued')
        ORDER BY tq.priority DESC, tq.created_at ASC
@@ -52,6 +53,7 @@ export async function getPublishTask(
     return {
       task_id: row.id,
       content_id: contentId,
+      account_id: row.account_id,
       platform: row.platform,
       payload: row.payload,
     };

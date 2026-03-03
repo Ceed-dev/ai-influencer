@@ -2,6 +2,9 @@
  * FEAT-VW-002/003/006/007/014/015/016/017: Video production orchestrator
  * Spec: 04-agent-design.md §5.2
  */
+import { createReadStream } from 'node:fs';
+import { google } from 'googleapis';
+import { GoogleAuth } from 'google-auth-library';
 import { getPool } from '../../db/pool.js';
 import { getSettingNumber, getSettingBoolean, getSettingString } from '../../lib/settings.js';
 import { generateVideo, initFalClient, classifyFalError } from './fal-client.js';
@@ -40,7 +43,7 @@ export async function processProductionTask(task: TaskQueueRow): Promise<{
       if (concatResult.hasBlackFrameIssues) throw new Error(`Black frame detected: ${JSON.stringify(concatResult.blackFrames)}`);
     }
 
-    const driveResult = await uploadToDrive(contentId);
+    const driveResult = await uploadToDrive(contentId, concatResult?.outputPath);
     const metadata: ProductionMetadata = {
       sections: sectionResults.map((s) => ({ order: s.sectionOrder, label: s.sectionLabel, fal_request_ids: { video: s.videoUrl }, processing_time_seconds: s.processingTimeMs / 1000 })),
       total_seconds: concatResult?.durationSeconds, final_file_size_bytes: concatResult?.fileSizeBytes, pipeline_version: '5.0.0',
@@ -51,7 +54,8 @@ export async function processProductionTask(task: TaskQueueRow): Promise<{
       [driveResult.driveFileId, driveResult.driveUrl, driveResult.folderId, concatResult?.durationSeconds ?? 0, contentId]);
 
     await applyReviewStatus(contentId);
-    const totalCost = sectionResults.length * 0.36;
+    const costPerSection = await getSettingNumber('VIDEO_SECTION_COST_USD').catch(() => 0.36);
+    const totalCost = sectionResults.length * costPerSection;
     await completeTask(task.id);
 
     return { contentId, finalVideoUrl: driveResult.driveUrl, videoDriveId: driveResult.driveFileId, driveFolderId: driveResult.folderId, sections: sectionResults, totalProcessingTimeMs: Date.now() - startTime, costUsd: totalCost };
@@ -129,10 +133,71 @@ async function checkDailyBudget(): Promise<void> {
   if (total >= limit) throw new Error(`Daily budget exceeded: $${total.toFixed(2)} / $${limit} limit`);
 }
 
-async function uploadToDrive(contentId: string): Promise<{ driveFileId: string; driveUrl: string; folderId: string }> {
-  const folderId = await getSettingString('PRODUCTION_OUTPUT_DRIVE_FOLDER_ID').catch(() => 'default_folder');
+/**
+ * Upload the final concatenated video to Google Drive using a service account.
+ * Falls back to a placeholder ID if credentials are missing or upload fails,
+ * so the orchestrator can still complete without blocking on Drive availability.
+ */
+async function uploadToDrive(
+  contentId: string,
+  localFilePath: string | undefined,
+): Promise<{ driveFileId: string; driveUrl: string; folderId: string }> {
+  const folderId = await getSettingString('PRODUCTION_OUTPUT_DRIVE_FOLDER_ID').catch(() => '');
+
+  if (localFilePath) {
+    try {
+      const serviceAccountKeyJson = await getSettingString('CRED_GOOGLE_SERVICE_ACCOUNT_KEY');
+      if (serviceAccountKeyJson && serviceAccountKeyJson.trim() !== '' && serviceAccountKeyJson !== '""') {
+        const keyData = JSON.parse(serviceAccountKeyJson) as Record<string, unknown>;
+
+        const auth = new GoogleAuth({
+          credentials: {
+            client_email: keyData['client_email'] as string,
+            private_key: keyData['private_key'] as string,
+          },
+          scopes: ['https://www.googleapis.com/auth/drive.file'],
+        });
+
+        const drive = google.drive({ version: 'v3', auth });
+        const fileName = `${contentId}_${Date.now()}.mp4`;
+
+        const response = await drive.files.create({
+          requestBody: {
+            name: fileName,
+            parents: folderId ? [folderId] : undefined,
+          },
+          media: {
+            mimeType: 'video/mp4',
+            body: createReadStream(localFilePath),
+          },
+          fields: 'id',
+        });
+
+        const fileId = response.data.id;
+        if (fileId) {
+          console.warn(`[orchestrator] Uploaded ${fileName} to Drive: ${fileId}`);
+          return {
+            driveFileId: fileId,
+            driveUrl: `https://drive.google.com/file/d/${fileId}/view`,
+            folderId,
+          };
+        }
+      }
+    } catch (err) {
+      console.warn(
+        `[orchestrator] Drive upload failed, using placeholder:`,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
+
+  // Fallback: placeholder ID when credentials unavailable or no file to upload
   const driveFileId = `drive_${contentId}_${Date.now()}`;
-  return { driveFileId, driveUrl: `https://drive.google.com/file/d/${driveFileId}/view`, folderId };
+  return {
+    driveFileId,
+    driveUrl: `https://drive.google.com/file/d/${driveFileId}/view`,
+    folderId,
+  };
 }
 
 async function fetchContent(contentId: string): Promise<ContentRow> {

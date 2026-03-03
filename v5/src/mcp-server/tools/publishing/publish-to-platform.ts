@@ -1,8 +1,8 @@
 /**
  * FEAT-MCC-026: publish_to_youtube/tiktok/instagram/x
  * Spec: 04-mcp-tools.md SS2.7 #2-#5
- * Placeholder implementations for 4 platform publish tools.
- * Actual platform API integration lives in workers/posting/adapters/.
+ * Delegates to platform-specific adapters in workers/posting/adapters/.
+ * Each adapter handles OAuth token refresh, Drive download, and API upload.
  */
 import type {
   PublishToYoutubeInput,
@@ -14,11 +14,15 @@ import type {
   PublishToXInput,
   PublishToXOutput,
 } from '@/types/mcp-tools';
-import { McpValidationError } from '../../errors';
+import { McpValidationError } from '../../errors.js';
+import { YouTubeAdapter } from '../../../workers/posting/adapters/youtube.js';
+import { TikTokAdapter } from '../../../workers/posting/adapters/tiktok.js';
+import { InstagramAdapter } from '../../../workers/posting/adapters/instagram.js';
+import { XAdapter } from '../../../workers/posting/adapters/x.js';
 
 /**
- * Publish a video to YouTube.
- * Placeholder: generates a synthetic post ID and URL.
+ * Publish a video to YouTube via the YouTubeAdapter.
+ * Downloads video from Google Drive and uploads to YouTube Data API v3.
  */
 export async function publishToYoutube(
   input: PublishToYoutubeInput,
@@ -26,21 +30,33 @@ export async function publishToYoutube(
   if (!input.content_id || input.content_id.trim() === '') {
     throw new McpValidationError('content_id is required');
   }
+  if (!input.account_id || input.account_id.trim() === '') {
+    throw new McpValidationError('account_id is required');
+  }
 
-  // STUB: YouTube Data API not yet integrated (pending platform API approval §2.3)
-  console.warn(`[publish-to-youtube] STUB: returning synthetic post ID for content ${input.content_id}`);
-  const platformPostId = `youtube_${Date.now()}`;
-  const postUrl = `https://youtube.com/shorts/${platformPostId}`;
+  const adapter = new YouTubeAdapter();
+  const result = await adapter.publish({
+    task_id: 0,
+    content_id: input.content_id,
+    account_id: input.account_id,
+    platform: 'youtube',
+    video_drive_id: input.video_drive_id,
+    metadata: {
+      title: input.title,
+      description: input.description,
+      tags: input.tags,
+    },
+  });
 
   return {
-    platform_post_id: platformPostId,
-    post_url: postUrl,
+    platform_post_id: result.platform_post_id,
+    post_url: result.post_url,
   };
 }
 
 /**
- * Publish a video to TikTok.
- * Placeholder: generates a synthetic post ID and URL.
+ * Publish a video to TikTok via the TikTokAdapter.
+ * Uses TikTok Content Posting API v2.
  */
 export async function publishToTiktok(
   input: PublishToTiktokInput,
@@ -48,21 +64,32 @@ export async function publishToTiktok(
   if (!input.content_id || input.content_id.trim() === '') {
     throw new McpValidationError('content_id is required');
   }
+  if (!input.account_id || input.account_id.trim() === '') {
+    throw new McpValidationError('account_id is required');
+  }
 
-  // STUB: TikTok Content Posting API not yet integrated (pending platform API approval §2.3)
-  console.warn(`[publish-to-tiktok] STUB: returning synthetic post ID for content ${input.content_id}`);
-  const platformPostId = `tiktok_${Date.now()}`;
-  const postUrl = `https://www.tiktok.com/@user/video/${platformPostId}`;
+  const adapter = new TikTokAdapter();
+  const result = await adapter.publish({
+    task_id: 0,
+    content_id: input.content_id,
+    account_id: input.account_id,
+    platform: 'tiktok',
+    video_drive_id: input.video_drive_id,
+    metadata: {
+      description: input.description,
+      tags: input.tags,
+    },
+  });
 
   return {
-    platform_post_id: platformPostId,
-    post_url: postUrl,
+    platform_post_id: result.platform_post_id,
+    post_url: result.post_url,
   };
 }
 
 /**
- * Publish a video to Instagram.
- * Placeholder: generates a synthetic post ID and URL.
+ * Publish a video to Instagram Reels via the InstagramAdapter.
+ * Uses Instagram Graph API v21.0 container → publish flow.
  */
 export async function publishToInstagram(
   input: PublishToInstagramInput,
@@ -70,21 +97,32 @@ export async function publishToInstagram(
   if (!input.content_id || input.content_id.trim() === '') {
     throw new McpValidationError('content_id is required');
   }
+  if (!input.account_id || input.account_id.trim() === '') {
+    throw new McpValidationError('account_id is required');
+  }
 
-  // STUB: Instagram Graph API not yet integrated (pending platform API approval §2.3)
-  console.warn(`[publish-to-instagram] STUB: returning synthetic post ID for content ${input.content_id}`);
-  const platformPostId = `instagram_${Date.now()}`;
-  const postUrl = `https://www.instagram.com/reel/${platformPostId}`;
+  const adapter = new InstagramAdapter();
+  const result = await adapter.publish({
+    task_id: 0,
+    content_id: input.content_id,
+    account_id: input.account_id,
+    platform: 'instagram',
+    video_drive_id: input.video_drive_id,
+    metadata: {
+      caption: input.caption,
+      tags: input.tags,
+    },
+  });
 
   return {
-    platform_post_id: platformPostId,
-    post_url: postUrl,
+    platform_post_id: result.platform_post_id,
+    post_url: result.post_url,
   };
 }
 
 /**
- * Publish a video to X (Twitter).
- * Placeholder: generates a synthetic post ID and URL.
+ * Publish a tweet with optional video to X via the XAdapter.
+ * Uses X API v2 with OAuth 1.0a HMAC-SHA1 signing.
  */
 export async function publishToX(
   input: PublishToXInput,
@@ -92,14 +130,24 @@ export async function publishToX(
   if (!input.content_id || input.content_id.trim() === '') {
     throw new McpValidationError('content_id is required');
   }
+  if (!input.account_id || input.account_id.trim() === '') {
+    throw new McpValidationError('account_id is required');
+  }
 
-  // STUB: X API v2 not yet integrated (pending platform API approval §2.3)
-  console.warn(`[publish-to-x] STUB: returning synthetic post ID for content ${input.content_id}`);
-  const platformPostId = `x_${Date.now()}`;
-  const postUrl = `https://x.com/user/status/${platformPostId}`;
+  const adapter = new XAdapter();
+  const result = await adapter.publish({
+    task_id: 0,
+    content_id: input.content_id,
+    account_id: input.account_id,
+    platform: 'x',
+    video_drive_id: input.video_drive_id,
+    metadata: {
+      text: input.text,
+    },
+  });
 
   return {
-    platform_post_id: platformPostId,
-    post_url: postUrl,
+    platform_post_id: result.platform_post_id,
+    post_url: result.post_url,
   };
 }

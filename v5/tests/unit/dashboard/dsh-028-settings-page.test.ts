@@ -40,9 +40,9 @@ describe('FEAT-DSH-028: Settings page — category grouping', () => {
     expect(pageContent).toContain('setActiveCategory');
   });
 
-  // TEST-DSH-072: Settings table
+  // TEST-DSH-072: Settings table (uses Shadcn/ui <Table> component)
   test('TEST-DSH-072: displays settings in table format', () => {
-    expect(pageContent).toContain('<table');
+    expect(pageContent).toContain('<Table');
     expect(pageContent).toContain('setting_key');
     expect(pageContent).toContain('setting_value');
   });

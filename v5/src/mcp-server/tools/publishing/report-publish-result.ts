@@ -35,18 +35,23 @@ export async function reportPublishResult(
 
   try {
     // Mark the task as completed
-    await pool.query(
+    const taskRes = await pool.query(
       `UPDATE task_queue SET status = 'completed', completed_at = NOW() WHERE id = $1`,
       [input.task_id],
     );
 
+    if (taskRes.rowCount === 0) {
+      throw new McpValidationError(`Task not found: task_id=${input.task_id}`);
+    }
+
     // Update the publication record with post details
-    await pool.query(
+    const pubRes = await pool.query(
       `UPDATE publications
          SET platform_post_id = $2,
              post_url = $3,
              posted_at = $4,
-             status = 'posted'
+             status = 'posted',
+             updated_at = NOW()
        WHERE content_id = $1
          AND platform_post_id IS NULL`,
       [
@@ -57,8 +62,15 @@ export async function reportPublishResult(
       ],
     );
 
+    if (pubRes.rowCount === 0) {
+      console.warn(
+        `[report-publish-result] No scheduled publication found for content=${input.content_id} with platform_post_id IS NULL — record may already be posted or missing`,
+      );
+    }
+
     return { success: true };
   } catch (err) {
+    if (err instanceof McpValidationError) throw err;
     throw new McpDbError('Failed to report publish result', err);
   }
 }
