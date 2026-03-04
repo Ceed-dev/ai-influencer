@@ -48,6 +48,7 @@ export const TABLE_GROUPS = [
       "tool_external_sources",
       "production_recipes",
       "prompt_suggestions",
+      "content_playbooks",
     ],
   },
   { key: "system", tables: ["system_settings"] },
