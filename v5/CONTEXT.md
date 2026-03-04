@@ -329,15 +329,16 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 
 **Quality check:** typecheck ✅ / tests 211/211 ✅
 
-### Session 20: Add viewer user T.S.0131.1998@gmail.com (2026-03-04)
+### Session 20: Add viewer user t.s.0131.1998@gmail.com (2026-03-04)
 
 **Added new viewer-role dashboard user:**
-- `T.S.0131.1998@gmail.com` — viewer role
+- `t.s.0131.1998@gmail.com` — viewer role
 - Updated `sql/010_auth_settings.sql` — AUTH_ALLOWED_EMAILS + AUTH_USER_ROLES
 - Updated `docs/v5-specification/03-database-schema.md`
 - Cloud SQL updated directly via SSH
 - Dashboard container restarted (`docker restart v5-dashboard`)
-- **⚠️ GCP OAuth consent screen (Testing mode): T.S.0131.1998@gmail.com must be added as test user manually in GCP Console**
+- **⚠️ GCP OAuth consent screen (Testing mode): t.s.0131.1998@gmail.com must be added as test user manually in GCP Console**
+- **Fix (Session 21):** 初回登録時に大文字 `T.S.` で登録したため認証失敗。Google OAuthは常に小文字でメールを返すため小文字に修正。
 
 ### Session 19: Spec/CONTEXT Consistency Fix (2026-03-04)
 
