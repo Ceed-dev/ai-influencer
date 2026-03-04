@@ -13,8 +13,8 @@
 
 ### Source Stats
 - ~200+ source files
-- 4 LangGraph graphs, 111 MCP tools, 21 REST API routes (dashboard)
-- 33 DB tables, 156 indexes, 15 triggers, 126 system_settings
+- 4 LangGraph graphs, 122 MCP tools, 21 REST API routes (dashboard)
+- 34 DB tables, 156 indexes, 15 triggers, 126 system_settings
 
 ## Session History
 
@@ -141,7 +141,7 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 **Quality gates:** TypeScript 0 errors, 244/244 suites, 1124/1124 tests passing
 
 **Production deployment:**
-- Cloud SQL: `ai_influencer` DB created, pgvector enabled, 9 migration files applied (33 tables)
+- Cloud SQL: `ai_influencer` DB created, pgvector enabled, 12 migration files applied (34 tables)
 - VM: Node.js 20 installed, repo cloned, npm install + build (app tsc + dashboard next build)
 - All 31 API routes: `export const dynamic = "force-dynamic"` (prevents build-time pre-rendering)
 - Standalone compose: `docker-compose.production.yml` (dashboard + Cloud SQL, no local postgres)
@@ -304,13 +304,35 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 - Cancel: returns to Edit button state
 - Tab switching: correct filtering per category
 
+### Session 19: Spec/CONTEXT Consistency Fix (2026-03-04)
+
+**Strict review by negative-review agent — 13 issues found and fixed**
+
+**Critical fixes (33→34 tables, 103→122 MCP tools):**
+- `02-architecture.md`: テーブル数 33→34 (6箇所), MCPツール数 103→122 (3箇所), REST API合計 124→143
+- `10-implementation-guide.md`: テーブル数 33→34 (8箇所), MCPツール数 103→122 + 8→13ディレクトリ, `playbook/` ディレクトリ追加
+- `CONTEXT.md`: テーブル数 33→34, MCPツール数 111→122, migration files 9→12
+
+**content_playbooks feature (commit `fbbc8a6`) — documented:**
+- `sql/012_create_content_playbooks.sql`: `content_playbooks` テーブル (vector(1536), HNSW index)
+- `src/mcp-server/tools/playbook/`: 4 MCP ツール (get_playbook, save_playbook, search_playbooks, update_playbook_effectiveness)
+- Cloud SQL に migration 適用済み
+- `dashboard/lib/database-tables.ts` に `content_playbooks` 追加済み (tool_management グループ)
+
+**Minor code fix:**
+- `dashboard/app/database/page.tsx`: `key={rowIdx}` → `key={row["id"] !== undefined ? String(row["id"]) : rowIdx}` (主キー優先)
+
+**Commits:**
+- `63d0b41 feat(dashboard): add content_playbooks to Database Viewer whitelist` (this session, prior)
+- (this fix) doc consistency commit
+
 ### Session 18: Database Viewer Page (2026-03-04)
 
 **New feature: read-only raw DB inspector (`/database`) — 16th dashboard page**
 
 **New files (4):**
-- `dashboard/lib/database-tables.ts` — `ALLOWED_TABLES` (33件ホワイトリスト) + `TABLE_GROUPS` 共有定数
-- `dashboard/app/api/database/tables/route.ts` — GET `/api/database/tables`: 全33テーブルのメタデータ（行数・カラム定義）
+- `dashboard/lib/database-tables.ts` — `ALLOWED_TABLES` (34件ホワイトリスト) + `TABLE_GROUPS` 共有定数
+- `dashboard/app/api/database/tables/route.ts` — GET `/api/database/tables`: 全34テーブルのメタデータ（行数・カラム定義）
 - `dashboard/app/api/database/[table]/route.ts` — GET `/api/database/[table]?page&sort&order`: ページネーション付き生データ
 - `dashboard/app/database/page.tsx` — UI: 7グループ分類 + SWR 60秒ポーリング + LIVE インジケータ
 
@@ -336,7 +358,7 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 7. `useEffect` で `lastUpdatedAt === null` 時の不要 interval 生成を排除
 
 **Spec docs updated:**
-- `02-architecture.md` §6.10/#16追加, §6.13/#20-#21追加, §6.14/#16セクション新設, REST API 19→21, 計122→124
+- `02-architecture.md` §6.10/#16追加, §6.13/#20-#21追加, §6.14/#16セクション新設, REST API 19→21
 - `10-implementation-guide.md` ディレクトリ構造・REST API表・ページ一覧 全更新 (15→16画面, 19→21 REST API)
 
 **Commit:** `1b640af feat(dashboard): add Database Viewer page (/database)` (develop branch)

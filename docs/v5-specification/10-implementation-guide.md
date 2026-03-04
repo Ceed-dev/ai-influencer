@@ -119,14 +119,14 @@ ai-influencer/v5/
 │
 │ ─── 凍結済み型定義（リーダーがWeek 0-1で生成。変更は「申請→リーダー承認→全チーム通知」） ───
 ├── types/
-│   ├── database.ts            # 全33テーブルのRow型
+│   ├── database.ts            # 全34テーブルのRow型
 │   ├── mcp-tools.ts           # 全MCPツールの入出力型
 │   ├── langgraph-state.ts     # 全4グラフのステート型
 │   └── api-schemas.ts         # ダッシュボードAPI型
 │
 │ ─── SQL（infra-agentのみ実行・変更可） ───
 ├── sql/
-│   ├── 001_create_tables.sql  # DDL（33テーブル）
+│   ├── 001_create_tables.sql  # DDL（34テーブル）
 │   ├── 002_create_indexes.sql # インデックス（156件）
 │   ├── 003_create_triggers.sql # トリガー（15件）
 │   ├── 004_seed_settings.sql  # system_settings初期データ（126件）
@@ -136,15 +136,16 @@ ai-influencer/v5/
 ├── src/
 │   ├── mcp-server/            # mcp-core-agent + mcp-intel-agent（ツール分担は§6.2/6.3を参照）
 │   │   ├── index.ts           # MCP Server エントリポイント（mcp-core-agentが作成）
-│   │   ├── tools/             # 103 MCPツール → 8ディレクトリ（詳細マッピングは後述の表を参照）
+│   │   ├── tools/             # 122 MCPツール → 13ディレクトリ（詳細マッピングは後述の表を参照）
 │   │   │   ├── entity/        # accounts, characters, components (11ツール) ── mcp-core-agent
 │   │   │   ├── production/    # content, publications, 外部API連携 (15ツール) ── mcp-core-agent
 │   │   │   ├── intelligence/  # hypotheses, market_intel, metrics, analyses, learnings (34ツール) ── mcp-intel-agent
 │   │   │   ├── operations/    # cycles, directives, task_queue (14ツール) ── mcp-core-agent
 │   │   │   ├── observability/ # reflections, individual_learnings, communications (8ツール) ── mcp-intel-agent
-│   │   │   ├── tool-mgmt/     # tool_catalog, tool_experiences, recipes (5ツール) ── mcp-intel-agent
-│   │   │   ├── system/        # system_settings参照 (※CRUDは19 REST APIに含まれる) ── mcp-core-agent
-│   │   │   └── dashboard/     # KPI集計クエリ (2ツール) ── mcp-core-agent
+│   │   │   ├── tool-knowledge/ # tool_catalog, tool_experiences, tool_external_sources (5ツール) ── mcp-intel-agent
+│   │   │   ├── playbook/      # content_playbooks CRUD + ベクトル検索 (4ツール) ── mcp-intel-agent
+│   │   │   ├── system/        # system_settings参照 (※CRUDは21 REST APIに含まれる) ── mcp-core-agent
+│   │   │   └── dashboard/     # KPI集計クエリ (8ツール) ── mcp-core-agent
 │   │   ├── utils/
 │   │   │   └── embedding.ts   # pgvector embedding生成（04-agent-design.md §6.3準拠）── mcp-intel-agent
 │   │   └── db.ts              # PostgreSQL接続管理 ── mcp-core-agent
@@ -220,7 +221,7 @@ ai-influencer/v5/
 │   │   ├── costs/             # コスト管理（13/16）
 │   │   ├── settings/          # 設定（14/16）— 8カテゴリタブ
 │   │   ├── directives/        # 人間指示（15/16）
-│   │   ├── database/          # DB ビューア（16/16）— 全33テーブル生データ閲覧（読み取り専用）
+│   │   ├── database/          # DB ビューア（16/16）— 全34テーブル生データ閲覧（読み取り専用）
 │   │   └── api/               # 21 REST API Routes（02-architecture.md §6.13参照）
 │   │       └── auth/[...nextauth]/ # NextAuth.js route handler
 │   │           └── route.ts
@@ -233,7 +234,7 @@ ai-influencer/v5/
 │   ├── lib/
 │   │   ├── api.ts            # API client（PostgreSQL直接接続、MCP経由ではない）
 │   │   ├── auth.ts           # NextAuth.js設定（Google OAuth, JWT, RBAC）
-│   │   ├── database-tables.ts # DB ビューア用テーブルホワイトリスト（ALLOWED_TABLES 33件）と TABLE_GROUPS 定数
+│   │   ├── database-tables.ts # DB ビューア用テーブルホワイトリスト（ALLOWED_TABLES 34件）と TABLE_GROUPS 定数
 │   │   ├── i18n/             # 国際化（日英切替）
 │   │   │   ├── index.tsx     # LanguageProvider, useTranslation hook
 │   │   │   ├── en.json       # 英語翻訳 (~380キー)
@@ -270,11 +271,11 @@ ai-influencer/v5/
 - 各エージェントは `src/lib/` のファイルを import して使用するが、直接変更してはならない
 - 機能追加が必要な場合はリーダーに申請し、infra-agent が対応する
 
-#### MCPツールのディレクトリマッピング（103 MCPツール）
+#### MCPツールのディレクトリマッピング（122 MCPツール）
 
-全103 MCPツール（[04-agent-design.md §4](04-agent-design.md) 定義）を8ディレクトリに分類する。分類基準は**操作するデータドメイン**（主にアクセスするDBテーブル群）。ツールを呼び出すエージェントではなく、ツールが操作するデータの種類で分類する。
+全122 MCPツール（`src/mcp-server/index.ts` に登録済み）を13ディレクトリに分類する。分類基準は**操作するデータドメイン**（主にアクセスするDBテーブル群）。ツールを呼び出すエージェントではなく、ツールが操作するデータの種類で分類する。
 
-> **注**: 04-agent-design.md §4ではエージェント別にツールを列挙しており、合計106 MCPツールと記載されている。これは3ツール（get_content_prediction, get_content_metrics, get_daily_micro_analyses_summary）が§4.3（アナリスト用）と§4.12（エージェント自己学習用）の両方に掲載されているため。MCP Server実装としてはユニーク103ツール。
+> **注**: 04-agent-design.md §4ではエージェント別にツールを列挙しており、合計106 MCPツールと記載されている。これは3ツール（get_content_prediction, get_content_metrics, get_daily_micro_analyses_summary）が§4.3（アナリスト用）と§4.12（エージェント自己学習用）の両方に掲載されているため。MCP Server実装としてはユニーク 122 ツール（初期設計 103 から実装フェーズで playbook 系 4 ツール含む 19 ツールを追加）。
 
 > **注**: 21 Dashboard REST APIツール（[04-agent-design.md §4.9](04-agent-design.md) の10ツール + [§4.11](04-agent-design.md) の3ツール + [§4.13](04-agent-design.md) の6ツール + DB ビューア 2エンドポイント）は `dashboard/app/api/` に Next.js API Routes として実装する（[02-architecture.md §6.13](02-architecture.md) 参照）。`src/mcp-server/tools/` には含めない。
 
@@ -285,10 +286,11 @@ ai-influencer/v5/
 | `intelligence/` | mcp-intel | 45 | get_top_learnings(§4.1), get_active_hypotheses(§4.1), get_algorithm_performance(§4.1), save_trending_topic(§4.2), save_competitor_post(§4.2), save_competitor_account(§4.2), save_audience_signal(§4.2), save_platform_update(§4.2), get_recent_intel(§4.2), search_similar_intel(§4.2), get_niche_trends(§4.2), get_competitor_analysis(§4.2), get_platform_changes(§4.2), mark_intel_expired(§4.2), get_intel_gaps(§4.2), get_metrics_for_analysis(§4.3), get_hypothesis_results(§4.3), verify_hypothesis(§4.3), create_analysis(§4.3), extract_learning(§4.3), update_learning_confidence(§4.3), search_similar_learnings(§4.3), detect_anomalies(§4.3), calculate_algorithm_performance(§4.3), get_niche_performance_trends(§4.3), compare_hypothesis_predictions(§4.3), generate_improvement_suggestions(§4.3), get_content_prediction(§4.3), get_content_metrics(§4.3), get_daily_micro_analyses_summary(§4.3), run_weight_recalculation(§4.3), run_baseline_update(§4.3), run_adjustment_cache_update(§4.3), run_kpi_snapshot(§4.3), run_cumulative_analysis(§4.3), search_content_learnings(§4.12), create_micro_analysis(§4.12), save_micro_reflection(§4.12), create_hypothesis(§4.4), get_niche_learnings(§4.4), collect_youtube_metrics(§4.8), collect_tiktok_metrics(§4.8), collect_instagram_metrics(§4.8), collect_x_metrics(§4.8), collect_account_metrics(§4.8) |
 | `operations/` | mcp-core | 14 | get_pending_directives(§4.1), create_cycle(§4.1), set_cycle_plan(§4.1), allocate_resources(§4.1), send_planner_directive(§4.1), request_production(§4.4), get_production_task(§4.6), report_production_complete(§4.6), get_publish_task(§4.7), report_publish_result(§4.7), get_measurement_tasks(§4.8), report_measurement_complete(§4.8), get_curation_queue(§4.10), mark_curation_complete(§4.10) |
 | `observability/` | mcp-intel | 8 | save_reflection(§4.12), get_recent_reflections(§4.12), save_individual_learning(§4.12), get_individual_learnings(§4.12), peek_other_agent_learnings(§4.12), submit_agent_message(§4.12), get_human_responses(§4.12), mark_learning_applied(§4.12) |
-| `tool-mgmt/` | mcp-intel | 5 | get_tool_knowledge(§4.5), save_tool_experience(§4.5), search_similar_tool_usage(§4.5), get_tool_recommendations(§4.5), update_tool_knowledge_from_external(§4.5) |
-| `system/` | mcp-core | 0 | ―（system_settings CRUDは19 REST APIに含まれる。エージェントの設定読み込みは `src/lib/settings.ts` を使用） |
-| `dashboard/` | mcp-core | 2 | get_portfolio_kpi_summary(§4.1), get_cluster_performance(§4.1) |
-| **合計** | | **103** | |
+| `tool-knowledge/` | mcp-intel | 5 | get_tool_knowledge(§4.5), save_tool_experience(§4.5), search_similar_tool_usage(§4.5), get_tool_recommendations(§4.5), update_tool_knowledge_from_external(§4.5) |
+| `playbook/` | mcp-intel | 4 | get_playbook, save_playbook, search_playbooks, update_playbook_effectiveness |
+| `system/` | mcp-core | 0 | ―（system_settings CRUDは21 REST APIに含まれる。エージェントの設定読み込みは `src/lib/settings.ts` を使用） |
+| `dashboard/` | mcp-core | 8 | get_portfolio_kpi_summary(§4.1), get_cluster_performance(§4.1) ほか |
+| **合計** | | **122** | |
 
 > **分類の判断基準**: ツールが主にCRUD操作するテーブルで分類する。例: `collect_youtube_metrics`は外部APIを呼び出すが、書き込み先が`metrics`テーブルなので`intelligence/`に配置。`get_production_task`は`task_queue`を読むが、制作ワークフローの一部なので`operations/`に配置（task_queue操作は全て`operations/`）。
 
@@ -313,7 +315,7 @@ ai-influencer/v5/
 | 13 | `costs/` | コスト管理 | 日次/月次API支出, 予算消化率, アラート |
 | 14 | `settings/` | 設定 | system_settings全項目の**8カテゴリタブ**表示+編集 (§11.3) |
 | 15 | `directives/` | 人間指示 | human_directives作成, 履歴閲覧 |
-| 16 | `database/` | DB ビューア | 全33テーブル生データ閲覧（読み取り専用）。7グループ分類, SWR 60秒ポーリング, JSONB/vector展開表示, 機密列マスク (§6.14) |
+| 16 | `database/` | DB ビューア | 全34テーブル生データ閲覧（読み取り専用）。7グループ分類, SWR 60秒ポーリング, JSONB/vector展開表示, 機密列マスク (§6.14) |
 
 > **注**: 画面#8「エージェント」は最もサブ機能が多い画面。実装者は [02-architecture.md §6.3〜§6.9](02-architecture.md) の各セクションを参照して、タブまたはサブページとして実装すること。
 
@@ -325,7 +327,7 @@ Week 0-1でリーダーが生成し凍結。全エージェントはこの型定
 
 | ファイル | 内容 | 利用者 |
 |---------|------|-------|
-| `types/database.ts` | 全33テーブルのRow型 | 全エージェント |
+| `types/database.ts` | 全34テーブルのRow型 | 全エージェント |
 | `types/mcp-tools.ts` | 全MCPツールの入出力型 | mcp-core-agent, mcp-intel-agent |
 | `types/langgraph-state.ts` | 全4グラフのステート型 | intelligence-agent, strategy-agent |
 | `types/api-schemas.ts` | ダッシュボードAPI型 | dashboard-agent |
@@ -521,7 +523,7 @@ flowchart TD
 
 ### 6.1 infra-agent（Week 1-2 集中、Week 3以降はサポート）
 
-**参照仕様**: [03-database-schema.md](03-database-schema.md)（33テーブル定義）, `v5/sql/`（DDL・シード・トリガー）, `v5/docker-compose.yml`
+**参照仕様**: [03-database-schema.md](03-database-schema.md)（34テーブル定義）, `v5/sql/`（DDL・シード・トリガー）, `v5/docker-compose.yml`
 
 **Week 1:**
 - Docker Compose作成 (PostgreSQL 16 + pgvector, Node.js app)
@@ -711,7 +713,7 @@ export const getAccountsTool = {
 | 17 | GET | `/api/weights/audit` | weight再計算の監査ログ |
 | 18 | POST | `/api/kpi/snapshots` | KPIスナップショット手動トリガー |
 | 19 | GET | `/api/kpi/snapshots` | KPIスナップショット一覧（platform, year_monthフィルター） |
-| 20 | GET | `/api/database/tables` | 全33テーブルのメタデータ一覧（行数・カラム定義）。`pg_stat_user_tables` + `information_schema.columns` 使用。テーブル名はホワイトリスト検証 |
+| 20 | GET | `/api/database/tables` | 全34テーブルのメタデータ一覧（行数・カラム定義）。`pg_stat_user_tables` + `information_schema.columns` 使用。テーブル名はホワイトリスト検証 |
 | 21 | GET | `/api/database/[table]?page&sort&order` | 指定テーブルの生データ（ページネーション・ソート付き）。vector列はORDER BY除外。LIMIT最大200 |
 
 > REST API合計: 21エンドポイント（13 既存 + 6 アルゴリズム追加 + 2 DB ビューア追加）

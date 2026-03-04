@@ -371,7 +371,7 @@ export default function DatabasePage() {
                   </TableRow>
                 ) : (
                   rows.map((row, rowIdx) => (
-                    <TableRow key={rowIdx}>
+                    <TableRow key={row["id"] !== undefined ? String(row["id"]) : rowIdx}>
                       {columns.map(col => (
                         <TableCell key={col.name} className="py-1.5 px-3 align-top max-w-[300px]">
                           {renderCell(selectedTable, col, row[col.name], row)}

@@ -690,7 +690,7 @@ flowchart TD
 │                       MCP Server (Node.js)                            │
 │                                                                       │
 │  ┌─────────────────────────────────────────────────────────────────┐  │
-│  │ Tool Registry (103 MCPツール + 21 Dashboard REST API = 計124)   │   │
+│  │ Tool Registry (122 MCPツール + 21 Dashboard REST API = 計143)   │   │
 │  │                                                                  │ │
 │  │  [MCPツール — エージェントが MCP Protocol 経由で呼び出す]        │      │
 │  │                                                                  │ │
@@ -1969,7 +1969,7 @@ ORDER BY agent_type, count DESC;
 | 13 | **コスト管理** | 日次/月次API支出, 予算消化率, アラート | system_settings (cost_control), task_queue |
 | 14 | **設定** | system_settings全項目のカテゴリ別表示+編集 | system_settings |
 | 15 | **人間指示** | human_directives作成, 履歴閲覧 | human_directives |
-| 16 | **DB ビューア** | 全33テーブルの生データ閲覧（読み取り専用）。7グループ分類, SWR 60秒ポーリング, LIVE インジケータ, ページネーション, ソート, JSONB/vector 展開表示, 機密列マスク | 全テーブル (information_schema経由) |
+| 16 | **DB ビューア** | 全34テーブルの生データ閲覧（読み取り専用）。7グループ分類, SWR 60秒ポーリング, LIVE インジケータ, ページネーション, ソート, JSONB/vector 展開表示, 機密列マスク | 全テーブル (information_schema経由) |
 
 ### 6.11 ダッシュボード機能一覧 (サマリ)
 
@@ -2099,8 +2099,8 @@ ORDER BY agent_type, count DESC;
 | 17 | `GET` | `/api/weights/audit` | weight再計算の監査ログ | — | `{ audits: WeightAudit[] }` |
 | 18 | `POST` | `/api/kpi/snapshots` | KPIスナップショット手動トリガー | `{ platform?, year_month? }` | `{ snapshot: KpiSnapshot }` |
 | 19 | `GET` | `/api/kpi/snapshots` | KPIスナップショット一覧（platform, year_monthフィルター） | — | `{ snapshots: KpiSnapshot[] }` |
-| 20 | `GET` | `/api/database/tables` | 全33テーブルのメタデータ一覧（行数・カラム定義）。`pg_stat_user_tables` + `information_schema.columns` から取得。認証必須 | — | `{ tables: TableInfo[] }` |
-| 21 | `GET` | `/api/database/[table]?page&sort&order` | 指定テーブルのページネーション付き生データ取得。テーブル名はホワイトリスト33件で検証。vector列はソート除外 | — | `{ rows: Record<string,unknown>[], total: number, page: number, limit: number }` |
+| 20 | `GET` | `/api/database/tables` | 全34テーブルのメタデータ一覧（行数・カラム定義）。`pg_stat_user_tables` + `information_schema.columns` から取得。認証必須 | — | `{ tables: TableInfo[] }` |
+| 21 | `GET` | `/api/database/[table]?page&sort&order` | 指定テーブルのページネーション付き生データ取得。テーブル名はホワイトリスト34件で検証。vector列はソート除外 | — | `{ rows: Record<string,unknown>[], total: number, page: number, limit: number }` |
 
 ### 6.14 主要ページのコンポーネント構成
 
@@ -2139,7 +2139,7 @@ ORDER BY agent_type, count DESC;
 
 | コンポーネント名 | 種別 | 説明 |
 |---|---|---|
-| 左パネル (テーブルリスト) | ナビ | 33テーブルを7グループ（Entity/Production/Intelligence/Operations/Observability/Tool Management/System）に分類。インクリメンタルフィルター付き。各テーブルに `pg_stat_user_tables.n_live_tup` ベースの行数バッジを表示 |
+| 左パネル (テーブルリスト) | ナビ | 34テーブルを7グループ（Entity/Production/Intelligence/Operations/Observability/Tool Management/System）に分類。インクリメンタルフィルター付き。各テーブルに `pg_stat_user_tables.n_live_tup` ベースの行数バッジを表示 |
 | 右パネルヘッダー | 表示 | テーブル名 + 行数バッジ + 🔴 LIVE アニメーション + "Updated Xs ago" 毎秒カウンター + 手動リフレッシュボタン |
 | `DataTable` | テーブル | 選択テーブルの生データ。列ヘッダークリックでソート（vector列はソート無効）。最大200行/ページ |
 | `JsonPreviewCell` | セル | JSONB列: 100文字プレビュー + クリックで整形済みJSON展開（absolute dropdown） |
@@ -2151,7 +2151,7 @@ ORDER BY agent_type, count DESC;
 - `dashboard/app/database/page.tsx` — UI (SWR 60秒ポーリング)
 - `dashboard/app/api/database/tables/route.ts` — テーブルメタデータAPI (#20)
 - `dashboard/app/api/database/[table]/route.ts` — テーブルデータAPI (#21)
-- `dashboard/lib/database-tables.ts` — テーブルホワイトリスト (`ALLOWED_TABLES` 33件) と `TABLE_GROUPS` 定数
+- `dashboard/lib/database-tables.ts` — テーブルホワイトリスト (`ALLOWED_TABLES` 34件) と `TABLE_GROUPS` 定数
 
 #### #12 エラーログ — `/errors`
 
@@ -2203,7 +2203,7 @@ flowchart TD
 
     subgraph storage["全データの最終保存先"]
         direction LR
-        pg["PostgreSQL<br/>content / components / metrics<br/>hypotheses / learnings<br/>agent_thought_logs<br/>(全33テーブル)"]
+        pg["PostgreSQL<br/>content / components / metrics<br/>hypotheses / learnings<br/>agent_thought_logs<br/>(全34テーブル)"]
         drive["Google Drive<br/>final.mp4 / section_*.mp4<br/>キャラクター画像"]
     end
 
@@ -3355,7 +3355,7 @@ flowchart LR
 │  │  │ mcp-server │ │ strategy-  │ │production│ │posting-     │ │     │
 │  │  │            │ │ agent      │ │-agent    │ │agent        │ │     │
 │  │  │ Node.js    │ │ LangGraph  │ │LangGraph │ │LangGraph    │ │     │
-│  │  │ 103 MCP  │ │ .js        │ │.js +     │ │.js          │ │      │
+│  │  │ 122 MCP  │ │ .js        │ │.js +     │ │.js          │ │      │
 │  │  │ + 21 API  │ │            │ │ffmpeg    │ │             │ │       │
 │  │  │            │ │            │ │          │ │             │ │     │
 │  │  │ port: 3100 │ │ Opus +     │ │          │ │ Sonnet×N   │ │      │
@@ -3388,7 +3388,7 @@ flowchart LR
 | コンテナ名 | ベースイメージ | 役割 | ポート | 特記事項 |
 |---|---|---|---|---|
 | `postgres` | `pgvector/pgvector:pg16` | PostgreSQL 16 + pgvector拡張 | 5433 (dev) | **開発環境のみ**。本番はCloud SQL。ヘルスチェック: `pg_isready` |
-| `mcp-server` | `node:20-slim` | MCP Server (103 MCPツール) | 3100 | SQL実行 + Drive API。21 Dashboard REST APIはdashboard側 |
+| `mcp-server` | `node:20-slim` | MCP Server (122 MCPツール) | 3100 | SQL実行 + Drive API。21 Dashboard REST APIはdashboard側 |
 | `strategy-agent` | `node:20-slim` | 戦略サイクルグラフ (日次)。データキュレーターを内包 | 3200 | Opus + Sonnet×3 (リサーチャー+アナリスト+プランナー) + ツールSP + データキュレーター |
 | `production-agent` | `node:20-slim` + ffmpeg | 制作パイプライングラフ (連続) | 3300 | fal.ai + Fish Audio + ffmpeg |
 | `posting-agent` | `node:20-slim` | 投稿スケジューラーグラフ (連続) | 3400 | 4プラットフォームアダプター |
