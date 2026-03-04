@@ -1021,7 +1021,7 @@ flowchart TD
 
 **サイドバー**: 全画面サイズで折りたたみ可能。折りたたみ時はアイコンのみ表示（`--sidebar-width-collapsed: 3rem`）。展開時は `--sidebar-width: 14rem`。状態は `localStorage` に永続化。メインコンテンツとサイドバーは独立スクロール。
 
-**認証**: NextAuth.js v4 + Google OAuth (JWT session, 24h) — メールホワイトリスト (`AUTH_ALLOWED_EMAILS`) + ロール制御 (`AUTH_USER_ROLES`) を `system_settings` から動的読み込み。viewer ロールは API の POST/PUT/DELETE を 403 で拒否。
+**認証**: NextAuth.js v4 + Google OAuth (JWT session, 24h) — メールホワイトリスト (`AUTH_ALLOWED_EMAILS`) + ロール制御 (`AUTH_USER_ROLES`) を `system_settings` から動的読み込み。viewer ロールは API の POST/PUT/DELETE を 403 で拒否。パブリックパス（認証不要）: `/login`, `/api/auth/*`, `/about`, `/privacy`, `/terms`。
 **外部通知**: なし (Slack/メール連携なし) — ダッシュボード画面のみで完結
 **自動更新**: `DASHBOARD_AUTO_REFRESH_SEC` (system_settings) で設定可能
 
@@ -2978,7 +2978,7 @@ async function getSetting(key: string): Promise<any> {
 | プラットフォーム | 識別子 | 認証方式 | 主要フィールド |
 |---------------|-------|---------|-------------|
 | YouTube | `channel_id` | OAuth2 | `client_id`, `client_secret`, `refresh_token` |
-| TikTok | `open_id` | OAuth2 | `client_key`, `client_secret`, `access_token`, `refresh_token` |
+| TikTok | `open_id` | OAuth2 | `access_token`, `refresh_token` (client_key/secret は system_settings: TIKTOK_CLIENT_KEY/TIKTOK_CLIENT_SECRET) |
 | Instagram | `ig_user_id` + `page_id` | Facebook OAuth | `app_id`, `app_secret`, `long_lived_token` |
 | X | `user_id` | OAuth 1.0a | `api_key`, `api_secret`, `access_token`, `access_token_secret` |
 

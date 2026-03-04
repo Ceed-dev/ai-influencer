@@ -3,8 +3,9 @@
  * Spec: 04-agent-design.md §4.7 — publish_to_tiktok
  *
  * Uses TikTok Content Posting API to upload videos.
- * OAuth credentials stored in accounts.auth_credentials:
- *   { oauth: { client_key, client_secret, access_token, refresh_token, expires_at }, open_id }
+ * OAuth credentials:
+ *   - client_key, client_secret: system_settings (TIKTOK_CLIENT_KEY, TIKTOK_CLIENT_SECRET)
+ *   - Per-account in accounts.auth_credentials: { oauth: { access_token, refresh_token, expires_at }, open_id }
  */
 import type { Platform } from '@/types/database';
 import type { PlatformAdapter, PublishTaskPayload, PublishResult } from './types.js';
@@ -15,8 +16,6 @@ import { retryWithBackoff } from '../../../lib/retry.js';
 // ── Types ────────────────────────────────────────────────────────────────────
 
 interface TikTokOAuth {
-  client_key: string;
-  client_secret: string;
   access_token: string;
   refresh_token: string;
   expires_at: string;
@@ -62,14 +61,10 @@ interface TikTokTokenResponse {
 function parseCredentials(raw: Record<string, unknown>): TikTokCredentials {
   const oauth = raw['oauth'] as Record<string, unknown> | undefined;
   if (!oauth) throw new Error('Missing oauth in auth_credentials');
-  if (!oauth['client_key']) throw new Error('Missing oauth.client_key');
-  if (!oauth['client_secret']) throw new Error('Missing oauth.client_secret');
   if (!oauth['refresh_token']) throw new Error('Missing oauth.refresh_token');
 
   return {
     oauth: {
-      client_key: String(oauth['client_key']),
-      client_secret: String(oauth['client_secret']),
       access_token: String(oauth['access_token'] ?? ''),
       refresh_token: String(oauth['refresh_token']),
       expires_at: String(oauth['expires_at'] ?? ''),
@@ -370,14 +365,17 @@ export class TikTokAdapter implements PlatformAdapter {
     }
 
     try {
+      const clientKey = await getSettingString('TIKTOK_CLIENT_KEY');
+      const clientSecret = await getSettingString('TIKTOK_CLIENT_SECRET');
+
       const response = await retryWithBackoff(
         async () => {
           const resp = await fetch('https://open.tiktokapis.com/v2/oauth/token/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: new URLSearchParams({
-              client_key: creds.oauth.client_key,
-              client_secret: creds.oauth.client_secret,
+              client_key: clientKey,
+              client_secret: clientSecret,
               grant_type: 'refresh_token',
               refresh_token: creds.oauth.refresh_token,
             }),
