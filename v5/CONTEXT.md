@@ -329,6 +329,16 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 
 **Quality check:** typecheck ✅ / tests 211/211 ✅
 
+### Session 20: Add viewer user T.S.0131.1998@gmail.com (2026-03-04)
+
+**Added new viewer-role dashboard user:**
+- `T.S.0131.1998@gmail.com` — viewer role
+- Updated `sql/010_auth_settings.sql` — AUTH_ALLOWED_EMAILS + AUTH_USER_ROLES
+- Updated `docs/v5-specification/03-database-schema.md`
+- Cloud SQL updated directly via SSH
+- Dashboard container restarted (`docker restart v5-dashboard`)
+- **⚠️ GCP OAuth consent screen (Testing mode): T.S.0131.1998@gmail.com must be added as test user manually in GCP Console**
+
 ### Session 19: Spec/CONTEXT Consistency Fix (2026-03-04)
 
 **Strict review by negative-review agent — 13 issues found and fixed**

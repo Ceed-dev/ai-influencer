@@ -3642,8 +3642,8 @@ INSERT INTO system_settings (setting_key, setting_value, category, description, 
 ('DASHBOARD_THEME', '"dark"', 'dashboard', 'ダッシュボードのカラーテーマ。dark=Solarized Dark, light=Solarized Light', '"dark"', 'enum', '{"options": ["dark", "light"]}'),
 ('DASHBOARD_ITEMS_PER_PAGE', '20', 'dashboard', '一覧画面のデフォルト表示件数', '20', 'integer', '{"min": 10, "max": 100}'),
 ('DASHBOARD_AUTO_REFRESH_SEC', '30', 'dashboard', 'ダッシュボードの自動リフレッシュ間隔（秒）。0=無効', '30', 'integer', '{"min": 0, "max": 300}'),
-('AUTH_ALLOWED_EMAILS', '["pochi@0xqube.xyz", "zach@0xqube.xyz", "badhan@0xqube.xyz"]', 'dashboard', 'Google OAuthでサインイン許可するメールアドレスのJSON配列', '[]', 'json', null),
-('AUTH_USER_ROLES', '{"pochi@0xqube.xyz": "admin", "zach@0xqube.xyz": "viewer", "badhan@0xqube.xyz": "viewer"}', 'dashboard', 'メールアドレス→ロール(admin/viewer)のJSONマッピング', '{}', 'json', null),
+('AUTH_ALLOWED_EMAILS', '["pochi@0xqube.xyz", "zach@0xqube.xyz", "badhan@0xqube.xyz", "T.S.0131.1998@gmail.com"]', 'dashboard', 'Google OAuthでサインイン許可するメールアドレスのJSON配列', '[]', 'json', null),
+('AUTH_USER_ROLES', '{"pochi@0xqube.xyz": "admin", "zach@0xqube.xyz": "viewer", "badhan@0xqube.xyz": "viewer", "T.S.0131.1998@gmail.com": "viewer"}', 'dashboard', 'メールアドレス→ロール(admin/viewer)のJSONマッピング', '{}', 'json', null),
 
 -- Credential settings (values are placeholder, human must set via dashboard)
 ('CRED_FAL_AI_API_KEY', '""', 'credentials', 'fal.ai APIキー。ダッシュボードの設定画面から入力', '""', 'string', null),
