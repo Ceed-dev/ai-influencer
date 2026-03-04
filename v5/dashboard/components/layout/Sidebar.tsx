@@ -172,7 +172,7 @@ export function Sidebar({ open, collapsed, onClose, onToggleCollapse }: SidebarP
         ))}
       </nav>
 
-      {/* Footer links — About / Privacy */}
+      {/* Footer links — About / Privacy / Terms */}
       {!collapsed && (
         <div className="border-t px-3 py-2 flex gap-3 justify-center">
           <Link
@@ -187,6 +187,13 @@ export function Sidebar({ open, collapsed, onClose, onToggleCollapse }: SidebarP
             className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
           >
             Privacy
+          </Link>
+          <span className="text-[11px] text-muted-foreground/40">·</span>
+          <Link
+            href="/terms"
+            className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Terms
           </Link>
         </div>
       )}
