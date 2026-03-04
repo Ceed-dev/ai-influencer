@@ -159,6 +159,14 @@ import { updatePromptSuggestionStatus } from './tools/agent-mgmt/update-prompt-s
 import { checkToolCount } from './tools/agent-mgmt/check-tool-count.js';
 
 // ---------------------------------------------------------------------------
+// Content Playbook tools
+// ---------------------------------------------------------------------------
+import { savePlaybook } from './tools/playbook/save-playbook.js';
+import { searchPlaybooks } from './tools/playbook/search-playbooks.js';
+import { getPlaybook } from './tools/playbook/get-playbook.js';
+import { updatePlaybookEffectiveness } from './tools/playbook/update-playbook-effectiveness.js';
+
+// ---------------------------------------------------------------------------
 // Learning / self-learning tools
 // ---------------------------------------------------------------------------
 import { getRecentReflections } from './tools/learning/get-recent-reflections.js';
@@ -1143,6 +1151,58 @@ server.tool(
     key_insight: z.string(),
   }),
   wrapTool(saveMicroReflection),
+);
+
+// ---------------------------------------------------------------------------
+// 4.14 Content Playbook tools (4 tools)
+// ---------------------------------------------------------------------------
+
+server.tool(
+  'save_playbook',
+  'Saves a content playbook with auto-generated embedding',
+  schema({
+    playbook_name: z.string(),
+    content_type: z.string(),
+    content_format: z.enum(['short_video', 'text_post', 'image_post']),
+    niche: z.string().optional(),
+    platform: z.string().optional(),
+    markdown_content: z.string(),
+    created_by: z.enum(['human', 'agent']).optional(),
+  }),
+  wrapTool(savePlaybook),
+);
+
+server.tool(
+  'search_playbooks',
+  'Vector search for matching playbooks by query text',
+  schema({
+    query_text: z.string(),
+    content_format: z.enum(['short_video', 'text_post', 'image_post']).optional(),
+    niche: z.string().optional(),
+    platform: z.string().optional(),
+    limit: z.number().optional(),
+  }),
+  wrapTool(searchPlaybooks),
+);
+
+server.tool(
+  'get_playbook',
+  'Gets a playbook by id or playbook_name',
+  schema({
+    id: z.number().optional(),
+    playbook_name: z.string().optional(),
+  }),
+  wrapTool(getPlaybook),
+);
+
+server.tool(
+  'update_playbook_effectiveness',
+  'Updates playbook effectiveness score with rolling average',
+  schema({
+    id: z.number(),
+    effectiveness_score: z.number(),
+  }),
+  wrapTool(updatePlaybookEffectiveness),
 );
 
 // ---------------------------------------------------------------------------

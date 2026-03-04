@@ -39,6 +39,7 @@ import type {
   Platform,
   MarketIntelType,
   ComponentType,
+  ContentPlaybookRow,
 } from './database';
 
 // ============================================================================
@@ -1581,6 +1582,69 @@ export interface GetDailyMicroAnalysesSummaryOutput {
 // ============================================================================
 
 // ============================================================================
+// 4.14 Content Playbook Tools (4 tools)
+// コンテンツ型別制作指示書（Playbook）の保存・検索・取得・効果更新
+// ============================================================================
+
+/** FEAT-CPB-001: save_playbook — Playbookの保存（embedding自動生成） */
+export interface SavePlaybookInput {
+  playbook_name: string;
+  content_type: string;
+  content_format: 'short_video' | 'text_post' | 'image_post';
+  niche?: string;
+  platform?: string;
+  markdown_content: string;
+  created_by?: 'human' | 'agent';
+}
+export interface SavePlaybookOutput {
+  id: number;
+  playbook_name: string;
+  created_at: string;
+}
+
+/** FEAT-CPB-002: search_playbooks — ベクトル検索でPlaybookを検索 */
+export interface SearchPlaybooksInput {
+  query_text: string;
+  content_format?: 'short_video' | 'text_post' | 'image_post';
+  niche?: string;
+  platform?: string;
+  limit?: number;
+}
+export interface SearchPlaybooksOutput {
+  results: Array<{
+    id: number;
+    playbook_name: string;
+    content_type: string;
+    content_format: string;
+    niche: string | null;
+    platform: string | null;
+    markdown_content: string;
+    similarity: number;
+    avg_effectiveness_score: number | null;
+  }>;
+}
+
+/** FEAT-CPB-003: get_playbook — id or playbook_nameで取得 */
+export interface GetPlaybookInput {
+  id?: number;
+  playbook_name?: string;
+}
+export interface GetPlaybookOutput {
+  playbook: ContentPlaybookRow | null;
+}
+
+/** FEAT-CPB-004: update_playbook_effectiveness — 効果スコアのrolling avg更新 */
+export interface UpdatePlaybookEffectivenessInput {
+  id: number;
+  effectiveness_score: number;
+}
+export interface UpdatePlaybookEffectivenessOutput {
+  id: number;
+  avg_effectiveness_score: number;
+  times_used: number;
+}
+
+// ============================================================================
 // Tool Registry — maps tool names to their Input/Output types
 // ============================================================================
 
@@ -1729,6 +1793,12 @@ export interface McpToolMap {
   create_micro_analysis: { input: CreateMicroAnalysisInput; output: CreateMicroAnalysisOutput };
   save_micro_reflection: { input: SaveMicroReflectionInput; output: SaveMicroReflectionOutput };
   // #12-14: shared with §4.3 #15-17 — listed in §4.3 section above (get_content_metrics, get_content_prediction, get_daily_micro_analyses_summary)
+
+  // 4.14 Content Playbook (4)
+  save_playbook: { input: SavePlaybookInput; output: SavePlaybookOutput };
+  search_playbooks: { input: SearchPlaybooksInput; output: SearchPlaybooksOutput };
+  get_playbook: { input: GetPlaybookInput; output: GetPlaybookOutput };
+  update_playbook_effectiveness: { input: UpdatePlaybookEffectivenessInput; output: UpdatePlaybookEffectivenessOutput };
 
   // 4.13 Dashboard Algorithm/KPI REST (6 tools) — types in api-schemas.ts #14-19
   // NOT in McpToolMap: get_content_prediction_detail, get_algorithm_performance,

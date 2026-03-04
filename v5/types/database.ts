@@ -2388,6 +2388,42 @@ export interface AdjustmentFactorCacheUpdateInput {
 }
 
 // ============================================================================
+// Content Playbooks
+// ============================================================================
+
+/** Row type for the `content_playbooks` table */
+export interface ContentPlaybookRow {
+  /** SERIAL auto-increment primary key */
+  id: number;
+  /** Unique playbook name */
+  playbook_name: string;
+  /** Content type label (e.g. 'tutorial', 'entertainment') */
+  content_type: string;
+  /** Content format constraint */
+  content_format: 'short_video' | 'text_post' | 'image_post';
+  /** Optional niche filter */
+  niche: string | null;
+  /** Optional platform filter */
+  platform: string | null;
+  /** Full playbook in Markdown */
+  markdown_content: string;
+  /** pgvector 1536-dim embedding for similarity search */
+  embedding: number[] | null;
+  /** Rolling average effectiveness score (0–1) */
+  avg_effectiveness_score: number | null;
+  /** Number of times this playbook has been used */
+  times_used: number;
+  /** Whether the playbook is active */
+  is_active: boolean;
+  /** Who created it */
+  created_by: 'human' | 'agent';
+  /** ISO 8601 timestamp */
+  created_at: string;
+  /** ISO 8601 timestamp */
+  updated_at: string;
+}
+
+// ============================================================================
 // Utility Types
 // ============================================================================
 
@@ -2433,7 +2469,9 @@ export type TableName =
   | 'account_baselines'
   | 'adjustment_factor_cache'
   // System Layer
-  | 'system_settings';
+  | 'system_settings'
+  // Content Playbooks
+  | 'content_playbooks';
 
 /** Map from table name to its Row type */
 export interface AllRowTypes {
@@ -2470,4 +2508,5 @@ export interface AllRowTypes {
   account_baselines: AccountBaselineRow;
   adjustment_factor_cache: AdjustmentFactorCacheRow;
   system_settings: SystemSettingRow;
+  content_playbooks: ContentPlaybookRow;
 }

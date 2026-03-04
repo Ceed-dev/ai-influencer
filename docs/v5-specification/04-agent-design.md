@@ -735,9 +735,9 @@ COMMIT;
 
 > **ツール数変更**: 14→22 (+8 予測・KPI・バッチツール)
 
-### 4.4 プランナー用 (9ツール)
+### 4.4 プランナー用 (11ツール)
 
-コンテンツ計画の策定に必要なツール群。担当アカウントの情報取得と、コンテンツ計画の作成・スケジューリングに特化。
+コンテンツ計画の策定に必要なツール群。担当アカウントの情報取得と、コンテンツ計画の作成・スケジューリングに特化。Playbook検索により制作ノウハウを参照可能。
 
 | # | ツール名 | 引数 | 戻り値 | 用途 |
 |---|---------|------|--------|------|
@@ -750,10 +750,12 @@ COMMIT;
 | 7 | `get_niche_learnings` | `{ niche, min_confidence: 0.5, limit: 10 }` | `[{ insight, confidence, category }]` | ニッチ関連の知見取得 |
 | 8 | `get_content_pool_status` | `{ cluster }` | `{ content: { pending_approval, planned, producing, ready, analyzed }, publications: { scheduled, posted, measured } }` | コンテンツプールの状況 |
 | 9 | `request_production` | `{ content_id, priority: 0 }` | `{ task_id }` | 制作タスクの発行 (task_queueにINSERT) |
+| 10 | `search_playbooks` (CPB-002) | `{ query_text, content_format?, niche?, platform?, limit: 5 }` | `[{ id, playbook_name, niche, similarity, avg_effectiveness_score }]` | Playbookのセマンティック検索。制作計画策定時にニッチ・フォーマットに合ったPlaybookを検索 |
+| 11 | `get_playbook` (CPB-003) | `{ id?, playbook_name? }` | `{ id, playbook_name, markdown_content, avg_effectiveness_score, times_used }` | Playbook全文の取得。制作フロー・パラメータ設定等の詳細ノウハウを参照 |
 
-### 4.5 ツールスペシャリスト用 (5ツール)
+### 4.5 ツールスペシャリスト用 (9ツール)
 
-AIツール知識の管理・検索・制作レシピ設計のためのツール群。
+AIツール知識の管理・検索・制作レシピ設計・Playbook管理のためのツール群。
 
 | # | ツール名 | 引数 | 戻り値 | 用途 |
 |---|---------|------|--------|------|
@@ -762,6 +764,10 @@ AIツール知識の管理・検索・制作レシピ設計のためのツール
 | 3 | `search_similar_tool_usage` | `{ requirements: { character_type?, niche?, content_type?, quality_priority? }, limit: 5 }` | `[{ tool_combination, avg_quality_score, usage_count, notes }]` | 類似要件でのツール使用実績検索 |
 | 4 | `get_tool_recommendations` | `{ content_requirements: { character_id, niche, platform, quality_target } }` | `{ recipe: { video_gen, tts, lipsync, concat }, rationale, confidence, alternatives[] }` | コンテンツ要件に対する最適ツール組み合わせ（制作レシピ）の推奨 |
 | 5 | `update_tool_knowledge_from_external` | `{ tool_name, update_type: "capability" \| "pricing" \| "api_change" \| "bug", description, source_url? }` | `{ id }` | 外部情報からのツール知識更新 |
+| 6 | `save_playbook` (CPB-001) | `{ playbook_name, content_type, content_format, niche?, platform?, markdown_content, created_by? }` | `{ id }` | Playbookの新規保存。embeddingを自動生成してpgvectorに格納 |
+| 7 | `search_playbooks` (CPB-002) | `{ query_text, content_format?, niche?, platform?, limit: 5 }` | `[{ id, playbook_name, niche, similarity, avg_effectiveness_score }]` | Playbookのセマンティック検索。query_textからembeddingを生成しpgvector HNSW検索 |
+| 8 | `get_playbook` (CPB-003) | `{ id?, playbook_name? }` | `{ id, playbook_name, markdown_content, avg_effectiveness_score, times_used }` | Playbook全文の取得。times_usedを自動インクリメント |
+| 9 | `update_playbook_effectiveness` (CPB-004) | `{ id, effectiveness_score, content_id? }` | `{ success, new_avg_effectiveness_score }` | Playbook有効性スコアの更新（ローリング平均）。制作完了後の品質評価を反映 |
 
 ### 4.6 制作ワーカー用 (12ツール)
 
@@ -935,8 +941,8 @@ flowchart TB
 | **collect_intel** | get_recent_intel, get_niche_trends, get_platform_changes, get_competitor_analysis, search_similar_intel, get_recent_reflections (前回振り返り読込), get_individual_learnings (個別学習読込) |
 | **analyze_cycle** | get_metrics_for_analysis, get_hypothesis_results, verify_hypothesis, detect_anomalies, extract_learning, calculate_algorithm_performance, create_analysis |
 | **set_strategy** | get_portfolio_kpi_summary, get_top_learnings, get_pending_directives, create_cycle, set_cycle_plan, allocate_resources, send_planner_directive |
-| **plan_content** | get_assigned_accounts, get_account_performance, get_available_components, create_hypothesis, plan_content, schedule_content, get_niche_learnings, get_content_pool_status / rejection_categoryで戻り先決定 |
-| **select_tools** | get_tool_knowledge, search_similar_tool_usage, get_tool_recommendations, save_tool_experience, get_individual_learnings, update_tool_knowledge_from_external |
+| **plan_content** | get_assigned_accounts, get_account_performance, get_available_components, create_hypothesis, plan_content, schedule_content, get_niche_learnings, get_content_pool_status, search_playbooks, get_playbook / rejection_categoryで戻り先決定 |
+| **select_tools** | get_tool_knowledge, search_similar_tool_usage, get_tool_recommendations, save_tool_experience, get_individual_learnings, update_tool_knowledge_from_external, save_playbook, search_playbooks, get_playbook, update_playbook_effectiveness |
 | **approve_plan** | get_portfolio_kpi_summary (再確認), get_active_hypotheses, get_content_pool_status |
 | **reflect_all** | save_reflection, save_individual_learning, submit_agent_message, get_recent_reflections |
 
