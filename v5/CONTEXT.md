@@ -1,7 +1,7 @@
 # v5.0 Implementation Context
 
 > This file tracks the current state of the v5.0 implementation for session continuity.
-> Updated: 2026-03-03
+> Updated: 2026-03-04
 
 ## Current State: Production-Ready
 
@@ -13,7 +13,7 @@
 
 ### Source Stats
 - ~200+ source files
-- 4 LangGraph graphs, 111 MCP tools, 31 REST API routes
+- 4 LangGraph graphs, 111 MCP tools, 21 REST API routes (dashboard)
 - 33 DB tables, 156 indexes, 15 triggers, 126 system_settings
 
 ## Session History
@@ -303,6 +303,43 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 - Edit→Save+Cancel: no layout shift on other rows
 - Cancel: returns to Edit button state
 - Tab switching: correct filtering per category
+
+### Session 18: Database Viewer Page (2026-03-04)
+
+**New feature: read-only raw DB inspector (`/database`) — 16th dashboard page**
+
+**New files (4):**
+- `dashboard/lib/database-tables.ts` — `ALLOWED_TABLES` (33件ホワイトリスト) + `TABLE_GROUPS` 共有定数
+- `dashboard/app/api/database/tables/route.ts` — GET `/api/database/tables`: 全33テーブルのメタデータ（行数・カラム定義）
+- `dashboard/app/api/database/[table]/route.ts` — GET `/api/database/[table]?page&sort&order`: ページネーション付き生データ
+- `dashboard/app/database/page.tsx` — UI: 7グループ分類 + SWR 60秒ポーリング + LIVE インジケータ
+
+**Modified files (3):**
+- `dashboard/components/layout/Sidebar.tsx` — Database ナビアイテム追加
+- `dashboard/lib/i18n/en.json` / `ja.json` — `database.*` i18n キー追加（totalCount含む）
+
+**Key design decisions:**
+- `pg_stat_user_tables.n_live_tup` でリアルタイム行数（`pg_class.reltuples` は ANALYZE 未実行で -1 になるため不適）
+- `information_schema.columns` に `table_schema = 'public'` フィルタ（スキーマ混在防止）
+- vector 列は `ORDER BY` 不可 → `sortableColumns` から除外、ヘッダークリック無効
+- `accounts.auth_credentials` → `[MASKED]`、`system_settings` の `CRED_*` 値 → `••••••••`
+- `Number.isFinite()` ガード（`Math.max(1, NaN) === NaN` バグ対策）
+- `TABLE_GROUPS` を `lib/database-tables.ts` に一元化（page.tsx で独自定義していた DRY 違反を解消）
+
+**Best practices applied (7 fixes across 3 review rounds):**
+1. `pg_stat_user_tables` に `schemaname = 'public'` 追加
+2. `TABLE_GROUPS` DRY 違反解消（lib からimport）
+3. `find(t => ...)` の変数シャドウ修正 → `find(tbl => ...)`
+4. ページネーション `"total rows"` ハードコード → i18n 化
+5. `handleSort` の setter 内 setter アンチパターン解消
+6. `selectedMeta` を `useMemo` 化
+7. `useEffect` で `lastUpdatedAt === null` 時の不要 interval 生成を排除
+
+**Spec docs updated:**
+- `02-architecture.md` §6.10/#16追加, §6.13/#20-#21追加, §6.14/#16セクション新設, REST API 19→21, 計122→124
+- `10-implementation-guide.md` ディレクトリ構造・REST API表・ページ一覧 全更新 (15→16画面, 19→21 REST API)
+
+**Commit:** `1b640af feat(dashboard): add Database Viewer page (/database)` (develop branch)
 
 ### Session 17: Dashboard Team Access Setup (2026-03-03)
 
