@@ -304,6 +304,31 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 - Cancel: returns to Edit button state
 - Tab switching: correct filtering per category
 
+### Session 20: TikTok API Setup + Terms of Service Page (2026-03-04)
+
+**TikTok Developer App作成 + クレデンシャル登録:**
+- TikTok for Developers で `AI-Influencer` アプリ作成（個人、Category: Social Networking）
+- Products: Login Kit + Content Posting API 追加
+- Scopes: `user.info.basic` (Login Kit自動), `video.upload` (Content Posting API), `video.list` 追加
+- `TIKTOK_CLIENT_KEY` / `TIKTOK_CLIENT_SECRET` を `system_settings` に登録（YouTubeと同じ設計）
+
+**コード修正 — TikTok credentials設計をYouTubeと統一:**
+- `src/workers/posting/adapters/tiktok.ts`: `client_key`/`client_secret` を per-account `auth_credentials` から `system_settings` (TIKTOK_CLIENT_KEY/TIKTOK_CLIENT_SECRET) 読み込みに変更
+- `src/workers/measurement/adapters/tiktok-analytics.ts`: `refreshTikTokToken()` も同様に `system_settings` から読み込み
+- 各アカウントの `auth_credentials` には `access_token`, `refresh_token`, `open_id`, `expires_at` のみ保存
+
+**Terms of Serviceページ追加 + Privacy Policy更新:**
+- `dashboard/app/terms/page.tsx`: 新規作成（9セクション、TikTok/YouTube両方対応）
+- `dashboard/app/privacy/page.tsx`: TikTokセクション追加（§8 TikTok API Services、データ収集にTikTokトークン・open_id・メトリクスを明記）
+- `dashboard/middleware.ts`: `/terms` をPUBLIC_PATHSに追加
+- 外部アクセス確認: `https://ai-dash.0xqube.xyz/terms` / `/privacy` ともにHTTP 200 ✅
+
+**仕様書更新:**
+- `02-architecture.md`: パブリックパスに `/terms` 追加、TikTok auth_credentials設計更新
+- `03-database-schema.md`: TikTok auth_credentials から client_key/secret を除外、system_settings参照を明記
+
+**Quality check:** typecheck ✅ / tests 211/211 ✅
+
 ### Session 19: Spec/CONTEXT Consistency Fix (2026-03-04)
 
 **Strict review by negative-review agent — 13 issues found and fixed**

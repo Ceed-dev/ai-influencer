@@ -4,29 +4,35 @@
  *
  * Uses TikTok Content Posting API v2 for video query.
  * OAuth 2.0 with refresh_token for access_token renewal.
+ * client_key / client_secret read from system_settings (TIKTOK_CLIENT_KEY, TIKTOK_CLIENT_SECRET).
  */
 import type { CollectTiktokMetricsOutput } from '../../../../types/mcp-tools.js';
 import type { OAuthCredentials } from './types.js';
 import { handleApiResponse } from './types.js';
+import { getSettingString } from '../../../lib/settings.js';
 
 /**
  * Refresh TikTok OAuth2 access token using refresh_token.
  * POST https://open.tiktokapis.com/v2/oauth/token/
+ * client_key and client_secret are read from system_settings.
  */
 export async function refreshTikTokToken(
   oauth: OAuthCredentials,
 ): Promise<string> {
-  const { client_key, client_secret, refresh_token } = oauth;
-  if (!client_key || !client_secret || !refresh_token) {
-    throw new Error('Missing TikTok OAuth credentials (client_key, client_secret, refresh_token)');
+  const { refresh_token } = oauth;
+  if (!refresh_token) {
+    throw new Error('Missing TikTok OAuth credentials (refresh_token)');
   }
+
+  const clientKey = await getSettingString('TIKTOK_CLIENT_KEY');
+  const clientSecret = await getSettingString('TIKTOK_CLIENT_SECRET');
 
   const resp = await fetch('https://open.tiktokapis.com/v2/oauth/token/', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
-      client_key,
-      client_secret,
+      client_key: clientKey,
+      client_secret: clientSecret,
       grant_type: 'refresh_token',
       refresh_token,
     }),

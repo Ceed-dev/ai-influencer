@@ -23,7 +23,7 @@ export default function PrivacyPage() {
             </a>
           </p>
           <p className="text-sm text-muted-foreground">
-            Effective Date: March 3, 2026
+            Effective Date: March 4, 2026
           </p>
         </div>
 
@@ -32,9 +32,10 @@ export default function PrivacyPage() {
             1. Data We Collect
           </h2>
           <p className="leading-relaxed text-muted-foreground">
-            When you authorize this application via Google OAuth 2.0, we collect
-            and store only the following:
+            When you authorize this application, we collect and store only the
+            following data per platform:
           </p>
+          <p className="font-medium text-foreground mt-2">YouTube</p>
           <ul className="list-disc pl-6 space-y-1 text-muted-foreground">
             <li>
               <strong className="text-foreground">YouTube OAuth tokens</strong>{" "}
@@ -52,11 +53,27 @@ export default function PrivacyPage() {
               content performance.
             </li>
           </ul>
-          <p className="leading-relaxed text-muted-foreground">
+          <p className="font-medium text-foreground mt-2">TikTok</p>
+          <ul className="list-disc pl-6 space-y-1 text-muted-foreground">
+            <li>
+              <strong className="text-foreground">TikTok OAuth tokens</strong>{" "}
+              (access token and refresh token) to maintain authorized access to
+              your TikTok account.
+            </li>
+            <li>
+              <strong className="text-foreground">TikTok open_id</strong> to
+              identify which account to post to.
+            </li>
+            <li>
+              <strong className="text-foreground">TikTok video metrics</strong>{" "}
+              (views, likes, comments, shares) accessed via the TikTok Video
+              Query API to measure content performance.
+            </li>
+          </ul>
+          <p className="leading-relaxed text-muted-foreground mt-2">
             We do <strong className="text-foreground">not</strong> collect your
-            video viewing history, personal information, contacts, or any YouTube
-            data beyond what is required for video uploading and performance
-            measurement.
+            personal profile information, followers, DMs, or any platform data
+            beyond what is required for video posting and performance measurement.
           </p>
         </section>
 
@@ -71,12 +88,13 @@ export default function PrivacyPage() {
             <li>
               <strong className="text-foreground">Video uploading</strong> —
               uploading videos to your authorized YouTube channel via the YouTube
-              Data API v3.
+              Data API v3, and to your authorized TikTok account via the TikTok
+              Content Posting API v2.
             </li>
             <li>
               <strong className="text-foreground">Performance measurement</strong> —
-              retrieving channel analytics (views, watch time, engagement) via
-              the YouTube Analytics API v2 to optimize content strategy.
+              retrieving video analytics (views, engagement) to optimize content
+              strategy.
             </li>
           </ul>
           <p className="leading-relaxed text-muted-foreground">
@@ -193,7 +211,56 @@ export default function PrivacyPage() {
 
         <section className="space-y-3">
           <h2 className="text-xl font-semibold text-foreground">
-            8. Contact Us
+            8. TikTok API Services
+          </h2>
+          <p className="leading-relaxed text-muted-foreground">
+            This application uses the TikTok Content Posting API v2 and TikTok
+            Video Query API. Data accessed through TikTok APIs is used solely
+            for video posting and performance measurement as described in this
+            policy. By authorizing your TikTok account, you also agree to the
+            following:
+          </p>
+          <ul className="list-disc pl-6 space-y-1 text-muted-foreground">
+            <li>
+              <a
+                href="https://www.tiktok.com/legal/page/global/terms-of-service/en"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
+              >
+                TikTok Terms of Service
+              </a>
+            </li>
+            <li>
+              <a
+                href="https://www.tiktok.com/legal/page/global/privacy-policy/en"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
+              >
+                TikTok Privacy Policy
+              </a>
+            </li>
+            <li>
+              <a
+                href="https://www.tiktok.com/community-guidelines"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
+              >
+                TikTok Community Guidelines
+              </a>
+            </li>
+          </ul>
+          <p className="leading-relaxed text-muted-foreground">
+            You may revoke TikTok access at any time through your TikTok account
+            settings under &quot;Manage app permissions.&quot;
+          </p>
+        </section>
+
+        <section className="space-y-3">
+          <h2 className="text-xl font-semibold text-foreground">
+            9. Contact Us
           </h2>
           <p className="leading-relaxed text-muted-foreground">
             If you have questions about this privacy policy or wish to request
@@ -208,7 +275,10 @@ export default function PrivacyPage() {
           </p>
         </section>
 
-        <div className="border-t pt-6">
+        <div className="border-t pt-6 flex gap-4">
+          <Link href="/terms" className="text-primary hover:underline text-sm">
+            Terms of Service
+          </Link>
           <Link href="/about" className="text-primary hover:underline text-sm">
             About this application
           </Link>
