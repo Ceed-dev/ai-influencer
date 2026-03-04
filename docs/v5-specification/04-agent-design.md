@@ -780,7 +780,7 @@ AIツール知識の管理・検索・制作レシピ設計のためのツール
 | 7 | `start_tts` | `{ text, voice_id, language }` | `{ audio_url }` | Fish Audio TTS開始 |
 | 8 | `start_lipsync` | `{ video_url, audio_url }` | `{ request_id }` | fal.ai Lipsync開始 |
 | 9 | `upload_to_drive` | `{ file_url, folder_id, filename }` | `{ drive_file_id, drive_url }` | Google Driveアップロード |
-| 10 | `update_content_status` | `{ content_id, status, metadata? }` | `{ success }` | コンテンツステータス更新 |
+| 10 | `update_content_status` | `{ content_id, status, metadata? }` | `{ success }` | コンテンツステータス更新。status='ready'/'approved'時に自動でpublications(scheduled)+task_queue(publish)を作成。payload にtitle/description/tags/video_drive_idを含める (fetchPublishMetadata) |
 | 11 | `run_quality_check` | `{ content_id, video_url }` | `{ passed, checks: [...] }` | 品質チェック実行 |
 | 12 | `report_production_complete` | `{ task_id, content_id, drive_folder_id, video_drive_id }` | `{ success }` | 制作完了報告 |
 
@@ -791,10 +791,10 @@ AIツール知識の管理・検索・制作レシピ設計のためのツール
 | # | ツール名 | 引数 | 戻り値 | 用途 |
 |---|---------|------|--------|------|
 | 1 | `get_publish_task` | `{}` | `{ task_id, content_id, platform, payload }` or `null` | 投稿タスクの取得 |
-| 2 | `publish_to_youtube` | `{ content_id, title, description, tags, video_drive_id }` | `{ platform_post_id, post_url }` | YouTube投稿 |
-| 3 | `publish_to_tiktok` | `{ content_id, description, tags, video_drive_id }` | `{ platform_post_id, post_url }` | TikTok投稿 |
-| 4 | `publish_to_instagram` | `{ content_id, caption, tags, video_drive_id }` | `{ platform_post_id, post_url }` | Instagram投稿 |
-| 5 | `publish_to_x` | `{ content_id, text, video_drive_id }` | `{ platform_post_id, post_url }` | X/Twitter投稿 |
+| 2 | `publish_to_youtube` | `{ content_id, account_id, title, description, tags, video_drive_id }` | `{ platform_post_id, post_url }` | YouTube投稿 |
+| 3 | `publish_to_tiktok` | `{ content_id, account_id, description, tags, video_drive_id }` | `{ platform_post_id, post_url }` | TikTok投稿 |
+| 4 | `publish_to_instagram` | `{ content_id, account_id, caption, tags, video_drive_id }` | `{ platform_post_id, post_url }` | Instagram投稿 |
+| 5 | `publish_to_x` | `{ content_id, account_id, text, video_drive_id }` | `{ platform_post_id, post_url }` | X/Twitter投稿 |
 | 6 | `report_publish_result` | `{ task_id, content_id, platform_post_id, post_url, posted_at }` | `{ success }` | 投稿結果報告 |
 
 ### 4.8 計測ワーカー用 (7ツール)
@@ -809,7 +809,7 @@ AIツール知識の管理・検索・制作レシピ設計のためのツール
 | 4 | `collect_instagram_metrics` | `{ platform_post_id }` | `{ views, likes, comments, saves, reach, impressions }` | Instagram計測 |
 | 5 | `collect_x_metrics` | `{ platform_post_id }` | `{ impressions, likes, retweets, replies, quotes }` | X計測 |
 | 6 | `collect_account_metrics` | `{ account_id }` | `{ follower_count, follower_delta }` | アカウント全体メトリクス |
-| 7 | `report_measurement_complete` | `{ task_id, publication_id, metrics_data }` | `{ success }` | 計測完了報告 |
+| 7 | `report_measurement_complete` | `{ task_id, publication_id, measurement_point, metrics_data }` | `{ success }` | 計測完了報告 |
 
 ### 4.9 ダッシュボード用 (10ツール)
 
@@ -1316,10 +1316,10 @@ interface SectionResult {
 ```mermaid
 flowchart TB
     START["START"]
-    CS["check_schedule<br/>投稿対象の検出<br/>・status='ready'<br/>・投稿時間到来<br/>・レート制限確認<br/>MCP: get_publish_task<br/>条件: planned_post_date <= TODAY<br/>最適投稿時間帯 / PF投稿制限内"]
+    CS["check_schedule<br/>投稿対象の検出<br/>・status='ready'<br/>・投稿時間到来<br/>・レート制限確認<br/>MCP: get_publish_task<br/>条件: planned_post_date <= TODAY<br/>最適投稿時間帯 / PF投稿制限内<br/>JOIN publications ON content_id AND account_id<br/>(1:Nモデル: 同一content_idの他account投稿と混同防止)"]
     SL["sleep (30sec)"]
     PUB["publish<br/>プラットフォーム別投稿実行<br/>MCP: publish_to_youtube<br/>publish_to_tiktok<br/>publish_to_instagram<br/>publish_to_x"]
-    REC["record<br/>posted_at, post_url, measure_after設定<br/>予測スナップショット生成 (G5ワークフロー実行)<br/>MCP: report_publish_result, get_content_prediction"]
+    REC["record<br/>posted_at, post_url, measure_after設定<br/>予測スナップショット生成 (G5ワークフロー実行)<br/>※content.statusは変更しない (readyのまま、1:Nモデル対応)<br/>MCP: report_publish_result, get_content_prediction"]
     HE["handle_error<br/>retry or fail"]
 
     START --> CS
@@ -1394,11 +1394,11 @@ interface PublishMetadata {
 ```mermaid
 flowchart TB
     START["START"]
-    DT["detect_targets<br/>3ラウンドの検出:<br/>48h: actual_impressions_48h IS NULL AND posted_at+48h<=NOW()<br/>7d: actual_impressions_7d IS NULL AND posted_at+7d<=NOW()<br/>30d: actual_impressions_30d IS NULL AND posted_at+30d<=NOW()<br/>MCP: get_measurement_tasks"]
+    DT["detect_targets<br/>3ラウンドの検出:<br/>48h: actual_impressions_48h IS NULL AND posted_at+48h<=NOW()<br/>7d: actual_impressions_7d IS NULL AND posted_at+7d<=NOW()<br/>30d: actual_impressions_30d IS NULL AND posted_at+30d<=NOW()<br/>INNER JOIN prediction_snapshots (LEFT JOINは無限ループの原因)<br/>MCP: get_measurement_tasks"]
     SL["sleep (5min)"]
     COL["collect<br/>プラットフォームAPIからメトリクス取得<br/>MCP: collect_youtube_metrics<br/>collect_tiktok_metrics<br/>collect_instagram_metrics<br/>collect_x_metrics<br/>collect_account_metrics"]
-    SM["save_metrics<br/>metricsテーブルに保存 / engagement_rate計算<br/>prediction_error算出 (7d/30d)<br/>MCP: report_measurement_complete<br/>metrics INSERT / prediction_snapshots UPDATE<br/>publications.status → 'measured'"]
-    TA["trigger_analysis<br/>measurement_pointに応じた分析をキューに追加<br/>48h → task_queue INSERT (type='analyze', micro)<br/>7d → task_queue INSERT (type='analyze', cumulative)<br/>30d → 保存のみ (分析トリガーなし)"]
+    SM["save_metrics<br/>metricsテーブルに保存 / engagement_rate計算 (Math.min(1, ...))<br/>prediction_error算出 (7d/30d)<br/>MCP: report_measurement_complete<br/>metrics INSERT / prediction_snapshots UPDATE<br/>publications.status → 'measured' (30dラウンドのみ)"]
+    TA["trigger_analysis<br/>measurement_pointに応じた分析をキューに追加<br/>48h → task_queue INSERT (type='curate', micro)<br/>7d → task_queue INSERT (type='curate', cumulative)<br/>30d → 保存のみ (分析トリガーなし)"]
 
     START --> DT
     DT -- "なし" --> SL
@@ -2287,6 +2287,7 @@ MCPツール呼び出し:
 
   2. publish_to_youtube({
        content_id: "CNT_202603_0001",
+       account_id: "ACC_0013",
        title: "朝のスキンケアルーティン",
        description: "...",
        tags: ["skincare", "beauty", "morning"],
@@ -2301,7 +2302,7 @@ MCPツール呼び出し:
        post_url: "https://youtube.com/shorts/dQw4w9WgXcQ",
        posted_at: "2026-03-05T07:00:00Z"
      })
-     → publications INSERT (status='posted', posted_at, measure_after=posted_at+48h)
+     → publications UPDATE (scheduled→posted, posted_at, measure_after=posted_at+48h) / INSERT fallback
      → task_queue INSERT (type='measure', payload に measure_after を含める)
 
   4. get_content_prediction({                    ← NEW: 予測スナップショット生成 (G5)
@@ -2322,7 +2323,7 @@ MCPツール呼び出し:
 データフロー:
   [読み取り] task_queue → 投稿タスク取得
   [外部API] YouTube/TikTok/Instagram/X → 投稿実行
-  [書き込み] publications INSERT → 投稿記録 (status='posted')
+  [書き込み] publications UPDATE (scheduled→posted) / INSERT fallback → 投稿記録
   [書き込み] task_queue INSERT → 計測タスク発行 (measure_after設定)
   [読み取り] account_baselines → ベースライン取得                    ← NEW
   [読み取り] adjustment_factor_cache → 8要素の補正係数取得          ← NEW
@@ -2360,9 +2361,9 @@ MCPツール呼び出し:
      })
      → metrics INSERT (measurement_point='48h')
      → prediction_snapshots UPDATE (actual_impressions_48h=4800)  ← NEW
-     → publications UPDATE (status='measured')
+     → publications UPDATE (status='measured') ※30dラウンドのみ。48h/7dではstatusは'posted'のまま
      → accounts UPDATE (follower_count=1250)
-     → 分析トリガー: task_queue INSERT (type='analyze',          ← NEW
+     → 分析トリガー: task_queue INSERT (type='curate',           ← NEW (DB constraint: 'analyze'不可、'curate'を使用)
          payload={content_id, analysis_type:'micro'})
          ※ 48h計測 → 単発分析トリガー
          ※ 7d計測 → 累積分析トリガー + prediction_error_7d算出
@@ -2373,15 +2374,15 @@ MCPツール呼び出し:
   [外部API] YouTube/TikTok/Instagram/X Analytics API → メトリクス取得
   [書き込み] metrics INSERT → パフォーマンスデータ (measurement_point付き)
   [書き込み] prediction_snapshots UPDATE → 実績値・予測誤差を書込  ← NEW
-  [書き込み] publications UPDATE → status: posted → measured
+  [書き込み] publications UPDATE → status: posted → measured (30dラウンドのみ)
   [書き込み] accounts UPDATE → follower_count更新
-  [書き込み] task_queue INSERT → 分析タスク発行 (48h→micro, 7d→cumulative)  ← NEW
+  [書き込み] task_queue INSERT → 分析タスク発行 (type='curate', 48h→micro, 7d→cumulative)  ← NEW
 ```
 
 ### Step 8m: マイクロ分析 — per-content即時分析 (Type A)
 
 **実行者**: アナリスト (Claude Sonnet 4.5) — 軽量モードで自動実行
-**タイミング**: 48h計測完了後 (measurement_point='48h')。task_queue (type='analyze', analysis_type='micro') が計測ジョブから追加された時点
+**タイミング**: 48h計測完了後 (measurement_point='48h')。task_queue (type='curate', analysis_type='micro') が計測ジョブから追加された時点
 **所要時間**: ~MICRO_ANALYSIS_MAX_DURATION_SEC（system_settings、デフォルト: 30）秒
 
 ```
@@ -2389,7 +2390,7 @@ MCPツール呼び出し:
   計測ワーカーが report_measurement_complete (measurement_point='48h') を実行
     → metrics INSERT (measurement_point='48h')
     → prediction_snapshots UPDATE (actual_impressions_48h)
-    → task_queue INSERT (type='analyze', analysis_type='micro')
+    → task_queue INSERT (type='curate', analysis_type='micro')
     → アナリストがキューから取得して実行
 
 MCPツール呼び出し:
@@ -2519,7 +2520,7 @@ MCPツール呼び出し:
 ### Step 10m-B: 累積分析 — 7d計測後のpgvector検索+AI解釈
 
 **実行者**: アナリスト (Claude Sonnet 4.5)
-**タイミング**: 7d計測完了後 (measurement_point='7d')。task_queue (type='analyze', analysis_type='cumulative') から取得
+**タイミング**: 7d計測完了後 (measurement_point='7d')。task_queue (type='curate', analysis_type='cumulative') から取得
 **所要時間**: ~60-90秒
 **目的**: 過去の類似コンテンツ・仮説・知見をpgvectorで広く検索し、パターンを言語化
 
@@ -2527,7 +2528,7 @@ MCPツール呼び出し:
 累積分析のトリガー:
   計測ワーカーが 7d計測を完了
     → prediction_snapshots UPDATE (actual_impressions_7d, prediction_error_7d)
-    → task_queue INSERT (type='analyze', analysis_type='cumulative')
+    → task_queue INSERT (type='curate', analysis_type='cumulative')
 
 MCPツール呼び出し:
   1. run_cumulative_analysis({ content_id: "CNT_202603_0001" })
@@ -6019,7 +6020,7 @@ analysesテーブルのfindings / recommendationsをJSON形式で記録します
 | メトリクス | 意味 | 注意点 |
 |-----------|------|--------|
 | views | 再生/表示回数 | プラットフォームごとにカウント方法が異なる（TikTok: 1秒以上、YouTube: 意味のある視聴） |
-| engagement_rate | (likes + comments + shares + saves) / views | プラットフォーム平均との比較が重要。絶対値だけで判断しない。saves は YouTube/X では NULL → 0 として加算（詳細: 08-algorithm-analysis.md §12.0） |
+| engagement_rate | Math.min(1, (likes + comments + shares + saves) / views) | 1.0上限キャップ付き（metricsテーブルCHECK制約対応）。プラットフォーム平均との比較が重要。絶対値だけで判断しない。saves は YouTube/X では NULL → 0 として加算（詳細: 08-algorithm-analysis.md §12.0） |
 | followers_gained | フォロワー純増数 | バズ直後は一時的に急増するため、3日間の推移で判断 |
 | watch_time | 平均視聴時間 | 動画の長さに対する割合（完了率）が重要 |
 | shares | 共有数 | 最もバイラル性を示す指標。少数でも注目に値する |

@@ -30,6 +30,7 @@
     "@langchain/langgraph": "0.2.19",
     "@langchain/mcp-adapters": "^0.4.3",
     "@modelcontextprotocol/sdk": "1.7.0",
+    "@modelcontextprotocol/server-gdrive": "^2025.1.14",
     "@monaco-editor/react": "4.6.0",
     "@tremor/react": "3.17.4",
     "dotenv": "16.4.7",

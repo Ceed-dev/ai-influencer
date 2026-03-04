@@ -2634,4 +2634,71 @@ Phase 2 (commit `3d4a7ac`): CJKピクセル幅補正
 - productionシートの列AHに `hook_base_video_id`、列AIに `cta_base_video_id` ヘッダーを追加
 - 既に生成済みのKling出力動画のDriveファイルIDまたはDrive URLをセルに入力
 - セルが空 → 従来通りKlingが走る / セルにIDあり → Klingスキップで直接Lipsyncへ
+
+### 2026-03-03: 計測フェーズ バグ修正 — YouTube Analytics E2E テスト成功
+
+**目的**: 計測パイプライン（measurement-job グラフ）のコードレビュー・バグ修正・E2Eテスト
+
+**修正内容**:
+1. **CRITICAL-2: detectTargets 無限ループ防止** — LEFT JOIN → INNER JOIN に変更。publications が存在しないケースで空行を延々取得し続ける無限ループを解消。rowCount チェックも追加
+2. **CRITICAL-1: engagement_rate 計算修正** — `Math.min(1, (likes+comments+shares+saves)/views)` に修正。saves を計算に含め、1.0 上限を追加
+3. **HIGH-6: AbortSignal 伝播** — fetchYouTubeMetrics を含む全4プラットフォームアダプタに AbortSignal を伝播
+4. **metrics-inserter 修正** — publication status='measured' への更新は 30日経過後のみに制限
+5. **MCP スキーマ修正** — get_measurement_tasks に limit パラメータ追加、report_measurement_complete のパラメータを正しい定義に修正
+
+**修正ファイル**:
+- `src/agents/graphs/measurement-job.ts`
+- `src/workers/measurement/adapters/youtube-analytics.ts`
+- `src/mcp-server/tools/measurement/collect-platform-metrics.ts`
+- `src/workers/measurement/metrics-inserter.ts`
+- `src/mcp-server/index.ts`
+
+**E2Eテスト結果**: ACC_0001 (@0xvioletxyz) の実データで成功
+- views=1298, likes=13, engagement_rate=0.0108
+- YouTube Analytics API v2 からのリアルデータ取得を確認
+
+**品質チェック**: 244/244 suites, 1126 tests passing
+
+**コミット**: `e930686`
+
+### 2026-03-04: 投稿フェーズ コードレビュー・バグ修正 — Agent Team による網羅的レビュー
+
+**目的**: 投稿パイプライン（publishing-scheduler グラフ）のコードレビュー・バグ修正
+
+**実施方法**: Agent Team (implementer/tester/critic) による網羅的レビュー・修正
+
+**修正内容**:
+1. **HIGH-1: check_schedule JOIN に account_id フィルタ追加** — 1コンテンツ→複数 publications の1:Nモデルで、account_id なしの JOIN が他アカウントの publications を誤取得する問題を修正
+2. **HIGH-2: record ノードの content.status='posted' 更新を削除** — spec §3.5 の1:Nモデルでは content は 'ready' のまま維持。individual な publication の状態で管理
+3. **CRITICAL-2: publish-recorder を UPDATE→INSERT fallback に変更** — scheduleForPublishing で先に publication レコードを INSERT する設計との整合性を確保
+4. **HIGH-3: fetchPublishMetadata() 追加** — task_queue payload に title/description/tags/video_drive_id を含めるよう修正
+5. **CRITICAL-1: publish_to_* MCP スキーマに全パラメータ追加** — content_id のみだったスキーマに、投稿に必要な全フィールド（title, description, tags, video_url 等）を追加
+
+**追加作業**:
+- Dashboard: `/about` と `/privacy` ページを追加（Google OAuth Production 申請に必要）
+- `scripts/test-publishing-e2e.mjs` 作成（YouTube 直接 API テストスクリプト）
+
+**修正ファイル**:
+- `src/agents/graphs/publishing-scheduler.ts`
+- `src/mcp-server/index.ts`
+- `src/mcp-server/tools/production/update-content-status.ts`
+- `src/workers/posting/publish-recorder.ts`
+- `dashboard/` (about, privacy ページ)
+- `scripts/test-publishing-e2e.mjs`
+
+**品質チェック**: 244/244 suites, 1127/1127 tests passing
+
+**コミット**: `4a41b1b`
+
+### 2026-03-04: 現在の状態
+
+**完了項目**:
+- YouTube Production 申請: 完了 ✅
+- YouTube Quota 増量申請: 完了 ✅
+- YouTube 投稿・計測 API コード確認: 完了 ✅（投稿 E2E + 計測 E2E 両方成功）
+
+**次フェーズ**:
+- TikTok API 設定（投稿・計測）
+- Instagram API 設定
+- X API 設定（Basic tier $200/月必要）
 - コスト節約: Kling $0.35/セクション × 2 (Hook+CTA) = $0.70/動画 を節約
