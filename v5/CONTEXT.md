@@ -1,7 +1,7 @@
 # v5.0 Implementation Context
 
 > This file tracks the current state of the v5.0 implementation for session continuity.
-> Updated: 2026-03-04
+> Updated: 2026-03-05
 
 ## Current State: Production-Ready
 
@@ -303,6 +303,40 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 - Edit→Save+Cancel: no layout shift on other rows
 - Cancel: returns to Edit button state
 - Tab switching: correct filtering per category
+
+### Session 21: TikTok OAuth Complete Dashboard Flow (2026-03-05)
+
+**TikTok OAuth browser-based flow — full dashboard implementation:**
+
+**New files (5):**
+- `dashboard/app/api/auth/tiktok/callback/route.ts` — OAuth callback: code→token exchange, user info fetch, accounts DB upsert (open_id重複チェック → UPDATE or INSERT with auto-generated ACC_XXXX ID)
+- `dashboard/app/auth/tiktok/start/page.tsx` — admin専用ページ (getServerSession roleチェック), character select + fetch characters from DB
+- `dashboard/app/auth/tiktok/start/TikTokStartForm.tsx` — "use client": character/username form, state=base64(JSON), redirect to TikTok auth URL
+- `dashboard/app/auth/tiktok/result/page.tsx` — public (no auth), searchParams pass-through
+- `dashboard/app/auth/tiktok/result/TikTokResultContent.tsx` — success/error display with i18n
+
+**Modified files (5):**
+- `dashboard/app/api/settings/[key]/route.ts` — GET handler追加 (admin専用, `{ value }` 返却), TikTokStartFormがclient_key取得に使用
+- `dashboard/middleware.ts` — `/auth/tiktok/result` をPUBLIC_PATHSに追加
+- `dashboard/components/layout/LayoutShell.tsx` — result pageにsidebar/headerなし
+- `dashboard/lib/i18n/en.json` / `ja.json` — `tiktokAuth.*` 10キー追加 (EN + JA)
+
+**Security fixes (separate commit):**
+- GET /api/settings/:key: admin roleチェック追加 (viewer权限からのアクセス遮断)
+- /auth/tiktok/start: server componentでadminチェック→非adminは/loginへリダイレクト
+- token response全フィールド検証 (access_token/refresh_token/open_id/expires_in)
+- quote-stripping除去 (pg jsonb auto-parse済み)
+- エラー詳細をURLから除去しconsole.errorへ
+
+**Type + spec fixes (separate commit):**
+- `types/database.ts`: `token_expiry` → `expires_at` (YouTube/TikTok/Instagram全PF), YouTube/TikTokのclient_id/key除去 (system_settingsに保存)
+- `docs/v5-specification/03-database-schema.md`: テーブル + コード例を同様に修正
+
+**Redirect URI:** `https://ai-dash.0xqube.xyz/api/auth/tiktok/callback`
+**Remaining (Developer Portal側):** Redirect URI登録 → App審査 → OAuthフロー実行 → E2Eテスト
+
+**Commits:** `d76acbb`, `793b96a`, `5a1c19d`
+**Quality gates:** TypeScript 0 errors (v5 root + dashboard), build成功, VMデプロイ済み
 
 ### Session 20: TikTok API Setup + Terms of Service Page (2026-03-04)
 
