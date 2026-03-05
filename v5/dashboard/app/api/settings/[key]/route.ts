@@ -1,7 +1,38 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { query, queryOne } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * GET /api/settings/:key
+ * Fetch a single setting value by key. Admin-only.
+ */
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { key: string } }
+) {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "admin") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const { key } = params;
+  const row = await queryOne<{ setting_value: unknown }>(
+    `SELECT setting_value FROM system_settings WHERE setting_key = $1`,
+    [key]
+  );
+  if (!row) {
+    return NextResponse.json({ error: `Setting '${key}' not found` }, { status: 404 });
+  }
+  // setting_value is jsonb — already parsed by pg driver
+  const value =
+    typeof row.setting_value === "string"
+      ? row.setting_value
+      : JSON.stringify(row.setting_value);
+  return NextResponse.json({ value });
+}
 
 /**
  * PUT /api/settings/:key

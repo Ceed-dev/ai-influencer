@@ -1021,7 +1021,7 @@ flowchart TD
 
 **サイドバー**: 全画面サイズで折りたたみ可能。折りたたみ時はアイコンのみ表示（`--sidebar-width-collapsed: 3rem`）。展開時は `--sidebar-width: 14rem`。状態は `localStorage` に永続化。メインコンテンツとサイドバーは独立スクロール。
 
-**認証**: NextAuth.js v4 + Google OAuth (JWT session, 24h) — メールホワイトリスト (`AUTH_ALLOWED_EMAILS`) + ロール制御 (`AUTH_USER_ROLES`) を `system_settings` から動的読み込み。viewer ロールは API の POST/PUT/DELETE を 403 で拒否。パブリックパス（認証不要）: `/login`, `/api/auth/*`, `/about`, `/privacy`, `/terms`。
+**認証**: NextAuth.js v4 + Google OAuth (JWT session, 24h) — メールホワイトリスト (`AUTH_ALLOWED_EMAILS`) + ロール制御 (`AUTH_USER_ROLES`) を `system_settings` から動的読み込み。viewer ロールは API の POST/PUT/DELETE を 403 で拒否。パブリックパス（認証不要）: `/login`, `/api/auth/*`, `/about`, `/privacy`, `/terms`, `/auth/tiktok/result`, `/auth/instagram/result`。
 **外部通知**: なし (Slack/メール連携なし) — ダッシュボード画面のみで完結
 **自動更新**: `DASHBOARD_AUTO_REFRESH_SEC` (system_settings) で設定可能
 

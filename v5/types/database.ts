@@ -33,11 +33,10 @@ export type MonetizationStatus = 'none' | 'eligible' | 'active';
 export interface YouTubeOAuthCredentials {
   channel_id: string;
   oauth: {
-    client_id: string;
-    client_secret: string;
+    // client_id / client_secret are stored in system_settings (YOUTUBE_CLIENT_ID / YOUTUBE_CLIENT_SECRET)
     refresh_token: string;
     access_token: string;
-    token_expiry: string;
+    expires_at: string;
   };
 }
 
@@ -45,11 +44,10 @@ export interface YouTubeOAuthCredentials {
 export interface TikTokOAuthCredentials {
   open_id: string;
   oauth: {
-    client_key: string;
-    client_secret: string;
+    // client_key / client_secret are stored in system_settings (TIKTOK_CLIENT_KEY / TIKTOK_CLIENT_SECRET)
     access_token: string;
     refresh_token: string;
-    token_expiry: string;
+    expires_at: string;
   };
 }
 
@@ -61,7 +59,7 @@ export interface InstagramOAuthCredentials {
     app_id: string;
     app_secret: string;
     long_lived_token: string;
-    token_expiry: string;
+    expires_at: string;
   };
 }
 

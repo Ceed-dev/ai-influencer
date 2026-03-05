@@ -1,7 +1,7 @@
 # v5.0 Implementation Context
 
 > This file tracks the current state of the v5.0 implementation for session continuity.
-> Updated: 2026-03-04
+> Updated: 2026-03-05
 
 ## Current State: Production-Ready
 
@@ -304,12 +304,72 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 - Cancel: returns to Edit button state
 - Tab switching: correct filtering per category
 
+### Session 21: TikTok OAuth Complete Dashboard Flow (2026-03-05)
+
+**TikTok OAuth browser-based flow — full dashboard implementation:**
+
+**New files (5):**
+- `dashboard/app/api/auth/tiktok/callback/route.ts` — OAuth callback: code→token exchange, user info fetch, accounts DB upsert (open_id重複チェック → UPDATE or INSERT with auto-generated ACC_XXXX ID)
+- `dashboard/app/auth/tiktok/start/page.tsx` — admin専用ページ (getServerSession roleチェック), character select + fetch characters from DB
+- `dashboard/app/auth/tiktok/start/TikTokStartForm.tsx` — "use client": character/username form, state=base64(JSON), redirect to TikTok auth URL
+- `dashboard/app/auth/tiktok/result/page.tsx` — public (no auth), searchParams pass-through
+- `dashboard/app/auth/tiktok/result/TikTokResultContent.tsx` — success/error display with i18n
+
+**Modified files (5):**
+- `dashboard/app/api/settings/[key]/route.ts` — GET handler追加 (admin専用, `{ value }` 返却), TikTokStartFormがclient_key取得に使用
+- `dashboard/middleware.ts` — `/auth/tiktok/result` をPUBLIC_PATHSに追加
+- `dashboard/components/layout/LayoutShell.tsx` — result pageにsidebar/headerなし
+- `dashboard/lib/i18n/en.json` / `ja.json` — `tiktokAuth.*` 10キー追加 (EN + JA)
+
+**Security fixes (separate commit):**
+- GET /api/settings/:key: admin roleチェック追加 (viewer权限からのアクセス遮断)
+- /auth/tiktok/start: server componentでadminチェック→非adminは/loginへリダイレクト
+- token response全フィールド検証 (access_token/refresh_token/open_id/expires_in)
+- quote-stripping除去 (pg jsonb auto-parse済み)
+- エラー詳細をURLから除去しconsole.errorへ
+
+**Type + spec fixes (separate commit):**
+- `types/database.ts`: `token_expiry` → `expires_at` (YouTube/TikTok/Instagram全PF), YouTube/TikTokのclient_id/key除去 (system_settingsに保存)
+- `docs/v5-specification/03-database-schema.md`: テーブル + コード例を同様に修正
+
+**Redirect URI:** `https://ai-dash.0xqube.xyz/api/auth/tiktok/callback`
+**Remaining (Developer Portal側):** App icon/description入力 → Submit for review → 承認後OAuthフロー実行 → E2Eテスト
+
+**Bugfix (commit `bceb292`):**
+- `TikTokStartForm.tsx`: OAuthリクエストのscopeに `video.publish` を追加（Direct Postに必須、漏れていた）
+- 修正後: `video.publish,video.upload,video.list,user.info.basic`
+
+**Commits:** `d76acbb`, `793b96a`, `5a1c19d`, `bceb292`
+**Quality gates:** TypeScript 0 errors (v5 root + dashboard), build成功, VMデプロイ済み
+
+### Session 22: TikTok Demo Page for App Review (2026-03-05)
+
+**TikTok App Review用デモページ — Direct Post API動作デモ:**
+
+**New files (4):**
+- `dashboard/app/auth/tiktok/demo/page.tsx` — Server Component, admin専用 (getServerSession roleチェック), アクティブTikTokアカウントをDB取得
+- `dashboard/app/auth/tiktok/demo/TikTokDemoClient.tsx` — "use client": 3-step UI (Connect TikTok → Post video via Direct Post API → View posted videos)
+- `dashboard/app/api/demo/tiktok/upload/route.ts` — POST: TikTok Direct Post API init + chunk video upload, admin認証必須
+- `dashboard/app/api/demo/tiktok/videos/route.ts` — GET: TikTok video list API, admin認証必須
+
+**Modified files (5):**
+- `dashboard/app/auth/tiktok/result/TikTokResultContent.tsx` — OAuth成功後に「Back to Demo」リンク追加
+- `dashboard/components/layout/LayoutShell.tsx` — `/auth/instagram/result` パスをレイアウト除外に追加
+- `dashboard/middleware.ts` — `/auth/instagram/result` をPUBLIC_PATHSに追加
+- `dashboard/lib/i18n/en.json` / `ja.json` — `tiktokDemo.*` i18nキー追加 (EN + JA)
+
+**Bug fix:**
+- `callback/route.ts`: `username` → `platform_username` カラム名修正 (UPDATE文 + INSERT文の両方)
+
+**Spec update:**
+- `02-architecture.md`: パブリックパスに `/auth/tiktok/result`, `/auth/instagram/result` を追加
+
 ### Session 20: TikTok API Setup + Terms of Service Page (2026-03-04)
 
 **TikTok Developer App作成 + クレデンシャル登録:**
 - TikTok for Developers で `AI-Influencer` アプリ作成（個人、Category: Social Networking）
 - Products: Login Kit + Content Posting API 追加
-- Scopes: `user.info.basic` (Login Kit自動), `video.upload` (Content Posting API), `video.list` 追加
+- Scopes: `user.info.basic` (Login Kit自動), `video.publish` (Direct Post), `video.upload` (Content Posting API), `video.list` 追加
 - `TIKTOK_CLIENT_KEY` / `TIKTOK_CLIENT_SECRET` を `system_settings` に登録（YouTubeと同じ設計）
 
 **コード修正 — TikTok credentials設計をYouTubeと統一:**

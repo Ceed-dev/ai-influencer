@@ -2702,3 +2702,22 @@ Phase 2 (commit `3d4a7ac`): CJKピクセル幅補正
 - Instagram API 設定
 - X API 設定（Basic tier $200/月必要）
 - コスト節約: Kling $0.35/セクション × 2 (Hook+CTA) = $0.70/動画 を節約
+
+### 2026-03-05: TikTok Demo Page for App Review
+
+**目的**: TikTok App Review申請用のデモページ作成（Direct Post API動作を録画するため）
+
+**新規ファイル (4):**
+- `dashboard/app/auth/tiktok/demo/page.tsx` — admin専用サーバーコンポーネント
+- `dashboard/app/auth/tiktok/demo/TikTokDemoClient.tsx` — 3-step UI (Connect → Post → View Videos)
+- `dashboard/app/api/demo/tiktok/upload/route.ts` — Direct Post API init + video upload
+- `dashboard/app/api/demo/tiktok/videos/route.ts` — video list API
+
+**修正ファイル (5):**
+- `TikTokResultContent.tsx`: OAuth成功後に「Back to Demo」リンク追加
+- `LayoutShell.tsx` + `middleware.ts`: `/auth/instagram/result` パス除外追加
+- `en.json` / `ja.json`: `tiktokDemo.*` i18nキー追加
+- `callback/route.ts`: `username` → `platform_username` カラム名修正
+
+**仕様書更新:**
+- `02-architecture.md`: パブリックパスに `/auth/tiktok/result`, `/auth/instagram/result` を追加

@@ -569,5 +569,53 @@
       "CRED_ANTHROPIC_API_KEY": "Anthropic API key (Claude API)",
       "CRED_GOOGLE_SERVICE_ACCOUNT_KEY": "Google Cloud service account key"
     }
+  },
+  "tiktokDemo": {
+    "step1Label": "Connect",
+    "step2Label": "Post",
+    "step3Label": "View Videos",
+    "step1Title": "Step 1: Connect TikTok Account",
+    "step2Title": "Step 2: Post a Video",
+    "step3Title": "Step 3: View Videos",
+    "step1ConnectedDesc": "Your TikTok account is connected. Proceed to post a test video.",
+    "step1NotConnectedDesc": "Connect your TikTok account via OAuth to proceed.",
+    "connectedAs": "Connected as",
+    "connectButton": "Connect TikTok",
+    "nextStep": "Next Step →",
+    "back": "← Back",
+    "videoTitle": "Video Title",
+    "videoFile": "Video File (MP4)",
+    "uploadButton": "Upload to TikTok",
+    "uploading": "Uploading...",
+    "uploadSuccess": "Video uploaded successfully",
+    "fetchVideosButton": "Fetch My Videos",
+    "fetching": "Fetching...",
+    "backToDemo": "← Back to Demo"
+  },
+  "tiktokAuth": {
+    "startTitle": "Connect TikTok Account",
+    "characterLabel": "Character",
+    "characterPlaceholder": "Select character",
+    "usernameLabel": "TikTok Username (optional)",
+    "usernamePlaceholder": "@username",
+    "connectButton": "Connect with TikTok",
+    "connecting": "Redirecting to TikTok...",
+    "resultSuccess": "TikTok Account Connected",
+    "resultSuccessDetail": "Account {account_id} ({username}) has been registered.",
+    "resultError": "Connection Failed",
+    "resultBackLink": "Try again"
+  },
+  "instagramAuth": {
+    "startTitle": "Connect Instagram Account",
+    "characterLabel": "Character",
+    "characterPlaceholder": "Select character",
+    "usernameLabel": "Instagram Username (optional)",
+    "usernamePlaceholder": "@username",
+    "connectButton": "Connect with Instagram",
+    "connecting": "Redirecting to Facebook...",
+    "resultSuccess": "Instagram Account Connected",
+    "resultSuccessDetail": "Account {account_id} ({username}) has been registered.",
+    "resultError": "Connection Failed",
+    "resultBackLink": "Try again"
   }
 }
