@@ -222,9 +222,28 @@ ai-influencer/v5/
 │   │   ├── settings/          # 設定（14/16）— 8カテゴリタブ
 │   │   ├── directives/        # 人間指示（15/16）
 │   │   ├── database/          # DB ビューア（16/16）— 全34テーブル生データ閲覧（読み取り専用）
-│   │   └── api/               # 21 REST API Routes（02-architecture.md §6.13参照）
-│   │       └── auth/[...nextauth]/ # NextAuth.js route handler
-│   │           └── route.ts
+│   │   ├── about/             # About ページ（公開）
+│   │   ├── privacy/           # Privacy Policy（公開）
+│   │   ├── terms/             # Terms of Service（公開）
+│   │   ├── auth/
+│   │   │   ├── tiktok/
+│   │   │   │   ├── start/     # TikTok OAuth 開始（admin専用）
+│   │   │   │   ├── result/    # TikTok OAuth 結果表示（公開）
+│   │   │   │   └── demo/      # TikTok App Review デモページ（admin専用・一時利用）
+│   │   │   └── instagram/
+│   │   │       ├── start/     # Instagram OAuth 開始（admin専用）
+│   │   │       └── result/    # Instagram OAuth 結果表示（公開）
+│   │   └── api/               # REST API Routes
+│   │       ├── auth/
+│   │       │   ├── [...nextauth]/ # NextAuth.js route handler
+│   │       │   │   └── route.ts
+│   │       │   ├── tiktok/callback/ # TikTok OAuth コールバック（code→token交換、accounts upsert）
+│   │       │   │   └── route.ts
+│   │       │   └── instagram/callback/ # Instagram OAuth コールバック
+│   │       │       └── route.ts
+│   │       └── demo/tiktok/   # App Review デモ用（一時利用）
+│   │           ├── upload/route.ts  # POST: Direct Post API init + video upload
+│   │           └── videos/route.ts  # GET: video list API
 │   ├── components/
 │   │   ├── ui/               # Shadcn/ui components
 │   │   ├── charts/           # Recharts wrappers
