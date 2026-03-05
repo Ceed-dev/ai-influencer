@@ -3781,10 +3781,10 @@ JSONBカラムの内部構造を定義する。各スキーマの正規型定義
 
 | プラットフォーム | 必須フィールド | 備考 |
 |---|---|---|
-| YouTube | `channel_id`, `oauth.client_id`, `oauth.client_secret`, `oauth.refresh_token`, `oauth.access_token`, `oauth.token_expiry` | Google OAuth 2.0。token_expiryはISO 8601形式 |
-| TikTok | `open_id`, `oauth.access_token`, `oauth.refresh_token`, `oauth.token_expiry` | 24時間トークン有効期限。refresh_tokenで自動更新。client_key/secretはsystem_settings(TIKTOK_CLIENT_KEY/TIKTOK_CLIENT_SECRET)に保存 |
-| Instagram | `ig_user_id`, `page_id`, `oauth.app_id`, `oauth.app_secret`, `oauth.long_lived_token`, `oauth.token_expiry` | Facebook OAuth経由。long_lived_tokenは60日間有効 |
-| X | `user_id`, `oauth.api_key`, `oauth.api_secret`, `oauth.access_token`, `oauth.access_token_secret` | OAuth 1.0a。token_expiryなし（永続トークン） |
+| YouTube | `channel_id`, `oauth.refresh_token`, `oauth.access_token`, `oauth.expires_at` | Google OAuth 2.0。expires_atはISO 8601形式。client_id/secretはsystem_settings(YOUTUBE_CLIENT_ID/YOUTUBE_CLIENT_SECRET)に保存 |
+| TikTok | `open_id`, `oauth.access_token`, `oauth.refresh_token`, `oauth.expires_at` | 24時間トークン有効期限。refresh_tokenで自動更新。client_key/secretはsystem_settings(TIKTOK_CLIENT_KEY/TIKTOK_CLIENT_SECRET)に保存 |
+| Instagram | `ig_user_id`, `page_id`, `oauth.app_id`, `oauth.app_secret`, `oauth.long_lived_token`, `oauth.expires_at` | Facebook OAuth経由。long_lived_tokenは60日間有効 |
+| X | `user_id`, `oauth.api_key`, `oauth.api_secret`, `oauth.access_token`, `oauth.access_token_secret` | OAuth 1.0a。expires_atなし（永続トークン） |
 
 ```sql
 -- accounts.auth_credentials JSONB 構造例
@@ -3792,13 +3792,12 @@ JSONBカラムの内部構造を定義する。各スキーマの正規型定義
 -- {
 --   "channel_id": "UCxxxxxxx",
 --   "oauth": {
---     "client_id": "xxx.apps.googleusercontent.com",
---     "client_secret": "GOCSPX-xxx",
 --     "refresh_token": "1//xxx",
 --     "access_token": "ya29.xxx",
---     "token_expiry": "2026-03-01T00:00:00Z"
+--     "expires_at": "2026-03-01T00:00:00Z"
 --   }
 -- }
+-- Note: client_id/client_secret は system_settings (YOUTUBE_CLIENT_ID / YOUTUBE_CLIENT_SECRET) に保存
 --
 -- TikTok:
 -- {
@@ -3806,7 +3805,7 @@ JSONBカラムの内部構造を定義する。各スキーマの正規型定義
 --   "oauth": {
 --     "access_token": "act.xxx",
 --     "refresh_token": "rft.xxx",
---     "token_expiry": "2026-03-01T00:00:00Z"
+--     "expires_at": "2026-03-01T00:00:00Z"
 --   }
 -- }
 -- Note: client_key/client_secret は system_settings (TIKTOK_CLIENT_KEY / TIKTOK_CLIENT_SECRET) に保存
@@ -3819,7 +3818,7 @@ JSONBカラムの内部構造を定義する。各スキーマの正規型定義
 --     "app_id": "xxx",
 --     "app_secret": "xxx",
 --     "long_lived_token": "EAAxx",
---     "token_expiry": "2026-04-01T00:00:00Z"
+--     "expires_at": "2026-04-01T00:00:00Z"
 --   }
 -- }
 --
