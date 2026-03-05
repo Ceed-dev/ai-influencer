@@ -333,9 +333,13 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 - `docs/v5-specification/03-database-schema.md`: テーブル + コード例を同様に修正
 
 **Redirect URI:** `https://ai-dash.0xqube.xyz/api/auth/tiktok/callback`
-**Remaining (Developer Portal側):** Redirect URI登録 → App審査 → OAuthフロー実行 → E2Eテスト
+**Remaining (Developer Portal側):** App icon/description入力 → Submit for review → 承認後OAuthフロー実行 → E2Eテスト
 
-**Commits:** `d76acbb`, `793b96a`, `5a1c19d`
+**Bugfix (commit `bceb292`):**
+- `TikTokStartForm.tsx`: OAuthリクエストのscopeに `video.publish` を追加（Direct Postに必須、漏れていた）
+- 修正後: `video.publish,video.upload,video.list,user.info.basic`
+
+**Commits:** `d76acbb`, `793b96a`, `5a1c19d`, `bceb292`
 **Quality gates:** TypeScript 0 errors (v5 root + dashboard), build成功, VMデプロイ済み
 
 ### Session 20: TikTok API Setup + Terms of Service Page (2026-03-04)
@@ -343,7 +347,7 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 **TikTok Developer App作成 + クレデンシャル登録:**
 - TikTok for Developers で `AI-Influencer` アプリ作成（個人、Category: Social Networking）
 - Products: Login Kit + Content Posting API 追加
-- Scopes: `user.info.basic` (Login Kit自動), `video.upload` (Content Posting API), `video.list` 追加
+- Scopes: `user.info.basic` (Login Kit自動), `video.publish` (Direct Post), `video.upload` (Content Posting API), `video.list` 追加
 - `TIKTOK_CLIENT_KEY` / `TIKTOK_CLIENT_SECRET` を `system_settings` に登録（YouTubeと同じ設計）
 
 **コード修正 — TikTok credentials設計をYouTubeと統一:**
