@@ -10,7 +10,7 @@ import { getToken } from "next-auth/jwt";
  * Viewer role cannot use POST/PUT/DELETE on non-auth API routes
  */
 
-const PUBLIC_PATHS = ["/login", "/api/auth", "/privacy", "/about", "/terms"];
+const PUBLIC_PATHS = ["/login", "/api/auth", "/privacy", "/about", "/terms", "/auth/tiktok/result"];
 const WRITE_METHODS = new Set(["POST", "PUT", "DELETE", "PATCH"]);
 
 function isPublicPath(pathname: string): boolean {

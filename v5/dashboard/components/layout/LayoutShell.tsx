@@ -41,7 +41,7 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   // API routes and login page don't need layout
-  if (pathname.startsWith("/api/") || pathname === "/login" || pathname === "/privacy" || pathname === "/about" || pathname === "/terms") {
+  if (pathname.startsWith("/api/") || pathname === "/login" || pathname === "/privacy" || pathname === "/about" || pathname === "/terms" || pathname.startsWith("/auth/tiktok/result")) {
     return <>{children}</>;
   }
 

@@ -561,5 +561,18 @@
       "CRED_ANTHROPIC_API_KEY": "Anthropic APIキー（Claude API）",
       "CRED_GOOGLE_SERVICE_ACCOUNT_KEY": "Google Cloudサービスアカウントキー"
     }
+  },
+  "tiktokAuth": {
+    "startTitle": "TikTokアカウント連携",
+    "characterLabel": "キャラクター",
+    "characterPlaceholder": "キャラクターを選択",
+    "usernameLabel": "TikTokユーザー名（任意）",
+    "usernamePlaceholder": "@username",
+    "connectButton": "TikTokと連携する",
+    "connecting": "TikTokにリダイレクト中...",
+    "resultSuccess": "TikTokアカウント連携完了",
+    "resultSuccessDetail": "アカウント {account_id}（{username}）を登録しました。",
+    "resultError": "連携に失敗しました",
+    "resultBackLink": "もう一度試す"
   }
 }
