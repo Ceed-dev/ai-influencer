@@ -16,7 +16,7 @@ interface Props {
 }
 
 const REDIRECT_URI = "https://ai-dash.0xqube.xyz/api/auth/tiktok/callback";
-const SCOPES = "video.upload,video.list,user.info.basic";
+const SCOPES = "video.publish,video.upload,video.list,user.info.basic";
 
 export function TikTokStartForm({ characters }: Props) {
   const { t } = useTranslation();
