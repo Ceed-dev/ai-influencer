@@ -164,7 +164,7 @@ export async function GET(request: NextRequest) {
       await query(
         `UPDATE accounts
          SET auth_credentials = $1::jsonb,
-             username = $2,
+             platform_username = $2,
              status = 'active',
              updated_at = NOW()
          WHERE account_id = $3`,
@@ -180,7 +180,7 @@ export async function GET(request: NextRequest) {
       accountId = "ACC_" + String(nextNum).padStart(4, "0");
 
       await query(
-        `INSERT INTO accounts (account_id, platform, username, character_id, status, auth_credentials, created_at, updated_at)
+        `INSERT INTO accounts (account_id, platform, platform_username, character_id, status, auth_credentials, created_at, updated_at)
          VALUES ($1, 'tiktok', $2, $3, 'active', $4::jsonb, NOW(), NOW())`,
         [accountId, displayName || platformUsername, characterId || null, JSON.stringify(authCredentials)]
       );

@@ -29,6 +29,12 @@ export function TikTokResultContent({ success, account_id, username, error }: Pr
                 .replace("{account_id}", account_id ?? "")
                 .replace("{username}", username ?? "")}
             </p>
+            <Link
+              href="/auth/tiktok/demo"
+              className="inline-block text-primary hover:underline text-sm"
+            >
+              {t("tiktokDemo.backToDemo")}
+            </Link>
           </>
         ) : (
           <>

@@ -562,6 +562,28 @@
       "CRED_GOOGLE_SERVICE_ACCOUNT_KEY": "Google Cloudサービスアカウントキー"
     }
   },
+  "tiktokDemo": {
+    "step1Label": "連携",
+    "step2Label": "投稿",
+    "step3Label": "動画一覧",
+    "step1Title": "ステップ1: TikTokアカウント連携",
+    "step2Title": "ステップ2: 動画を投稿",
+    "step3Title": "ステップ3: 動画一覧を表示",
+    "step1ConnectedDesc": "TikTokアカウントが連携済みです。テスト動画を投稿してください。",
+    "step1NotConnectedDesc": "OAuthでTikTokアカウントを連携してください。",
+    "connectedAs": "連携済み：",
+    "connectButton": "TikTokと連携する",
+    "nextStep": "次のステップ →",
+    "back": "← 戻る",
+    "videoTitle": "動画タイトル",
+    "videoFile": "動画ファイル（MP4）",
+    "uploadButton": "TikTokにアップロード",
+    "uploading": "アップロード中...",
+    "uploadSuccess": "動画のアップロードが完了しました",
+    "fetchVideosButton": "動画一覧を取得",
+    "fetching": "取得中...",
+    "backToDemo": "← デモページに戻る"
+  },
   "tiktokAuth": {
     "startTitle": "TikTokアカウント連携",
     "characterLabel": "キャラクター",
@@ -571,6 +593,19 @@
     "connectButton": "TikTokと連携する",
     "connecting": "TikTokにリダイレクト中...",
     "resultSuccess": "TikTokアカウント連携完了",
+    "resultSuccessDetail": "アカウント {account_id}（{username}）を登録しました。",
+    "resultError": "連携に失敗しました",
+    "resultBackLink": "もう一度試す"
+  },
+  "instagramAuth": {
+    "startTitle": "Instagramアカウント連携",
+    "characterLabel": "キャラクター",
+    "characterPlaceholder": "キャラクターを選択",
+    "usernameLabel": "Instagramユーザー名（任意）",
+    "usernamePlaceholder": "@username",
+    "connectButton": "Instagramと連携する",
+    "connecting": "Facebookにリダイレクト中...",
+    "resultSuccess": "Instagramアカウント連携完了",
     "resultSuccessDetail": "アカウント {account_id}（{username}）を登録しました。",
     "resultError": "連携に失敗しました",
     "resultBackLink": "もう一度試す"

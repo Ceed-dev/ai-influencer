@@ -342,6 +342,28 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 **Commits:** `d76acbb`, `793b96a`, `5a1c19d`, `bceb292`
 **Quality gates:** TypeScript 0 errors (v5 root + dashboard), build成功, VMデプロイ済み
 
+### Session 22: TikTok Demo Page for App Review (2026-03-05)
+
+**TikTok App Review用デモページ — Direct Post API動作デモ:**
+
+**New files (4):**
+- `dashboard/app/auth/tiktok/demo/page.tsx` — Server Component, admin専用 (getServerSession roleチェック), アクティブTikTokアカウントをDB取得
+- `dashboard/app/auth/tiktok/demo/TikTokDemoClient.tsx` — "use client": 3-step UI (Connect TikTok → Post video via Direct Post API → View posted videos)
+- `dashboard/app/api/demo/tiktok/upload/route.ts` — POST: TikTok Direct Post API init + chunk video upload, admin認証必須
+- `dashboard/app/api/demo/tiktok/videos/route.ts` — GET: TikTok video list API, admin認証必須
+
+**Modified files (5):**
+- `dashboard/app/auth/tiktok/result/TikTokResultContent.tsx` — OAuth成功後に「Back to Demo」リンク追加
+- `dashboard/components/layout/LayoutShell.tsx` — `/auth/instagram/result` パスをレイアウト除外に追加
+- `dashboard/middleware.ts` — `/auth/instagram/result` をPUBLIC_PATHSに追加
+- `dashboard/lib/i18n/en.json` / `ja.json` — `tiktokDemo.*` i18nキー追加 (EN + JA)
+
+**Bug fix:**
+- `callback/route.ts`: `username` → `platform_username` カラム名修正 (UPDATE文 + INSERT文の両方)
+
+**Spec update:**
+- `02-architecture.md`: パブリックパスに `/auth/tiktok/result`, `/auth/instagram/result` を追加
+
 ### Session 20: TikTok API Setup + Terms of Service Page (2026-03-04)
 
 **TikTok Developer App作成 + クレデンシャル登録:**
