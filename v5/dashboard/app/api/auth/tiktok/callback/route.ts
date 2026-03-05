@@ -7,10 +7,10 @@ const REDIRECT_URI = "https://ai-dash.0xqube.xyz/api/auth/tiktok/callback";
 const RESULT_BASE = "/auth/tiktok/result";
 
 interface TikTokTokenResponse {
-  access_token: string;
-  refresh_token: string;
-  expires_in: number;
-  open_id: string;
+  access_token?: string;
+  refresh_token?: string;
+  expires_in?: number;
+  open_id?: string;
   error?: string;
   error_description?: string;
 }
@@ -33,7 +33,7 @@ interface AccountRow {
 }
 
 interface SettingRow {
-  setting_value: string;
+  setting_value: unknown;
 }
 
 interface NextNumRow {
@@ -74,6 +74,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Get credentials from system_settings
+  // setting_value is jsonb — pg driver auto-parses to plain string, no manual unquoting needed
   const clientKeySetting = await queryOne<SettingRow>(
     `SELECT setting_value FROM system_settings WHERE setting_key = 'TIKTOK_CLIENT_KEY'`
   );
@@ -82,13 +83,14 @@ export async function GET(request: NextRequest) {
   );
 
   if (!clientKeySetting || !clientSecretSetting) {
+    console.error("[tiktok-callback] TIKTOK_CLIENT_KEY or TIKTOK_CLIENT_SECRET not found in system_settings");
     return NextResponse.redirect(
       buildResultUrl(base, { success: "false", error: "missing_credentials" })
     );
   }
 
-  const clientKey = String(clientKeySetting.setting_value).replace(/^"|"$/g, "");
-  const clientSecret = String(clientSecretSetting.setting_value).replace(/^"|"$/g, "");
+  const clientKey = String(clientKeySetting.setting_value);
+  const clientSecret = String(clientSecretSetting.setting_value);
 
   // Exchange code for tokens
   let tokenData: TikTokTokenResponse;
@@ -106,23 +108,29 @@ export async function GET(request: NextRequest) {
     });
     tokenData = (await tokenRes.json()) as TikTokTokenResponse;
   } catch (err) {
+    console.error("[tiktok-callback] Token exchange network error:", err);
     return NextResponse.redirect(
       buildResultUrl(base, { success: "false", error: "token_exchange_failed" })
     );
   }
 
   if (tokenData.error) {
+    console.error(`[tiktok-callback] Token exchange API error: ${tokenData.error} — ${tokenData.error_description}`);
     return NextResponse.redirect(
-      buildResultUrl(base, {
-        success: "false",
-        error: `token_error:${tokenData.error_description ?? tokenData.error}`,
-      })
+      buildResultUrl(base, { success: "false", error: "token_exchange_failed" })
     );
   }
 
+  // Validate all required token fields are present
   const { access_token, refresh_token, expires_in, open_id } = tokenData;
+  if (!access_token || !refresh_token || !open_id || !expires_in) {
+    console.error("[tiktok-callback] Incomplete token response:", JSON.stringify(tokenData));
+    return NextResponse.redirect(
+      buildResultUrl(base, { success: "false", error: "incomplete_token_response" })
+    );
+  }
 
-  // Get user info
+  // Get user info (display_name) — non-fatal fallback to platform_username
   let displayName = platformUsername;
   try {
     const userRes = await fetch(
@@ -133,8 +141,8 @@ export async function GET(request: NextRequest) {
     if (userData.data?.user?.display_name) {
       displayName = userData.data.user.display_name;
     }
-  } catch {
-    // Non-fatal: use platformUsername as fallback
+  } catch (err) {
+    console.warn("[tiktok-callback] User info fetch failed, using platform_username:", err);
   }
 
   const expiresAt = new Date(Date.now() + expires_in * 1000).toISOString();
@@ -178,9 +186,9 @@ export async function GET(request: NextRequest) {
       );
     }
   } catch (err) {
-    const message = err instanceof Error ? err.message : "db_error";
+    console.error("[tiktok-callback] DB upsert error:", err);
     return NextResponse.redirect(
-      buildResultUrl(base, { success: "false", error: `db_error:${message}` })
+      buildResultUrl(base, { success: "false", error: "db_error" })
     );
   }
 

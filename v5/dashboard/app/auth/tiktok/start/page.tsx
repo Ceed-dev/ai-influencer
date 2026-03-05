@@ -1,3 +1,6 @@
+import { redirect } from "next/navigation";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { TikTokStartForm } from "./TikTokStartForm";
 
@@ -13,6 +16,11 @@ interface Character {
 }
 
 export default async function TikTokStartPage() {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "admin") {
+    redirect("/login");
+  }
+
   const characters = await query<Character>(
     `SELECT character_id, name FROM characters WHERE status = 'active' ORDER BY name ASC`
   );

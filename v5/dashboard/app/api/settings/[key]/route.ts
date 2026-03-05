@@ -1,16 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { query, queryOne } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
 /**
  * GET /api/settings/:key
- * Fetch a single setting value by key.
+ * Fetch a single setting value by key. Admin-only.
  */
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: { key: string } }
 ) {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "admin") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const { key } = params;
   const row = await queryOne<{ setting_value: unknown }>(
     `SELECT setting_value FROM system_settings WHERE setting_key = $1`,
