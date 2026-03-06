@@ -86,8 +86,9 @@
     "/settings": "設定",
     "/database": "DB ビューア",
     "/auth/tiktok/start": "TikTok連携",
-    "/auth/tiktok/demo": "TikTokデモ",
-    "/auth/tiktok/result": "TikTok連携完了"
+    "/auth/tiktok/result": "TikTok連携完了",
+    "/demo": "プラットフォームデモ",
+    "/demo/tiktok": "TikTokデモ"
   },
   "login": {
     "title": "AI Influencer",
