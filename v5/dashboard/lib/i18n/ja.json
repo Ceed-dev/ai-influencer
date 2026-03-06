@@ -88,6 +88,8 @@
     "/database": "DB ビューア",
     "/auth/tiktok/start": "TikTok連携",
     "/auth/tiktok/result": "TikTok連携完了",
+    "/auth/instagram/start": "Instagram連携",
+    "/auth/instagram/result": "Instagram連携完了",
     "/demo": "プラットフォームデモ",
     "/demo/tiktok": "TikTokデモ"
   },

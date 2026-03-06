@@ -96,7 +96,8 @@ export async function getExpiredTokens(): Promise<ExpiredTokenRow[]> {
     bufferHours = 2; // default 2 hours
   }
 
-  const result = await pool.query<ExpiredTokenRow>(
+  // YouTube, TikTok, X — use refresh_token flow
+  const refreshTokenResult = await pool.query<ExpiredTokenRow>(
     `SELECT account_id, platform, auth_credentials
      FROM accounts
      WHERE status = 'active'
@@ -106,7 +107,22 @@ export async function getExpiredTokens(): Promise<ExpiredTokenRow[]> {
     [bufferHours],
   );
 
-  return result.rows;
+  // Instagram — uses long_lived_token self-refresh (ig_refresh_token grant)
+  // IG tokens last ~60 days; refresh buffer defaults to 7 days (168 hours) to be safe
+  const igBufferHours = Math.max(bufferHours, 168);
+  const igResult = await pool.query<ExpiredTokenRow>(
+    `SELECT account_id, platform, auth_credentials
+     FROM accounts
+     WHERE status = 'active'
+       AND platform = 'instagram'
+       AND auth_credentials IS NOT NULL
+       AND auth_credentials->'oauth'->>'long_lived_token' IS NOT NULL
+       AND auth_credentials->'oauth'->>'refresh_token' IS NULL
+       AND (auth_credentials->'oauth'->>'expires_at')::timestamptz < NOW() + make_interval(hours => $1)`,
+    [igBufferHours],
+  );
+
+  return [...refreshTokenResult.rows, ...igResult.rows];
 }
 
 /**

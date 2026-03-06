@@ -39,6 +39,7 @@ import {
 import {
   refreshInstagramToken,
   fetchInstagramMetrics,
+  type InstagramRefreshResult,
 } from '../../../workers/measurement/adapters/instagram-insights.js';
 import {
   fetchXMetrics,
@@ -169,6 +170,34 @@ async function updateTikTokCredentials(
 }
 
 /**
+ * Update Instagram OAuth credentials (long_lived_token, expires_at) after refresh.
+ */
+async function updateInstagramCredentials(
+  accountId: string,
+  result: InstagramRefreshResult,
+): Promise<void> {
+  try {
+    const pool = getPool();
+    const expiresAt = new Date(Date.now() + result.expires_in * 1000).toISOString();
+    await pool.query(
+      `UPDATE accounts
+       SET auth_credentials = jsonb_set(
+         jsonb_set(
+           COALESCE(auth_credentials, '{}'::jsonb),
+           '{oauth,long_lived_token}', to_jsonb($1::text)
+         ),
+         '{oauth,expires_at}', to_jsonb($2::text)
+       ),
+       updated_at = NOW()
+       WHERE account_id = $3 AND platform = 'instagram'`,
+      [result.access_token, expiresAt, accountId],
+    );
+  } catch (err) {
+    console.error(`[collect-platform-metrics] Failed to update Instagram credentials for ${accountId}: ${err}`);
+  }
+}
+
+/**
  * Mark an account as suspended after auth failures.
  */
 async function markAccountSuspended(accountId: string): Promise<void> {
@@ -251,6 +280,7 @@ function syntheticInstagram(platformPostId: string): CollectInstagramMetricsOutp
     likes: 75 + (seed % 675),
     comments: 8 + (seed % 142),
     saves: 4 + (seed % 46),
+    shares: 2 + (seed % 28),
     reach: 1200 + (seed % 10800),
     impressions: 1800 + (seed % 16200),
   };
@@ -427,17 +457,17 @@ export async function collectInstagramMetrics(
     );
   } catch (err) {
     if (isAuthError(err)) {
-      let refreshedToken: string;
+      let refreshResult: InstagramRefreshResult;
       try {
-        refreshedToken = await refreshInstagramToken(oauth);
-        await updateAccessToken(accountId, 'instagram', refreshedToken, 'long_lived_token');
+        refreshResult = await refreshInstagramToken(oauth);
+        await updateInstagramCredentials(accountId, refreshResult);
       } catch (refreshErr) {
         console.error(`[collect-instagram-metrics] Token refresh failed (transient?): ${refreshErr}`);
         console.error(`[collect-instagram-metrics] API failed, falling back to synthetic: ${err}`);
         return syntheticInstagram(input.platform_post_id);
       }
       try {
-        return await fetchInstagramMetrics(refreshedToken, input.platform_post_id);
+        return await fetchInstagramMetrics(refreshResult.access_token, input.platform_post_id);
       } catch {
         await markAccountSuspended(accountId);
       }
