@@ -2721,3 +2721,31 @@ Phase 2 (commit `3d4a7ac`): CJKピクセル幅補正
 
 **仕様書更新:**
 - `02-architecture.md`: パブリックパスに `/auth/tiktok/result`, `/auth/instagram/result` を追加
+
+### 2026-03-06: devbox→Cloud SQL 直接接続問題の解決（SSHトンネル常時起動）
+
+**問題**: devboxから `psql -h 35.243.93.204` するとタイムアウト。Cloud SQLのAuthorized Networksにdevboxの動的IPが未登録のため。
+
+**根本原因**:
+- devboxのIPは動的（再起動で変わる）→ Authorized Networksへの手動追加は恒久解決にならない
+- VM (34.85.62.184) のIPは登録済みなので、VM経由なら接続可能
+
+**解決策**: SSHトンネルをsystemdユーザーサービスとして常時起動
+- サービスファイル: `~/.config/systemd/user/db-tunnel.service`
+- autosshを使用（切断時自動再接続、devbox再起動時自動起動）
+- `localhost:5432` → VM (34.85.62.184) → Cloud SQL (35.243.93.204:5432) に転送
+- GCPコンソール操作・Authorized Networks変更・IP動的変化への対応、全て不要
+
+**変更ファイル**:
+- `~/.config/systemd/user/db-tunnel.service` (新規作成)
+- `v5/.env`: `DATABASE_URL` のホストを `35.243.93.204` → `127.0.0.1` に変更
+- `MEMORY.md`: DB接続方法を `127.0.0.1:5432` (SSHトンネル経由) に更新
+
+**確認コマンド**:
+```bash
+systemctl --user status db-tunnel.service   # サービス確認
+systemctl --user restart db-tunnel.service  # 再起動（落ちた場合）
+PGPASSWORD='...' psql -h 127.0.0.1 -p 5432 -U postgres -d ai_influencer  # 接続
+```
+
+**注意**: VM上の `.env` は `35.243.93.204` のままでOK（VMは直接接続可能）
