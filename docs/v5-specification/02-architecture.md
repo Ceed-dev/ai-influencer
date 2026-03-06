@@ -2153,6 +2153,17 @@ ORDER BY agent_type, count DESC;
 - `dashboard/app/api/database/[table]/route.ts` — テーブルデータAPI (#21)
 - `dashboard/lib/database-tables.ts` — テーブルホワイトリスト (`ALLOWED_TABLES` 34件) と `TABLE_GROUPS` 定数
 
+#### #17 プラットフォームデモ — `/demo`, `/demo/tiktok`
+
+App Review提出用デモページ（admin専用）。実際のプラットフォームAPIをエンドツーエンドでデモする。
+
+| ページ | 説明 |
+|--------|------|
+| `/demo` | デモindex: 利用可能なプラットフォームデモ一覧 |
+| `/demo/tiktok` | TikTokデモ: 3-step (Connect → Post via Direct Post API → View metrics). Sandbox環境で`video.list`が空の場合はデモデータ+amberバナーを表示 |
+
+サイドバーのSystemセクションに **Demos** リンクを表示（adminロールのみ）。
+
 #### #12 エラーログ — `/errors`
 
 | コンポーネント名 | 種別 | 説明 |
@@ -2984,7 +2995,7 @@ async function getSetting(key: string): Promise<any> {
 
 トークンリフレッシュ:
 - YouTube: `refresh_token` → `access_token` 自動更新（Posting Worker実行時）
-- TikTok: 24時間有効 → `refresh_token` で自動更新
+- TikTok: 24時間有効 → `refresh_token` で自動更新（token rotation: 更新時に新しい `refresh_token` + `expires_at` も取得してDBに保存）
 - Instagram: `long_lived_token` 60日有効 → 期限前に自動更新
 - X: OAuth 1.0aのためトークン更新不要
 
@@ -3006,6 +3017,7 @@ async function getSetting(key: string): Promise<any> {
 1. **アカウント追加**: platform選択 → 認証情報フォーム入力 → バリデーション → `accounts.auth_credentials` 保存
 2. **APIキー設定**: サービス選択 → キー入力 → テスト呼び出しで検証 → `system_settings` 保存
 3. **OAuthフロー支援**: 「OAuth認証開始」ボタン → ブラウザでOAuth画面 → コールバックで自動保存
+   - **TikTok専用フロー**: `POST /api/auth/tiktok/initiate` (admin専用) でサーバーサイドCSRF nonce生成 → httpOnlyクッキー (`tiktok_oauth_nonce`, maxAge=300s) + TikTok認証URL返却 → `GET /api/auth/tiktok/callback` でnonce照合（CSRF保護）→ token交換 → `accounts` テーブルにupsert (open_idで重複チェック)
 
 ## 13. 人間介入ポイント一覧
 
