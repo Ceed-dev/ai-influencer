@@ -2988,9 +2988,9 @@ async function getSetting(key: string): Promise<any> {
 
 | プラットフォーム | 識別子 | 認証方式 | 主要フィールド |
 |---------------|-------|---------|-------------|
-| YouTube | `channel_id` | OAuth2 | `client_id`, `client_secret`, `refresh_token` |
-| TikTok | `open_id` | OAuth2 | `access_token`, `refresh_token` (client_key/secret は system_settings: TIKTOK_CLIENT_KEY/TIKTOK_CLIENT_SECRET) |
-| Instagram | `ig_user_id` + `page_id` | Facebook OAuth | `app_id`, `app_secret`, `long_lived_token` |
+| YouTube | `channel_id` | OAuth2 | `refresh_token`, `access_token`, `expires_at` (client_id/secret は system_settings: YOUTUBE_CLIENT_ID/YOUTUBE_CLIENT_SECRET) |
+| TikTok | `open_id` | OAuth2 | `access_token`, `refresh_token`, `expires_at` (client_key/secret は system_settings: TIKTOK_CLIENT_KEY/TIKTOK_CLIENT_SECRET) |
+| Instagram | `ig_user_id` + `page_id` | Facebook OAuth | `long_lived_token`, `expires_at` (app_id/app_secret は system_settings: INSTAGRAM_APP_ID/INSTAGRAM_APP_SECRET) |
 | X | `user_id` | OAuth 1.0a | `api_key`, `api_secret`, `access_token`, `access_token_secret` |
 
 トークンリフレッシュ:

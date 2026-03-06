@@ -9,6 +9,8 @@ import type { CollectInstagramMetricsOutput } from '../../../../types/mcp-tools.
 import type { OAuthCredentials } from './types.js';
 import { handleApiResponse } from './types.js';
 
+const IG_API_VERSION = 'v21.0';
+
 /**
  * Result of an Instagram token refresh.
  * Mirrors TikTokRefreshResult pattern for consistency.
@@ -71,7 +73,7 @@ export async function fetchInstagramMetrics(
 
 /**
  * Try Reels insights endpoint.
- * GET https://graph.instagram.com/v21.0/{media-id}/insights?metric=impressions,reach,likes,comments,saved,plays
+ * GET https://graph.instagram.com/${IG_API_VERSION}/{media-id}/insights?metric=impressions,reach,likes,comments,saved,plays
  */
 async function tryReelsInsights(
   accessToken: string,
@@ -80,7 +82,7 @@ async function tryReelsInsights(
 ): Promise<CollectInstagramMetricsOutput | null> {
   try {
     const metrics = 'impressions,reach,likes,comments,saved,shares,plays';
-    const url = `https://graph.instagram.com/v21.0/${platformPostId}/insights?metric=${metrics}`;
+    const url = `https://graph.instagram.com/${IG_API_VERSION}/${platformPostId}/insights?metric=${metrics}`;
     const resp = await fetch(url, {
       headers: { Authorization: `Bearer ${accessToken}` },
       signal,
@@ -117,7 +119,7 @@ async function tryReelsInsights(
 
 /**
  * Fetch basic media fields.
- * GET https://graph.instagram.com/v21.0/{media-id}?fields=impressions,reach,like_count,comments_count,saved
+ * GET https://graph.instagram.com/${IG_API_VERSION}/{media-id}?fields=impressions,reach,like_count,comments_count,saved
  */
 async function fetchBasicMediaFields(
   accessToken: string,
@@ -125,7 +127,7 @@ async function fetchBasicMediaFields(
   signal?: AbortSignal,
 ): Promise<CollectInstagramMetricsOutput> {
   const fields = 'like_count,comments_count,impressions,reach';
-  const url = `https://graph.instagram.com/v21.0/${platformPostId}?fields=${fields}`;
+  const url = `https://graph.instagram.com/${IG_API_VERSION}/${platformPostId}?fields=${fields}`;
   const resp = await fetch(url, {
     headers: { Authorization: `Bearer ${accessToken}` },
     signal,

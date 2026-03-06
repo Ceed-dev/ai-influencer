@@ -17,8 +17,6 @@ import { retryWithBackoff } from '../../../lib/retry.js';
 // ── Types ────────────────────────────────────────────────────────────────────
 
 interface InstagramOAuth {
-  app_id: string;
-  app_secret: string;
   long_lived_token: string;
   expires_at: string;
 }
@@ -59,8 +57,6 @@ function parseCredentials(raw: Record<string, unknown>): InstagramCredentials {
 
   return {
     oauth: {
-      app_id: String(oauth['app_id'] ?? ''),
-      app_secret: String(oauth['app_secret'] ?? ''),
       long_lived_token: String(oauth['long_lived_token']),
       expires_at: String(oauth['expires_at'] ?? ''),
     },
