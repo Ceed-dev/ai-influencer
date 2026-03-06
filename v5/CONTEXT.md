@@ -342,6 +342,22 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 **Commits:** `d76acbb`, `793b96a`, `5a1c19d`, `bceb292`
 **Quality gates:** TypeScript 0 errors (v5 root + dashboard), build成功, VMデプロイ済み
 
+### Session 24: Demo Pages Reorganization + Sidebar Demos Link (2026-03-06)
+
+**デモページ整理:**
+- `/auth/tiktok/demo` → `/demo/tiktok` に移動（OAuthフローと分離）
+- `/demo` indexページ新規作成（PF一覧、将来の追加に対応）
+- `TikTokResultContent.tsx` の「Back to Demo」リンクを `/demo/tiktok` に更新
+- i18n pageTitles: `/demo`, `/demo/tiktok` 追加 (EN + JA)
+
+**サイドバーにDemosリンク追加:**
+- `Sidebar.tsx`: `NavItem` に `role?` フィールド追加
+- `useSession()` でuserRoleを取得し、`role: "admin"` 項目をフィルタリング
+- `/demo` をsystemセクションに追加（adminのみ表示、PlayCircleアイコン）
+- i18n: `sidebar.nav.demos` 追加 (EN: "Demos", JA: "デモ")
+
+**Production deployment:** deploy → build → docker restart → verified
+
 ### Session 23: TikTok Comprehensive Code Review & Best-Practice Fixes (2026-03-06)
 
 **全TikTokコードの総点検 + 14件の問題修正:**
