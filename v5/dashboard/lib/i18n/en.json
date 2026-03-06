@@ -63,7 +63,8 @@
       "errors": "Errors",
       "costs": "Costs",
       "database": "Database",
-      "settings": "Settings"
+      "settings": "Settings",
+      "demos": "Demos"
     }
   },
   "pageTitles": {
@@ -84,7 +85,11 @@
     "/errors": "Error Log",
     "/costs": "Cost Management",
     "/settings": "Settings",
-    "/database": "Database Viewer"
+    "/database": "Database Viewer",
+    "/auth/tiktok/start": "Connect TikTok",
+    "/auth/tiktok/result": "TikTok Connected",
+    "/demo": "Platform Demos",
+    "/demo/tiktok": "TikTok Demo"
   },
   "login": {
     "title": "AI Influencer",
@@ -571,6 +576,7 @@
     }
   },
   "tiktokDemo": {
+    "pageTitle": "TikTok Demo",
     "step1Label": "Connect",
     "step2Label": "Post",
     "step3Label": "View Videos",
@@ -590,7 +596,18 @@
     "uploadSuccess": "Video uploaded successfully",
     "fetchVideosButton": "Fetch My Videos",
     "fetching": "Fetching...",
-    "backToDemo": "← Back to Demo"
+    "backToDemo": "← Back to Demo",
+    "demoBanner": "Showing demo data",
+    "demoBannerDesc": "In Sandbox mode, video.list only returns public posts. Since unaudited apps must post as SELF_ONLY, the list is always empty. In production, your actual TikTok video data would appear here.",
+    "colTitle": "Title",
+    "colViews": "Views",
+    "colLikes": "Likes",
+    "colEngagement": "Eng. Rate",
+    "colDate": "Posted",
+    "totalVideos": "Videos",
+    "totalViews": "Total Views",
+    "totalLikes": "Total Likes",
+    "avgEngagement": "Avg. Engagement"
   },
   "tiktokAuth": {
     "startTitle": "Connect TikTok Account",

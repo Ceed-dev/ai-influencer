@@ -15,9 +15,6 @@ interface Props {
   characters: Character[];
 }
 
-const REDIRECT_URI = "https://ai-dash.0xqube.xyz/api/auth/tiktok/callback";
-const SCOPES = "video.publish,video.upload,video.list,user.info.basic";
-
 export function TikTokStartForm({ characters }: Props) {
   const { t } = useTranslation();
   const [characterId, setCharacterId] = useState("");
@@ -27,30 +24,20 @@ export function TikTokStartForm({ characters }: Props) {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!characterId) return;
 
     setLoading(true);
     setError("");
 
     try {
-      // Fetch client_key from server-side API (avoids exposing key in NEXT_PUBLIC_*)
-      const res = await fetch("/api/settings/TIKTOK_CLIENT_KEY");
-      if (!res.ok) throw new Error("Failed to fetch TikTok client key");
-      const data = (await res.json()) as { value: string };
-      const clientKey = data.value;
-
-      const state = btoa(
-        JSON.stringify({ platform_username: platformUsername, character_id: characterId })
-      );
-
-      const authUrl = new URL("https://www.tiktok.com/v2/auth/authorize/");
-      authUrl.searchParams.set("client_key", clientKey);
-      authUrl.searchParams.set("scope", SCOPES);
-      authUrl.searchParams.set("response_type", "code");
-      authUrl.searchParams.set("redirect_uri", REDIRECT_URI);
-      authUrl.searchParams.set("state", state);
-
-      window.location.href = authUrl.toString();
+      // Server-side: generates CSRF nonce (stored in httpOnly cookie) + TikTok auth URL
+      const res = await fetch("/api/auth/tiktok/initiate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ platform_username: platformUsername, character_id: characterId }),
+      });
+      if (!res.ok) throw new Error("Failed to initiate TikTok OAuth");
+      const data = (await res.json()) as { authUrl: string };
+      window.location.href = data.authUrl;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
       setLoading(false);
@@ -59,6 +46,7 @@ export function TikTokStartForm({ characters }: Props) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      <h1 className="text-2xl font-bold text-foreground">{t("tiktokAuth.startTitle")}</h1>
       <div className="space-y-2">
         <label htmlFor="character_id" className="text-sm font-medium leading-none">
           {t("tiktokAuth.characterLabel")}
@@ -67,7 +55,6 @@ export function TikTokStartForm({ characters }: Props) {
           id="character_id"
           value={characterId}
           onChange={(e) => setCharacterId(e.target.value)}
-          required
         >
           <option value="">{t("tiktokAuth.characterPlaceholder")}</option>
           {characters.map((c) => (
@@ -93,7 +80,7 @@ export function TikTokStartForm({ characters }: Props) {
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 
-      <Button type="submit" disabled={!characterId || loading} className="w-full">
+      <Button type="submit" disabled={loading} className="w-full">
         {loading ? t("tiktokAuth.connecting") : t("tiktokAuth.connectButton")}
       </Button>
     </form>

@@ -151,7 +151,7 @@ export class TikTokAdapter implements PlatformAdapter {
 
     const pool = getPool();
     const accountResult = await pool.query(
-      `SELECT auth_credentials FROM accounts WHERE account_id = $1 AND platform = 'tiktok'`,
+      `SELECT auth_credentials, platform_username FROM accounts WHERE account_id = $1 AND platform = 'tiktok'`,
       [account_id],
     );
 
@@ -159,9 +159,11 @@ export class TikTokAdapter implements PlatformAdapter {
       throw new Error(`TikTok account not found: ${account_id}`);
     }
 
-    const rawCreds = accountResult.rows[0]?.auth_credentials as Record<string, unknown> | null;
+    const accountRow = accountResult.rows[0] as { auth_credentials: Record<string, unknown> | null; platform_username: string | null };
+    const rawCreds = accountRow.auth_credentials;
     if (!rawCreds) throw new Error(`No auth_credentials set for TikTok account: ${account_id}`);
     const creds = parseCredentials(rawCreds);
+    const platformUsername = accountRow.platform_username ?? '';
 
     // Ensure token is fresh
     if (isTokenExpired(creds.oauth.expires_at)) {
@@ -188,7 +190,7 @@ export class TikTokAdapter implements PlatformAdapter {
         baseDelayMs: 2000,
         isRetryable: (err) => {
           const msg = err instanceof Error ? err.message : '';
-          return msg.includes('5') || msg.includes('timeout');
+          return /\b5\d{2}\b/.test(msg) || msg.includes('timeout');
         },
       },
     );
@@ -241,7 +243,7 @@ export class TikTokAdapter implements PlatformAdapter {
         baseDelayMs: 2000,
         isRetryable: (err) => {
           const msg = err instanceof Error ? err.message : '';
-          return msg === 'RATE_LIMITED' || msg.includes('5');
+          return msg === 'RATE_LIMITED' || /\b5\d{2}\b/.test(msg);
         },
       },
     );
@@ -332,7 +334,10 @@ export class TikTokAdapter implements PlatformAdapter {
     }
 
     const postedAt = new Date().toISOString();
-    const postUrl = `https://www.tiktok.com/@${creds.open_id}/video/${platformPostId}`;
+    // open_id is not a URL-usable username; use platform_username from accounts table
+    const postUrl = platformUsername
+      ? `https://www.tiktok.com/@${platformUsername}/video/${platformPostId}`
+      : `https://www.tiktok.com/video/${platformPostId}`;
 
     console.warn(`[tiktok-adapter] Published: ${postUrl}`);
 

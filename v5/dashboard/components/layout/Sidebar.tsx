@@ -25,7 +25,9 @@ import {
   DollarSign,
   Database,
   Settings,
+  PlayCircle,
 } from "lucide-react";
+import { useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -36,6 +38,7 @@ interface NavItem {
   labelKey: string;
   icon: React.ElementType;
   section?: string;
+  role?: string;
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -57,6 +60,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/costs", labelKey: "sidebar.nav.costs", icon: DollarSign, section: "system" },
   { href: "/database", labelKey: "sidebar.nav.database", icon: Database, section: "system" },
   { href: "/settings", labelKey: "sidebar.nav.settings", icon: Settings, section: "system" },
+  { href: "/demo", labelKey: "sidebar.nav.demos", icon: PlayCircle, section: "system", role: "admin" },
 ];
 
 const SECTION_KEYS = ["overview", "management", "content", "analytics", "system"] as const;
@@ -71,11 +75,15 @@ interface SidebarProps {
 export function Sidebar({ open, collapsed, onClose, onToggleCollapse }: SidebarProps) {
   const pathname = usePathname();
   const { t } = useTranslation();
+  const { data: session } = useSession();
+  const userRole = session?.user?.role ?? "";
 
   const grouped = SECTION_KEYS.map((key) => ({
     key,
     label: t(`sidebar.sections.${key}`),
-    items: NAV_ITEMS.filter((item) => item.section === key),
+    items: NAV_ITEMS.filter(
+      (item) => item.section === key && (!item.role || item.role === userRole)
+    ),
   }));
 
   const handleNavClick = () => {

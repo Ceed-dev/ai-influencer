@@ -4,7 +4,7 @@ import { query, queryOne } from "@/lib/db";
 export const dynamic = "force-dynamic";
 
 const REDIRECT_URI = "https://ai-dash.0xqube.xyz/api/auth/tiktok/callback";
-const RESULT_BASE = "/auth/tiktok/result";
+const RESULT_BASE = "https://ai-dash.0xqube.xyz/auth/tiktok/result";
 
 interface TikTokTokenResponse {
   access_token?: string;
@@ -40,8 +40,8 @@ interface NextNumRow {
   next_num: string;
 }
 
-function buildResultUrl(base: URL, params: Record<string, string>): string {
-  const url = new URL(RESULT_BASE, base);
+function buildResultUrl(params: Record<string, string>): string {
+  const url = new URL(RESULT_BASE);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
   return url.toString();
 }
@@ -53,24 +53,38 @@ export async function GET(request: NextRequest) {
 
   if (!code || !state) {
     return NextResponse.redirect(
-      buildResultUrl(base, { success: "false", error: "missing_params" })
+      buildResultUrl({ success: "false", error: "missing_params" })
     );
   }
 
   // Decode state
   let platformUsername = "";
   let characterId = "";
+  let stateNonce = "";
   try {
     const decoded = JSON.parse(Buffer.from(state, "base64").toString("utf-8")) as {
       platform_username?: string;
       character_id?: string;
+      nonce?: string;
     };
     platformUsername = decoded.platform_username ?? "";
     characterId = decoded.character_id ?? "";
+    stateNonce = decoded.nonce ?? "";
   } catch {
     return NextResponse.redirect(
-      buildResultUrl(base, { success: "false", error: "invalid_state" })
+      buildResultUrl({ success: "false", error: "invalid_state" })
     );
+  }
+
+  // Verify CSRF nonce against httpOnly cookie set by /api/auth/tiktok/initiate
+  const cookieNonce = request.cookies.get("tiktok_oauth_nonce")?.value;
+  if (!cookieNonce || cookieNonce !== stateNonce) {
+    console.error("[tiktok-callback] CSRF nonce mismatch — possible CSRF attack");
+    const csrfResponse = NextResponse.redirect(
+      buildResultUrl({ success: "false", error: "csrf_mismatch" })
+    );
+    csrfResponse.cookies.delete("tiktok_oauth_nonce");
+    return csrfResponse;
   }
 
   // Get credentials from system_settings
@@ -85,7 +99,7 @@ export async function GET(request: NextRequest) {
   if (!clientKeySetting || !clientSecretSetting) {
     console.error("[tiktok-callback] TIKTOK_CLIENT_KEY or TIKTOK_CLIENT_SECRET not found in system_settings");
     return NextResponse.redirect(
-      buildResultUrl(base, { success: "false", error: "missing_credentials" })
+      buildResultUrl({ success: "false", error: "missing_credentials" })
     );
   }
 
@@ -110,14 +124,14 @@ export async function GET(request: NextRequest) {
   } catch (err) {
     console.error("[tiktok-callback] Token exchange network error:", err);
     return NextResponse.redirect(
-      buildResultUrl(base, { success: "false", error: "token_exchange_failed" })
+      buildResultUrl({ success: "false", error: "token_exchange_failed" })
     );
   }
 
   if (tokenData.error) {
     console.error(`[tiktok-callback] Token exchange API error: ${tokenData.error} — ${tokenData.error_description}`);
     return NextResponse.redirect(
-      buildResultUrl(base, { success: "false", error: "token_exchange_failed" })
+      buildResultUrl({ success: "false", error: "token_exchange_failed" })
     );
   }
 
@@ -126,7 +140,7 @@ export async function GET(request: NextRequest) {
   if (!access_token || !refresh_token || !open_id || !expires_in) {
     console.error("[tiktok-callback] Incomplete token response:", JSON.stringify(tokenData));
     return NextResponse.redirect(
-      buildResultUrl(base, { success: "false", error: "incomplete_token_response" })
+      buildResultUrl({ success: "false", error: "incomplete_token_response" })
     );
   }
 
@@ -188,15 +202,18 @@ export async function GET(request: NextRequest) {
   } catch (err) {
     console.error("[tiktok-callback] DB upsert error:", err);
     return NextResponse.redirect(
-      buildResultUrl(base, { success: "false", error: "db_error" })
+      buildResultUrl({ success: "false", error: "db_error" })
     );
   }
 
-  return NextResponse.redirect(
-    buildResultUrl(base, {
+  // Delete CSRF nonce cookie after successful auth
+  const successResponse = NextResponse.redirect(
+    buildResultUrl({
       success: "true",
       account_id: accountId,
       username: displayName || platformUsername,
     })
   );
+  successResponse.cookies.delete("tiktok_oauth_nonce");
+  return successResponse;
 }
