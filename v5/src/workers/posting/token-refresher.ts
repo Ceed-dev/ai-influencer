@@ -20,14 +20,21 @@ import type { PlatformAdapter } from './adapters/types.js';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-/** Row returned from the expired-tokens query */
+/**
+ * Row returned from the expired-tokens query.
+ * auth_credentials reflects actual DB JSONB structure: { oauth: { access_token, refresh_token, expires_at }, open_id }
+ * Note: refreshTokenForAccount() only passes account_id to the adapter, which re-queries credentials itself.
+ */
 export interface ExpiredTokenRow {
   account_id: string;
   platform: Platform;
   auth_credentials: {
-    oauth_access_token?: string;
-    oauth_refresh_token?: string;
-    oauth_token_expires_at?: string;
+    oauth?: {
+      access_token?: string;
+      refresh_token?: string;
+      expires_at?: string;
+    };
+    open_id?: string;
   } | null;
 }
 

@@ -84,7 +84,10 @@
     "/errors": "エラーログ",
     "/costs": "コスト管理",
     "/settings": "設定",
-    "/database": "DB ビューア"
+    "/database": "DB ビューア",
+    "/auth/tiktok/start": "TikTok連携",
+    "/auth/tiktok/demo": "TikTokデモ",
+    "/auth/tiktok/result": "TikTok連携完了"
   },
   "login": {
     "title": "AI Influencer",
@@ -563,6 +566,7 @@
     }
   },
   "tiktokDemo": {
+    "pageTitle": "TikTok デモ",
     "step1Label": "連携",
     "step2Label": "投稿",
     "step3Label": "動画一覧",
@@ -582,7 +586,18 @@
     "uploadSuccess": "動画のアップロードが完了しました",
     "fetchVideosButton": "動画一覧を取得",
     "fetching": "取得中...",
-    "backToDemo": "← デモページに戻る"
+    "backToDemo": "← デモページに戻る",
+    "demoBanner": "デモデータを表示しています",
+    "demoBannerDesc": "Sandbox環境では video.list は公開動画のみ返します。未審査アプリは SELF_ONLY 投稿が強制されるため、一覧は常に空になります。本番環境では実際の TikTok 動画データが表示されます。",
+    "colTitle": "タイトル",
+    "colViews": "再生数",
+    "colLikes": "いいね",
+    "colEngagement": "エンゲージメント率",
+    "colDate": "投稿日",
+    "totalVideos": "動画数",
+    "totalViews": "総再生数",
+    "totalLikes": "総いいね数",
+    "avgEngagement": "平均エンゲージメント"
   },
   "tiktokAuth": {
     "startTitle": "TikTokアカウント連携",

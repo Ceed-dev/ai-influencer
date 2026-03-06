@@ -73,6 +73,7 @@ export async function GET() {
       }
     );
     listData = (await res.json()) as TikTokVideoListResponse;
+    console.log("[demo/tiktok/videos] TikTok response:", JSON.stringify(listData));
   } catch (err) {
     console.error("[demo/tiktok/videos] Request failed:", err);
     return NextResponse.json({ error: "TikTok video list request failed" }, { status: 502 });

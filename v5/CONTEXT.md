@@ -342,6 +342,30 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 **Commits:** `d76acbb`, `793b96a`, `5a1c19d`, `bceb292`
 **Quality gates:** TypeScript 0 errors (v5 root + dashboard), build成功, VMデプロイ済み
 
+### Session 23: TikTok Comprehensive Code Review & Best-Practice Fixes (2026-03-06)
+
+**全TikTokコードの総点検 + 14件の問題修正:**
+
+**Backend fixes (src/):**
+- `src/workers/posting/adapters/tiktok.ts` — H-1: `isRetryable` の `msg.includes('5')` を `/\b5\d{2}\b/.test(msg)` に修正（誤検知防止）; M-1: `post_url` が `open_id` ではなく `platform_username` を使うよう修正（open_idはURLに不適切）
+- `src/workers/measurement/adapters/tiktok-analytics.ts` — H-2: `refreshTikTokToken` の戻り値を `string` から `TikTokRefreshResult { access_token, refresh_token, expires_at }` に変更（token rotation対応）; H-3: Video Query API の `fields` に `duration` 追加（`collect_count`/`average_time_watched` はAPI v2非対応のためコメント記載）
+- `src/workers/posting/token-refresher.ts` — M-4: `ExpiredTokenRow` の型定義を実際のDB JSONB構造 `{ oauth: { access_token, refresh_token, expires_at }, open_id }` に修正
+- `src/mcp-server/tools/measurement/collect-platform-metrics.ts` — H-3関連: durationフィールド追記に伴うスキーマ整合
+
+**Dashboard fixes (dashboard/):**
+- `dashboard/app/api/auth/tiktok/initiate/route.ts` — **New file** (M-2: CSRF保護): サーバーサイドでnonce生成 → httpOnlyクッキーに保存 (maxAge=300s) → `authUrl`をJSON返却。admin専用
+- `dashboard/app/auth/tiktok/start/TikTokStartForm.tsx` — M-2: クライアントサイドURL構築を廃止 → `POST /api/auth/tiktok/initiate` を呼び出してauthUrlを受け取りリダイレクト
+- `dashboard/app/api/auth/tiktok/callback/route.ts` — M-2: stateからnonce抽出 → `tiktok_oauth_nonce` cookieと照合 → mismatch時403リダイレクト+cookie削除; 成功時もcookie削除
+- `dashboard/app/auth/tiktok/demo/TikTokDemoClient.tsx` — L-1: `DEMO_VIDEOS` の日付を2025→2026に修正 (timestamps: 1772668800, 1772496000, 1772323200); L-2: h1をi18n key `tiktokDemo.pageTitle` に変更; Step 3にamberバナー+サマリーバッジ4件+動画テーブル追加
+- `dashboard/app/auth/tiktok/start/page.tsx` — L-3: ハードコードされた `<h1>Connect TikTok Account</h1>` をTikTokStartForm内の `{t("tiktokAuth.startTitle")}` に移動
+- `dashboard/lib/i18n/en.json` + `ja.json` — M-3: `pageTitles` に3ルート追加 (`/auth/tiktok/start`, `/auth/tiktok/demo`, `/auth/tiktok/result`); `tiktokDemo.pageTitle` 等追加
+
+**TikTok App Review:**
+- 動画撮影 (`tiktok-verification.mov`): Step1 Connect → Step2 Upload → Step3 View videos (demo dataで表示)
+- App Review提出完了 (2026-03-05)。審査中 (通過後にsandbox制限解除)
+
+**Quality check:** TypeScript 0 errors (v5 root + dashboard), ESLint warnings 変化なし, テスト 244/244 suites pass
+
 ### Session 22: TikTok Demo Page for App Review (2026-03-05)
 
 **TikTok App Review用デモページ — Direct Post API動作デモ:**

@@ -27,7 +27,6 @@ export default async function TikTokStartPage() {
 
   return (
     <div className="max-w-md mx-auto mt-10 space-y-6">
-      <h1 className="text-2xl font-bold text-foreground">Connect TikTok Account</h1>
       <TikTokStartForm characters={characters} />
     </div>
   );

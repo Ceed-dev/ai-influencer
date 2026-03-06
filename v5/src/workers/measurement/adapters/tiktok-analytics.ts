@@ -16,9 +16,15 @@ import { getSettingString } from '../../../lib/settings.js';
  * POST https://open.tiktokapis.com/v2/oauth/token/
  * client_key and client_secret are read from system_settings.
  */
+export interface TikTokRefreshResult {
+  access_token: string;
+  refresh_token: string;
+  expires_at: string;
+}
+
 export async function refreshTikTokToken(
   oauth: OAuthCredentials,
-): Promise<string> {
+): Promise<TikTokRefreshResult> {
   const { refresh_token } = oauth;
   if (!refresh_token) {
     throw new Error('Missing TikTok OAuth credentials (refresh_token)');
@@ -48,7 +54,13 @@ export async function refreshTikTokToken(
   if (!accessToken) {
     throw new Error('TikTok token refresh response missing access_token');
   }
-  return accessToken;
+
+  // TikTok uses token rotation — a new refresh_token may be returned
+  const newRefreshToken = (data['refresh_token'] as string | undefined) ?? refresh_token;
+  const expiresIn = (data['expires_in'] as number | undefined) ?? 86400;
+  const expiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
+
+  return { access_token: accessToken, refresh_token: newRefreshToken, expires_at: expiresAt };
 }
 
 /**
@@ -60,7 +72,7 @@ export async function fetchTikTokMetrics(
   platformPostId: string,
   signal?: AbortSignal,
 ): Promise<CollectTiktokMetricsOutput> {
-  const fields = 'like_count,comment_count,share_count,view_count';
+  const fields = 'like_count,comment_count,share_count,view_count,duration';
   const url = `https://open.tiktokapis.com/v2/video/query/?fields=${fields}`;
 
   const resp = await fetch(url, {
@@ -92,10 +104,11 @@ export async function fetchTikTokMetrics(
   const likes = (video['like_count'] as number) ?? 0;
   const comments = (video['comment_count'] as number) ?? 0;
   const shares = (video['share_count'] as number) ?? 0;
-  // TikTok API doesn't always expose saves directly
+  // collect_count is not available in TikTok Video Query API v2 — always 0
   const saves = (video['collect_count'] as number) ?? 0;
-  // Duration in seconds for completion rate
+  // duration is returned by the Video Query API v2 when requested via fields
   const duration = (video['duration'] as number) ?? 0;
+  // average_time_watched is not available in TikTok Video Query API v2 — always 0
   const avgWatchTime = (video['average_time_watched'] as number) ?? 0;
 
   let completionRate = 0;

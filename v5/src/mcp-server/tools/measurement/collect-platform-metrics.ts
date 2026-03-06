@@ -34,6 +34,7 @@ import {
 import {
   refreshTikTokToken,
   fetchTikTokMetrics,
+  type TikTokRefreshResult,
 } from '../../../workers/measurement/adapters/tiktok-analytics.js';
 import {
   refreshInstagramToken,
@@ -133,6 +134,37 @@ async function updateAccessToken(
     );
   } catch (err) {
     console.error(`[collect-platform-metrics] Failed to update access token for ${accountId}: ${err}`);
+  }
+}
+
+/**
+ * Update TikTok OAuth credentials (access_token, refresh_token, expires_at) after refresh.
+ * TikTok uses token rotation, so refresh_token changes on each refresh.
+ */
+async function updateTikTokCredentials(
+  accountId: string,
+  result: TikTokRefreshResult,
+): Promise<void> {
+  try {
+    const pool = getPool();
+    await pool.query(
+      `UPDATE accounts
+       SET auth_credentials = jsonb_set(
+         jsonb_set(
+           jsonb_set(
+             COALESCE(auth_credentials, '{}'::jsonb),
+             '{oauth,access_token}', to_jsonb($1::text)
+           ),
+           '{oauth,refresh_token}', to_jsonb($2::text)
+         ),
+         '{oauth,expires_at}', to_jsonb($3::text)
+       ),
+       updated_at = NOW()
+       WHERE account_id = $4 AND platform = 'tiktok'`,
+      [result.access_token, result.refresh_token, result.expires_at, accountId],
+    );
+  } catch (err) {
+    console.error(`[collect-platform-metrics] Failed to update TikTok credentials for ${accountId}: ${err}`);
   }
 }
 
@@ -328,8 +360,9 @@ export async function collectTiktokMetrics(
   // Ensure we have an access token
   if (!accessToken && oauth.refresh_token) {
     try {
-      accessToken = await refreshTikTokToken(oauth);
-      await updateAccessToken(accountId, 'tiktok', accessToken);
+      const refreshResult = await refreshTikTokToken(oauth);
+      accessToken = refreshResult.access_token;
+      await updateTikTokCredentials(accountId, refreshResult);
     } catch (err) {
       console.error(`[collect-tiktok-metrics] Token refresh failed: ${err}`);
       return syntheticTikTok(input.platform_post_id);
@@ -348,17 +381,17 @@ export async function collectTiktokMetrics(
     );
   } catch (err) {
     if (isAuthError(err)) {
-      let refreshedToken: string;
+      let refreshResult: TikTokRefreshResult;
       try {
-        refreshedToken = await refreshTikTokToken(oauth);
-        await updateAccessToken(accountId, 'tiktok', refreshedToken);
+        refreshResult = await refreshTikTokToken(oauth);
+        await updateTikTokCredentials(accountId, refreshResult);
       } catch (refreshErr) {
         console.error(`[collect-tiktok-metrics] Token refresh failed (transient?): ${refreshErr}`);
         console.error(`[collect-tiktok-metrics] API failed, falling back to synthetic: ${err}`);
         return syntheticTikTok(input.platform_post_id);
       }
       try {
-        return await fetchTikTokMetrics(refreshedToken, input.platform_post_id);
+        return await fetchTikTokMetrics(refreshResult.access_token, input.platform_post_id);
       } catch {
         await markAccountSuspended(accountId);
       }
