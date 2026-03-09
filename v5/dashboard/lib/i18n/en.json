@@ -98,6 +98,7 @@
     "subtitle": "Sign in to access the dashboard",
     "signInGoogle": "Sign in with Google",
     "authorizedOnly": "Only authorized email addresses can sign in",
+    "demoAccess": "Demo Access (Reviewer)",
     "errors": {
       "AccessDenied": "Access denied. Your email is not on the allow list.",
       "OAuthSignin": "Error starting the sign-in flow. Please try again.",

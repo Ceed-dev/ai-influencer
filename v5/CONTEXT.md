@@ -342,6 +342,28 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 **Commits:** `d76acbb`, `793b96a`, `5a1c19d`, `bceb292`
 **Quality gates:** TypeScript 0 errors (v5 root + dashboard), build成功, VMデプロイ済み
 
+### Session 26b: Demo Access for Meta App Review (2026-03-09)
+
+**背景**: Instagram Meta App Reviewでレビュアーがダッシュボードを確認する必要があるが、Google OAuthホワイトリスト認証で外部者がアクセスできない問題への対応。
+
+**実装: URLパラメータ方式 Demo Access**
+- `/login?demo=<token>` でアクセスした場合のみログインページに「Demo Access (Reviewer)」ボタンを表示
+- NextAuth.js CredentialsProvider (`id: "demo"`) を追加
+- `DEMO_ACCESS_TOKEN` (system_settings) に格納されたトークンと一致した場合のみ認証成功
+- Demo userは admin ロールで認証（Instagram OAuthフローページ `/auth/instagram/start` も確認可能）
+- トークン: `8d2abfbc-acdd-4e22-92e6-2f065f9bd021`（DB + VM DB両方に登録済み）
+- Demo URL: `https://ai-dash.0xqube.xyz/login?demo=8d2abfbc-acdd-4e22-92e6-2f065f9bd021`
+
+**変更ファイル:**
+- `dashboard/lib/auth.ts`: CredentialsProvider追加、DEMO_USER_EMAIL定数、signIn/jwt/session callbacks更新
+- `dashboard/app/login/page.tsx`: `?demo` パラメータ検出時にDemo Accessボタン表示
+- `dashboard/lib/i18n/en.json` + `ja.json`: `login.demoAccess` キー追加
+- `docs/v5-specification/02-architecture.md`: Demo Access仕組みを認証セクションに追記
+- `docs/v5-specification/10-implementation-guide.md`: auth.tsコメント更新
+
+**テスト:** dsh-040 12/12 pass（token validation 6件 + role assignment 4件 + URL parameter 2件）
+**Production deployment:** rsync → build → docker restart → curl 200確認 ✅
+
 ### Session 26: Instagram Meta App Review Prep + Deauthorize Webhook (2026-03-09)
 
 **Instagram Meta App Review申請準備:**

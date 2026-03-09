@@ -98,6 +98,7 @@
     "subtitle": "ダッシュボードにサインイン",
     "signInGoogle": "Googleでサインイン",
     "authorizedOnly": "許可されたメールアドレスのみサインインできます",
+    "demoAccess": "デモアクセス（レビュアー用）",
     "errors": {
       "AccessDenied": "アクセスが拒否されました。メールアドレスが許可リストにありません。",
       "OAuthSignin": "サインインフローの開始中にエラーが発生しました。再試行してください。",
