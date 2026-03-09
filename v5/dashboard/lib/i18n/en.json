@@ -88,6 +88,8 @@
     "/database": "Database Viewer",
     "/auth/tiktok/start": "Connect TikTok",
     "/auth/tiktok/result": "TikTok Connected",
+    "/auth/instagram/start": "Connect Instagram",
+    "/auth/instagram/result": "Instagram Connected",
     "/demo": "Platform Demos",
     "/demo/tiktok": "TikTok Demo"
   },

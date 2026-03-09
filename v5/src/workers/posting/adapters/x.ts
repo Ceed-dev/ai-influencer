@@ -253,7 +253,7 @@ export class XAdapter implements PlatformAdapter {
           baseDelayMs: 2000,
           isRetryable: (err) => {
             const msg = err instanceof Error ? err.message : '';
-            return msg.includes('5') || msg.includes('timeout');
+            return /\b5\d{2}\b/.test(msg) || msg.includes('timeout');
           },
         },
       );
@@ -295,14 +295,14 @@ export class XAdapter implements PlatformAdapter {
         baseDelayMs: 2000,
         isRetryable: (err) => {
           const msg = err instanceof Error ? err.message : '';
-          return msg === 'RATE_LIMITED' || msg.includes('5');
+          return msg === 'RATE_LIMITED' || /\b5\d{2}\b/.test(msg);
         },
       },
     );
 
     const tweetId = tweetResult.data.id;
     const postedAt = new Date().toISOString();
-    const postUrl = `https://x.com/${creds.user_id}/status/${tweetId}`;
+    const postUrl = `https://x.com/i/status/${tweetId}`;
 
     console.warn(`[x-adapter] Published: ${postUrl}`);
 

@@ -9,25 +9,34 @@ import type { CollectInstagramMetricsOutput } from '../../../../types/mcp-tools.
 import type { OAuthCredentials } from './types.js';
 import { handleApiResponse } from './types.js';
 
+const IG_API_VERSION = 'v21.0';
+
+/**
+ * Result of an Instagram token refresh.
+ * Mirrors TikTokRefreshResult pattern for consistency.
+ */
+export interface InstagramRefreshResult {
+  access_token: string;
+  expires_in: number;
+}
+
 /**
  * Refresh Instagram long-lived token.
  * GET https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token={token}
  */
 export async function refreshInstagramToken(
   oauth: OAuthCredentials,
-): Promise<string> {
+): Promise<InstagramRefreshResult> {
   const token = oauth.long_lived_token;
   if (!token) {
     throw new Error('Missing Instagram long_lived_token');
   }
 
-  const params = new URLSearchParams({
-    grant_type: 'ig_refresh_token',
-    access_token: token,
-  });
-
   const resp = await fetch(
-    `https://graph.instagram.com/refresh_access_token?${params.toString()}`,
+    `https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    },
   );
 
   if (!resp.ok) {
@@ -40,7 +49,9 @@ export async function refreshInstagramToken(
   if (!newToken) {
     throw new Error('Instagram token refresh response missing access_token');
   }
-  return newToken;
+  // IG long-lived tokens last ~60 days (5184000 seconds)
+  const expiresIn = (data['expires_in'] as number | undefined) ?? 5184000;
+  return { access_token: newToken, expires_in: expiresIn };
 }
 
 /**
@@ -62,7 +73,7 @@ export async function fetchInstagramMetrics(
 
 /**
  * Try Reels insights endpoint.
- * GET https://graph.instagram.com/v21.0/{media-id}/insights?metric=impressions,reach,likes,comments,saved,plays
+ * GET https://graph.instagram.com/${IG_API_VERSION}/{media-id}/insights?metric=impressions,reach,likes,comments,saved,plays
  */
 async function tryReelsInsights(
   accessToken: string,
@@ -70,9 +81,12 @@ async function tryReelsInsights(
   signal?: AbortSignal,
 ): Promise<CollectInstagramMetricsOutput | null> {
   try {
-    const metrics = 'impressions,reach,likes,comments,saved,plays';
-    const url = `https://graph.instagram.com/v21.0/${platformPostId}/insights?metric=${metrics}&access_token=${accessToken}`;
-    const resp = await fetch(url, { signal });
+    const metrics = 'impressions,reach,likes,comments,saved,shares,plays';
+    const url = `https://graph.instagram.com/${IG_API_VERSION}/${platformPostId}/insights?metric=${metrics}`;
+    const resp = await fetch(url, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      signal,
+    });
 
     if (!resp.ok) return null;
 
@@ -94,6 +108,7 @@ async function tryReelsInsights(
       likes: metricsMap['likes'] ?? 0,
       comments: metricsMap['comments'] ?? 0,
       saves: metricsMap['saved'] ?? 0,
+      shares: metricsMap['shares'] ?? 0,
       reach: metricsMap['reach'] ?? 0,
       impressions: metricsMap['impressions'] ?? 0,
     };
@@ -104,7 +119,7 @@ async function tryReelsInsights(
 
 /**
  * Fetch basic media fields.
- * GET https://graph.instagram.com/v21.0/{media-id}?fields=impressions,reach,like_count,comments_count,saved
+ * GET https://graph.instagram.com/${IG_API_VERSION}/{media-id}?fields=impressions,reach,like_count,comments_count,saved
  */
 async function fetchBasicMediaFields(
   accessToken: string,
@@ -112,8 +127,11 @@ async function fetchBasicMediaFields(
   signal?: AbortSignal,
 ): Promise<CollectInstagramMetricsOutput> {
   const fields = 'like_count,comments_count,impressions,reach';
-  const url = `https://graph.instagram.com/v21.0/${platformPostId}?fields=${fields}&access_token=${accessToken}`;
-  const resp = await fetch(url, { signal });
+  const url = `https://graph.instagram.com/${IG_API_VERSION}/${platformPostId}?fields=${fields}`;
+  const resp = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    signal,
+  });
 
   const data = await handleApiResponse(resp, 'Instagram');
 
@@ -121,7 +139,8 @@ async function fetchBasicMediaFields(
     views: (data['impressions'] as number) ?? 0,
     likes: (data['like_count'] as number) ?? 0,
     comments: (data['comments_count'] as number) ?? 0,
-    saves: 0, // Not available in basic fields endpoint
+    saves: 0,    // Not available in basic fields endpoint
+    shares: 0,   // Not available in basic fields endpoint
     reach: (data['reach'] as number) ?? 0,
     impressions: (data['impressions'] as number) ?? 0,
   };

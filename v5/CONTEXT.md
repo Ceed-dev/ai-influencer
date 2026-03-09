@@ -342,6 +342,29 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 **Commits:** `d76acbb`, `793b96a`, `5a1c19d`, `bceb292`
 **Quality gates:** TypeScript 0 errors (v5 root + dashboard), build成功, VMデプロイ済み
 
+### Session 25: Instagram OAuth Dashboard Flow + Comprehensive Code Review (2026-03-06)
+
+**Instagram全コードレビュー + 11件修正 (Agent Team: instagram-review):**
+
+**Backend (src/):**
+- H-1: `instagram.ts` — isRetryable `msg.includes('5')` → `/\b5\d{2}\b/.test(msg)`
+- H-2: `instagram-insights.ts` — `refreshInstagramToken()` を `InstagramRefreshResult { access_token, expires_in }` 返却に変更。`collect-platform-metrics.ts` に `updateInstagramCredentials()` 追加、`expires_at` もDBに保存
+- H-3: `token-refresher.ts` — `getExpiredTokens()` に Instagram `long_lived_token` 用クエリ追加（7日バッファで期限切れ検出）
+- H-4: `instagram.ts` — media publish後に `GET /{media-id}?fields=shortcode` でshortcode取得、`post_url` を正しく構築
+- M-3: `instagram-insights.ts` — Reels insights metricsに `shares` 追加; `CollectInstagramMetricsOutput` 型に `shares: number` 追加; syntheticInstagramにも追加
+- L-1: `instagram.ts` — polling timeout後に FINISHED でなければ Error throw
+- L-3: `instagram.ts` — `access_token` を URLパラメータから `Authorization: Bearer` ヘッダーに移行
+
+**Dashboard (dashboard/):**
+- M-1: `dashboard/app/api/auth/instagram/initiate/route.ts` 新規作成 — CSRF nonce生成（httpOnly cookie `instagram_oauth_nonce`, maxAge=300s）
+- M-1: `InstagramStartForm.tsx` 修正 — クライアント側URL構築廃止 → `POST /api/auth/instagram/initiate` 呼び出し
+- M-1: `callback/route.ts` — nonce cookie検証追加（CSRF保護）、成功/失敗時cookie削除
+- M-2: en.json/ja.json に `/auth/instagram/start`・`/auth/instagram/result` pageTitles追加
+- M-4: `callback/route.ts` — `authCredentials.oauth` から `app_id`/`app_secret` 除去（system_settings経由のみに統一）
+
+**Quality check:** TypeScript 0 errors (v5 root + dashboard), 244/244 suites pass
+**Production deployment:** deploy → build (backend + dashboard) → docker restart
+
 ### Session 24: Demo Pages Reorganization + Sidebar Demos Link (2026-03-06)
 
 **デモページ整理:**

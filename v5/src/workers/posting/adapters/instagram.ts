@@ -17,8 +17,6 @@ import { retryWithBackoff } from '../../../lib/retry.js';
 // ── Types ────────────────────────────────────────────────────────────────────
 
 interface InstagramOAuth {
-  app_id: string;
-  app_secret: string;
   long_lived_token: string;
   expires_at: string;
 }
@@ -59,8 +57,6 @@ function parseCredentials(raw: Record<string, unknown>): InstagramCredentials {
 
   return {
     oauth: {
-      app_id: String(oauth['app_id'] ?? ''),
-      app_secret: String(oauth['app_secret'] ?? ''),
       long_lived_token: String(oauth['long_lived_token']),
       expires_at: String(oauth['expires_at'] ?? ''),
     },
@@ -208,14 +204,16 @@ export class InstagramAdapter implements PlatformAdapter {
           media_type: 'REELS',
           video_url: videoUrl,
           caption: fullCaption.slice(0, 2200),
-          access_token: creds.oauth.long_lived_token,
         });
 
         const resp = await fetch(
           `https://graph.instagram.com/${IG_API_VERSION}/${creds.ig_user_id}/media`,
           {
             method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+              Authorization: `Bearer ${creds.oauth.long_lived_token}`,
+            },
             body: params,
           },
         );
@@ -232,7 +230,7 @@ export class InstagramAdapter implements PlatformAdapter {
         baseDelayMs: 5000,
         isRetryable: (err) => {
           const msg = err instanceof Error ? err.message : '';
-          return msg === 'RATE_LIMITED' || msg.includes('5');
+          return msg === 'RATE_LIMITED' || /\b5\d{2}\b/.test(msg);
         },
       },
     );
@@ -247,11 +245,15 @@ export class InstagramAdapter implements PlatformAdapter {
     console.warn(`[instagram-adapter] Polling container status: ${containerId}`);
 
     const maxPolls = 60; // Up to 5 minutes (60 * 5s)
+    let containerFinished = false;
     for (let i = 0; i < maxPolls; i++) {
       await new Promise((resolve) => setTimeout(resolve, 5000));
 
       const statusResp = await fetch(
-        `https://graph.instagram.com/${IG_API_VERSION}/${containerId}?fields=status_code&access_token=${creds.oauth.long_lived_token}`,
+        `https://graph.instagram.com/${IG_API_VERSION}/${containerId}?fields=status_code`,
+        {
+          headers: { Authorization: `Bearer ${creds.oauth.long_lived_token}` },
+        },
       );
 
       if (!statusResp.ok) continue;
@@ -259,6 +261,7 @@ export class InstagramAdapter implements PlatformAdapter {
       const statusData = (await statusResp.json()) as ContainerStatusResponse;
 
       if (statusData.status_code === 'FINISHED') {
+        containerFinished = true;
         break;
       }
 
@@ -269,6 +272,10 @@ export class InstagramAdapter implements PlatformAdapter {
       // IN_PROGRESS — keep polling
     }
 
+    if (!containerFinished) {
+      throw new Error(`Instagram container processing timed out after ${maxPolls * 5}s for ${containerId}`);
+    }
+
     // Step 3: Publish the container
     console.warn(`[instagram-adapter] Publishing container: ${containerId}`);
 
@@ -276,14 +283,16 @@ export class InstagramAdapter implements PlatformAdapter {
       async () => {
         const params = new URLSearchParams({
           creation_id: containerId,
-          access_token: creds.oauth.long_lived_token,
         });
 
         const resp = await fetch(
           `https://graph.instagram.com/${IG_API_VERSION}/${creds.ig_user_id}/media_publish`,
           {
             method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+              Authorization: `Bearer ${creds.oauth.long_lived_token}`,
+            },
             body: params,
           },
         );
@@ -311,7 +320,27 @@ export class InstagramAdapter implements PlatformAdapter {
 
     const mediaId = publishResult.id;
     const postedAt = new Date().toISOString();
-    const postUrl = `https://www.instagram.com/reel/${mediaId}/`;
+
+    // Fetch the shortcode to build the correct permalink
+    let postUrl = `https://www.instagram.com/reel/${mediaId}/`;
+    try {
+      const shortcodeResp = await fetch(
+        `https://graph.instagram.com/${IG_API_VERSION}/${mediaId}?fields=shortcode`,
+        {
+          headers: { Authorization: `Bearer ${creds.oauth.long_lived_token}` },
+        },
+      );
+      if (shortcodeResp.ok) {
+        const scData = (await shortcodeResp.json()) as Record<string, unknown>;
+        const shortcode = scData['shortcode'] as string | undefined;
+        if (shortcode) {
+          postUrl = `https://www.instagram.com/reel/${shortcode}/`;
+        }
+      }
+    } catch {
+      // Non-critical — use media ID URL as fallback
+      console.warn(`[instagram-adapter] Failed to fetch shortcode for ${mediaId}, using media ID URL`);
+    }
 
     console.warn(`[instagram-adapter] Published: ${postUrl}`);
 
@@ -346,13 +375,11 @@ export class InstagramAdapter implements PlatformAdapter {
     try {
       const response = await retryWithBackoff(
         async () => {
-          const params = new URLSearchParams({
-            grant_type: 'ig_refresh_token',
-            access_token: creds.oauth.long_lived_token,
-          });
-
           const resp = await fetch(
-            `https://graph.instagram.com/refresh_access_token?${params.toString()}`,
+            `https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token`,
+            {
+              headers: { Authorization: `Bearer ${creds.oauth.long_lived_token}` },
+            },
           );
 
           if (!resp.ok) {

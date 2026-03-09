@@ -1055,6 +1055,7 @@ export interface CollectInstagramMetricsOutput {
   likes: number;
   comments: number;
   saves: number;
+  shares: number;
   reach: number;
   impressions: number;
 }

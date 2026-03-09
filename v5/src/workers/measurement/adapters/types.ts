@@ -15,8 +15,6 @@ export interface OAuthCredentials {
   client_key?: string;
   open_id?: string;
   // Instagram (Facebook OAuth)
-  app_id?: string;
-  app_secret?: string;
   long_lived_token?: string;
   ig_user_id?: string;
   page_id?: string;
