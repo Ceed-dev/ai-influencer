@@ -239,8 +239,13 @@ ai-influencer/v5/
 │   │       │   │   └── route.ts
 │   │       │   ├── tiktok/callback/ # TikTok OAuth コールバック（code→token交換、accounts upsert）
 │   │       │   │   └── route.ts
-│   │       │   └── instagram/callback/ # Instagram OAuth コールバック
-│   │       │       └── route.ts
+│   │       │   └── instagram/
+│   │       │       ├── initiate/  # POST: CSRF nonce生成 + Facebook OAuth URL返却（admin専用）
+│   │       │       │   └── route.ts
+│   │       │       ├── callback/  # GET: code→token交換, debug_token, accounts upsert
+│   │       │       │   └── route.ts
+│   │       │       └── deauthorize/ # POST: Meta signed_request HMAC-SHA256検証 Webhook
+│   │       │           └── route.ts
 │   │       └── demo/tiktok/   # App Review デモ用（一時利用）
 │   │           ├── upload/route.ts  # POST: Direct Post API init + video upload
 │   │           └── videos/route.ts  # GET: video list API
