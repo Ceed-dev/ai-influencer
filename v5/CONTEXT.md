@@ -1,7 +1,7 @@
 # v5.0 Implementation Context
 
 > This file tracks the current state of the v5.0 implementation for session continuity.
-> Updated: 2026-03-05
+> Updated: 2026-03-09
 
 ## Current State: Production-Ready
 
@@ -341,6 +341,51 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 
 **Commits:** `d76acbb`, `793b96a`, `5a1c19d`, `bceb292`
 **Quality gates:** TypeScript 0 errors (v5 root + dashboard), build成功, VMデプロイ済み
+
+### Session 26: Instagram Meta App Review Prep + Deauthorize Webhook (2026-03-09)
+
+**Instagram Meta App Review申請準備:**
+
+**OAuth フロー完成確認:**
+- ACC_0003 (pochi.dev, ig_user_id=17841480526543713, page_id=932599456610105) DB登録済み
+- Long-lived token 有効期限: 2026-05-08
+
+**callback/route.ts 修正 (前セッションからの続き):**
+- `/me/accounts` → `debug_token` granular_scopes 方式に変更（Business Manager管理ページは`/me/accounts`で空配列返却される問題を解消）
+- `RESULT_BASE` を絶対URLに変更（Docker内 `request.nextUrl` が localhost を返す問題を解消）
+- CSRF nonce cookie TTL: 300s → 3600s
+- `auth_type=rerequest` 追加（Facebook OAuth dialog で再認証強制）
+- `InstagramStartForm`: characterId の required / disabled 制約を削除
+
+**新規: POST /api/auth/instagram/deauthorize**
+- Meta Facebook Login for Business がユーザーのアプリ連携解除時にコールするWebhook
+- HMAC-SHA256 signed_request 署名検証（App Secret使用、base64url/パディング対応）
+- 7ユニットテスト追加 (dsh-039): valid/invalid署名、改ざん検知、malformed、base64url文字など全パス
+- `dashboard/app/api/auth/instagram/deauthorize/route.ts` 新規作成
+
+**Meta Developer Portal設定完了:**
+- App Settings > Basic: Privacy Policy URL, ToS URL, App Icon, App Domain (ai-dash.0xqube.xyz), Category設定済み
+- Facebook Login for Business > Settings:
+  - Valid OAuth Redirect URIs: `https://ai-dash.0xqube.xyz/api/auth/instagram/callback`
+  - Deauthorize Callback URL: `https://ai-dash.0xqube.xyz/api/auth/instagram/deauthorize`
+  - Data Deletion Request URL: `https://ai-dash.0xqube.xyz/privacy`
+
+**App Review スコープ状況 (2026-03-09 時点):**
+- `pages_show_list`: ✅ Request advanced access 申請済み (Edit App Review request表示)
+- `instagram_basic`, `instagram_content_publish`, `instagram_manage_insights`, `pages_read_engagement`: Graph API Explorerでテストコール実行済み → ボタン有効化待ち（最大24時間）
+- `public_profile`: advanced access申請が必要（黄色い警告バナーあり）
+
+**Permissions and Features UI仕様（重要知識）:**
+- 上のセクション（標準パーミッション）: Instagram/Pages系スコープは存在しない
+- 下のセクション（Tech Provider向け）: Instagram/Pages系スコープはここのみ → 常に下で検索
+
+**次のアクション:**
+1. 残り4スコープのボタン有効化後 → 全スコープ「Request advanced access」申請
+2. `public_profile` advanced access申請
+3. App Review > Requests > Continue request → 提出フォーム完成 → 提出
+
+**Quality check:** TypeScript 0 errors (dashboard), dsh-039 7/7 pass
+**Production deployment:** rsync → build → docker restart ✅
 
 ### Session 25: Instagram OAuth Dashboard Flow + Comprehensive Code Review (2026-03-06)
 
