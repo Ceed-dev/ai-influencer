@@ -56,6 +56,7 @@ export async function POST(request: NextRequest) {
   authUrl.searchParams.set("scope", SCOPES);
   authUrl.searchParams.set("response_type", "code");
   authUrl.searchParams.set("state", state);
+  authUrl.searchParams.set("auth_type", "rerequest");
 
   // Store nonce in httpOnly cookie (5 min TTL)
   const response = NextResponse.json({ authUrl: authUrl.toString() });
@@ -63,7 +64,7 @@ export async function POST(request: NextRequest) {
     httpOnly: true,
     sameSite: "lax",
     secure: true,
-    maxAge: 300,
+    maxAge: 3600,
     path: "/",
   });
 

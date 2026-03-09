@@ -4,7 +4,7 @@ import { query, queryOne } from "@/lib/db";
 export const dynamic = "force-dynamic";
 
 const REDIRECT_URI = "https://ai-dash.0xqube.xyz/api/auth/instagram/callback";
-const RESULT_BASE = "/auth/instagram/result";
+const RESULT_BASE = "https://ai-dash.0xqube.xyz/auth/instagram/result";
 const GRAPH_API = "https://graph.facebook.com/v21.0";
 
 interface FacebookTokenResponse {
@@ -18,26 +18,20 @@ interface FacebookTokenResponse {
   };
 }
 
-interface FacebookPage {
-  id: string;
-  name: string;
-  access_token: string;
-  instagram_business_account?: { id: string };
-}
-
-interface FacebookPagesResponse {
-  data?: FacebookPage[];
-  error?: { message: string; code: number };
-}
-
 interface IGUserResponse {
   id: string;
   username?: string;
   error?: { message: string; code: number };
 }
 
-interface PageIGResponse {
-  instagram_business_account?: { id: string };
+interface DebugTokenData {
+  app_id?: string;
+  is_valid?: boolean;
+  granular_scopes?: Array<{ scope: string; target_ids?: string[] }>;
+}
+
+interface DebugTokenResponse {
+  data?: DebugTokenData;
   error?: { message: string; code: number };
 }
 
@@ -53,20 +47,20 @@ interface NextNumRow {
   next_num: string;
 }
 
-function buildResultUrl(base: URL, params: Record<string, string>): string {
-  const url = new URL(RESULT_BASE, base);
+function buildResultUrl(params: Record<string, string>): string {
+  const url = new URL(RESULT_BASE);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
   return url.toString();
 }
 
 export async function GET(request: NextRequest) {
-  const base = request.nextUrl;
-  const code = base.searchParams.get("code");
-  const state = base.searchParams.get("state");
+  const reqUrl = request.nextUrl;
+  const code = reqUrl.searchParams.get("code");
+  const state = reqUrl.searchParams.get("state");
 
   if (!code || !state) {
     return NextResponse.redirect(
-      buildResultUrl(base, { success: "false", error: "missing_params" })
+      buildResultUrl({ success: "false", error: "missing_params" })
     );
   }
 
@@ -85,7 +79,7 @@ export async function GET(request: NextRequest) {
     stateNonce = decoded.nonce ?? "";
   } catch {
     return NextResponse.redirect(
-      buildResultUrl(base, { success: "false", error: "invalid_state" })
+      buildResultUrl({ success: "false", error: "invalid_state" })
     );
   }
 
@@ -94,7 +88,7 @@ export async function GET(request: NextRequest) {
   if (!cookieNonce || cookieNonce !== stateNonce) {
     console.error("[instagram-callback] CSRF nonce mismatch — possible CSRF attack");
     const csrfResponse = NextResponse.redirect(
-      buildResultUrl(base, { success: "false", error: "csrf_mismatch" })
+      buildResultUrl({ success: "false", error: "csrf_mismatch" })
     );
     csrfResponse.cookies.delete("instagram_oauth_nonce");
     return csrfResponse;
@@ -111,7 +105,7 @@ export async function GET(request: NextRequest) {
   if (!appIdSetting || !appSecretSetting) {
     console.error("[instagram-callback] INSTAGRAM_APP_ID or INSTAGRAM_APP_SECRET not found in system_settings");
     return NextResponse.redirect(
-      buildResultUrl(base, { success: "false", error: "missing_credentials" })
+      buildResultUrl({ success: "false", error: "missing_credentials" })
     );
   }
 
@@ -128,14 +122,14 @@ export async function GET(request: NextRequest) {
     if (tokenData.error || !tokenData.access_token) {
       console.error("[instagram-callback] Short-lived token exchange failed:", tokenData.error?.message);
       return NextResponse.redirect(
-        buildResultUrl(base, { success: "false", error: "token_exchange_failed" })
+        buildResultUrl({ success: "false", error: "token_exchange_failed" })
       );
     }
     shortLivedToken = tokenData.access_token;
   } catch (err) {
     console.error("[instagram-callback] Token exchange network error:", err);
     return NextResponse.redirect(
-      buildResultUrl(base, { success: "false", error: "token_exchange_failed" })
+      buildResultUrl({ success: "false", error: "token_exchange_failed" })
     );
   }
 
@@ -150,7 +144,7 @@ export async function GET(request: NextRequest) {
     if (llData.error || !llData.access_token) {
       console.error("[instagram-callback] Long-lived token exchange failed:", llData.error?.message);
       return NextResponse.redirect(
-        buildResultUrl(base, { success: "false", error: "long_lived_token_failed" })
+        buildResultUrl({ success: "false", error: "long_lived_token_failed" })
       );
     }
     longLivedToken = llData.access_token;
@@ -158,56 +152,45 @@ export async function GET(request: NextRequest) {
   } catch (err) {
     console.error("[instagram-callback] Long-lived token exchange network error:", err);
     return NextResponse.redirect(
-      buildResultUrl(base, { success: "false", error: "long_lived_token_failed" })
+      buildResultUrl({ success: "false", error: "long_lived_token_failed" })
     );
   }
 
-  // Step 3: Get Facebook Pages and find Instagram Business Account
+  // Step 3: Extract ig_user_id and page_id from token's granular_scopes via debug_token
   let igUserId = "";
   let pageId = "";
   try {
-    const pagesRes = await fetch(
-      `${GRAPH_API}/me/accounts?fields=id,name,access_token,instagram_business_account&access_token=${encodeURIComponent(longLivedToken)}`
+    const debugRes = await fetch(
+      `https://graph.facebook.com/debug_token?input_token=${encodeURIComponent(longLivedToken)}&access_token=${encodeURIComponent(appId + "|" + appSecret)}`
     );
-    const pagesData = (await pagesRes.json()) as FacebookPagesResponse;
+    const debugData = (await debugRes.json()) as DebugTokenResponse;
 
-    if (pagesData.error || !pagesData.data) {
-      console.error("[instagram-callback] Failed to fetch pages:", pagesData.error?.message);
+    if (!debugData.data?.is_valid) {
+      console.error("[instagram-callback] Token is invalid:", JSON.stringify(debugData));
       return NextResponse.redirect(
-        buildResultUrl(base, { success: "false", error: "pages_fetch_failed" })
+        buildResultUrl({ success: "false", error: "invalid_token" })
       );
     }
 
-    // Find first page with Instagram Business Account
-    for (const page of pagesData.data) {
-      if (page.instagram_business_account?.id) {
-        igUserId = page.instagram_business_account.id;
-        pageId = page.id;
-        break;
-      }
+    const granularScopes = debugData.data.granular_scopes ?? [];
+    const igScope = granularScopes.find((s) => s.scope === "instagram_basic");
+    const pageScope = granularScopes.find((s) => s.scope === "pages_show_list");
 
-      // Some pages need a separate query to check for IG account
-      const pageIgRes = await fetch(
-        `${GRAPH_API}/${page.id}?fields=instagram_business_account&access_token=${encodeURIComponent(page.access_token)}`
-      );
-      const pageIgData = (await pageIgRes.json()) as PageIGResponse;
-      if (pageIgData.instagram_business_account?.id) {
-        igUserId = pageIgData.instagram_business_account.id;
-        pageId = page.id;
-        break;
-      }
-    }
+    igUserId = igScope?.target_ids?.[0] ?? "";
+    pageId = pageScope?.target_ids?.[0] ?? "";
+
+    console.log("[instagram-callback] ig_user_id:", igUserId, "page_id:", pageId);
 
     if (!igUserId || !pageId) {
-      console.error("[instagram-callback] No Instagram Business Account found on any page");
+      console.error("[instagram-callback] Missing ig_user_id or page_id in token scopes");
       return NextResponse.redirect(
-        buildResultUrl(base, { success: "false", error: "no_instagram_business_account" })
+        buildResultUrl({ success: "false", error: "no_instagram_business_account" })
       );
     }
   } catch (err) {
-    console.error("[instagram-callback] Pages/IG account fetch error:", err);
+    console.error("[instagram-callback] debug_token fetch error:", err);
     return NextResponse.redirect(
-      buildResultUrl(base, { success: "false", error: "pages_fetch_failed" })
+      buildResultUrl({ success: "false", error: "pages_fetch_failed" })
     );
   }
 
@@ -273,13 +256,13 @@ export async function GET(request: NextRequest) {
   } catch (err) {
     console.error("[instagram-callback] DB upsert error:", err);
     return NextResponse.redirect(
-      buildResultUrl(base, { success: "false", error: "db_error" })
+      buildResultUrl({ success: "false", error: "db_error" })
     );
   }
 
   // Delete CSRF nonce cookie after successful auth
   const successResponse = NextResponse.redirect(
-    buildResultUrl(base, {
+    buildResultUrl({
       success: "true",
       account_id: accountId,
       username: displayName || platformUsername,

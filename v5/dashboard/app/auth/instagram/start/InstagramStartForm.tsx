@@ -24,8 +24,6 @@ export function InstagramStartForm({ characters }: Props) {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!characterId) return;
-
     setLoading(true);
     setError("");
 
@@ -55,7 +53,6 @@ export function InstagramStartForm({ characters }: Props) {
           id="character_id"
           value={characterId}
           onChange={(e) => setCharacterId(e.target.value)}
-          required
         >
           <option value="">{t("instagramAuth.characterPlaceholder")}</option>
           {characters.map((c) => (
@@ -81,7 +78,7 @@ export function InstagramStartForm({ characters }: Props) {
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 
-      <Button type="submit" disabled={!characterId || loading} className="w-full">
+      <Button type="submit" disabled={loading} className="w-full">
         {loading ? t("instagramAuth.connecting") : t("instagramAuth.connectButton")}
       </Button>
     </form>
