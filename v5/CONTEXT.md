@@ -342,6 +342,22 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 **Commits:** `d76acbb`, `793b96a`, `5a1c19d`, `bceb292`
 **Quality gates:** TypeScript 0 errors (v5 root + dashboard), build成功, VMデプロイ済み
 
+### Session 27: Dashboard Root Page Fix — VM Deployment Issue (2026-03-09)
+
+**問題**: `https://ai-dash.0xqube.xyz` の `/` にアクセスするとKPIダッシュボードではなくプライバシーポリシーの内容が表示される
+
+**原因**: VM上の `dashboard/app/page.tsx` が誤ってプライバシーポリシーページの内容に上書きされていた。gitリポジトリのコード（devbox側）は正しいKPIダッシュボードのまま。
+
+**修正手順:**
+1. `ssh pochi@34.85.62.184 "head -5 /home/pochi/ai-influencer/v5/dashboard/app/page.tsx"` で確認 → Privacyページの内容であることを確認
+2. `rsync` でdevboxのローカル `app/page.tsx`（KPIダッシュボード）をVMに転送
+3. VM上で `npm run build`
+4. `docker restart v5-dashboard`
+
+**確認**: ルートURL `/` にKPIダッシュボードが正常表示されることをユーザーが確認。
+
+**Note:** gitリポジトリへのコード変更なし（VMのみの運用上の問題）。
+
 ### Session 26b: Demo Access for Meta App Review (2026-03-09)
 
 **背景**: Instagram Meta App Reviewでレビュアーがダッシュボードを確認する必要があるが、Google OAuthホワイトリスト認証で外部者がアクセスできない問題への対応。
