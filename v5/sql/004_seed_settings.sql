@@ -120,7 +120,8 @@ INSERT INTO system_settings (setting_key, setting_value, category, description, 
 ('CRED_FISH_AUDIO_API_KEY', '""', 'credentials', 'Fish Audio APIキー。Plus plan ($11/month) 必須', '""', 'string', null),
 ('CRED_OPENAI_API_KEY', '""', 'credentials', 'OpenAI APIキー（Embedding用: text-embedding-3-small）', '""', 'string', null),
 ('CRED_ANTHROPIC_API_KEY', '""', 'credentials', 'Anthropic APIキー（Claude Opus/Sonnet）', '""', 'string', null),
-('CRED_GOOGLE_SERVICE_ACCOUNT_KEY', '""', 'credentials', 'Google Cloud サービスアカウントキー（JSON）。Drive・Sheets API用', '""', 'string', null);
+('CRED_GOOGLE_SERVICE_ACCOUNT_KEY', '""', 'credentials', 'Google Cloud サービスアカウントキー（JSON）。Drive・Sheets API用', '""', 'string', null),
+('DEMO_ACCESS_TOKEN', '""', 'credentials', 'Meta App Reviewレビュアー用デモアクセストークン。/login?demo=<token> でアクセス時に認証バイパス（adminロール）。空文字で無効化', '""', 'string', null);
 
 -- Algorithm & KPI settings (31)
 INSERT INTO system_settings (setting_key, setting_value, category, description, default_value, value_type, constraints) VALUES
