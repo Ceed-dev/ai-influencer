@@ -5201,6 +5201,41 @@ TEST-{LAYER}-{NUMBER}
 - **Pass Criteria**: ドロワー表示 AND エラートレース AND リトライボタン
 - **Fail Indicators**: ドロワーが開かない
 
+### TEST-DSH-157: Instagram deauthorize webhook — signed_request検証
+- **Category**: dashboard / unit
+- **Priority**: P1
+- **Prerequisites**: なし（純粋ロジックテスト）
+- **Steps**:
+  1. 有効なsigned_requestを生成してverify → valid: true, payload.user_id取得可
+  2. 誤ったApp SecretでverifyするとInvalid signature
+  3. ペイロードを改ざんするとInvalid signature
+  4. ドット区切りなし（malformed）は拒否
+  5. 空文字列は拒否
+  6. base64url特殊文字（-/_）が正しく処理される
+  7. ペイロードJSONが正しくデコードされる
+- **Expected Result**: 7ケース全パス
+- **Pass Criteria**: HMAC-SHA256署名検証が正確、base64urlパディング対応
+- **Test File**: `tests/unit/dashboard/dsh-039-instagram-deauthorize.test.ts`
+
+### TEST-DSH-158: Demo Access — Meta App Reviewレビュアー認証
+- **Category**: dashboard / unit
+- **Priority**: P1
+- **Prerequisites**: `DEMO_ACCESS_TOKEN` がsystem_settingsに設定済み
+- **Steps**:
+  1. 正しいtokenでauthorize → demo userオブジェクト返却
+  2. 誤ったtokenはnull返却
+  3. 空tokenはnull返却
+  4. undefinedトークンはnull返却
+  5. storedTokenがnull（無効化）の場合はnull返却
+  6. storedTokenが空文字（無効化）の場合はnull返却
+  7. demo userは必ずadminロール取得
+  8. 通常ユーザーはroles mapからロール取得
+  9. URLパラメータ ?demo=TOKEN が正しく読み取られる
+  10. demoパラメータ不在時はボタン非表示
+- **Expected Result**: 12ケース全パス
+- **Pass Criteria**: token検証・role割当・URL param検出が正確
+- **Test File**: `tests/unit/dashboard/dsh-040-demo-access.test.ts`
+
 ## 6. Integration Layer Tests (TEST-INT)
 
 ### TEST-INT-001: 戦略サイクル → 制作パイプライン連携
