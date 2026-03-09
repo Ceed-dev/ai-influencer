@@ -257,7 +257,7 @@ ai-influencer/v5/
 │   │       └── AuthProvider.tsx  # SessionProvider wrapper
 │   ├── lib/
 │   │   ├── api.ts            # API client（PostgreSQL直接接続、MCP経由ではない）
-│   │   ├── auth.ts           # NextAuth.js設定（Google OAuth, JWT, RBAC）
+│   │   ├── auth.ts           # NextAuth.js設定（Google OAuth + Demo CredentialsProvider, JWT, RBAC）
 │   │   ├── database-tables.ts # DB ビューア用テーブルホワイトリスト（ALLOWED_TABLES 34件）と TABLE_GROUPS 定数
 │   │   ├── i18n/             # 国際化（日英切替）
 │   │   │   ├── index.tsx     # LanguageProvider, useTranslation hook

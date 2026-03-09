@@ -9,6 +9,7 @@ import { useTranslation } from "@/lib/i18n";
 function LoginForm() {
   const searchParams = useSearchParams();
   const error = searchParams.get("error");
+  const demoToken = searchParams.get("demo");
   const { t } = useTranslation();
 
   const errorMessage = error
@@ -60,6 +61,19 @@ function LoginForm() {
           </svg>
           {t("login.signInGoogle")}
         </Button>
+
+        {demoToken && (
+          <Button
+            variant="outline"
+            className="w-full text-muted-foreground"
+            size="lg"
+            onClick={() =>
+              signIn("demo", { token: demoToken, callbackUrl: "/" })
+            }
+          >
+            {t("login.demoAccess")}
+          </Button>
+        )}
 
         <p className="text-center text-xs text-muted-foreground">
           {t("login.authorizedOnly")}
