@@ -382,6 +382,40 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 
 ---
 
+### Session 30: /demo/youtube — YouTube API Services審査用デモページ実装 (2026-03-10)
+
+**背景**: YouTube API Services Teamから「動画アップロード・アナリティクス・OAuth 2.0接続のスクリーンキャスト動画を7営業日以内に提出してください」というメールを受領 (3/4)。期限3/13 (金) に向けてデモページを実装。
+
+**新規作成ファイル (9ファイル):**
+- `dashboard/app/demo/youtube/page.tsx` — サーバーコンポーネント。admin認証チェック + DBからYouTubeアクティブアカウント取得
+- `dashboard/app/demo/youtube/YouTubeDemoClient.tsx` — 3ステップUI (Connect → Upload → Analytics)。i18n対応
+- `dashboard/app/api/auth/youtube/initiate/route.ts` — Google OAuth URL生成 + CSRF nonce (httpOnly cookie, 300秒)
+- `dashboard/app/api/auth/youtube/callback/route.ts` — OAuth code→token交換 → channels.list → accounts upsert。全エラーパスでnonce cookie削除
+- `dashboard/app/auth/youtube/result/page.tsx` — OAuth結果ページ (PUBLIC_PATH)
+- `dashboard/app/auth/youtube/result/YouTubeResultContent.tsx` — 成功/失敗表示
+- `dashboard/app/api/demo/youtube/channel/route.ts` — チャンネル情報取得 (snippet + statistics)。admin専用 (403)
+- `dashboard/app/api/demo/youtube/upload/route.ts` — 動画アップロード。resumable upload (initiate→PUT)。privacyStatus: private。admin専用 (403)
+- `dashboard/app/api/demo/youtube/analytics/route.ts` — チャンネルアナリティクス直近28日。metrics: views, estimatedMinutesWatched, likes, comments, shares。admin専用 (403)
+
+**更新ファイル (4ファイル):**
+- `dashboard/app/demo/page.tsx` — DEMOS配列にYouTubeエントリ追加
+- `dashboard/middleware.ts` — `/auth/youtube/result` をPUBLIC_PATHSに追加
+- `dashboard/lib/i18n/en.json` — `youtubeDemo` / `youtubeAuth` キー追加
+- `dashboard/lib/i18n/ja.json` — `youtubeDemo` / `youtubeAuth` キー追加（日本語）
+
+**レビュー・修正 (コードレビューエージェント2体で検査):**
+- `initiate`: CSRF nonce有効期限 3600秒 → 300秒 (TikTokと統一)
+- `channel/upload/analytics`: YouTube API fetchをtry/catchで囲む。401 → 403 (roleミスマッチ)
+- `callback`: 全エラーパス (missing_credentials, token_exchange_failed, db_error) でnonce cookie削除
+- `en.json/ja.json`: 未使用dead key `analyticsTitle` を削除
+
+**仕様書更新:**
+- `docs/v5-specification/02-architecture.md`: §6.17 YouTubeデモ追加、パブリックパスに`/auth/youtube/result`追加
+
+**Quality:** TypeScript 0 errors (v5 root + dashboard), workers/agentsテスト 254/254 pass
+
+---
+
 ### Session 29: /demo/instagram API fixes + Login callbackUrl fix (2026-03-10)
 
 **背景**: Meta App Reviewスクリーンキャスト動画撮影前に発見された実装バグを修正。

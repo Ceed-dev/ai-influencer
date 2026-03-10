@@ -18,6 +18,11 @@ const DEMOS = [
     href: "/demo/instagram",
     description: "Fetch Instagram account info and Facebook Page details, publish a photo post, and view account/page insights.",
   },
+  {
+    platform: "YouTube",
+    href: "/demo/youtube",
+    description: "Connect YouTube channel via OAuth 2.0, upload a video via YouTube Data API v3, and view channel analytics via YouTube Analytics API v2.",
+  },
 ];
 
 export default async function DemoIndexPage() {
