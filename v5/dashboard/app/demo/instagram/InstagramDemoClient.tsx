@@ -38,7 +38,7 @@ interface PostItem {
 }
 
 interface AccountInsights {
-  impressions?: number;
+  accounts_engaged?: number;
   reach?: number;
   profile_views?: number;
 }
@@ -403,7 +403,7 @@ export function InstagramDemoClient({ connectedAccount }: Props) {
               </p>
               <div className="flex flex-wrap gap-3">
                 {[
-                  { label: t("instagramDemo.impressions"), value: (accountInsights.impressions ?? 0).toLocaleString() },
+                  { label: t("instagramDemo.accountsEngaged"), value: (accountInsights.accounts_engaged ?? 0).toLocaleString() },
                   { label: t("instagramDemo.reach"), value: (accountInsights.reach ?? 0).toLocaleString() },
                   { label: t("instagramDemo.profileViews"), value: (accountInsights.profile_views ?? 0).toLocaleString() },
                 ].map(({ label, value }) => (
