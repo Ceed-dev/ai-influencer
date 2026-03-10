@@ -38,6 +38,7 @@ interface InsightItem {
   name: string;
   period: string;
   values?: InsightValue[];
+  total_value?: { value: number }; // returned when metric_type=total_value
 }
 
 interface IgInsightsResponse {
@@ -52,13 +53,13 @@ interface FbPageInsightsResponse {
 
 /**
  * Extract insight value for a given metric name.
- * With period=days_28 the API returns a single pre-aggregated value per metric.
- * We take the first (and only) value from the values array.
+ * Handles both metric_type=total_value (single object) and time_series (values array) formats.
  */
 function extractInsightValue(items: InsightItem[], metricName: string): number {
   const item = items.find((i) => i.name === metricName);
-  if (!item?.values || item.values.length === 0) return 0;
-  // Use first value (days_28 returns one entry; do not sum reach as it would double-count)
+  if (!item) return 0;
+  if (item.total_value !== undefined) return item.total_value.value ?? 0;
+  if (!item.values || item.values.length === 0) return 0;
   return item.values[0]?.value ?? 0;
 }
 
@@ -112,13 +113,13 @@ export async function GET() {
   }
 
   // Fetch account insights (instagram_manage_insights)
-  // period=days_28 returns the rolling 28-day pre-aggregated value from Meta
-  // Note: "impressions" was removed from valid metrics in Graph API v21.0; use accounts_engaged instead
+  // accounts_engaged and profile_views require metric_type=total_value in Graph API v21.0
+  // reach supports both formats; include it in the same call for simplicity
   let accountInsights: { accounts_engaged?: number; reach?: number; profile_views?: number } = {};
   try {
     const metrics = "accounts_engaged,reach,profile_views";
     const res = await fetch(
-      `${GRAPH_API}/${igUserId}/insights?metric=${metrics}&period=days_28`,
+      `${GRAPH_API}/${igUserId}/insights?metric=${metrics}&period=days_28&metric_type=total_value`,
       { headers: bearerHeaders }
     );
     const data = (await res.json()) as IgInsightsResponse;
@@ -138,13 +139,12 @@ export async function GET() {
   }
 
   // Fetch page insights (pages_read_engagement)
-  // period=day: days_28 is not supported for these metrics in Graph API v21.0
+  // page_fans with period=lifetime is reliably accessible with a User Access Token
   let pageInsights: { page_impressions?: number; page_engaged_users?: number } = {};
   if (pageId) {
     try {
-      const metrics = "page_impressions,page_engaged_users";
       const res = await fetch(
-        `${GRAPH_API}/${pageId}/insights?metric=${metrics}&period=day`,
+        `${GRAPH_API}/${pageId}/insights?metric=page_fans&period=lifetime`,
         { headers: bearerHeaders }
       );
       const data = (await res.json()) as FbPageInsightsResponse;
@@ -153,8 +153,8 @@ export async function GET() {
         errors.push(`page_insights: ${data.error.message}`);
       } else if (data.data) {
         pageInsights = {
-          page_impressions: extractInsightValue(data.data, "page_impressions"),
-          page_engaged_users: extractInsightValue(data.data, "page_engaged_users"),
+          page_impressions: extractInsightValue(data.data, "page_fans"),
+          page_engaged_users: 0,
         };
       }
     } catch (err) {
