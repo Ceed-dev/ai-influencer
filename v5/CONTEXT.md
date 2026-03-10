@@ -391,9 +391,9 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
   - `api/demo/instagram/account/route.ts`, `api/demo/instagram/insights/route.ts`, `api/demo/instagram/publish/route.ts`
   - 401 (Unauthorized) は「認証情報なし」、403 (Forbidden) は「権限不足」が正しい意味
 - `10-implementation-guide.md`: `api/auth/tiktok/initiate/` ディレクトリエントリ追加（コードには存在していたが漏れていた）
-- `02-architecture.md`: Instagram OAuth cookie TTL を 300s に修正
+- `02-architecture.md`: Instagram OAuth cookie TTL を 300s に修正、YouTube OAuth フロー説明追記（TikTok・Instagramは既存、Youtubeのみ欠落していた）
 
-**Quality:** TypeScript 0 errors
+**Quality:** TypeScript 0 errors, ESLint 0 errors / 15 warnings (no-explicit-any のみ、既存)
 
 ---
 
