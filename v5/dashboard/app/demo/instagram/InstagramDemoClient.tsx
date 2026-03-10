@@ -38,7 +38,7 @@ interface PostItem {
 }
 
 interface AccountInsights {
-  impressions?: number;
+  accounts_engaged?: number;
   reach?: number;
   profile_views?: number;
 }
@@ -60,7 +60,7 @@ export function InstagramDemoClient({ connectedAccount }: Props) {
 
   // Step 2 state
   const [caption, setCaption] = useState("Test post from AI Influencer dashboard. #demo #test");
-  const [imageUrl, setImageUrl] = useState("https://fastly.picsum.photos/id/10/1080/1080.jpg?hmac=Ws3Z5_vjrqe7EGaxGijMhEiU9u4tLFHjwU2vGO0HjN4");
+  const [imageUrl, setImageUrl] = useState("https://ai-dash.0xqube.xyz/test-post.jpg");
   const [publishing, setPublishing] = useState(false);
   const [publishedMediaId, setPublishedMediaId] = useState<string | null>(null);
   const [permalink, setPermalink] = useState<string | null>(null);
@@ -403,7 +403,7 @@ export function InstagramDemoClient({ connectedAccount }: Props) {
               </p>
               <div className="flex flex-wrap gap-3">
                 {[
-                  { label: t("instagramDemo.impressions"), value: (accountInsights.impressions ?? 0).toLocaleString() },
+                  { label: t("instagramDemo.accountsEngaged"), value: (accountInsights.accounts_engaged ?? 0).toLocaleString() },
                   { label: t("instagramDemo.reach"), value: (accountInsights.reach ?? 0).toLocaleString() },
                   { label: t("instagramDemo.profileViews"), value: (accountInsights.profile_views ?? 0).toLocaleString() },
                 ].map(({ label, value }) => (

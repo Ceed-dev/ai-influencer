@@ -113,9 +113,10 @@ export async function GET() {
 
   // Fetch account insights (instagram_manage_insights)
   // period=days_28 returns the rolling 28-day pre-aggregated value from Meta
-  let accountInsights: { impressions?: number; reach?: number; profile_views?: number } = {};
+  // Note: "impressions" was removed from valid metrics in Graph API v21.0; use accounts_engaged instead
+  let accountInsights: { accounts_engaged?: number; reach?: number; profile_views?: number } = {};
   try {
-    const metrics = "impressions,reach,profile_views";
+    const metrics = "accounts_engaged,reach,profile_views";
     const res = await fetch(
       `${GRAPH_API}/${igUserId}/insights?metric=${metrics}&period=days_28`,
       { headers: bearerHeaders }
@@ -126,7 +127,7 @@ export async function GET() {
       errors.push(`account_insights: ${data.error.message}`);
     } else if (data.data) {
       accountInsights = {
-        impressions: extractInsightValue(data.data, "impressions"),
+        accounts_engaged: extractInsightValue(data.data, "accounts_engaged"),
         reach: extractInsightValue(data.data, "reach"),
         profile_views: extractInsightValue(data.data, "profile_views"),
       };
@@ -137,13 +138,13 @@ export async function GET() {
   }
 
   // Fetch page insights (pages_read_engagement)
-  // period=days_28 for consistent 28-day window
+  // period=day: days_28 is not supported for these metrics in Graph API v21.0
   let pageInsights: { page_impressions?: number; page_engaged_users?: number } = {};
   if (pageId) {
     try {
       const metrics = "page_impressions,page_engaged_users";
       const res = await fetch(
-        `${GRAPH_API}/${pageId}/insights?metric=${metrics}&period=days_28`,
+        `${GRAPH_API}/${pageId}/insights?metric=${metrics}&period=day`,
         { headers: bearerHeaders }
       );
       const data = (await res.json()) as FbPageInsightsResponse;
