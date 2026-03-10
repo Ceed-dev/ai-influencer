@@ -113,13 +113,12 @@ export async function GET() {
   }
 
   // Fetch account insights (instagram_manage_insights)
-  // accounts_engaged and profile_views require metric_type=total_value in Graph API v21.0
-  // reach supports both formats; include it in the same call for simplicity
+  // accounts_engaged supports period=day only (not days_28); metric_type=total_value required
   let accountInsights: { accounts_engaged?: number; reach?: number; profile_views?: number } = {};
   try {
     const metrics = "accounts_engaged,reach,profile_views";
     const res = await fetch(
-      `${GRAPH_API}/${igUserId}/insights?metric=${metrics}&period=days_28&metric_type=total_value`,
+      `${GRAPH_API}/${igUserId}/insights?metric=${metrics}&period=day&metric_type=total_value`,
       { headers: bearerHeaders }
     );
     const data = (await res.json()) as IgInsightsResponse;
@@ -138,33 +137,12 @@ export async function GET() {
     errors.push("account_insights: network error");
   }
 
-  // Fetch page insights (pages_read_engagement)
-  // page_fans with period=lifetime is reliably accessible with a User Access Token
-  let pageInsights: { page_impressions?: number; page_engaged_users?: number } = {};
-  if (pageId) {
-    try {
-      const res = await fetch(
-        `${GRAPH_API}/${pageId}/insights?metric=page_fans&period=lifetime`,
-        { headers: bearerHeaders }
-      );
-      const data = (await res.json()) as FbPageInsightsResponse;
-      console.log("[demo/instagram/insights] Page insights:", res.status, data.error?.message ?? "ok");
-      if (data.error) {
-        errors.push(`page_insights: ${data.error.message}`);
-      } else if (data.data) {
-        pageInsights = {
-          page_impressions: extractInsightValue(data.data, "page_fans"),
-          page_engaged_users: 0,
-        };
-      }
-    } catch (err) {
-      console.warn("[demo/instagram/insights] Page insights fetch failed:", err);
-      errors.push("page_insights: network error");
-    }
-  }
+  // Page insights (pages_read_engagement) requires a Page Access Token — not available here.
+  // The pages_read_engagement scope is demonstrated via the Facebook Page card in Step 1.
+  const pageInsights: { page_impressions?: number; page_engaged_users?: number } = {};
 
   // If all API calls failed, return an error
-  const totalCalls = pageId ? 3 : 2;
+  const totalCalls = 2;
   if (errors.length === totalCalls) {
     return NextResponse.json(
       { error: `All Instagram API calls failed: ${errors.join("; ")}` },
