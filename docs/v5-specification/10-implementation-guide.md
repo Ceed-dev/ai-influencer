@@ -225,34 +225,50 @@ ai-influencer/v5/
 │   │   ├── about/             # About ページ（公開）
 │   │   ├── privacy/           # Privacy Policy（公開）
 │   │   ├── terms/             # Terms of Service（公開）
+│   │   ├── demo/              # プラットフォームデモ（admin専用）
+│   │   │   ├── page.tsx       # デモindex: 利用可能なプラットフォームデモ一覧
+│   │   │   ├── tiktok/        # TikTok App Review デモ（3-step）
+│   │   │   ├── instagram/     # Instagram App Review デモ（3-step）
+│   │   │   └── youtube/       # YouTube API Services審査用デモ（3-step）
 │   │   ├── auth/
 │   │   │   ├── tiktok/
 │   │   │   │   ├── start/     # TikTok OAuth 開始（admin専用）
 │   │   │   │   ├── result/    # TikTok OAuth 結果表示（公開）
 │   │   │   │   └── demo/      # TikTok App Review デモページ（admin専用・一時利用）
-│   │   │   └── instagram/
-│   │   │       ├── start/     # Instagram OAuth 開始（admin専用）
-│   │   │       └── result/    # Instagram OAuth 結果表示（公開）
+│   │   │   ├── instagram/
+│   │   │   │   ├── start/     # Instagram OAuth 開始（admin専用）
+│   │   │   │   └── result/    # Instagram OAuth 結果表示（公開）
+│   │   │   └── youtube/
+│   │   │       └── result/    # YouTube OAuth 結果表示（公開）
 │   │   └── api/               # REST API Routes
 │   │       ├── auth/
 │   │       │   ├── [...nextauth]/ # NextAuth.js route handler
 │   │       │   │   └── route.ts
 │   │       │   ├── tiktok/callback/ # TikTok OAuth コールバック（code→token交換、accounts upsert）
 │   │       │   │   └── route.ts
-│   │       │   └── instagram/
-│   │       │       ├── initiate/  # POST: CSRF nonce生成 + Facebook OAuth URL返却（admin専用）
+│   │       │   ├── instagram/
+│   │       │   │   ├── initiate/  # POST: CSRF nonce生成 + Facebook OAuth URL返却（admin専用）
+│   │       │   │   │   └── route.ts
+│   │       │   │   ├── callback/  # GET: code→token交換, debug_token, accounts upsert
+│   │       │   │   │   └── route.ts
+│   │       │   │   └── deauthorize/ # POST: Meta signed_request HMAC-SHA256検証 Webhook
+│   │       │   │       └── route.ts
+│   │       │   └── youtube/
+│   │       │       ├── initiate/  # POST: Google OAuth URL生成 + CSRF nonce（admin専用）
 │   │       │       │   └── route.ts
-│   │       │       ├── callback/  # GET: code→token交換, debug_token, accounts upsert
-│   │       │       │   └── route.ts
-│   │       │       └── deauthorize/ # POST: Meta signed_request HMAC-SHA256検証 Webhook
+│   │       │       └── callback/  # GET: code→token交換, channels.list, accounts upsert
 │   │       │           └── route.ts
 │   │       ├── demo/tiktok/   # TikTok App Review デモ用
 │   │       │   ├── upload/route.ts  # POST: Direct Post API init + video upload
 │   │       │   └── videos/route.ts  # GET: video list API
-│   │       └── demo/instagram/ # Instagram App Review デモ用（5スコープカバー）
-│   │           ├── account/route.ts  # GET: IG userプロフィール + Facebookページ情報
-│   │           ├── publish/route.ts  # POST: IMAGE container→poll→publish
-│   │           └── insights/route.ts # GET: アカウント/ページインサイト + 最近の投稿
+│   │       ├── demo/instagram/ # Instagram App Review デモ用（5スコープカバー）
+│   │       │   ├── account/route.ts  # GET: IG userプロフィール + Facebookページ情報
+│   │       │   ├── publish/route.ts  # POST: IMAGE container→poll→publish
+│   │       │   └── insights/route.ts # GET: アカウント/ページインサイト + 最近の投稿
+│   │       └── demo/youtube/  # YouTube API Services審査用デモ（admin専用）
+│   │           ├── channel/route.ts   # GET: チャンネル情報取得（youtube.readonly）
+│   │           ├── upload/route.ts    # POST: 動画アップロード resumable（youtube.upload）
+│   │           └── analytics/route.ts # GET: チャンネルアナリティクス直近28日（yt-analytics.readonly）
 │   ├── components/
 │   │   ├── ui/               # Shadcn/ui components
 │   │   ├── charts/           # Recharts wrappers
