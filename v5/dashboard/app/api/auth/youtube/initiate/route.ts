@@ -8,6 +8,7 @@ export const dynamic = "force-dynamic";
 
 const REDIRECT_URI = "https://ai-dash.0xqube.xyz/api/auth/youtube/callback";
 const SCOPES = [
+  "https://www.googleapis.com/auth/youtube.readonly",
   "https://www.googleapis.com/auth/youtube.upload",
   "https://www.googleapis.com/auth/yt-analytics.readonly",
 ].join(" ");

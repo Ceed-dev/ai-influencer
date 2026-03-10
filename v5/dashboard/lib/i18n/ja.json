@@ -92,7 +92,9 @@
     "/auth/instagram/result": "Instagram連携完了",
     "/demo": "プラットフォームデモ",
     "/demo/tiktok": "TikTokデモ",
-    "/demo/instagram": "Instagramデモ"
+    "/demo/instagram": "Instagramデモ",
+    "/demo/youtube": "YouTubeデモ",
+    "/auth/youtube/result": "YouTube連携完了"
   },
   "login": {
     "title": "AI Influencer",
