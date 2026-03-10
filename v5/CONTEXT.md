@@ -138,6 +138,10 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 - Mobile responsive: 375x812 viewport, hamburger menu, sidebar slide-in, auto-close on nav
 - All pages render without errors (only favicon 404)
 
+**Demo data fallback追加 (commit `91df510`):**
+- `/api/accounts`, `/api/content`, `/api/kpi/snapshots`, `/api/kpi/summary`: DBに実データがない場合にリアルなデモデータを返す自動フォールバック
+- `dashboard/lib/demo-data.ts` 新規作成（実データが入ったら自動無効化）
+
 **Quality gates:** TypeScript 0 errors, 244/244 suites, 1124/1124 tests passing
 
 **Production deployment:**
@@ -634,6 +638,12 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 - M-2: en.json/ja.json に `/auth/instagram/start`・`/auth/instagram/result` pageTitles追加
 - M-4: `callback/route.ts` — `authCredentials.oauth` から `app_id`/`app_secret` 除去（system_settings経由のみに統一）
 
+**Privacy/Terms/About ページ全4プラットフォーム対応 (commit `0baf7d3`):**
+- `dashboard/app/privacy/page.tsx`: Instagram (Meta/Instagram API Services) と X (Twitter API Services) のデータ収集・利用セクション追加
+- `dashboard/app/terms/page.tsx`: 全11セクションに全4プラットフォーム対応内容で全面リライト（認可済み利用、API制限、OAuth認証、IP、免責、準拠法: 日本法）
+- `dashboard/app/about/page.tsx`: 全面リライト（プラットフォーム詳細、技術スタック、運営者認証情報）
+- 全ページ responsive 対応（`p-4 sm:p-10`）, Effective Date: March 6 2026
+
 **Quality check:** TypeScript 0 errors (v5 root + dashboard), 244/244 suites pass
 **Production deployment:** deploy → build (backend + dashboard) → docker restart
 
@@ -722,6 +732,10 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 - `02-architecture.md`: パブリックパスに `/terms` 追加、TikTok auth_credentials設計更新
 - `03-database-schema.md`: TikTok auth_credentials から client_key/secret を除外、system_settings参照を明記
 
+**追加: サイドバー Terms リンク + LayoutShell 修正 (commit `88cf92c`, 2026-03-04)**
+- `LayoutShell.tsx`: `/terms` をレイアウト除外パスに追加（`/about`, `/privacy` と同様）
+- `Sidebar.tsx`: フッターに Terms リンクを追加（About · Privacy · Terms の3リンク）
+
 **Quality check:** typecheck ✅ / tests 211/211 ✅
 
 ### Session 20: Add viewer user t.s.0131.1998@gmail.com (2026-03-04)
@@ -753,9 +767,14 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 **Minor code fix:**
 - `dashboard/app/database/page.tsx`: `key={rowIdx}` → `key={row["id"] !== undefined ? String(row["id"]) : rowIdx}` (主キー優先)
 
+**追加: Playbooks Drive/Docs セットアップスクリプト (commit `1badab4`, 2026-03-04)**
+- `scripts/setup-playbook-drive.mjs` / `scripts/setup-playbook-docs.mjs` 追加
+- `docs/playbooks/TEMPLATE.md` 更新
+
 **Commits:**
 - `63d0b41 feat(dashboard): add content_playbooks to Database Viewer whitelist` (this session, prior)
 - (this fix) doc consistency commit
+- `1badab4 feat(playbooks): add Drive/Docs setup scripts and update TEMPLATE.md`
 
 ### Session 18: Database Viewer Page (2026-03-04)
 
@@ -793,6 +812,66 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 - `10-implementation-guide.md` ディレクトリ構造・REST API表・ページ一覧 全更新 (15→16画面, 19→21 REST API)
 
 **Commit:** `1b640af feat(dashboard): add Database Viewer page (/database)` (develop branch)
+
+### Sessions 17-18 補足: 投稿・計測・制作パイプライン バグ修正 (2026-03-03)
+
+> **注**: マージコンフリクト解消 (`5a001d8`) により消失していたセッション記録を復元。
+
+**背景**: E2Eテスト実施中に発見されたクリティカルバグを同日中に全修正。
+
+**修正1: 投稿パイプライン アーキテクチャ + アダプターバグ (commit `e6a4a80`)**
+- `update-content-status`: `scheduleForPublishing()` 追加 → publications(status='scheduled') + task_queue('publish') を作成
+- `get-publish-task`: JOIN を account_id ベースに修正; `account_id` を `GetPublishTaskOutput` 型に追加
+- `publish-to-platform`: 4つのスタブ実装 → YouTubeAdapter, TikTokAdapter, InstagramAdapter, XAdapter に置換
+- `publishing-scheduler`: 全 `callMcpTool` 呼び出しに account_id を伝播
+- `report-publish-result`: publications UPDATE 時の rowCount チェック追加
+
+**修正2: 制作パイプライン download/concat/race conditions (commit `9ca3d62`)**
+- `orchestrator.ts`: fal.ai 動画をローカルファイルにダウンロード → TTS ミックス → Drive アップロードの正しいフローに修正
+- `ffmpeg.ts`: `downloadVideoToFile`, `addAudioToVideo`, `addSilentAudio` ヘルパー追加
+- `production-pipeline.ts`: `job_id` → `request_id` 修正; マルチセクション動画の concat + Drive アップロード修正
+- `get-production-task` + `get-publish-task`: `FOR UPDATE SKIP LOCKED` トランザクションで race condition 防止
+
+**修正3: auth_credentials null ガード (commit `7d16114`)**
+- YouTube/TikTok/Instagram/X アダプター: `auth_credentials` が null の場合に `parseCredentials()` を呼ばないよう null チェック追加
+
+**修正4: intelligence/strategy null safety + data integrity (commit `99364d5`)**
+- `extract-learning`: `INSERT RETURNING rows[0]` の null チェック追加
+- `get-recent-intel`: `collected_at` が NULL の場合の `toISOString()` ガード
+- `get-competitor-analysis`: followers/views の bigint 安全キャスト
+- `allocate-resources`: UPDATE cycles 後の rowCount チェック
+- `send-planner-directive`: `getPendingDirectives` 重複実装を削除（canonical は `get-pending-directives.ts`）
+- `strategy-nodes`: `min_confidence` 0.6→0.7 に修正（spec デフォルトに合わせる）
+
+**修正5: 制作 production-readiness バグ (commit `197b8bd`)**
+- `token-refresher`: JSONB パス `oauth->refresh_token/expires_at` 修正（フラットな `oauth_refresh_token/oauth_token_expires_at` では DB にマッチしない問題）
+- `orchestrator`: `processAllSections` を try/finally で囲み、エラー時に tempDir をクリーンアップ
+- `instagram`: Drive ファイルの permissions API レスポンスチェック追加（失敗時に throw）
+- YouTube/TikTok/X アダプター: `AbortSignal` を `downloadFromDrive` の fetch 呼び出しに伝播
+
+**修正6: 計測パイプライン クリティカルバグ (commit `e930686`)**
+- **CRITICAL-2: detectTargets 無限ループ防止** — LEFT JOIN → INNER JOIN。prediction_snapshots 行がない場合の無限48h再検出ループを解消
+- **CRITICAL-1: engagement_rate 計算修正** — `Math.min(1, (likes+comments+shares+saves)/views)` に修正
+- **HIGH-4**: publication status='measured' への更新を 30日経過後のみに制限
+- **HIGH-6**: AbortSignal を全4プラットフォームアダプターに伝播
+- **HIGH-7**: `lookupCredentials` の DB エラーをサイレント無視から console.warn に変更
+- E2Eテスト結果: ACC_0001 (@0xvioletxyz) views=1298, likes=13, engagement_rate=0.0108 ✅
+
+**修正7: 投稿パイプライン クリティカルバグ + About/Privacy ページ追加 (commit `4a41b1b`)**
+- `publishing-scheduler`: `account_id` フィルタを JOIN に追加（1:Nモデルで他アカウントの publications を誤取得する問題）
+- `publish-recorder`: UPDATE→INSERT fallback パターンに変更（scheduleForPublishing との整合）
+- `update-content-status`: `fetchPublishMetadata()` 追加 — task_queue payload に title/description/tags/video_drive_id を含める
+- `publish_to_*` MCP スキーマ: 全パラメータ（content_id のみ → 全フィールド）を追加
+- **Dashboard: `/about` と `/privacy` ページを新規追加（Google OAuth Production 申請に必要）**
+  - About/Privacy リンクを Sidebar フッターに追加
+  - `/about` と `/privacy` を `PUBLIC_PATHS` に追加（認証不要）
+
+**仕様書更新 (commit `779fc65`)**
+- `04-agent-design.md`: publish_to_* ツールに account_id 追加、各フローの修正内容を反映
+
+**品質チェック**: 244/244 suites, 1127/1127 tests passing
+
+---
 
 ### Session 17: Dashboard Team Access Setup (2026-03-03)
 
