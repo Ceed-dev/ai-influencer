@@ -54,7 +54,7 @@ async function getAccessToken(
 /**
  * GET /api/demo/youtube/channel
  * Returns channel info for the connected YouTube account.
- * Uses youtube.upload scope (channels.list is included).
+ * Uses youtube.readonly scope (required for channels.list?mine=true).
  */
 export async function GET() {
   const session = await getServerSession(authOptions);
