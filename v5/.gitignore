@@ -1,0 +1,13 @@
+# Screenshot artifacts from Playwright / manual testing
+*.png
+*.jpg
+!dashboard/public/**
+
+# Playwright MCP state
+.playwright-mcp/
+
+# Test scripts (ad-hoc)
+test-collect-metrics.mjs
+
+# Logs
+logs/
