@@ -10,6 +10,7 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const error = searchParams.get("error");
   const demoToken = searchParams.get("demo");
+  const callbackUrl = searchParams.get("callbackUrl") ?? "/";
   const { t } = useTranslation();
 
   const errorMessage = error
@@ -39,7 +40,7 @@ function LoginForm() {
         <Button
           className="w-full"
           size="lg"
-          onClick={() => signIn("google", { callbackUrl: "/" })}
+          onClick={() => signIn("google", { callbackUrl })}
         >
           <svg className="mr-2 h-5 w-5" viewBox="0 0 24 24">
             <path
@@ -68,7 +69,7 @@ function LoginForm() {
             className="w-full text-muted-foreground"
             size="lg"
             onClick={() =>
-              signIn("demo", { token: demoToken, callbackUrl: "/" })
+              signIn("demo", { token: demoToken, callbackUrl })
             }
           >
             {t("login.demoAccess")}
