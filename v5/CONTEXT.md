@@ -392,6 +392,10 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 - バグ修正: `channels.list?mine=true` は `youtube.upload` スコープ非対応 → `youtube.readonly` スコープ追加
   - `dashboard/app/api/auth/youtube/initiate/route.ts`: スコープに `youtube.readonly` 追加
   - `scripts/get-youtube-token.mjs`: スコープに `youtube.readonly` 追加
+- セキュリティ修正: OAuth callback 全3プラットフォームの全エラーパスでnonce cookie削除漏れを修正
+  - YouTube `callback/route.ts`: `missing_params`・`invalid_state` の早期エラーパスにcookie削除追加、`channelRes.ok` チェック追加
+  - TikTok `callback/route.ts`: `missing_params`・`invalid_state`・`missing_credentials`・`token_exchange_failed`(×2)・`incomplete_token_response`・`db_error` 全パス修正
+  - Instagram `callback/route.ts`: 上記に加えて `long_lived_token_failed`(×2)・`invalid_token`・`no_instagram_business_account`・`pages_fetch_failed` 全パス修正
 - i18n修正: `pageTitles` に `/demo/youtube` と `/auth/youtube/result` キー追加（en.json / ja.json）
 - 再度OAuthトークン取得（3スコープ: `youtube.readonly` + `youtube.upload` + `yt-analytics.readonly`）→ ACC_0001 DB更新
 - デモ動作確認: Step1(チャンネル情報取得) → Step2(動画アップロード private) → Step3(アナリティクス) 全て成功
@@ -399,6 +403,7 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 
 **仕様書更新:**
 - `docs/v5-specification/02-architecture.md`: YouTubeデモOAuthスコープ (`youtube.readonly`追加) + channel routeスコープ説明修正
+- `docs/v5-specification/10-implementation-guide.md`: ディレクトリ構造にYouTube関連パス追加（`app/demo/youtube/`・`app/auth/youtube/result/`・`api/auth/youtube/`・`api/demo/youtube/`）
 
 ---
 
