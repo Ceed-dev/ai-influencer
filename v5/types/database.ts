@@ -57,6 +57,7 @@ export interface InstagramOAuthCredentials {
   page_id: string;
   oauth: {
     long_lived_token: string;
+    ig_user_id: string;
     expires_at: string;
   };
 }
