@@ -351,7 +351,8 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 - `dashboard/app/demo/instagram/InstagramDemoClient.tsx` — 3ステップUI（Account Info / Publish / Insights）
 - `dashboard/app/api/demo/instagram/account/route.ts` — `instagram_basic` + `pages_show_list`
 - `dashboard/app/api/demo/instagram/publish/route.ts` — `instagram_content_publish`（HTTPS URL検証、即時ポーリング）
-- `dashboard/app/api/demo/instagram/insights/route.ts` — `instagram_manage_insights` + `pages_read_engagement`（`period=days_28`）
+- `dashboard/app/api/demo/instagram/insights/route.ts` — `instagram_manage_insights`（`period=day`, `metric_type=total_value`）※page insightsはPage Access Token必要のためAPI呼び出しなし（Step 1 Pageカードで代替）
+- `dashboard/public/test-post.jpg` — VM上に配置した1080×1080 JPEG（Publish Stepのデフォルト画像）
 
 **更新ファイル（3ファイル）:**
 - `dashboard/app/demo/page.tsx` — InstagramカードをDEMOS配列に追加
@@ -360,8 +361,6 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 **セキュリティ修正（テスト/レビューエージェント2体で発見）:**
 - トークンをURLクエリパラメータではなく`Authorization: Bearer`ヘッダーで送信（全APIルート）
 - `imageUrl`のHTTPS URL検証追加
-- `period=day`→`period=days_28`に変更（reach二重カウント防止）
-- `extractInsightValue`: sum→first value（`days_28`は単一集計値）
 - IMAGE containerの初回ポーリングは即時実行（不要な3秒待機を削除）
 - 全APIコール失敗時はHTTP 502返却（サイレント200 OKではなく）
 - 部分失敗時は`warnings`フィールドをレスポンスに含め、クライアントでamberバナー表示
@@ -380,6 +379,37 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 **Commits:** `29593bf`, `5a001d8`
 
 **仕様書更新:** `02-architecture.md` #17セクション、`10-implementation-guide.md` ディレクトリ構造
+
+---
+
+### Session 29: /demo/instagram API fixes + Login callbackUrl fix (2026-03-10)
+
+**背景**: Meta App Reviewスクリーンキャスト動画撮影前に発見された実装バグを修正。
+
+**修正1: Login callbackUrl (commit `7b2018b`)**
+- `dashboard/app/login/page.tsx`: デモログイン・Googleログインどちらも `callbackUrl` をURLパラメータから読み取るよう修正（従来はハードコード`"/"`）
+- 影響: middleware が未認証ユーザーを `/login?callbackUrl=/auth/instagram/start` にリダイレクトした際、demoボタンが表示されない問題を解消
+
+**修正2: middleware matcher (commit `f8efecb`)**
+- `dashboard/middleware.ts`: matcherの正規表現に画像・静的ファイル拡張子を除外追加（`.jpg`, `.jpeg`, `.png`, `.gif`, `.svg`, `.ico`, `.webp`, `.txt`, `.xml`）
+- 影響: `public/test-post.jpg` がInstagram Graph APIからアクセス可能に（認証リダイレクトされなくなった）
+
+**修正3: Insights API — Graph API v21.0対応 (commits `3ac95f5`, `b50b07f`, `4247728`, `f047b83`)**
+- `graph.instagram.com` → `graph.facebook.com`（全APIエンドポイント）
+- `impressions` → `accounts_engaged`（v21.0でimpressionsはユーザーレベル削除）
+- `metric_type=total_value` 追加（`accounts_engaged`, `profile_views`はこのパラメータ必須）
+- `period=days_28` → `period=day`（`accounts_engaged`はday periodのみ対応）
+- Page insights API呼び出し削除（`/{page_id}/insights`はPage Access Token必要、User Access Tokenでは`#190`エラー）
+- `InsightItem`インターフェース: `total_value?: { value: number }` フィールド追加
+- `extractInsightValue()`: `total_value`形式と`values[]`形式の両方に対応
+
+**修正4: i18n (同コミット)**
+- `en.json` / `ja.json`: `impressions` → `accountsEngaged` ("Accounts Engaged" / "エンゲージアカウント")
+- `pageImpressions` → `pageFans` ("Page Fans" / "ページファン数")
+
+**結果**: 3ステップ全てエラーなし。5スコープ全て動画で確認済み。Meta App Review提出完了 (2026-03-10)。
+
+**Commits:** `7b2018b`, `3ac95f5`, `b50b07f`, `4247728`, `f047b83`
 
 ---
 
