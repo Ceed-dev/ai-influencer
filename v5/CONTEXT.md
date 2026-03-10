@@ -386,6 +386,47 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 
 ---
 
+### Session 34: 本番環境完全監査 + 全差分デプロイ (2026-03-10)
+
+**目的**: 本番VM（ai-influencer-vm）の最新状態確認・整合性修正・各種再確認。
+
+**発見・修正した問題:**
+
+1. **`api/auth/instagram/deauthorize/route.ts` 未デプロイ**（重大）
+   - VMに空の`deauthorize/`ディレクトリと旧`route.ts`（親ディレクトリ）が残存
+   - `POST /api/auth/instagram/deauthorize`（Meta Webhook）が404になっていた
+   - 正しいファイルをデプロイ、旧ファイル削除
+
+2. **dashboard 5ファイルがローカルより古いバージョン**
+   - `app/accounts/page.tsx`: プラットフォームアイコン・件数バッジ・空状態メッセージなし
+   - `api/accounts/route.ts`, `api/content/route.ts`, `api/kpi/snapshots/route.ts`, `api/kpi/summary/route.ts`: Demo data fallbackなし（Meta App Reviewレビュアーに影響）
+
+3. **src/ 22ファイルの差分**（主要なもの）
+   - `mcp-server/tools/playbook/` 4ファイル完全欠落 → デプロイ
+   - `mcp-server/index.ts`: Playbookツール未登録 → デプロイ
+   - `workers/posting/adapters/x.ts`: `msg.includes('5')` 誤検知 → `/\b5\d{2}\b/` 正規表現に修正済み版をデプロイ
+   - `types/database.ts`, `types/langgraph-state.ts`: 型定義更新
+
+4. **TikTok access_token 3日前に期限切れ** → TikTok APIで自動更新（`2026-03-11 10:30 UTC`まで）
+
+**デプロイ後作業**: `npm run build` → `docker restart v5-dashboard` → healthy確認
+
+**その他確認項目（全て正常）:**
+- nginx ✅ / Let's Encrypt 76日有効 ✅ / ディスク 10% ✅ / メモリ正常 ✅
+- DEMO_ACCESS_TOKEN ✅ / Instagram token (2026-05-08) ✅ / DB全クレデンシャル ✅
+- `collect-platform-metrics.ts`（VM専用）: rsync --delete不使用で保護済み ✅
+- content_playbooks テーブル（migration 012）: 適用済み ✅
+
+**未解決: YouTube ACC_0001 token期限切れ**（`2026-03-10 08:53 UTC`）
+- Testing modeのため7日ごとにブラウザ操作が必要（自動化不可）
+- Production API審査通過後は自動refresh_tokenで永続化
+
+**CONTEXT.md監査（Sessions 33-34で完了）:**
+- `git log`全コミットとCONTEXT.mdを照合、7件の消失セッション復元（merge conflict起因）
+- 欠落コミット5件追記、MCP/REST API数値を正確な値に修正（115ツール + 48 REST API）
+- spec docs（02-architecture.md, 10-implementation-guide.md）の数値も同期修正
+- GitHub main/develop 完全同期済み（eec7b36）
+
 ### Session 33: Spec Doc 最終グリーンスイープ (2026-03-10)
 
 **目的**: Session 32 修正後の仕様書ドキュメント整合性を Grep ツールで全量確認。
