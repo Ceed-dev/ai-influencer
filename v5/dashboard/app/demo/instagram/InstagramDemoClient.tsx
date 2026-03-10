@@ -60,7 +60,7 @@ export function InstagramDemoClient({ connectedAccount }: Props) {
 
   // Step 2 state
   const [caption, setCaption] = useState("Test post from AI Influencer dashboard. #demo #test");
-  const [imageUrl, setImageUrl] = useState("https://fastly.picsum.photos/id/10/1080/1080.jpg?hmac=Ws3Z5_vjrqe7EGaxGijMhEiU9u4tLFHjwU2vGO0HjN4");
+  const [imageUrl, setImageUrl] = useState("https://ai-dash.0xqube.xyz/test-post.jpg");
   const [publishing, setPublishing] = useState(false);
   const [publishedMediaId, setPublishedMediaId] = useState<string | null>(null);
   const [permalink, setPermalink] = useState<string | null>(null);
