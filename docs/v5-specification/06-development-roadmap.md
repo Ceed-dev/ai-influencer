@@ -43,7 +43,7 @@
 |------|------|
 | TypeScript | 0 errors |
 | ESLint | 0 errors, 15 warnings (non-critical `no-explicit-any`) |
-| テストスイート | 244 suites / 1,124 tests — ALL PASSING |
+| テストスイート | 244 suites / 1,127 tests — ALL PASSING |
 | Features | 276/276 実装完了 |
 | 4層アーキテクチャ | 100% 仕様準拠 (Session 8で修正済み) |
 | 本番環境 | Cloud SQL + Docker + nginx + HTTPS + Google OAuth 稼働中 |
@@ -443,10 +443,10 @@ flowchart TD
 - [ ] 24時間の無人稼働テスト成功 — **未実施（外部API審査待ち）**
 - [x] アルゴリズム精度上限92%の学習パイプラインが正常稼働
 
-**M6: 本番Ready** (Feature: **276/276**, Tests: **244 suites / 1,124 tests**) — **達成 (2026-02-25, Session 9-11)**
+**M6: 本番Ready** (Feature: **276/276**, Tests: **244 suites / 1,127 tests**) — **達成 (2026-02-25, Session 9-11)**
 - [x] Docker本番設定（`docker-compose.production.yml`）でのデプロイ検証完了
 - [x] ダッシュボード全15画面 + ログイン画面の手動操作テスト完了（Playwright検証済み）
-- [x] 全276 features実装完了・テスト通過 (244 suites, 1,124 tests)
+- [x] 全276 features実装完了・テスト通過 (244 suites, 1,127 tests)
 - [x] アルゴリズム精度上限: 92%（12ヶ月後 88-93%）の基盤確立確認
 - [x] Google OAuth認証（NextAuth.js v4）+ RBAC (admin/viewer) 稼働中
 - [x] HTTPS (nginx + Let's Encrypt) + セキュリティヘッダー設定済み
