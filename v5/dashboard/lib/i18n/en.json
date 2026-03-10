@@ -92,7 +92,9 @@
     "/auth/instagram/result": "Instagram Connected",
     "/demo": "Platform Demos",
     "/demo/tiktok": "TikTok Demo",
-    "/demo/instagram": "Instagram Demo"
+    "/demo/instagram": "Instagram Demo",
+    "/demo/youtube": "YouTube Demo",
+    "/auth/youtube/result": "YouTube Connected"
   },
   "login": {
     "title": "AI Influencer",

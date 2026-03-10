@@ -22,8 +22,9 @@ const CLIENT_SECRET = process.env['YOUTUBE_CLIENT_SECRET'] ?? '';
 const REDIRECT_URI = 'http://localhost:8080';
 
 const SCOPES = [
-  'https://www.googleapis.com/auth/yt-analytics.readonly',
+  'https://www.googleapis.com/auth/youtube.readonly',
   'https://www.googleapis.com/auth/youtube.upload',
+  'https://www.googleapis.com/auth/yt-analytics.readonly',
 ].join(' ');
 
 // Build authorization URL

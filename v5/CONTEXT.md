@@ -382,6 +382,26 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 
 ---
 
+### Session 31: YouTube API Services スクリーンキャスト提出完了 (2026-03-10)
+
+**背景**: Session 30で実装した `/demo/youtube` を使ってYouTube API Servicesスクリーンキャスト動画を録画・提出。
+
+**実施内容:**
+- GCP Console OAuth 2.0クライアントに `https://ai-dash.0xqube.xyz/api/auth/youtube/callback` Redirect URI追加
+- ACC_0001 refresh_token再取得 (`scripts/get-youtube-token.mjs`) — Testing mode 7日失効のため
+- バグ修正: `channels.list?mine=true` は `youtube.upload` スコープ非対応 → `youtube.readonly` スコープ追加
+  - `dashboard/app/api/auth/youtube/initiate/route.ts`: スコープに `youtube.readonly` 追加
+  - `scripts/get-youtube-token.mjs`: スコープに `youtube.readonly` 追加
+- i18n修正: `pageTitles` に `/demo/youtube` と `/auth/youtube/result` キー追加（en.json / ja.json）
+- 再度OAuthトークン取得（3スコープ: `youtube.readonly` + `youtube.upload` + `yt-analytics.readonly`）→ ACC_0001 DB更新
+- デモ動作確認: Step1(チャンネル情報取得) → Step2(動画アップロード private) → Step3(アナリティクス) 全て成功
+- スクリーンキャスト録画(16.4MB) → YouTube API Services Teamへメール返信で提出完了
+
+**仕様書更新:**
+- `docs/v5-specification/02-architecture.md`: YouTubeデモOAuthスコープ (`youtube.readonly`追加) + channel routeスコープ説明修正
+
+---
+
 ### Session 30: /demo/youtube — YouTube API Services審査用デモページ実装 (2026-03-10)
 
 **背景**: YouTube API Services Teamから「動画アップロード・アナリティクス・OAuth 2.0接続のスクリーンキャスト動画を7営業日以内に提出してください」というメールを受領 (3/4)。期限3/13 (金) に向けてデモページを実装。
