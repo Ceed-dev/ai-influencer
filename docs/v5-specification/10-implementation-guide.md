@@ -136,7 +136,7 @@ ai-influencer/v5/
 ├── src/
 │   ├── mcp-server/            # mcp-core-agent + mcp-intel-agent（ツール分担は§6.2/6.3を参照）
 │   │   ├── index.ts           # MCP Server エントリポイント（mcp-core-agentが作成）
-│   │   ├── tools/             # 122 MCPツール → 13ディレクトリ（詳細マッピングは後述の表を参照）
+│   │   ├── tools/             # 115 MCPツール → 13ディレクトリ（詳細マッピングは後述の表を参照）
 │   │   │   ├── entity/        # accounts, characters, components (11ツール) ── mcp-core-agent
 │   │   │   ├── production/    # content, publications, 外部API連携 (15ツール) ── mcp-core-agent
 │   │   │   ├── intelligence/  # hypotheses, market_intel, metrics, analyses, learnings (34ツール) ── mcp-intel-agent
@@ -318,13 +318,13 @@ ai-influencer/v5/
 - 各エージェントは `src/lib/` のファイルを import して使用するが、直接変更してはならない
 - 機能追加が必要な場合はリーダーに申請し、infra-agent が対応する
 
-#### MCPツールのディレクトリマッピング（122 MCPツール）
+#### MCPツールのディレクトリマッピング（115 MCPツール）
 
-全122 MCPツール（`src/mcp-server/index.ts` に登録済み）を13ディレクトリに分類する。分類基準は**操作するデータドメイン**（主にアクセスするDBテーブル群）。ツールを呼び出すエージェントではなく、ツールが操作するデータの種類で分類する。
+全115 MCPツール（`src/mcp-server/index.ts` に登録済み）を13ディレクトリに分類する。分類基準は**操作するデータドメイン**（主にアクセスするDBテーブル群）。ツールを呼び出すエージェントではなく、ツールが操作するデータの種類で分類する。
 
-> **注**: 04-agent-design.md §4ではエージェント別にツールを列挙しており、合計106 MCPツールと記載されている。これは3ツール（get_content_prediction, get_content_metrics, get_daily_micro_analyses_summary）が§4.3（アナリスト用）と§4.12（エージェント自己学習用）の両方に掲載されているため。MCP Server実装としてはユニーク 122 ツール（初期設計 103 から実装フェーズで playbook 系 4 ツール含む 19 ツールを追加）。
+> **注**: 04-agent-design.md §4ではエージェント別にツールを列挙しており、合計106 MCPツールと記載されている。これは3ツール（get_content_prediction, get_content_metrics, get_daily_micro_analyses_summary）が§4.3（アナリスト用）と§4.12（エージェント自己学習用）の両方に掲載されているため。MCP Server実装としてはユニーク 115 ツール（初期設計 103 から実装フェーズで playbook 系 4 ツール含む 12 ツールを追加）。
 
-> **注**: 21 Dashboard REST APIツール（[04-agent-design.md §4.9](04-agent-design.md) の10ツール + [§4.11](04-agent-design.md) の3ツール + [§4.13](04-agent-design.md) の6ツール + DB ビューア 2エンドポイント）は `dashboard/app/api/` に Next.js API Routes として実装する（[02-architecture.md §6.13](02-architecture.md) 参照）。`src/mcp-server/tools/` には含めない。
+> **注**: 48 Dashboard REST APIエンドポイント（コアビジネス33 + OAuth/Auth 7 + デモ 8）は `dashboard/app/api/` に Next.js API Routes として実装する（[02-architecture.md §6.13](02-architecture.md) 参照）。`src/mcp-server/tools/` には含めない。
 
 | ディレクトリ | 担当 | ツール数 | ツール名（§4.x参照元） |
 |-------------|------|:-------:|----------------------|
@@ -335,9 +335,9 @@ ai-influencer/v5/
 | `observability/` | mcp-intel | 8 | save_reflection(§4.12), get_recent_reflections(§4.12), save_individual_learning(§4.12), get_individual_learnings(§4.12), peek_other_agent_learnings(§4.12), submit_agent_message(§4.12), get_human_responses(§4.12), mark_learning_applied(§4.12) |
 | `tool-knowledge/` | mcp-intel | 5 | get_tool_knowledge(§4.5), save_tool_experience(§4.5), search_similar_tool_usage(§4.5), get_tool_recommendations(§4.5), update_tool_knowledge_from_external(§4.5) |
 | `playbook/` | mcp-intel | 4 | get_playbook, save_playbook, search_playbooks, update_playbook_effectiveness |
-| `system/` | mcp-core | 0 | ―（system_settings CRUDは21 REST APIに含まれる。エージェントの設定読み込みは `src/lib/settings.ts` を使用） |
+| `system/` | mcp-core | 0 | ―（system_settings CRUDは48 REST APIに含まれる。エージェントの設定読み込みは `src/lib/settings.ts` を使用） |
 | `dashboard/` | mcp-core | 8 | get_portfolio_kpi_summary(§4.1), get_cluster_performance(§4.1) ほか |
-| **合計** | | **122** | |
+| **合計** | | **115** | |
 
 > **分類の判断基準**: ツールが主にCRUD操作するテーブルで分類する。例: `collect_youtube_metrics`は外部APIを呼び出すが、書き込み先が`metrics`テーブルなので`intelligence/`に配置。`get_production_task`は`task_queue`を読むが、制作ワークフローの一部なので`operations/`に配置（task_queue操作は全て`operations/`）。
 
@@ -730,9 +730,9 @@ export const getAccountsTool = {
 - Solarized Dark/Light テーマ（Tailwind CSS）
 - Nunito フォント（Google Fonts）
 - レスポンシブデザイン（Mobile-first）
-- 21 REST APIエンドポイント（`dashboard/app/api/` — §4.9の10 + §4.11の3 + §4.13の6 + DB ビューア2）
+- 48 REST APIエンドポイント（`dashboard/app/api/` — コアビジネス33 + OAuth/Auth 7 + デモ 8）
 
-**21 REST APIエンドポイント一覧**（基本13 + アルゴリズム6 + DB ビューア2）（型定義: `types/api-schemas.ts`）:
+**コアビジネス REST APIエンドポイント一覧**（基本13 + アルゴリズム6 + DB ビューア2、拡張追加で計33）（型定義: `types/api-schemas.ts`）:
 
 | # | Method | Path | Request型 | Response型 | 説明 |
 |---|--------|------|-----------|------------|------|
@@ -763,7 +763,7 @@ export const getAccountsTool = {
 | 20 | GET | `/api/database/tables` | 全34テーブルのメタデータ一覧（行数・カラム定義）。`pg_stat_user_tables` + `information_schema.columns` 使用。テーブル名はホワイトリスト検証 |
 | 21 | GET | `/api/database/[table]?page&sort&order` | 指定テーブルの生データ（ページネーション・ソート付き）。vector列はORDER BY除外。LIMIT最大200 |
 
-> REST API合計: 21エンドポイント（13 既存 + 6 アルゴリズム追加 + 2 DB ビューア追加）
+> REST API合計: 48エンドポイント（コアビジネス33 + OAuth/Auth 7〔YouTube/TikTok/Instagram各initiate+callback+deauthorize〕 + デモ 8〔YouTube×3 + TikTok×2 + Instagram×3〕）
 
 > **実装パス**: 各エンドポイントは `dashboard/app/api/{resource}/route.ts` に Next.js Route Handler として実装する。DB接続は Prisma/Drizzle ORM → PostgreSQL 直接（MCP Server経由ではない。§4.3参照）。型は `types/api-schemas.ts` の `ApiRouteMap` で一括マッピングされており、`ApiRequest<T>` / `ApiResponse<T>` ユーティリティ型でルート別の型を取得可能。
 

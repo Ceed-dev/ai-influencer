@@ -690,7 +690,7 @@ flowchart TD
 │                       MCP Server (Node.js)                            │
 │                                                                       │
 │  ┌─────────────────────────────────────────────────────────────────┐  │
-│  │ Tool Registry (122 MCPツール + 21 Dashboard REST API = 計143)   │   │
+│  │ Tool Registry (115 MCPツール + 48 Dashboard REST API = 計163)   │   │
 │  │                                                                  │ │
 │  │  [MCPツール — エージェントが MCP Protocol 経由で呼び出す]        │      │
 │  │                                                                  │ │
@@ -2076,7 +2076,7 @@ ORDER BY agent_type, count DESC;
 
 ### 6.13 Dashboard REST API ルート定義
 
-ダッシュボードの Next.js API Routes として実装する21のREST APIエンドポイント（基本13 + アルゴリズム・KPI関連6 + DB ビューア2）。MCP Serverとは独立し、Drizzle ORMでPostgreSQLに直接接続する。
+ダッシュボードの Next.js API Routes として実装する48のREST APIエンドポイント（コアビジネス33 + OAuth/Auth 7 + デモ 8）。MCP Serverとは独立し、Drizzle ORMでPostgreSQLに直接接続する。
 
 | # | Method | Path | Description | Request Body | Response |
 |---|--------|------|-------------|-------------|----------|
@@ -3420,12 +3420,12 @@ flowchart LR
 | コンテナ名 | ベースイメージ | 役割 | ポート | 特記事項 |
 |---|---|---|---|---|
 | `postgres` | `pgvector/pgvector:pg16` | PostgreSQL 16 + pgvector拡張 | 5433 (dev) | **開発環境のみ**。本番はCloud SQL。ヘルスチェック: `pg_isready` |
-| `mcp-server` | `node:20-slim` | MCP Server (122 MCPツール) | 3100 | SQL実行 + Drive API。21 Dashboard REST APIはdashboard側 |
+| `mcp-server` | `node:20-slim` | MCP Server (115 MCPツール) | 3100 | SQL実行 + Drive API。48 Dashboard REST APIはdashboard側 |
 | `strategy-agent` | `node:20-slim` | 戦略サイクルグラフ (日次)。データキュレーターを内包 | 3200 | Opus + Sonnet×3 (リサーチャー+アナリスト+プランナー) + ツールSP + データキュレーター |
 | `production-agent` | `node:20-slim` + ffmpeg | 制作パイプライングラフ (連続) | 3300 | fal.ai + Fish Audio + ffmpeg |
 | `posting-agent` | `node:20-slim` | 投稿スケジューラーグラフ (連続) | 3400 | 4プラットフォームアダプター |
 | `measurement-agent` | `node:20-slim` | 計測ジョブグラフ (連続) | 3500 | Platform API接続 |
-| `dashboard` | `node:20-slim` | Next.js + Shadcn/ui | 3000 | Drizzle ORM + 21 REST API |
+| `dashboard` | `node:20-slim` | Next.js + Shadcn/ui | 3000 | Drizzle ORM + 48 REST API |
 
 > **注**: 本番環境ではpostgresコンテナの代わりにCloud SQL (PostgreSQL 16 + pgvector) を使用する。コンテナ数は本番6 (postgres除外) / 開発7。
 > データキュレーターは独立コンテナではなく `strategy-agent` コンテナ内で動作する (戦略サイクルグラフのノードとして実装)。

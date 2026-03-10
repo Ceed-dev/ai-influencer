@@ -13,7 +13,7 @@
 
 ### Source Stats
 - ~200+ source files
-- 4 LangGraph graphs, 122 MCP tools, 21 REST API routes (dashboard)
+- 4 LangGraph graphs, 115 MCP tools, 48 REST API routes (dashboard: core 33 + OAuth 7 + demo 8)
 - 34 DB tables, 156 indexes, 15 triggers, 126 system_settings
 
 ## Session History
@@ -382,16 +382,50 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 
 ---
 
-### Session 32: OAuth・デモAPI ベストプラクティス修正 (2026-03-10)
+### Session 33: Spec Doc 最終グリーンスイープ (2026-03-10)
 
-**修正内容:**
-- Instagram CSRF nonce cookie TTL: `maxAge=3600s` → `maxAge=300s` に修正（YouTube/TikTokと統一、5分で全OAuthフロー対応可能）
+**目的**: Session 32 修正後の仕様書ドキュメント整合性を Grep ツールで全量確認。
+
+**確認結果（全て PASS）:**
+- `maxAge=3600` 残存: なし ✅
+- 旧テスト数 `1,124` 残存: なし ✅（全3箇所で `1,127` を確認）
+- `youtube.upload` の使用状況: 正常（`youtube.readonly + youtube.upload` の組み合わせで記述）✅
+- admin-only ルートで `401` 返却: なし ✅（全て `403` に統一済み）
+
+**変更なし**（コード・ドキュメントとも修正不要と確認）
+
+---
+
+### Session 32: OAuth・デモAPI ベストプラクティス修正 + TypeScript型整備 (2026-03-10)
+
+**コード修正:**
+- Instagram CSRF nonce cookie TTL: `maxAge=3600s` → `maxAge=300s` に修正
+  - `dashboard/app/api/auth/instagram/initiate/route.ts` — YouTube/TikTokと統一（5分で全OAuthフロー対応可能）
 - デモAPI HTTP ステータスコード: admin権限不足時の 401 → 403 に修正（5ファイル）
   - `api/demo/tiktok/videos/route.ts`, `api/demo/tiktok/upload/route.ts`
   - `api/demo/instagram/account/route.ts`, `api/demo/instagram/insights/route.ts`, `api/demo/instagram/publish/route.ts`
   - 401 (Unauthorized) は「認証情報なし」、403 (Forbidden) は「権限不足」が正しい意味
-- `10-implementation-guide.md`: `api/auth/tiktok/initiate/` ディレクトリエントリ追加（コードには存在していたが漏れていた）
-- `02-architecture.md`: Instagram OAuth cookie TTL を 300s に修正、YouTube OAuth フロー説明追記（TikTok・Instagramは既存、Youtubeのみ欠落していた）
+- **TypeScript型修正: `InstagramOAuthCredentials.oauth.ig_user_id` 追加**
+  - `types/database.ts`: `InstagramOAuthCredentials` の `oauth` オブジェクトに `ig_user_id: string` フィールド追加
+    - DBの実際の保存構造（`parseCredentials()` が書き込む内容）と型定義が不一致だった
+  - `src/workers/posting/adapters/instagram.ts`:
+    - `InstagramOAuth` インターフェースに `ig_user_id: string` 追加
+    - `parseCredentials()` に `ig_user_id: String(oauth['ig_user_id'] ?? raw['ig_user_id'] ?? '')` 追加
+
+**仕様書更新:**
+- `02-architecture.md`:
+  - Instagram OAuth cookie TTL を `maxAge=300s` に修正（§12.3 Instagram OAuthフロー）
+  - YouTube OAuth フロー説明追記（TikTok・Instagramは既存、Youtubeのみ欠落していた）
+  - TikTok/Instagram OAuthフロー: result page redirect先を明記（`/auth/tiktok/result`, `/auth/instagram/result`）
+  - InstagramOAuthCredentials 表: `oauth.ig_user_id` 行を追加
+- `03-database-schema.md`:
+  - `accounts.auth_credentials` Instagram 行に `oauth.ig_user_id` を追記（サマリー表 + SQL コメント例）
+- `06-development-roadmap.md`:
+  - テスト数 `1,124` → `1,127` に修正（3箇所: 行46, 446, 449）
+- `10-implementation-guide.md`:
+  - `api/auth/tiktok/initiate/` ディレクトリエントリ追加（コードには存在していたが漏れていた）
+- `11-pre-implementation-checklist.md`:
+  - §2.3 API Review ステータス: YouTube/TikTok/Instagram の ☐ → ☑ に更新（現状反映）
 
 **Quality:** TypeScript 0 errors, ESLint 0 errors / 15 warnings (no-explicit-any のみ、既存)
 
@@ -482,9 +516,18 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 - `en.json` / `ja.json`: `impressions` → `accountsEngaged` ("Accounts Engaged" / "エンゲージアカウント")
 - `pageImpressions` → `pageFans` ("Page Fans" / "ページファン数")
 
+**修正5: Docker ヘルスチェック (commit `ba65a07`)**
+- `docker-compose.production.yml`: ヘルスチェックを `curl` → `node` ワンライナーに変更
+- `node:20-slim` イメージに `curl` が含まれないため "unhealthy" と誤報告されていた問題を解消
+
+**修正6: .gitignore 新規作成 (commit `c4fcd92`)**
+- `v5/.gitignore`: スクリーンショット PNG/JPG、`.playwright-mcp/`、テストスクリプト、ログを除外
+- `v5/dashboard/.gitignore`: `.next/`、`next-env.d.ts`、`tsconfig.tsbuildinfo` を除外
+- `tsconfig.tsbuildinfo` のgit追跡を解除（ビルドごとに自動生成される）
+
 **結果**: 3ステップ全てエラーなし。5スコープ全て動画で確認済み。Meta App Review提出完了 (2026-03-10)。
 
-**Commits:** `7b2018b`, `3ac95f5`, `b50b07f`, `4247728`, `f047b83`
+**Commits:** `7b2018b`, `3ac95f5`, `b50b07f`, `4247728`, `f047b83`, `ba65a07`, `c4fcd92`
 
 ---
 
