@@ -3035,7 +3035,7 @@ async function getSetting(key: string): Promise<any> {
 2. **APIキー設定**: サービス選択 → キー入力 → テスト呼び出しで検証 → `system_settings` 保存
 3. **OAuthフロー支援**: 「OAuth認証開始」ボタン → ブラウザでOAuth画面 → コールバックで自動保存
    - **TikTok専用フロー**: `POST /api/auth/tiktok/initiate` (admin専用) でサーバーサイドCSRF nonce生成 → httpOnlyクッキー (`tiktok_oauth_nonce`, maxAge=300s) + TikTok認証URL返却 → `GET /api/auth/tiktok/callback` でnonce照合（CSRF保護）→ token交換 → `accounts` テーブルにupsert (open_idで重複チェック)
-   - **Instagram専用フロー**: `POST /api/auth/instagram/initiate` (admin専用) でサーバーサイドCSRF nonce生成 → httpOnlyクッキー (`instagram_oauth_nonce`, maxAge=3600s) + Facebook OAuth URL返却（`auth_type=rerequest`）→ `GET /api/auth/instagram/callback` でnonce照合（CSRF保護）→ short-lived token → long-lived token（60日）→ `debug_token` granular_scopesから `ig_user_id`/`page_id` 取得 → `accounts` テーブルにupsert (ig_user_idで重複チェック)
+   - **Instagram専用フロー**: `POST /api/auth/instagram/initiate` (admin専用) でサーバーサイドCSRF nonce生成 → httpOnlyクッキー (`instagram_oauth_nonce`, maxAge=300s) + Facebook OAuth URL返却（`auth_type=rerequest`）→ `GET /api/auth/instagram/callback` でnonce照合（CSRF保護）→ short-lived token → long-lived token（60日）→ `debug_token` granular_scopesから `ig_user_id`/`page_id` 取得 → `accounts` テーブルにupsert (ig_user_idで重複チェック)
    - **Instagram Deauthorizeコールバック**: `POST /api/auth/instagram/deauthorize` でMeta からの `signed_request` を HMAC-SHA256（App Secret使用）で検証 → 連携解除イベントをログ記録（Facebook Login for Business要件）
 
 ## 13. 人間介入ポイント一覧

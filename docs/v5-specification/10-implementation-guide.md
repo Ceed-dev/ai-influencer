@@ -244,8 +244,11 @@ ai-influencer/v5/
 │   │       ├── auth/
 │   │       │   ├── [...nextauth]/ # NextAuth.js route handler
 │   │       │   │   └── route.ts
-│   │       │   ├── tiktok/callback/ # TikTok OAuth コールバック（code→token交換、accounts upsert）
-│   │       │   │   └── route.ts
+│   │       │   ├── tiktok/
+│   │       │   │   ├── initiate/  # POST: CSRF nonce生成 + TikTok OAuth URL返却（admin専用）
+│   │       │   │   │   └── route.ts
+│   │       │   │   └── callback/  # GET: code→token交換, accounts upsert
+│   │       │   │       └── route.ts
 │   │       │   ├── instagram/
 │   │       │   │   ├── initiate/  # POST: CSRF nonce生成 + Facebook OAuth URL返却（admin専用）
 │   │       │   │   │   └── route.ts
