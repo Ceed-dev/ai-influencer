@@ -382,6 +382,21 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 
 ---
 
+### Session 32: OAuth・デモAPI ベストプラクティス修正 (2026-03-10)
+
+**修正内容:**
+- Instagram CSRF nonce cookie TTL: `maxAge=3600s` → `maxAge=300s` に修正（YouTube/TikTokと統一、5分で全OAuthフロー対応可能）
+- デモAPI HTTP ステータスコード: admin権限不足時の 401 → 403 に修正（5ファイル）
+  - `api/demo/tiktok/videos/route.ts`, `api/demo/tiktok/upload/route.ts`
+  - `api/demo/instagram/account/route.ts`, `api/demo/instagram/insights/route.ts`, `api/demo/instagram/publish/route.ts`
+  - 401 (Unauthorized) は「認証情報なし」、403 (Forbidden) は「権限不足」が正しい意味
+- `10-implementation-guide.md`: `api/auth/tiktok/initiate/` ディレクトリエントリ追加（コードには存在していたが漏れていた）
+- `02-architecture.md`: Instagram OAuth cookie TTL を 300s に修正
+
+**Quality:** TypeScript 0 errors
+
+---
+
 ### Session 31: YouTube API Services スクリーンキャスト提出完了 (2026-03-10)
 
 **背景**: Session 30で実装した `/demo/youtube` を使ってYouTube API Servicesスクリーンキャスト動画を録画・提出。
