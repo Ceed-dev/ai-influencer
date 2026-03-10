@@ -52,9 +52,11 @@ export async function GET(request: NextRequest) {
   const state = base.searchParams.get("state");
 
   if (!code || !state) {
-    return NextResponse.redirect(
+    const r = NextResponse.redirect(
       buildResultUrl({ success: "false", error: "missing_params" })
     );
+    r.cookies.delete("tiktok_oauth_nonce");
+    return r;
   }
 
   // Decode state
@@ -71,9 +73,11 @@ export async function GET(request: NextRequest) {
     characterId = decoded.character_id ?? "";
     stateNonce = decoded.nonce ?? "";
   } catch {
-    return NextResponse.redirect(
+    const r = NextResponse.redirect(
       buildResultUrl({ success: "false", error: "invalid_state" })
     );
+    r.cookies.delete("tiktok_oauth_nonce");
+    return r;
   }
 
   // Verify CSRF nonce against httpOnly cookie set by /api/auth/tiktok/initiate
@@ -98,9 +102,11 @@ export async function GET(request: NextRequest) {
 
   if (!clientKeySetting || !clientSecretSetting) {
     console.error("[tiktok-callback] TIKTOK_CLIENT_KEY or TIKTOK_CLIENT_SECRET not found in system_settings");
-    return NextResponse.redirect(
+    const r = NextResponse.redirect(
       buildResultUrl({ success: "false", error: "missing_credentials" })
     );
+    r.cookies.delete("tiktok_oauth_nonce");
+    return r;
   }
 
   const clientKey = String(clientKeySetting.setting_value);
@@ -123,25 +129,31 @@ export async function GET(request: NextRequest) {
     tokenData = (await tokenRes.json()) as TikTokTokenResponse;
   } catch (err) {
     console.error("[tiktok-callback] Token exchange network error:", err);
-    return NextResponse.redirect(
+    const r = NextResponse.redirect(
       buildResultUrl({ success: "false", error: "token_exchange_failed" })
     );
+    r.cookies.delete("tiktok_oauth_nonce");
+    return r;
   }
 
   if (tokenData.error) {
     console.error(`[tiktok-callback] Token exchange API error: ${tokenData.error} — ${tokenData.error_description}`);
-    return NextResponse.redirect(
+    const r = NextResponse.redirect(
       buildResultUrl({ success: "false", error: "token_exchange_failed" })
     );
+    r.cookies.delete("tiktok_oauth_nonce");
+    return r;
   }
 
   // Validate all required token fields are present
   const { access_token, refresh_token, expires_in, open_id } = tokenData;
   if (!access_token || !refresh_token || !open_id || !expires_in) {
     console.error("[tiktok-callback] Incomplete token response:", JSON.stringify(tokenData));
-    return NextResponse.redirect(
+    const r = NextResponse.redirect(
       buildResultUrl({ success: "false", error: "incomplete_token_response" })
     );
+    r.cookies.delete("tiktok_oauth_nonce");
+    return r;
   }
 
   // Get user info (display_name) — non-fatal fallback to platform_username
@@ -201,9 +213,11 @@ export async function GET(request: NextRequest) {
     }
   } catch (err) {
     console.error("[tiktok-callback] DB upsert error:", err);
-    return NextResponse.redirect(
+    const r = NextResponse.redirect(
       buildResultUrl({ success: "false", error: "db_error" })
     );
+    r.cookies.delete("tiktok_oauth_nonce");
+    return r;
   }
 
   // Delete CSRF nonce cookie after successful auth

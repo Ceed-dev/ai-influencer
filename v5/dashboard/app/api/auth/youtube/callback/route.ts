@@ -34,7 +34,9 @@ export async function GET(request: NextRequest) {
   const state = searchParams.get("state");
 
   if (!code || !state) {
-    return NextResponse.redirect(buildResultUrl({ success: "false", error: "missing_params" }));
+    const r = NextResponse.redirect(buildResultUrl({ success: "false", error: "missing_params" }));
+    r.cookies.delete("youtube_oauth_nonce");
+    return r;
   }
 
   // Decode state and verify CSRF nonce
@@ -43,7 +45,9 @@ export async function GET(request: NextRequest) {
     const decoded = JSON.parse(Buffer.from(state, "base64").toString("utf-8")) as { nonce?: string };
     stateNonce = decoded.nonce ?? "";
   } catch {
-    return NextResponse.redirect(buildResultUrl({ success: "false", error: "invalid_state" }));
+    const r = NextResponse.redirect(buildResultUrl({ success: "false", error: "invalid_state" }));
+    r.cookies.delete("youtube_oauth_nonce");
+    return r;
   }
 
   const cookieNonce = request.cookies.get("youtube_oauth_nonce")?.value;
@@ -109,11 +113,15 @@ export async function GET(request: NextRequest) {
       "https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true",
       { headers: { Authorization: `Bearer ${access_token}` } }
     );
-    const channelData = (await channelRes.json()) as YouTubeChannelResponse;
-    const item = channelData.items?.[0];
-    if (item) {
-      channelId = item.id;
-      channelTitle = item.snippet?.title ?? "";
+    if (!channelRes.ok) {
+      console.warn("[youtube-callback] Channel info fetch returned", channelRes.status);
+    } else {
+      const channelData = (await channelRes.json()) as YouTubeChannelResponse;
+      const item = channelData.items?.[0];
+      if (item) {
+        channelId = item.id;
+        channelTitle = item.snippet?.title ?? "";
+      }
     }
   } catch (err) {
     console.warn("[youtube-callback] Channel info fetch failed:", err);
