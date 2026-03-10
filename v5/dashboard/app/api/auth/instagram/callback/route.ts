@@ -59,9 +59,11 @@ export async function GET(request: NextRequest) {
   const state = reqUrl.searchParams.get("state");
 
   if (!code || !state) {
-    return NextResponse.redirect(
+    const r = NextResponse.redirect(
       buildResultUrl({ success: "false", error: "missing_params" })
     );
+    r.cookies.delete("instagram_oauth_nonce");
+    return r;
   }
 
   // Decode state
@@ -78,9 +80,11 @@ export async function GET(request: NextRequest) {
     characterId = decoded.character_id ?? "";
     stateNonce = decoded.nonce ?? "";
   } catch {
-    return NextResponse.redirect(
+    const r = NextResponse.redirect(
       buildResultUrl({ success: "false", error: "invalid_state" })
     );
+    r.cookies.delete("instagram_oauth_nonce");
+    return r;
   }
 
   // Verify CSRF nonce against httpOnly cookie set by /api/auth/instagram/initiate
@@ -104,9 +108,11 @@ export async function GET(request: NextRequest) {
 
   if (!appIdSetting || !appSecretSetting) {
     console.error("[instagram-callback] INSTAGRAM_APP_ID or INSTAGRAM_APP_SECRET not found in system_settings");
-    return NextResponse.redirect(
+    const r = NextResponse.redirect(
       buildResultUrl({ success: "false", error: "missing_credentials" })
     );
+    r.cookies.delete("instagram_oauth_nonce");
+    return r;
   }
 
   const appId = String(appIdSetting.setting_value);
@@ -121,16 +127,20 @@ export async function GET(request: NextRequest) {
 
     if (tokenData.error || !tokenData.access_token) {
       console.error("[instagram-callback] Short-lived token exchange failed:", tokenData.error?.message);
-      return NextResponse.redirect(
+      const r = NextResponse.redirect(
         buildResultUrl({ success: "false", error: "token_exchange_failed" })
       );
+      r.cookies.delete("instagram_oauth_nonce");
+      return r;
     }
     shortLivedToken = tokenData.access_token;
   } catch (err) {
     console.error("[instagram-callback] Token exchange network error:", err);
-    return NextResponse.redirect(
+    const r = NextResponse.redirect(
       buildResultUrl({ success: "false", error: "token_exchange_failed" })
     );
+    r.cookies.delete("instagram_oauth_nonce");
+    return r;
   }
 
   // Step 2: Exchange for long-lived token (60 days)
@@ -143,17 +153,21 @@ export async function GET(request: NextRequest) {
 
     if (llData.error || !llData.access_token) {
       console.error("[instagram-callback] Long-lived token exchange failed:", llData.error?.message);
-      return NextResponse.redirect(
+      const r = NextResponse.redirect(
         buildResultUrl({ success: "false", error: "long_lived_token_failed" })
       );
+      r.cookies.delete("instagram_oauth_nonce");
+      return r;
     }
     longLivedToken = llData.access_token;
     expiresIn = llData.expires_in ?? 5184000; // default 60 days
   } catch (err) {
     console.error("[instagram-callback] Long-lived token exchange network error:", err);
-    return NextResponse.redirect(
+    const r = NextResponse.redirect(
       buildResultUrl({ success: "false", error: "long_lived_token_failed" })
     );
+    r.cookies.delete("instagram_oauth_nonce");
+    return r;
   }
 
   // Step 3: Extract ig_user_id and page_id from token's granular_scopes via debug_token
@@ -167,9 +181,11 @@ export async function GET(request: NextRequest) {
 
     if (!debugData.data?.is_valid) {
       console.error("[instagram-callback] Token is invalid:", JSON.stringify(debugData));
-      return NextResponse.redirect(
+      const r = NextResponse.redirect(
         buildResultUrl({ success: "false", error: "invalid_token" })
       );
+      r.cookies.delete("instagram_oauth_nonce");
+      return r;
     }
 
     const granularScopes = debugData.data.granular_scopes ?? [];
@@ -183,15 +199,19 @@ export async function GET(request: NextRequest) {
 
     if (!igUserId || !pageId) {
       console.error("[instagram-callback] Missing ig_user_id or page_id in token scopes");
-      return NextResponse.redirect(
+      const r = NextResponse.redirect(
         buildResultUrl({ success: "false", error: "no_instagram_business_account" })
       );
+      r.cookies.delete("instagram_oauth_nonce");
+      return r;
     }
   } catch (err) {
     console.error("[instagram-callback] debug_token fetch error:", err);
-    return NextResponse.redirect(
+    const r = NextResponse.redirect(
       buildResultUrl({ success: "false", error: "pages_fetch_failed" })
     );
+    r.cookies.delete("instagram_oauth_nonce");
+    return r;
   }
 
   // Step 4: Get IG username — non-fatal fallback to platformUsername
@@ -255,9 +275,11 @@ export async function GET(request: NextRequest) {
     }
   } catch (err) {
     console.error("[instagram-callback] DB upsert error:", err);
-    return NextResponse.redirect(
+    const r = NextResponse.redirect(
       buildResultUrl({ success: "false", error: "db_error" })
     );
+    r.cookies.delete("instagram_oauth_nonce");
+    return r;
   }
 
   // Delete CSRF nonce cookie after successful auth
