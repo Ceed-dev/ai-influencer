@@ -685,6 +685,9 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 - 動画撮影 (`tiktok-verification.mov`): Step1 Connect → Step2 Upload → Step3 View videos (demo dataで表示)
 - App Review提出完了 (2026-03-05)。審査中 (通過後にsandbox制限解除)
 
+**Spec update:**
+- `02-architecture.md` (commit `31e0e76`, 2026-03-06): §12.3 TikTok CSRF nonceの詳細説明追加、token rotation注記、§17 Platform Demosセクション追加
+
 **Quality check:** TypeScript 0 errors (v5 root + dashboard), ESLint warnings 変化なし, テスト 244/244 suites pass
 
 ### Session 22: TikTok Demo Page for App Review (2026-03-05)
@@ -708,6 +711,7 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 
 **Spec update:**
 - `02-architecture.md`: パブリックパスに `/auth/tiktok/result`, `/auth/instagram/result` を追加
+- `10-implementation-guide.md` (commit `0a18961`, 2026-03-05): ディレクトリ構造を更新 — TikTok/Instagram OAuthページ (`auth/tiktok/`, `auth/instagram/`)、demoルート (`demo/tiktok/`, `demo/instagram/`)、パブリックページ (`/about`, `/privacy`, `/terms`) を追加
 
 ### Session 20: TikTok API Setup + Terms of Service Page (2026-03-04)
 
@@ -747,7 +751,7 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 - Cloud SQL updated directly via SSH
 - Dashboard container restarted (`docker restart v5-dashboard`)
 - **⚠️ GCP OAuth consent screen (Testing mode): t.s.0131.1998@gmail.com must be added as test user manually in GCP Console**
-- **Fix (Session 21):** 初回登録時に大文字 `T.S.` で登録したため認証失敗。Google OAuthは常に小文字でメールを返すため小文字に修正。
+- **Fix (Session 21, commits `cb8b54a` + `614ba84`, 2026-03-04 13:07-13:09):** 初回登録時に大文字 `T.S.` で登録したため認証失敗。Google OAuthは常に小文字でメールを返すため小文字に修正。`sql/010_auth_settings.sql` + `docs/v5-specification/03-database-schema.md` を更新。
 
 ### Session 19: Spec/CONTEXT Consistency Fix (2026-03-04)
 
