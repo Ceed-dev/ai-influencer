@@ -246,9 +246,13 @@ ai-influencer/v5/
 │   │       │       │   └── route.ts
 │   │       │       └── deauthorize/ # POST: Meta signed_request HMAC-SHA256検証 Webhook
 │   │       │           └── route.ts
-│   │       └── demo/tiktok/   # App Review デモ用（一時利用）
-│   │           ├── upload/route.ts  # POST: Direct Post API init + video upload
-│   │           └── videos/route.ts  # GET: video list API
+│   │       ├── demo/tiktok/   # TikTok App Review デモ用
+│   │       │   ├── upload/route.ts  # POST: Direct Post API init + video upload
+│   │       │   └── videos/route.ts  # GET: video list API
+│   │       └── demo/instagram/ # Instagram App Review デモ用（5スコープカバー）
+│   │           ├── account/route.ts  # GET: IG userプロフィール + Facebookページ情報
+│   │           ├── publish/route.ts  # POST: IMAGE container→poll→publish
+│   │           └── insights/route.ts # GET: アカウント/ページインサイト + 最近の投稿
 │   ├── components/
 │   │   ├── ui/               # Shadcn/ui components
 │   │   ├── charts/           # Recharts wrappers

@@ -13,6 +13,11 @@ const DEMOS = [
     href: "/demo/tiktok",
     description: "Connect TikTok account, post a video via Direct Post API, and view video metrics.",
   },
+  {
+    platform: "Instagram",
+    href: "/demo/instagram",
+    description: "Fetch Instagram account info and Facebook Page details, publish a photo post, and view account/page insights.",
+  },
 ];
 
 export default async function DemoIndexPage() {

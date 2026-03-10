@@ -1,7 +1,7 @@
 # v5.0 Implementation Context
 
 > This file tracks the current state of the v5.0 implementation for session continuity.
-> Updated: 2026-03-09
+> Updated: 2026-03-10
 
 ## Current State: Production-Ready
 
@@ -341,6 +341,47 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 
 **Commits:** `d76acbb`, `793b96a`, `5a1c19d`, `bceb292`
 **Quality gates:** TypeScript 0 errors (v5 root + dashboard), build成功, VMデプロイ済み
+
+### Session 28: /demo/instagram — Meta App Review Demo Page (2026-03-10)
+
+**目的**: Instagram Meta App Review提出用スクリーンキャスト動画撮影のため、5スコープ全てをカバーするデモページを実装。
+
+**実装ファイル（新規6ファイル）:**
+- `dashboard/app/demo/instagram/page.tsx` — サーバーコンポーネント（admin認証 + activeアカウント取得）
+- `dashboard/app/demo/instagram/InstagramDemoClient.tsx` — 3ステップUI（Account Info / Publish / Insights）
+- `dashboard/app/api/demo/instagram/account/route.ts` — `instagram_basic` + `pages_show_list`
+- `dashboard/app/api/demo/instagram/publish/route.ts` — `instagram_content_publish`（HTTPS URL検証、即時ポーリング）
+- `dashboard/app/api/demo/instagram/insights/route.ts` — `instagram_manage_insights` + `pages_read_engagement`（`period=days_28`）
+
+**更新ファイル（3ファイル）:**
+- `dashboard/app/demo/page.tsx` — InstagramカードをDEMOS配列に追加
+- `dashboard/lib/i18n/en.json` / `ja.json` — `instagramDemo`キー39個追加、pageTitlesに`/demo/instagram`追加
+
+**セキュリティ修正（テスト/レビューエージェント2体で発見）:**
+- トークンをURLクエリパラメータではなく`Authorization: Bearer`ヘッダーで送信（全APIルート）
+- `imageUrl`のHTTPS URL検証追加
+- `period=day`→`period=days_28`に変更（reach二重カウント防止）
+- `extractInsightValue`: sum→first value（`days_28`は単一集計値）
+- IMAGE containerの初回ポーリングは即時実行（不要な3秒待機を削除）
+- 全APIコール失敗時はHTTP 502返却（サイレント200 OKではなく）
+- 部分失敗時は`warnings`フィールドをレスポンスに含め、クライアントでamberバナー表示
+
+**カバースコープ:**
+| ステップ | スコープ |
+|---------|---------|
+| Step 1: Account Info | `instagram_basic`, `pages_show_list` |
+| Step 2: Publish Photo | `instagram_content_publish` |
+| Step 3: View Insights | `instagram_manage_insights`, `pages_read_engagement` |
+
+**品質ゲート:** TypeScript 0エラー / ESLint 0エラー / ビルド成功 / VMデプロイ済み
+
+**デプロイ:** `https://ai-dash.0xqube.xyz/demo/instagram`（デモアクセスURL: `/login?demo=8d2abfbc-acdd-4e22-92e6-2f065f9bd021`）
+
+**Commits:** （このセッション）
+
+**仕様書更新:** `02-architecture.md` #17セクション、`10-implementation-guide.md` ディレクトリ構造
+
+---
 
 ### Session 27: Dashboard Root Page Fix — VM Deployment Issue (2026-03-09)
 
