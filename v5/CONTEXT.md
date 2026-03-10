@@ -377,7 +377,7 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 
 **デプロイ:** `https://ai-dash.0xqube.xyz/demo/instagram`（デモアクセスURL: `/login?demo=8d2abfbc-acdd-4e22-92e6-2f065f9bd021`）
 
-**Commits:** （このセッション）
+**Commits:** `29593bf`, `5a001d8`
 
 **仕様書更新:** `02-architecture.md` #17セクション、`10-implementation-guide.md` ディレクトリ構造
 
