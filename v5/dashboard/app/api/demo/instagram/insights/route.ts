@@ -5,7 +5,7 @@ import { queryOne } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-const IG_API_VERSION = "v21.0";
+const GRAPH_API = "https://graph.facebook.com/v21.0";
 
 interface AccountRow {
   auth_credentials: {
@@ -96,7 +96,7 @@ export async function GET() {
   try {
     const fields = "id,caption,media_type,timestamp,like_count,comments_count";
     const res = await fetch(
-      `https://graph.instagram.com/${IG_API_VERSION}/${igUserId}/media?fields=${fields}&limit=10`,
+      `${GRAPH_API}/${igUserId}/media?fields=${fields}&limit=10`,
       { headers: bearerHeaders }
     );
     const data = (await res.json()) as IgMediaListResponse;
@@ -117,7 +117,7 @@ export async function GET() {
   try {
     const metrics = "impressions,reach,profile_views";
     const res = await fetch(
-      `https://graph.instagram.com/${IG_API_VERSION}/${igUserId}/insights?metric=${metrics}&period=days_28`,
+      `${GRAPH_API}/${igUserId}/insights?metric=${metrics}&period=days_28`,
       { headers: bearerHeaders }
     );
     const data = (await res.json()) as IgInsightsResponse;
@@ -143,7 +143,7 @@ export async function GET() {
     try {
       const metrics = "page_impressions,page_engaged_users";
       const res = await fetch(
-        `https://graph.facebook.com/${IG_API_VERSION}/${pageId}/insights?metric=${metrics}&period=days_28`,
+        `${GRAPH_API}/${pageId}/insights?metric=${metrics}&period=days_28`,
         { headers: bearerHeaders }
       );
       const data = (await res.json()) as FbPageInsightsResponse;

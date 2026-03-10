@@ -5,7 +5,7 @@ import { queryOne } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-const IG_API_VERSION = "v21.0";
+const GRAPH_API = "https://graph.facebook.com/v21.0";
 
 interface AccountRow {
   auth_credentials: {
@@ -66,7 +66,7 @@ export async function GET() {
   let igData: IgUserResponse;
   try {
     const res = await fetch(
-      `https://graph.instagram.com/${IG_API_VERSION}/${igUserId}?fields=${igFields}`,
+      `${GRAPH_API}/${igUserId}?fields=${igFields}`,
       { headers: bearerHeaders }
     );
     igData = (await res.json()) as IgUserResponse;
@@ -88,7 +88,7 @@ export async function GET() {
   if (pageId) {
     try {
       const res = await fetch(
-        `https://graph.facebook.com/${IG_API_VERSION}/${pageId}?fields=id,name,fan_count`,
+        `${GRAPH_API}/${pageId}?fields=id,name,fan_count`,
         { headers: bearerHeaders }
       );
       fbPageData = (await res.json()) as FbPageResponse;

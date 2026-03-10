@@ -5,7 +5,7 @@ import { queryOne } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-const IG_API_VERSION = "v21.0";
+const GRAPH_API = "https://graph.facebook.com/v21.0";
 
 interface AccountRow {
   auth_credentials: {
@@ -100,7 +100,7 @@ export async function POST(request: Request) {
   let containerData: ContainerResponse;
   try {
     const res = await fetch(
-      `https://graph.instagram.com/${IG_API_VERSION}/${igUserId}/media`,
+      `${GRAPH_API}/${igUserId}/media`,
       {
         method: "POST",
         headers: { ...bearerHeaders, "Content-Type": "application/x-www-form-urlencoded" },
@@ -135,7 +135,7 @@ export async function POST(request: Request) {
 
     try {
       const statusRes = await fetch(
-        `https://graph.instagram.com/${IG_API_VERSION}/${containerId}?fields=status_code`,
+        `${GRAPH_API}/${containerId}?fields=status_code`,
         { headers: bearerHeaders }
       );
       if (!statusRes.ok) {
@@ -171,7 +171,7 @@ export async function POST(request: Request) {
   let publishData: PublishResponse;
   try {
     const res = await fetch(
-      `https://graph.instagram.com/${IG_API_VERSION}/${igUserId}/media_publish`,
+      `${GRAPH_API}/${igUserId}/media_publish`,
       {
         method: "POST",
         headers: { ...bearerHeaders, "Content-Type": "application/x-www-form-urlencoded" },
@@ -198,7 +198,7 @@ export async function POST(request: Request) {
   let permalink = `https://www.instagram.com/p/${mediaId}/`;
   try {
     const scRes = await fetch(
-      `https://graph.instagram.com/${IG_API_VERSION}/${mediaId}?fields=shortcode`,
+      `${GRAPH_API}/${mediaId}?fields=shortcode`,
       { headers: bearerHeaders }
     );
     if (scRes.ok) {
