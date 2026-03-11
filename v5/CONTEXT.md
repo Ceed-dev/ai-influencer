@@ -1010,3 +1010,28 @@ All stubs/placeholders replaced with real API implementations using 4-agent para
 - `task_queue`: `started_at`, `completed_at`, `last_error_at` (NO `updated_at`)
 - `accounts`: `auth_credentials` JSONB for all OAuth data
 - `content` status: planned→producing→ready→posted→measured→analyzed
+
+### Session 35: リサーチ・分析・学習 DB アーキテクチャ ドキュメント作成 (2026-03-11)
+
+**目的**: チームメイト向けに、v5.0 システムにおける「市場調査・リサーチ・分析・コンテンツ計画」関連 DB テーブルの設計をまとめたドキュメントを作成。
+
+**背景**:
+- オーナーがチームメイトに初期シードデータ収集を依頼済み（Google スプレッドシートに記入依頼）
+- スプレッドシートの 3 タブ（投稿収集 / 自社投稿 / 仮説・気づき）は将来的に Researcher・Analyst エージェントが自動化する処理
+- 今は人間が手動で収集しているノウハウ・気づきを DB の初期シードとして投入し、エージェントがゼロスタートしなくて済む設計
+
+**仕様書・コードを確認した内容**:
+- `03-database-schema.md`・`04-agent-design.md` を精読
+- Researcher（市場情報 5 分類）・Analyst（分析・学習抽出）・Data Curator（コンポーネント生成）・Planner（仮説立案）の役割と担当テーブルを確認
+- pgvector embedding パイプライン詳細（`04-agent-design.md` §6.3）を確認
+- embedding のソースフィールド（テーブル別に何を結合してベクトル化するか）を確認
+
+**作成ファイル**:
+- `v5/knowledge/research-data-architecture.md`（新規）
+  - 12 テーブル全て網羅（market_intel / hypotheses / analyses / learnings / content_learnings / agent_individual_learnings / components / content_playbooks / algorithm_performance / prediction_snapshots / account_baselines / adjustment_factor_cache）
+  - 各テーブル：全カラム定義・JSONB 内部構造・要素分解・データ取得元・使われ方
+  - Embedding 設計一覧（ベクトル化フィールド・生成タイミング・pgvector インデックス種別・用途）
+  - エージェント別データフロー詳細（4 エージェント）
+  - JSONB 内部スキーマリファレンス
+
+**Commit**: このセッションでコミット・プッシュ（develop ブランチ）
